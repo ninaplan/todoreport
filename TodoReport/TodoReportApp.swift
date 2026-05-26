@@ -9,9 +9,17 @@ import SwiftUI
 
 @main
 struct TodoReportApp: App {
+    @AppStorage("onboardingCompleted") private var onboardingCompleted = false
+
     var body: some Scene {
         WindowGroup {
-            MainTabView()
+            if onboardingCompleted {
+                MainTabView()
+            } else {
+                OnboardingView {
+                    onboardingCompleted = true
+                }
+            }
         }
     }
 }
