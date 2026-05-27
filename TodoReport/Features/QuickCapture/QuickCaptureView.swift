@@ -1,9 +1,15 @@
 import SwiftUI
 
 struct QuickCaptureView: View {
+    let defaultCategoryId: String?
     @State private var viewModel = QuickCaptureViewModel()
     @Environment(\.dismiss) private var dismiss
     let onSave: (String, String?, String?, Date) -> Void
+
+    init(defaultCategoryId: String? = nil, onSave: @escaping (String, String?, String?, Date) -> Void) {
+        self.defaultCategoryId = defaultCategoryId
+        self.onSave = onSave
+    }
 
     var body: some View {
         NavigationStack {
@@ -19,6 +25,9 @@ struct QuickCaptureView: View {
                 Section {
                     Picker("카테고리", selection: $viewModel.selectedCategoryId) {
                         Text("없음").tag(Optional<String>.none)
+                        ForEach(viewModel.categories) { category in
+                            Text(category.name).tag(Optional(category.id))
+                        }
                     }
                     .pickerStyle(.menu)
                     .tint(.primary)
@@ -82,6 +91,10 @@ struct QuickCaptureView: View {
                 Button("확인", role: .cancel) { }
             } message: {
                 Text("반복 투두는 Pro 구독 기능입니다.")
+            }
+            .task {
+                await viewModel.fetchCategories()
+                viewModel.selectedCategoryId = defaultCategoryId
             }
         }
         .presentationDetents([.large])

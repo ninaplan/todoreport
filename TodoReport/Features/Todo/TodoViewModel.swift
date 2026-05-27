@@ -1,7 +1,7 @@
 import Foundation
 
 enum TodoSortOrder: String, CaseIterable {
-    case addedOrder   = "추가한 순서"
+    case addedOrder    = "추가한 순서"
     case categoryOrder = "카테고리순"
     case completedFirst = "완료 먼저"
 }
@@ -9,30 +9,38 @@ enum TodoSortOrder: String, CaseIterable {
 @Observable
 final class TodoViewModel {
     private(set) var todos: [Todo] = []
+    private(set) var categories: [Category] = []
     private(set) var isLoading: Bool = false
 
     var plannerName: String = "내 플래너"
     var isViewOptionsVisible: Bool = false
     var hideCompleted: Bool = false
-    var groupByCategory: Bool = false
+    var showMemo: Bool = false
     var sortOrder: TodoSortOrder = .addedOrder
+    var selectedCategoryFilter: String? = nil  // nil = 전체
 
-    // selectedDate 변경 시 자동으로 투두 재조회
     var selectedDate: Date = .now {
         didSet { Task { await fetchTodos() } }
     }
 
-    private let service: TodoService
-
-    init(service: TodoService = TodoService()) {
-        self.service = service
-    }
+    private let service = TodoService.shared
+    private let categoryService = CategoryService.shared
 
     // MARK: - Computed
 
     var completionRate: Double {
         guard !todos.isEmpty else { return 0 }
         return Double(todos.filter(\.isCompleted).count) / Double(todos.count)
+    }
+
+    private var todosForRate: [Todo] {
+        guard let filterId = selectedCategoryFilter else { return todos }
+        return todos.filter { $0.categoryId == filterId }
+    }
+
+    var activeCategories: [Category] {
+        let usedIds = Set(todos.compactMap(\.categoryId))
+        return categories.filter { usedIds.contains($0.id) }
     }
 
     var displayedTodos: [Todo] {
@@ -51,19 +59,47 @@ final class TodoViewModel {
         return result
     }
 
+    var filteredTodos: [Todo] {
+        guard let filterId = selectedCategoryFilter else { return displayedTodos }
+        return displayedTodos.filter { $0.categoryId == filterId }
+    }
+
+    var filteredCompletionRate: Double {
+        guard !todosForRate.isEmpty else { return 0 }
+        return Double(todosForRate.filter(\.isCompleted).count) / Double(todosForRate.count)
+    }
+
+    var filteredCompletedCount: Int { todosForRate.filter(\.isCompleted).count }
+    var filteredTotalCount: Int { todosForRate.count }
+
+    func category(for id: String?) -> Category? {
+        guard let id else { return nil }
+        return categories.first(where: { $0.id == id })
+    }
+
     // MARK: - Data
 
     func fetchTodos() async {
         isLoading = true
-        todos = await service.fetchTodos(for: selectedDate)
+        async let fetchedTodos = service.fetchTodos(for: selectedDate)
+        async let fetchedCategories = categoryService.fetchCategories()
+        todos = await fetchedTodos
+        categories = await fetchedCategories
         isLoading = false
+        validateCategoryFilter()
+    }
+
+    private func validateCategoryFilter() {
+        guard let filterId = selectedCategoryFilter else { return }
+        if !categories.contains(where: { $0.id == filterId }) {
+            selectedCategoryFilter = nil
+        }
     }
 
     // MARK: - Actions
 
     func toggleTodo(_ todo: Todo) {
         guard let index = todos.firstIndex(where: { $0.id == todo.id }) else { return }
-        // Offline-First: 로컬 즉시 반영
         todos[index].isCompleted.toggle()
         let updated = todos[index]
         Task { try? await service.updateTodo(updated) }
@@ -73,7 +109,6 @@ final class TodoViewModel {
         let trimmed = title.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         let todo = Todo(title: trimmed, memo: memo, date: date ?? selectedDate, categoryId: categoryId)
-        // Offline-First: 로컬 즉시 추가
         todos.append(todo)
         Task { try? await service.saveTodo(todo) }
     }
@@ -93,11 +128,11 @@ final class TodoViewModel {
 
     func goToPreviousDay() {
         guard let prev = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) else { return }
-        selectedDate = prev  // didSet이 fetchTodos() 호출
+        selectedDate = prev
     }
 
     func goToNextDay() {
         guard let next = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) else { return }
-        selectedDate = next  // didSet이 fetchTodos() 호출
+        selectedDate = next
     }
 }

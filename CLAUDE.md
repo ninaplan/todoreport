@@ -41,6 +41,12 @@
    → Optional binding 또는 guard let 사용
 5. **@ObservableObject 사용 금지**
    → iOS 26 기준 @Observable macro 사용
+6. **View에서 ViewModel 프로퍼티 직접 수정 금지**
+   → 모든 상태 변경은 ViewModel 메서드를 통할 것
+   → 예) `viewModel.isPresented = false` ❌ → `viewModel.dismiss()` ✅
+7. **alert 상태 프로퍼티는 cancel/confirm 메서드 쌍으로 구현**
+   → `showXxxAlert`, `xxxItem` 프로퍼티가 있으면 반드시 `cancelXxx()` / `confirmXxx()` 메서드도 함께 정의
+   → View에서 alert 상태 프로퍼티 직접 수정 금지
 
 ---
 

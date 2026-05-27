@@ -145,6 +145,7 @@ TodoReport/
 │   │   └── NockTextField.swift
 │   └── Theme/
 │       ├── Colors.swift           # #FD6845 등 브랜드 컬러
+│       ├── Constants.swift        # AppConstants (IconSize 등 전역 상수)
 │       └── Typography.swift       # Nanum Square Round
 │
 └── App/
@@ -244,6 +245,10 @@ api/
 #### 카테고리 관리
 - 앱 전용 (Notion DB 연동 없음)
 - 카테고리 추가/편집/삭제
+- 색상 선택 (12가지 컬러 팔레트)
+- 아이콘 선택 (SF Symbol 25종, 공부/운동/업무/생활/취미 등)
+- 투두 목록에서 색상 원형 + 아이콘 배지로 표시
+- 카테고리별로 보기 섹션 헤더에 색상 원형 + 아이콘 표시
 - 카테고리별 통계 → 주간/월간 리포트에 포함
 
 ### 6-2. 유료 기능 (Apple IAP 구독)
@@ -454,6 +459,58 @@ const DAILY_REPORT_PROPERTIES = {
 
 > ✅ Notion 속성명이 바뀌면 이 파일만 수정. iOS 앱 코드 변경 불필요.
 
+## 8-5. Category 데이터 모델
+
+```swift
+enum CategoryStatus: String, Codable {
+    case active    // 활성 (기본값)
+    case archived  // 보관됨 (소프트 삭제)
+    case completed // v2: 목표 달성 완료 (Notion 프로젝트 DB 연동 시 사용)
+}
+
+struct Category: Identifiable, Codable {
+    let id: String
+    var name: String
+    var colorHex: String   // 12가지 팔레트 중 선택
+    var icon: String       // SF Symbol 이름 (25종 팔레트 중 선택)
+    var status: CategoryStatus  // 기본값: .active
+}
+```
+
+### 카테고리 삭제 동작
+
+카테고리를 "삭제"하면 실제 데이터 삭제 대신 `status = .archived` 처리 (소프트 삭제).
+- 목록 화면에는 `status == .active` 카테고리만 표시
+- 아카이브된 카테고리에 연결된 투두는 카테고리 없음 상태로 표시
+- v2: 아카이브된 카테고리 복원 기능 (설정 > 카테고리 > 보관된 항목)
+
+보관 전 미완료 할일 경고:
+- 해당 카테고리의 오늘 미완료 투두 개수를 확인
+- 1개 이상이면 알림: "[카테고리명] 카테고리에 미완료 할일 N개가 있어요. 보관하면 전체 탭에서만 표시됩니다." → [취소] [보관]
+- 미완료 할일 없으면 바로 보관 처리
+
+### Notion 프로젝트/목표 DB 연동 (v2)
+
+추후 Notion 연동 시 `CategoryStatus` → Notion 속성 매핑:
+
+| CategoryStatus | Notion 속성값 |
+|---|---|
+| active | 진행중 |
+| archived | 보관됨 |
+| completed | 완료 |
+
+아이콘 팔레트 (25종):
+
+| 그룹 | SF Symbol |
+|---|---|
+| 공부/학습 | book.fill, pencil, graduationcap.fill, brain.head.profile, note.text |
+| 운동/건강 | figure.run, dumbbell.fill, heart.fill, bicycle, leaf.fill |
+| 업무/생산성 | briefcase.fill, doc.text.fill, chart.line.uptrend.xyaxis, clock.fill, flag.fill |
+| 생활 | house.fill, cart.fill, fork.knife, car.fill, creditcard.fill |
+| 취미/기타 | music.note, paintbrush.fill, camera.fill, star.fill, gamecontroller.fill |
+
+> 카테고리는 앱 전용 (Notion 연동 없음). 투두 목록 배지, 카테고리별 보기 헤더, 리포트 달성률에서 사용.
+
 ---
 
 ## 9. 네비게이션 구조
@@ -487,12 +544,13 @@ const DAILY_REPORT_PROPERTIES = {
 │ 수능 공부 ▼               ☰   │
 ├─────────────────────────────────┤
 │  ✓ 완료 숨기기                  │  ← 탭으로 토글
-│  ✓ 카테고리별로 보기            │  ← 탭으로 토글
 │    할일 메모 보기               │  ← 탭으로 토글 (기본값: 꺼짐)
 │    정렬 옵션              ›     │  ← 탭하면 하위 뷰로 전환
 └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   투두 목록 (흐릿하게)...
 ```
+
+> 카테고리 필터는 투두 목록 상단 칩으로 이동. 보기 옵션에서 제거.
 
 **할일 메모 보기 동작:**
 - 기본값: 꺼짐 (메모 숨김)
@@ -531,11 +589,15 @@ const DAILY_REPORT_PROPERTIES = {
 │  ‹  📅 2026년 5월 26일  ›      │  ← 좌우 공간 탭: 하루 이동
 │     (흐릿한 화살표 힌트)        │    날짜 탭: 달력 피커
 │                                 │
-│  완료율 ████████░░ 80%         │  ← 실시간 업데이트
+│  완료율 ████████░░ 80%         │  ← 선택된 카테고리 기준으로 계산
 │  (v2) ⏱ 집중타임 합계: 2h 30m  │
 │                                 │
 │  별점  ⭐⭐⭐⭐☆               │
 │  리뷰  "오늘도 잘 했다"         │
+├─────────────────────────────────┤
+│ [전체] [수학] [영어] [독서] … → │  ← 카테고리 필터 칩 (가로 스크롤)
+│                                 │    전체: 모든 투두 + 배지 표시
+│                                 │    카테고리: 해당 투두만 + 배지 숨김
 ├─────────────────────────────────┤
 │  ☑ 수학 문제 풀기               │  ← 탭: 완료/미완료
 │  ☑ 영어 단어 30개              │    좌로 스와이프: 액션 버튼
@@ -543,6 +605,10 @@ const DAILY_REPORT_PROPERTIES = {
 │  + 투두 추가                    │
 └─────────────────────────────────┘
 ```
+
+> 완료율은 현재 선택된 카테고리 필터 기준으로 계산된다. 전체 선택 시 전체 투두 기준.
+
+> 카테고리 필터 선택 상태에서 인라인 "+ 투두 추가" 또는 플로팅 + 버튼으로 투두 추가 시, 선택된 카테고리가 자동 지정된다.
 
 ### 날짜 이동 규칙
 
@@ -697,6 +763,16 @@ const DAILY_REPORT_PROPERTIES = {
 | 포인트 컬러 | `#FD6845` |
 | 폰트 | Nanum Square Round |
 | 최소 지원 | iOS 26+ |
+
+### 아이콘 크기 상수 (AppConstants.IconSize)
+
+모든 SF Symbol 크기는 `AppConstants.IconSize`의 상수를 사용한다. 직접 수치 입력 금지.
+
+| 상수 | 값 | 사용처 |
+|---|---|---|
+| `menu` | 14pt | 팝오버·메뉴 아이콘 |
+| `listRow` | 20pt | 목록 행 아이콘 |
+| `badge` | 16pt | 배지 내부 아이콘 |
 
 ---
 

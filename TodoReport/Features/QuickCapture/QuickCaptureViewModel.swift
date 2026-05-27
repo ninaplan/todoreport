@@ -8,8 +8,15 @@ final class QuickCaptureViewModel {
     var selectedDate: Date = .now
     var showDatePicker: Bool = false
     var showProAlert: Bool = false
+    private(set) var categories: [Category] = []
+
+    private let categoryService = CategoryService.shared
 
     var isSaveEnabled: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    func fetchCategories() async {
+        categories = await categoryService.fetchCategories()
     }
 }

@@ -30,11 +30,19 @@ struct Todo: Identifiable, Codable {
 }
 
 final class TodoService {
+    static let shared = TodoService()
+    private init() {}
+
     private let apiClient = APIClient.shared
 
     func fetchTodos(for date: Date) async -> [Todo] {
         // TODO: APIClient로 백엔드 호출 → SwiftData 캐싱
         return Self.dummyTodos(for: date)
+    }
+
+    func incompleteTodoCount(for categoryId: String) async -> Int {
+        let todos = await fetchTodos(for: .now)
+        return todos.filter { $0.categoryId == categoryId && !$0.isCompleted }.count
     }
 
     func saveTodo(_ todo: Todo) async throws {
@@ -55,10 +63,11 @@ final class TodoService {
 
     private static func dummyTodos(for date: Date) -> [Todo] {
         [
-            Todo(id: "1", title: "수학 문제 풀기", isCompleted: true, date: date),
-            Todo(id: "2", title: "영어 단어 30개", isCompleted: true, date: date),
-            Todo(id: "3", title: "독서 30분", isCompleted: false, date: date),
-            Todo(id: "4", title: "운동하기", isCompleted: false, date: date),
+            Todo(id: "1", title: "수학 문제 풀기", isCompleted: true,  date: date, categoryId: "cat-1"),
+            Todo(id: "2", title: "영어 단어 30개", isCompleted: true,  date: date, categoryId: "cat-2"),
+            Todo(id: "3", title: "독서 30분",      isCompleted: false, date: date, categoryId: "cat-3"),
+            Todo(id: "4", title: "운동하기",        isCompleted: false, date: date, categoryId: "cat-4"),
+            Todo(id: "5", title: "장보기",          isCompleted: false, date: date),
         ]
     }
 }
