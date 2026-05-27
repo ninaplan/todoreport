@@ -69,10 +69,10 @@ final class TodoViewModel {
         Task { try? await service.updateTodo(updated) }
     }
 
-    func addTodo(title: String) {
+    func addTodo(title: String, memo: String? = nil, categoryId: String? = nil, date: Date? = nil) {
         let trimmed = title.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        let todo = Todo(title: trimmed, date: selectedDate)
+        let todo = Todo(title: trimmed, memo: memo, date: date ?? selectedDate, categoryId: categoryId)
         // Offline-First: 로컬 즉시 추가
         todos.append(todo)
         Task { try? await service.saveTodo(todo) }

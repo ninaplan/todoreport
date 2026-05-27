@@ -2,11 +2,13 @@ import SwiftUI
 
 struct TodoView: View {
     @State private var viewModel = TodoViewModel()
+    @State private var dailyReportViewModel = DailyReportViewModel()
     @State private var newTodoTitle: String = ""
     @State private var isAddingTodo: Bool = false
     @State private var showDatePicker: Bool = false
     @State private var showViewOptions: Bool = false
     @State private var showPlannerSheet: Bool = false
+    @State private var showQuickCapture: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -20,7 +22,11 @@ struct TodoView: View {
                             completed: viewModel.todos.filter(\.isCompleted).count,
                             total: viewModel.todos.count
                         )
-                        DailyReportSkeletonRow()
+                        DailyReportCard(
+                            viewModel: dailyReportViewModel,
+                            date: viewModel.selectedDate,
+                            completionRate: viewModel.completionRate
+                        )
                     }
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
@@ -35,10 +41,14 @@ struct TodoView: View {
                                     Button {
                                         viewModel.toggleTodo(todo)
                                     } label: {
-                                        Image(systemName: "checkmark")
-                                            .fontWeight(.bold)
+                                        if todo.isCompleted {
+                                            Image(systemName: "arrow.counterclockwise")
+                                        } else {
+                                            Image(systemName: "checkmark")
+                                                .fontWeight(.bold)
+                                        }
                                     }
-                                    .tint(Color.nockOrange)
+                                    .tint(todo.isCompleted ? Color.gray.opacity(0.3) : Color.nockOrange)
                                 }
                                 // 왼쪽 스와이프 → 삭제(full) / 날짜변경 / 내일하기
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -78,7 +88,7 @@ struct TodoView: View {
                 .task { await viewModel.fetchTodos() }
 
                 FloatingCaptureButton {
-                    // TODO: QuickCapture 시트 오픈
+                    showQuickCapture = true
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -117,6 +127,11 @@ struct TodoView: View {
             }
             .sheet(isPresented: $showPlannerSheet) {
                 PlannerSelectionSheet(currentName: viewModel.plannerName)
+            }
+            .sheet(isPresented: $showQuickCapture) {
+                QuickCaptureView { title, memo, categoryId, date in
+                    viewModel.addTodo(title: title, memo: memo, categoryId: categoryId, date: date)
+                }
             }
         }
     }
@@ -187,39 +202,6 @@ private struct CompletionRateRow: View {
                 .scaleEffect(y: 1.4)
         }
         .padding(.vertical, 4)
-    }
-}
-
-// MARK: - 데일리리포트 스켈레톤
-
-private struct DailyReportSkeletonRow: View {
-    var body: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("별점")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("☆☆☆☆☆")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            Divider().frame(height: 32)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("하루 리뷰")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("오늘 하루 어떠셨나요?")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary.opacity(0.6))
-            }
-
-            Spacer()
-        }
-        .padding(14)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
