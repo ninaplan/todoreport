@@ -115,7 +115,7 @@ private struct ConnectionChoiceStepView: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("노션 연결하기")
                                 .font(.headline)
-                            Text("투두와 리포트가 노션에 자동 저장돼요")
+                            Text("노션에 자동 저장")
                                 .font(.caption)
                                 .opacity(0.85)
                         }
@@ -139,7 +139,7 @@ private struct ConnectionChoiceStepView: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("나중에 하기")
                                 .font(.headline)
-                            Text("이 기기에만 저장돼요")
+                            Text("이 기기에만 저장")
                                 .font(.caption)
                                 .opacity(0.7)
                         }
