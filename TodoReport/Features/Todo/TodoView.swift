@@ -30,40 +30,35 @@ struct TodoView: View {
                     Section {
                         ForEach(viewModel.displayedTodos) { todo in
                             TodoRow(todo: todo)
-                                // 오른쪽 스와이프 → 완료/미완료 토글
+                                // 오른쪽 스와이프 → 완료 토글
                                 .swipeActions(edge: .leading, allowsFullSwipe: true) {
                                     Button {
                                         viewModel.toggleTodo(todo)
                                     } label: {
-                                        CircleSwipeIcon(
-                                            systemName: todo.isCompleted ? "xmark" : "checkmark",
-                                            color: todo.isCompleted ? Color(.systemGray3) : Color.nockOrange
-                                        )
+                                        Image(systemName: "checkmark")
+                                            .fontWeight(.bold)
                                     }
-                                    .tint(Color(.systemBackground))
+                                    .tint(Color.nockOrange)
                                 }
-                                // 왼쪽 스와이프 → 내일하기 / 날짜변경 / 삭제
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button {
+                                // 왼쪽 스와이프 → 삭제(full) / 날짜변경 / 내일하기
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
                                         viewModel.deleteTodo(todo)
                                     } label: {
-                                        CircleSwipeIcon(systemName: "trash", color: .red)
+                                        Image(systemName: "trash")
                                     }
-                                    .tint(Color(.systemBackground))
-
                                     Button {
                                         // TODO: 날짜 변경 시트 오픈
                                     } label: {
-                                        CircleSwipeIcon(systemName: "calendar.badge.clock", color: .blue)
+                                        Image(systemName: "calendar")
                                     }
-                                    .tint(Color(.systemBackground))
-
+                                    .tint(Color(red: 1, green: 0.584, blue: 0))
                                     Button {
                                         viewModel.moveToTomorrow(todo)
                                     } label: {
-                                        CircleSwipeIcon(systemName: "calendar", color: Color.nockOrange)
+                                        Image(systemName: "arrow.forward.folder")
                                     }
-                                    .tint(Color(.systemBackground))
+                                    .tint(.blue)
                                 }
                         }
 
@@ -295,23 +290,6 @@ private struct AddTodoRow: View {
             }
             .buttonStyle(.plain)
         }
-    }
-}
-
-// MARK: - 원형 스와이프 아이콘
-
-private struct CircleSwipeIcon: View {
-    let systemName: String
-    let color: Color
-
-    var body: some View {
-        Image(systemName: systemName)
-            .font(.callout.weight(.medium))
-            .foregroundStyle(.white)
-            .frame(width: 42, height: 42)
-            .background(color)
-            .clipShape(Circle())
-            .padding(.horizontal, 4)
     }
 }
 
