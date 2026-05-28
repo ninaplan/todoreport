@@ -11,6 +11,7 @@ import SwiftData
 @main
 struct TodoReportApp: App {
     @AppStorage("onboardingCompleted") private var onboardingCompleted = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -23,5 +24,10 @@ struct TodoReportApp: App {
             }
         }
         .modelContainer(PersistenceController.shared.container)
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                Task { @MainActor in SyncQueueManager.shared.processIfConnected() }
+            }
+        }
     }
 }

@@ -69,7 +69,8 @@ final class TodoService {
         context.insert(TodoItem.from(todo))
         try context.save()
         ensureDailyReport(for: todo.date)
-        // TODO: SyncManager.shared.enqueue(.createTodo(todo))
+        let captured = todo
+        Task { @MainActor in SyncQueueManager.shared.enqueueTodoCreate(captured) }
     }
 
     func updateTodo(_ todo: Todo) async throws {
@@ -79,7 +80,8 @@ final class TodoService {
         item.update(from: todo)
         try context.save()
         ensureDailyReport(for: todo.date)
-        // TODO: SyncManager.shared.enqueue(.updateTodo(todo))
+        let captured = todo
+        Task { @MainActor in SyncQueueManager.shared.enqueueTodoUpdate(captured) }
     }
 
     func deleteTodo(id: String) async throws {
@@ -87,7 +89,8 @@ final class TodoService {
         guard let item = try context.fetch(descriptor).first else { return }
         context.delete(item)
         try context.save()
-        // TODO: SyncManager.shared.enqueue(.deleteTodo(id))
+        let captured = id
+        Task { @MainActor in SyncQueueManager.shared.enqueueTodoDelete(id: captured) }
     }
 
     // MARK: - Private

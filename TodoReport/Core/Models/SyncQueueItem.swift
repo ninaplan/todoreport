@@ -1,26 +1,34 @@
 import SwiftData
 import Foundation
 
-// SyncQueue 모델 — 다음 단계에서 SyncManager와 연동
 @Model
 final class SyncQueueItem {
     @Attribute(.unique) var id: String
-    var type: String       // "createTodo" | "updateTodo" | "deleteTodo" | "saveDailyReport"
-    var payload: Data      // JSON 인코딩된 엔티티
-    var createdAt: Date
+    var action: String      // "create" / "update" / "delete"
+    var entityType: String  // "todo" / "dailyReport"
+    var entityId: String
+    var payload: Data
     var retryCount: Int
+    var status: String      // "pending" / "processing" / "failed"
+    var createdAt: Date
 
     init(
         id: String = UUID().uuidString,
-        type: String,
+        action: String,
+        entityType: String,
+        entityId: String,
         payload: Data,
-        createdAt: Date = .now,
-        retryCount: Int = 0
+        retryCount: Int = 0,
+        status: String = "pending",
+        createdAt: Date = .now
     ) {
         self.id = id
-        self.type = type
+        self.action = action
+        self.entityType = entityType
+        self.entityId = entityId
         self.payload = payload
-        self.createdAt = createdAt
         self.retryCount = retryCount
+        self.status = status
+        self.createdAt = createdAt
     }
 }
