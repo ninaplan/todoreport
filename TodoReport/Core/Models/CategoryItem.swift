@@ -9,6 +9,7 @@ final class CategoryItem {
     var icon: String
     var statusRaw: String
     var sortOrder: Int
+    var plannerId: String?
 
     init(
         id: String = UUID().uuidString,
@@ -16,7 +17,8 @@ final class CategoryItem {
         colorHex: String,
         icon: String,
         status: CategoryStatus = .active,
-        sortOrder: Int = 0
+        sortOrder: Int = 0,
+        plannerId: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -24,6 +26,7 @@ final class CategoryItem {
         self.icon = icon
         self.statusRaw = status.rawValue
         self.sortOrder = sortOrder
+        self.plannerId = plannerId
     }
 
     var status: CategoryStatus {
@@ -31,7 +34,7 @@ final class CategoryItem {
     }
 
     func toCategory() -> Category {
-        Category(id: id, name: name, colorHex: colorHex, icon: icon, status: status)
+        Category(id: id, name: name, colorHex: colorHex, icon: icon, status: status, plannerId: plannerId)
     }
 
     func update(from category: Category) {
@@ -39,16 +42,15 @@ final class CategoryItem {
         colorHex = category.colorHex
         icon = category.icon
         statusRaw = category.status.rawValue
+        // plannerId 고정
     }
 
     static func from(_ category: Category, sortOrder: Int = 0) -> CategoryItem {
         CategoryItem(
-            id: category.id,
-            name: category.name,
-            colorHex: category.colorHex,
-            icon: category.icon,
-            status: category.status,
-            sortOrder: sortOrder
+            id: category.id, name: category.name,
+            colorHex: category.colorHex, icon: category.icon,
+            status: category.status, sortOrder: sortOrder,
+            plannerId: category.plannerId
         )
     }
 }

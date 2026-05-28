@@ -7,6 +7,7 @@ final class PersistenceController {
 
     private init() {
         let schema = Schema([
+            PlannerItem.self,
             TodoItem.self,
             DailyReportItem.self,
             CategoryItem.self,

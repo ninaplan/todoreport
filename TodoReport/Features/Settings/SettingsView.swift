@@ -1,27 +1,18 @@
 import SwiftUI
 
-// MARK: - 플래너 모델 (더미)
-
-struct Planner: Identifiable, Hashable {
-    var id: String
-    var name: String
-    var colorHex: String
-    var isNotionConnected: Bool
-}
-
 // MARK: - 설정 뷰
 
 struct SettingsView: View {
     @AppStorage("onboardingCompleted") private var onboardingCompleted = false
 
-    // 더미 데이터
     private let isNotionConnected = false
     private let notionAccountEmail = "nina@notion.so"
-    @State private var planners: [Planner] = [
-        Planner(id: "p1", name: "내 플래너", colorHex: "FD6845", isNotionConnected: false),
-        Planner(id: "p2", name: "노션 워크스페이스", colorHex: "4E9AF1", isNotionConnected: true)
-    ]
+    private var planners: [Planner] { PlannerService.shared.store }
+    #if DEBUG
+    private let isPro = true
+    #else
     private let isPro = false
+    #endif
     private let appleIdEmail = "user@icloud.com"
 
     @State private var language = "한국어"

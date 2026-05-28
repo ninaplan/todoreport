@@ -18,19 +18,22 @@ struct Category: Identifiable, Codable {
     var colorHex: String
     var icon: String
     var status: CategoryStatus
+    var plannerId: String?
 
     init(
         id: String = UUID().uuidString,
         name: String,
         colorHex: String = "#FD6845",
         icon: String = "tag.fill",
-        status: CategoryStatus = .active
+        status: CategoryStatus = .active,
+        plannerId: String? = nil
     ) {
         self.id = id
         self.name = name
         self.colorHex = colorHex
         self.icon = icon
         self.status = status
+        self.plannerId = plannerId
     }
 
     static let colorPalette: [String] = [
@@ -59,7 +62,6 @@ struct Category: Identifiable, Codable {
 final class CategoryService {
     static let shared = CategoryService()
     private init() {
-        // 앱 시작 시 SwiftData에서 즉시 동기 로드 — 카테고리 칩 첫 렌더링에 반영
         store = (try? PersistenceController.shared.context.fetch(
             FetchDescriptor<CategoryItem>(sortBy: [SortDescriptor(\.sortOrder)])
         ))?.map { $0.toCategory() } ?? []
@@ -67,15 +69,20 @@ final class CategoryService {
 
     private var context: ModelContext { PersistenceController.shared.context }
 
-    // 반응형 스토어 — SwiftData 패치 후 갱신
     private(set) var store: [Category] = []
 
     var activeCategories: [Category] {
-        store.filter { $0.status == .active }
+        let pid = PlannerService.shared.selectedPlanner?.id
+        let active = store.filter { $0.status == .active }
+        guard let pid else { return active }
+        return active.filter { $0.plannerId == pid || $0.plannerId == nil }
     }
 
     var archivedCategories: [Category] {
-        store.filter { $0.status == .archived }
+        let pid = PlannerService.shared.selectedPlanner?.id
+        let archived = store.filter { $0.status == .archived }
+        guard let pid else { return archived }
+        return archived.filter { $0.plannerId == pid || $0.plannerId == nil }
     }
 
     // MARK: - Fetch
@@ -97,20 +104,24 @@ final class CategoryService {
             )
             store = try context.fetch(descriptor).map { $0.toCategory() }
         } catch {
-            // store 유지 (패치 실패 시 기존 상태 보존)
+            // store 유지
         }
     }
 
     // MARK: - Write
 
     func saveCategory(_ category: Category) async throws {
-        let id = category.id
+        var cat = category
+        let id = cat.id
         let descriptor = FetchDescriptor<CategoryItem>(predicate: #Predicate { $0.id == id })
         if let existing = try context.fetch(descriptor).first {
-            existing.update(from: category)
+            existing.update(from: cat)
         } else {
+            if cat.plannerId == nil {
+                cat.plannerId = PlannerService.shared.selectedPlanner?.id
+            }
             let sortOrder = store.count
-            context.insert(CategoryItem.from(category, sortOrder: sortOrder))
+            context.insert(CategoryItem.from(cat, sortOrder: sortOrder))
         }
         try context.save()
         await refreshStore()
@@ -145,7 +156,7 @@ final class CategoryService {
                 try context.save()
                 await refreshStore()
             } catch {
-                // 순서 변경 실패 — UI에서 이미 reorder 반영됐으므로 다음 패치 시 복구
+                // 순서 변경 실패
             }
         }
     }

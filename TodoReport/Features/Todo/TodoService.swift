@@ -12,6 +12,7 @@ struct Todo: Identifiable, Codable {
     var date: Date
     var categoryId: String?
     var notionPageId: String
+    var plannerId: String?
 
     init(
         id: String = UUID().uuidString,
@@ -21,7 +22,8 @@ struct Todo: Identifiable, Codable {
         isPinned: Bool = false,
         date: Date = .now,
         categoryId: String? = nil,
-        notionPageId: String = ""
+        notionPageId: String = "",
+        plannerId: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -31,6 +33,7 @@ struct Todo: Identifiable, Codable {
         self.date = date
         self.categoryId = categoryId
         self.notionPageId = notionPageId
+        self.plannerId = plannerId
     }
 }
 
@@ -45,12 +48,15 @@ final class TodoService {
     func fetchTodos(for date: Date) async -> [Todo] {
         let startOfDay = Calendar.current.startOfDay(for: date)
         guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return [] }
+        let plannerId = PlannerService.shared.selectedPlanner?.id
         do {
             let descriptor = FetchDescriptor<TodoItem>(
                 predicate: #Predicate { $0.date >= startOfDay && $0.date < endOfDay },
                 sortBy: [SortDescriptor(\.createdAt)]
             )
-            return try context.fetch(descriptor).map { $0.toTodo() }
+            let items = try context.fetch(descriptor).map { $0.toTodo() }
+            guard let pid = plannerId else { return items }
+            return items.filter { $0.plannerId == pid || $0.plannerId == nil }
         } catch {
             return []
         }
@@ -62,14 +68,17 @@ final class TodoService {
     }
 
     func saveTodo(_ todo: Todo) async throws {
-        // 중복 삽입 방지
-        let id = todo.id
+        var t = todo
+        if t.plannerId == nil {
+            t.plannerId = PlannerService.shared.selectedPlanner?.id
+        }
+        let id = t.id
         let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == id })
         guard (try context.fetch(descriptor)).isEmpty else { return }
-        context.insert(TodoItem.from(todo))
+        context.insert(TodoItem.from(t))
         try context.save()
-        ensureDailyReport(for: todo.date)
-        let captured = todo
+        ensureDailyReport(for: t.date)
+        let captured = t
         Task { @MainActor in SyncQueueManager.shared.enqueueTodoCreate(captured) }
     }
 
@@ -95,15 +104,17 @@ final class TodoService {
 
     // MARK: - Private
 
-    // 투두가 속한 날짜의 DailyReportItem이 없으면 자동 생성
     private func ensureDailyReport(for date: Date) {
         let startOfDay = Calendar.current.startOfDay(for: date)
         guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return }
+        let plannerId = PlannerService.shared.selectedPlanner?.id
         let descriptor = FetchDescriptor<DailyReportItem>(
             predicate: #Predicate { $0.date >= startOfDay && $0.date < endOfDay }
         )
-        guard let existing = try? context.fetch(descriptor), existing.isEmpty else { return }
-        let item = DailyReportItem(date: startOfDay)
+        guard let existing = try? context.fetch(descriptor) else { return }
+        let hasReport = existing.contains { $0.plannerId == plannerId }
+        guard !hasReport else { return }
+        let item = DailyReportItem(date: startOfDay, plannerId: plannerId)
         context.insert(item)
         try? context.save()
     }

@@ -11,6 +11,7 @@ struct DailyReport: Identifiable, Codable {
     var dayRating: DayRating?
     var photoURLs: [String]
     var notionPageId: String
+    var plannerId: String?
 
     init(
         id: String = UUID().uuidString,
@@ -19,7 +20,8 @@ struct DailyReport: Identifiable, Codable {
         completionRate: Double = 0,
         dayRating: DayRating? = nil,
         photoURLs: [String] = [],
-        notionPageId: String = ""
+        notionPageId: String = "",
+        plannerId: String? = nil
     ) {
         self.id = id
         self.date = date
@@ -28,6 +30,7 @@ struct DailyReport: Identifiable, Codable {
         self.dayRating = dayRating
         self.photoURLs = photoURLs
         self.notionPageId = notionPageId
+        self.plannerId = plannerId
     }
 }
 
@@ -47,28 +50,38 @@ final class DailyReportService {
     func fetchReport(for date: Date) async -> DailyReport? {
         let startOfDay = Calendar.current.startOfDay(for: date)
         guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return nil }
+        let plannerId = PlannerService.shared.selectedPlanner?.id
         do {
             let descriptor = FetchDescriptor<DailyReportItem>(
                 predicate: #Predicate { $0.date >= startOfDay && $0.date < endOfDay }
             )
-            return try context.fetch(descriptor).first?.toReport()
+            let reports = try context.fetch(descriptor).map { $0.toReport() }
+            if let pid = plannerId {
+                return reports.first(where: { $0.plannerId == pid }) ?? reports.first
+            }
+            return reports.first
         } catch {
             return nil
         }
     }
 
     func saveReport(_ report: DailyReport) async throws {
-        let startOfDay = Calendar.current.startOfDay(for: report.date)
+        var r = report
+        if r.plannerId == nil {
+            r.plannerId = PlannerService.shared.selectedPlanner?.id
+        }
+        let startOfDay = Calendar.current.startOfDay(for: r.date)
         guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return }
+        let pid = r.plannerId
         let descriptor = FetchDescriptor<DailyReportItem>(
             predicate: #Predicate { $0.date >= startOfDay && $0.date < endOfDay }
         )
-        if let existing = try context.fetch(descriptor).first {
-            existing.update(from: report)
+        let existing = try context.fetch(descriptor)
+        if let item = existing.first(where: { $0.plannerId == pid }) {
+            item.update(from: r)
         } else {
-            context.insert(DailyReportItem.from(report))
+            context.insert(DailyReportItem.from(r))
         }
         try context.save()
-        // TODO: SyncManager.shared.enqueue(.saveDailyReport(report))
     }
 }

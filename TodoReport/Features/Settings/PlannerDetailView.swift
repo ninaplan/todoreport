@@ -1,13 +1,20 @@
 import SwiftUI
+import UIKit
 
 struct PlannerDetailView: View {
+    private let planner: Planner
+    @Environment(\.dismiss) private var dismiss
     @State private var name: String
-    @State private var color: Color
+    @State private var selectedColor: Color
+    @State private var showDeleteAlert = false
+
+    private var totalPlannerCount: Int { PlannerService.shared.store.count }
     private let isNotionConnected: Bool
 
     init(planner: Planner) {
+        self.planner = planner
         _name = State(initialValue: planner.name)
-        _color = State(initialValue: Color(hex: planner.colorHex))
+        _selectedColor = State(initialValue: Color(hex: planner.colorHex))
         isNotionConnected = planner.isNotionConnected
     }
 
@@ -18,9 +25,37 @@ struct PlannerDetailView: View {
             if isNotionConnected {
                 notionSection
             }
+            if totalPlannerCount > 1 {
+                deleteSection
+            }
         }
         .navigationTitle("플래너 설정")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("저장") {
+                    Task {
+                        var updated = planner
+                        updated.name = name.trimmingCharacters(in: .whitespaces).isEmpty ? planner.name : name.trimmingCharacters(in: .whitespaces)
+                        updated.colorHex = colorHex(from: selectedColor) ?? planner.colorHex
+                        try? await PlannerService.shared.savePlanner(updated)
+                    }
+                }
+                .tint(Color.nockOrange)
+                .fontWeight(.semibold)
+            }
+        }
+        .alert("플래너 삭제", isPresented: $showDeleteAlert) {
+            Button("취소", role: .cancel) { }
+            Button("삭제", role: .destructive) {
+                Task {
+                    try? await PlannerService.shared.deletePlanner(planner)
+                    dismiss()
+                }
+            }
+        } message: {
+            Text("플래너를 삭제하면 해당 플래너의 모든 데이터가 삭제됩니다. 계속할까요?")
+        }
     }
 
     // MARK: - 기본
@@ -31,7 +66,7 @@ struct PlannerDetailView: View {
                 TextField("플래너 이름", text: $name)
                     .multilineTextAlignment(.trailing)
             }
-            ColorPicker("대표 색상", selection: $color, supportsOpacity: false)
+            ColorPicker("대표 색상", selection: $selectedColor, supportsOpacity: false)
         }
     }
 
@@ -61,5 +96,27 @@ struct PlannerDetailView: View {
                 Text("속성명 매핑")
             }
         }
+    }
+
+    // MARK: - 삭제
+
+    private var deleteSection: some View {
+        Section {
+            Button(role: .destructive) {
+                showDeleteAlert = true
+            } label: {
+                Text("플래너 삭제")
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func colorHex(from color: Color) -> String? {
+        let uiColor = UIColor(color)
+        var r: CGFloat = 0; var g: CGFloat = 0; var b: CGFloat = 0; var a: CGFloat = 0
+        guard uiColor.getRed(&r, green: &g, blue: &b, alpha: &a) else { return nil }
+        return String(format: "#%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255))
     }
 }

@@ -10,6 +10,7 @@ final class DailyReportItem {
     var dayRatingRaw: String?
     var photoURLs: [String]
     var notionPageId: String
+    var plannerId: String?
 
     init(
         id: String = UUID().uuidString,
@@ -18,7 +19,8 @@ final class DailyReportItem {
         completionRate: Double = 0,
         dayRatingRaw: String? = nil,
         photoURLs: [String] = [],
-        notionPageId: String = ""
+        notionPageId: String = "",
+        plannerId: String? = nil
     ) {
         self.id = id
         self.date = date
@@ -27,6 +29,7 @@ final class DailyReportItem {
         self.dayRatingRaw = dayRatingRaw
         self.photoURLs = photoURLs
         self.notionPageId = notionPageId
+        self.plannerId = plannerId
     }
 
     var dayRating: DayRating? {
@@ -35,13 +38,10 @@ final class DailyReportItem {
 
     func toReport() -> DailyReport {
         DailyReport(
-            id: id,
-            date: date,
-            review: review,
-            completionRate: completionRate,
-            dayRating: dayRating,
-            photoURLs: photoURLs,
-            notionPageId: notionPageId
+            id: id, date: date, review: review,
+            completionRate: completionRate, dayRating: dayRating,
+            photoURLs: photoURLs, notionPageId: notionPageId,
+            plannerId: plannerId
         )
     }
 
@@ -51,17 +51,16 @@ final class DailyReportItem {
         dayRatingRaw = report.dayRating?.rawValue
         photoURLs = report.photoURLs
         notionPageId = report.notionPageId
+        // plannerId 고정
     }
 
     static func from(_ report: DailyReport) -> DailyReportItem {
         DailyReportItem(
-            id: report.id,
-            date: report.date,
-            review: report.review,
+            id: report.id, date: report.date, review: report.review,
             completionRate: report.completionRate,
             dayRatingRaw: report.dayRating?.rawValue,
-            photoURLs: report.photoURLs,
-            notionPageId: report.notionPageId
+            photoURLs: report.photoURLs, notionPageId: report.notionPageId,
+            plannerId: report.plannerId
         )
     }
 }

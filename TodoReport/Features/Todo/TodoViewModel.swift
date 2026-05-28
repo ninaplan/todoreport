@@ -11,7 +11,7 @@ final class TodoViewModel {
     private(set) var todos: [Todo] = []
     private(set) var isLoading: Bool = false
 
-    var plannerName: String = "내 플래너"
+    var plannerName: String { PlannerService.shared.selectedPlanner?.name ?? "내 플래너" }
     var isViewOptionsVisible: Bool = false
     var hideCompleted: Bool = false
     var showMemo: Bool = false
@@ -153,8 +153,8 @@ final class TodoViewModel {
         Task { try? await service.updateTodo(updated) }
     }
 
-    func selectPlanner(name: String) {
-        plannerName = name
+    func selectPlanner(_ planner: Planner) {
+        PlannerService.shared.selectPlanner(planner)
     }
 
     func goToPreviousDay() {

@@ -74,7 +74,7 @@ struct TodoView: View {
                         showPlannerSheet = true
                     } label: {
                         HStack(spacing: 4) {
-                            Text(viewModel.plannerName)
+                            Text(PlannerService.shared.selectedPlanner?.name ?? "내 플래너")
                                 .font(.headline)
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 9, weight: .thin))
@@ -107,10 +107,7 @@ struct TodoView: View {
                 ))
             }
             .sheet(isPresented: $showPlannerSheet) {
-                PlannerSelectionSheet(
-                    currentName: viewModel.plannerName,
-                    onSelect: { viewModel.selectPlanner(name: $0) }
-                )
+                PlannerSelectionSheet()
             }
             .sheet(isPresented: $showQuickCapture) {
                 QuickCaptureView(defaultCategoryId: viewModel.selectedCategoryFilter) { title, memo, categoryId, date in
@@ -521,23 +518,21 @@ private struct ViewOptionsPopover: View {
 // MARK: - 플래너 선택 시트
 
 private struct PlannerSelectionSheet: View {
-    let currentName: String
-    let onSelect: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var showProAlert = false
+    #if DEBUG
+    private let isPro = true
+    #else
     private let isPro = false
-
-    private let planners: [Planner] = [
-        Planner(id: "p1", name: "내 플래너", colorHex: "FD6845", isNotionConnected: false)
-    ]
+    #endif
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    ForEach(planners) { planner in
+                    ForEach(PlannerService.shared.store) { planner in
                         Button {
-                            onSelect(planner.name)
+                            PlannerService.shared.selectPlanner(planner)
                             dismiss()
                         } label: {
                             HStack(spacing: 12) {
@@ -547,7 +542,7 @@ private struct PlannerSelectionSheet: View {
                                 Text(planner.name)
                                     .foregroundStyle(.primary)
                                 Spacer()
-                                if planner.name == currentName {
+                                if planner.id == PlannerService.shared.selectedPlannerId {
                                     Image(systemName: "checkmark")
                                         .font(.subheadline.bold())
                                         .foregroundStyle(Color.nockOrange)
