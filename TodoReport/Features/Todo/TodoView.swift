@@ -9,28 +9,33 @@ struct TodoView: View {
     @State private var showViewOptions: Bool = false
     @State private var showPlannerSheet: Bool = false
     @State private var showQuickCapture: Bool = false
+    @State private var changingDateTodo: Todo? = nil
+    @State private var editingTodo: Todo? = nil
+    @State private var showCategorySheet: Bool = false
+
+    @State private var hapticImpactTrigger = false
+    @State private var hapticSuccessTrigger = false
+    @State private var hapticWarningTrigger = false
 
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
                 List {
-                    // 날짜 + 완료율 + 데일리리포트 섹션
+                    // 날짜 + 완료율 + 데일리리포트 카드
                     Section {
                         DateNavigationRow(viewModel: viewModel, showDatePicker: $showDatePicker)
-                        CompletionRateRow(
-                            rate: viewModel.filteredCompletionRate,
-                            completed: viewModel.filteredCompletedCount,
-                            total: viewModel.filteredTotalCount
-                        )
                         DailyReportCard(
                             viewModel: dailyReportViewModel,
                             date: viewModel.selectedDate,
-                            completionRate: viewModel.completionRate
+                            completionRate: viewModel.completionRate,
+                            displayRate: viewModel.filteredCompletionRate,
+                            displayCompleted: viewModel.filteredCompletedCount,
+                            displayTotal: viewModel.filteredTotalCount
                         )
                     }
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
 
                     // 카테고리 필터 칩
                     if !viewModel.activeCategories.isEmpty {
@@ -50,14 +55,18 @@ struct TodoView: View {
                         todoRows(for: viewModel.filteredTodos)
                         addTodoRow
                     }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 }
                 .listStyle(.plain)
+                .scrollContentBackground(.hidden)
                 .onAppear { Task { await viewModel.fetchTodos() } }
 
                 FloatingCaptureButton {
                     showQuickCapture = true
                 }
             }
+            .background(Color(.systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -68,7 +77,7 @@ struct TodoView: View {
                             Text(viewModel.plannerName)
                                 .font(.headline)
                             Image(systemName: "chevron.down")
-                                .font(.caption.bold())
+                                .font(.system(size: 9, weight: .thin))
                         }
                     }
                     .tint(.primary)
@@ -81,8 +90,13 @@ struct TodoView: View {
                     }
                     .tint(.primary)
                     .popover(isPresented: $showViewOptions) {
-                        ViewOptionsPopover(viewModel: viewModel)
-                            .presentationCompactAdaptation(.popover)
+                        ViewOptionsPopover(viewModel: viewModel) {
+                            showViewOptions = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                showCategorySheet = true
+                            }
+                        }
+                        .presentationCompactAdaptation(.popover)
                     }
                 }
             }
@@ -93,13 +107,41 @@ struct TodoView: View {
                 ))
             }
             .sheet(isPresented: $showPlannerSheet) {
-                PlannerSelectionSheet(currentName: viewModel.plannerName)
+                PlannerSelectionSheet(
+                    currentName: viewModel.plannerName,
+                    onSelect: { viewModel.selectPlanner(name: $0) }
+                )
             }
             .sheet(isPresented: $showQuickCapture) {
                 QuickCaptureView(defaultCategoryId: viewModel.selectedCategoryFilter) { title, memo, categoryId, date in
                     viewModel.addTodo(title: title, memo: memo, categoryId: categoryId, date: date)
+                    hapticSuccessTrigger.toggle()
                 }
             }
+            .sheet(item: $changingDateTodo) { todo in
+                TodoDateChangeSheet(initialDate: todo.date) { newDate in
+                    viewModel.changeTodoDate(todo, to: newDate)
+                    hapticSuccessTrigger.toggle()
+                }
+            }
+            .sheet(item: $editingTodo, onDismiss: { showCategorySheet = false }) { todo in
+                TodoEditSheet(
+                    todo: todo,
+                    categories: viewModel.activeCategories
+                ) { updated in
+                    viewModel.saveTodoEdit(updated)
+                    hapticSuccessTrigger.toggle()
+                }
+            }
+            .sheet(isPresented: $showCategorySheet) {
+                NavigationStack {
+                    CategoryView()
+                }
+                .presentationDragIndicator(.visible)
+            }
+            .sensoryFeedback(.impact, trigger: hapticImpactTrigger)
+            .sensoryFeedback(.success, trigger: hapticSuccessTrigger)
+            .sensoryFeedback(.warning, trigger: hapticWarningTrigger)
         }
     }
 
@@ -108,28 +150,34 @@ struct TodoView: View {
     @ViewBuilder
     private func todoRows(for todos: [Todo]) -> some View {
         ForEach(todos) { todo in
-            TodoRow(todo: todo)
+            TodoRow(todo: todo, showMemo: viewModel.showMemo)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                viewModel.toggleTodo(todo)
+                hapticImpactTrigger.toggle()
+            }
+            .onLongPressGesture(minimumDuration: 0.4) {
+                editingTodo = todo
+                hapticImpactTrigger.toggle()
+            }
             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                 Button {
-                    viewModel.toggleTodo(todo)
+                    viewModel.pinTodo(todo)
+                    hapticImpactTrigger.toggle()
                 } label: {
-                    if todo.isCompleted {
-                        Image(systemName: "arrow.counterclockwise")
-                    } else {
-                        Image(systemName: "checkmark")
-                            .fontWeight(.bold)
-                    }
+                    Image(systemName: todo.isPinned ? "pin.slash" : "pin")
                 }
-                .tint(todo.isCompleted ? Color.gray.opacity(0.3) : Color.nockOrange)
+                .tint(todo.isPinned ? .gray : Color(red: 1, green: 0.584, blue: 0))
             }
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                 Button(role: .destructive) {
                     viewModel.deleteTodo(todo)
+                    hapticWarningTrigger.toggle()
                 } label: {
                     Image(systemName: "trash")
                 }
                 Button {
-                    // TODO: 날짜 변경 시트 오픈
+                    changingDateTodo = todo
                 } label: {
                     Image(systemName: "calendar")
                 }
@@ -141,21 +189,17 @@ struct TodoView: View {
                 }
                 .tint(.blue)
             }
-            .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
         }
     }
 
     private var addTodoRow: some View {
-        AddTodoRow(
-            newTodoTitle: $newTodoTitle,
-            isAdding: $isAddingTodo
-        ) {
+        AddTodoRow(newTodoTitle: $newTodoTitle, isAdding: $isAddingTodo) {
             viewModel.addTodo(title: newTodoTitle, categoryId: viewModel.selectedCategoryFilter)
             newTodoTitle = ""
             isAddingTodo = false
+            hapticSuccessTrigger.toggle()
         }
-        .listRowSeparator(.hidden)
         .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
     }
 }
@@ -169,7 +213,7 @@ private struct CategoryFilterBar: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                FilterChip(label: "전체", isSelected: selectedId == nil) {
+                FilterChip(label: "전체", color: .nockOrange, isSelected: selectedId == nil) {
                     selectedId = nil
                 }
                 ForEach(categories) { category in
@@ -182,15 +226,27 @@ private struct CategoryFilterBar: View {
                     }
                 }
             }
-            .padding(.horizontal, 24)
+            .padding(.leading, 24)
+            .padding(.trailing, 48)  // 그라데이션 영역 확보
             .padding(.vertical, 4)
         }
+        // 우측 페이드 아웃 (스크롤 힌트)
+        .overlay(alignment: .trailing) {
+            LinearGradient(
+                colors: [.clear, Color(.systemGroupedBackground)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(width: 48)
+            .allowsHitTesting(false)
+        }
+        .sensoryFeedback(.selection, trigger: selectedId)
     }
 }
 
 private struct FilterChip: View {
     let label: String
-    var color: Color = Color.nockOrange
+    let color: Color
     let isSelected: Bool
     let action: () -> Void
 
@@ -253,52 +309,47 @@ private struct DateNavigationRow: View {
     }
 }
 
-// MARK: - 완료율 바
-
-private struct CompletionRateRow: View {
-    let rate: Double
-    let completed: Int
-    let total: Int
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("완료율")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("\(completed)/\(total)개  \(Int(rate * 100))%")
-                    .font(.caption.bold())
-                    .foregroundStyle(Color.nockOrange)
-            }
-            ProgressView(value: rate)
-                .tint(Color.nockOrange)
-                .scaleEffect(y: 1.4)
-        }
-        .padding(.vertical, 4)
-    }
-}
-
 // MARK: - 투두 행
 
 private struct TodoRow: View {
     let todo: Todo
+    let showMemo: Bool
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
                 .font(.title3)
                 .foregroundStyle(todo.isCompleted ? Color.nockOrange : Color(.tertiaryLabel))
                 .animation(.easeInOut(duration: 0.15), value: todo.isCompleted)
+                .padding(.top, (showMemo && todo.memo != nil) ? 2 : 0)
 
-            Text(todo.title)
-                .font(.body)
-                .strikethrough(todo.isCompleted)
-                .foregroundStyle(todo.isCompleted ? .secondary : .primary)
-                .animation(.easeInOut(duration: 0.15), value: todo.isCompleted)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(todo.title)
+                    .font(.body)
+                    .strikethrough(todo.isCompleted)
+                    .foregroundStyle(todo.isCompleted ? .secondary : .primary)
+                    .animation(.easeInOut(duration: 0.15), value: todo.isCompleted)
+
+                if showMemo, let memo = todo.memo, !memo.isEmpty {
+                    Text(memo)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
 
             Spacer()
+
+            if todo.isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.caption)
+                    .foregroundStyle(Color(red: 1, green: 0.584, blue: 0).opacity(0.8))
+                    .rotationEffect(.degrees(45))
+                    .padding(.top, (showMemo && todo.memo != nil) ? 2 : 0)
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: showMemo)
     }
 }
 
@@ -316,23 +367,20 @@ private struct AddTodoRow: View {
                 Image(systemName: "circle")
                     .font(.title3)
                     .foregroundStyle(Color(.tertiaryLabel))
-
                 TextField("새 투두", text: $newTodoTitle)
                     .focused($isFocused)
                     .submitLabel(.done)
                     .onSubmit {
-                        if newTodoTitle.trimmingCharacters(in: .whitespaces).isEmpty {
+                        guard !newTodoTitle.trimmingCharacters(in: .whitespaces).isEmpty else {
                             isAdding = false
-                        } else {
-                            onAdd()
+                            return
                         }
+                        onAdd()
                     }
                     .onAppear { isFocused = true }
             }
         } else {
-            Button {
-                isAdding = true
-            } label: {
+            Button { isAdding = true } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "plus.circle.fill")
                         .font(.title3)
@@ -353,6 +401,7 @@ private struct AddTodoRow: View {
 
 private struct ViewOptionsPopover: View {
     @Bindable var viewModel: TodoViewModel
+    let onShowCategorySheet: () -> Void
     @State private var sortExpanded: Bool = false
 
     var body: some View {
@@ -413,8 +462,31 @@ private struct ViewOptionsPopover: View {
                     }
                 }
             }
+
+            Divider()
+
+            Button(action: onShowCategorySheet) {
+                HStack(spacing: 12) {
+                    Image(systemName: "tag")
+                        .font(.system(size: AppConstants.IconSize.menu))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20)
+                    Text("카테고리 설정")
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: AppConstants.IconSize.menu).bold())
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
         .frame(minWidth: 260)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func optionRow(icon: String, label: String, isOn: Bool, action: @escaping () -> Void) -> some View {
@@ -450,35 +522,47 @@ private struct ViewOptionsPopover: View {
 
 private struct PlannerSelectionSheet: View {
     let currentName: String
+    let onSelect: (String) -> Void
     @Environment(\.dismiss) private var dismiss
-    @State private var showProAlert: Bool = false
+    @State private var showProAlert = false
+    private let isPro = false
 
-    private let planners: [String] = ["내 플래너"]
+    private let planners: [Planner] = [
+        Planner(id: "p1", name: "내 플래너", colorHex: "FD6845", isNotionConnected: false)
+    ]
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    ForEach(planners, id: \.self) { planner in
-                        HStack {
-                            Text(planner)
-                            Spacer()
-                            if planner == currentName {
-                                Image(systemName: "checkmark")
-                                    .font(.subheadline.bold())
-                                    .foregroundStyle(Color.nockOrange)
+                    ForEach(planners) { planner in
+                        Button {
+                            onSelect(planner.name)
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 12) {
+                                Circle()
+                                    .fill(Color(hex: planner.colorHex))
+                                    .frame(width: 10, height: 10)
+                                Text(planner.name)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if planner.name == currentName {
+                                    Image(systemName: "checkmark")
+                                        .font(.subheadline.bold())
+                                        .foregroundStyle(Color.nockOrange)
+                                }
                             }
                         }
-                        .contentShape(Rectangle())
-                        .onTapGesture { dismiss() }
                     }
                 }
+
                 Section {
                     Button {
-                        showProAlert = true
+                        guard isPro else { showProAlert = true; return }
                     } label: {
-                        Text("플래너 추가하기 🔒")
-                            .foregroundStyle(.primary)
+                        Label("플래너 추가", systemImage: "plus")
+                            .foregroundStyle(isPro ? Color.nockOrange : .secondary)
                     }
                 }
             }
@@ -522,6 +606,145 @@ private struct DatePickerSheet: View {
                 }
         }
         .presentationDetents([.medium])
+    }
+}
+
+// MARK: - 투두 날짜 변경 시트
+
+private struct TodoDateChangeSheet: View {
+    let initialDate: Date
+    let onConfirm: (Date) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedDate: Date
+
+    init(initialDate: Date, onConfirm: @escaping (Date) -> Void) {
+        self.initialDate = initialDate
+        self.onConfirm = onConfirm
+        _selectedDate = State(initialValue: Calendar.current.startOfDay(for: initialDate))
+    }
+
+    var body: some View {
+        NavigationStack {
+            DatePicker("날짜 선택", selection: $selectedDate, displayedComponents: .date)
+                .datePickerStyle(.graphical)
+                .tint(Color.nockOrange)
+                .padding(.horizontal)
+                .navigationTitle("날짜 변경")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("취소") { dismiss() }
+                            .foregroundStyle(.secondary)
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("완료") {
+                            onConfirm(selectedDate)
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
+                        .tint(Color.nockOrange)
+                    }
+                }
+        }
+        .presentationDetents([.medium])
+    }
+}
+
+// MARK: - 투두 편집 시트
+
+private struct TodoEditSheet: View {
+    let categories: [Category]
+    let onSave: (Todo) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var draft: Todo
+    @State private var showDatePicker = false
+
+    init(todo: Todo, categories: [Category], onSave: @escaping (Todo) -> Void) {
+        self.categories = categories
+        self.onSave = onSave
+        _draft = State(initialValue: todo)
+    }
+
+    private var isSaveEnabled: Bool {
+        !draft.title.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    AutoFocusTextField(
+                        text: $draft.title,
+                        placeholder: "할일",
+                        font: .systemFont(ofSize: 20, weight: .medium)
+                    )
+                    .frame(height: 44)
+
+                    TextField("메모", text: Binding(
+                        get: { draft.memo ?? "" },
+                        set: { draft.memo = $0.isEmpty ? nil : $0 }
+                    ), axis: .vertical)
+                    .lineLimit(3...6)
+                }
+
+                Section {
+                    Picker("카테고리", selection: $draft.categoryId) {
+                        Text("없음").tag(Optional<String>.none)
+                        ForEach(categories) { category in
+                            Text(category.name).tag(Optional(category.id))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(.primary)
+
+                    Button {
+                        UIApplication.shared.sendAction(
+                            #selector(UIResponder.resignFirstResponder),
+                            to: nil, from: nil, for: nil
+                        )
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        withAnimation { showDatePicker.toggle() }
+                    } label: {
+                        HStack {
+                            Text("날짜").foregroundStyle(.primary)
+                            Spacer()
+                            Text(draft.date.formatted(date: .abbreviated, time: .omitted))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    if showDatePicker {
+                        DatePicker("", selection: $draft.date, displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                            .labelsHidden()
+                            .tint(Color.nockOrange)
+                    }
+                }
+            }
+            .navigationTitle("편집")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("취소", role: .cancel) { dismiss() }
+                        .tint(.primary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("저장") {
+                        let trimmed = draft.title.trimmingCharacters(in: .whitespaces)
+                        guard !trimmed.isEmpty else { return }
+                        var saved = draft
+                        saved.title = trimmed
+                        onSave(saved)
+                        dismiss()
+                    }
+                    .disabled(!isSaveEnabled)
+                    .tint(isSaveEnabled ? Color.nockOrange : Color(.tertiaryLabel))
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+        .presentationDetents([.large])
     }
 }
 

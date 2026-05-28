@@ -7,15 +7,13 @@ struct MainTabView: View {
                 TodoView()
             }
             Tab("리포트", systemImage: "chart.bar.fill") {
-                NavigationStack {
-                    Text("리포트")
-                        .navigationTitle("리포트")
-                }
+                ReportView()
             }
             Tab("설정", systemImage: "gearshape.fill") {
                 NavigationStack {
                     SettingsView()
                 }
+                .background(Color(.systemGroupedBackground))
             }
         }
         .tint(.nockOrange)

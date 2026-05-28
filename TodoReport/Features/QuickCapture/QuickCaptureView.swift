@@ -15,8 +15,12 @@ struct QuickCaptureView: View {
         NavigationStack {
             Form {
                 Section {
-                    AutoFocusTextField(text: $viewModel.title, placeholder: "할일")
-                        .frame(height: 44)
+                    AutoFocusTextField(
+                        text: $viewModel.title,
+                        placeholder: "할일",
+                        font: .systemFont(ofSize: 20, weight: .medium)
+                    )
+                    .frame(height: 44)
 
                     TextField("메모", text: $viewModel.memo, axis: .vertical)
                         .lineLimit(3...6)
@@ -101,34 +105,3 @@ struct QuickCaptureView: View {
     }
 }
 
-private struct AutoFocusTextField: UIViewRepresentable {
-    @Binding var text: String
-    let placeholder: String
-
-    func makeUIView(context: Context) -> UITextField {
-        let tf = UITextField()
-        tf.placeholder = placeholder
-        tf.font = .systemFont(ofSize: 20, weight: .medium)
-        tf.delegate = context.coordinator
-        tf.becomeFirstResponder()
-        return tf
-    }
-
-    func updateUIView(_ tf: UITextField, context: Context) {
-        if tf.text != text { tf.text = text }
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
-
-    class Coordinator: NSObject, UITextFieldDelegate {
-        @Binding var text: String
-        init(text: Binding<String>) { _text = text }
-
-        func textField(_ tf: UITextField, shouldChangeCharactersIn range: NSRange, replacementString s: String) -> Bool {
-            if let cur = tf.text, let r = Range(range, in: cur) {
-                text = cur.replacingCharacters(in: r, with: s)
-            }
-            return true
-        }
-    }
-}

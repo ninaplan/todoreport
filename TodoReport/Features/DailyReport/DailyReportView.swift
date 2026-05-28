@@ -3,19 +3,29 @@ import SwiftUI
 struct DailyReportCard: View {
     @Bindable var viewModel: DailyReportViewModel
     let date: Date
-    let completionRate: Double
+    let completionRate: Double      // Notion 저장용 (전체 기준)
+    let displayRate: Double         // UI 표시용 (필터 반영)
+    let displayCompleted: Int
+    let displayTotal: Int
 
     @FocusState private var isReviewFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
+            completionRateSection
+            Divider()
             ratingRow
             Divider()
             reviewRow
         }
-        .padding(14)
+        .padding(16)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color(.separator), lineWidth: 0.5)
+        )
+        .sensoryFeedback(.selection, trigger: viewModel.selectedRating)
         .task(id: date) {
             await viewModel.fetchReport(for: date, completionRate: completionRate)
         }
@@ -25,6 +35,25 @@ struct DailyReportCard: View {
         .onChange(of: isReviewFocused) { _, focused in
             guard !focused, viewModel.hasUnsavedReview else { return }
             Task { await viewModel.saveReport() }
+        }
+    }
+
+    // MARK: - 완료율
+
+    private var completionRateSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("완료율")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(displayCompleted)/\(displayTotal)개  \(Int(displayRate * 100))%")
+                    .font(.caption.bold())
+                    .foregroundStyle(Color.nockOrange)
+            }
+            ProgressView(value: displayRate)
+                .tint(Color.nockOrange)
+                .scaleEffect(y: 1.4)
         }
     }
 

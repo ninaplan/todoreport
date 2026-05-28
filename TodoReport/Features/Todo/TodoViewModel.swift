@@ -9,7 +9,6 @@ enum TodoSortOrder: String, CaseIterable {
 @Observable
 final class TodoViewModel {
     private(set) var todos: [Todo] = []
-    private(set) var categories: [Category] = []
     private(set) var isLoading: Bool = false
 
     var plannerName: String = "내 플래너"
@@ -28,6 +27,9 @@ final class TodoViewModel {
 
     // MARK: - Computed
 
+    // CategoryService.shared(@Observable)를 직접 참조 → store 변경 시 뷰 자동 갱신
+    var activeCategories: [Category] { categoryService.activeCategories }
+
     var completionRate: Double {
         guard !todos.isEmpty else { return 0 }
         return Double(todos.filter(\.isCompleted).count) / Double(todos.count)
@@ -36,11 +38,6 @@ final class TodoViewModel {
     private var todosForRate: [Todo] {
         guard let filterId = selectedCategoryFilter else { return todos }
         return todos.filter { $0.categoryId == filterId }
-    }
-
-    var activeCategories: [Category] {
-        let usedIds = Set(todos.compactMap(\.categoryId))
-        return categories.filter { usedIds.contains($0.id) }
     }
 
     var displayedTodos: [Todo] {
@@ -56,6 +53,7 @@ final class TodoViewModel {
         case .completedFirst:
             result.sort { $0.isCompleted && !$1.isCompleted }
         }
+        result.sort { $0.isPinned && !$1.isPinned }
         return result
     }
 
@@ -74,24 +72,21 @@ final class TodoViewModel {
 
     func category(for id: String?) -> Category? {
         guard let id else { return nil }
-        return categories.first(where: { $0.id == id })
+        return categoryService.activeCategories.first(where: { $0.id == id })
     }
 
     // MARK: - Data
 
     func fetchTodos() async {
         isLoading = true
-        async let fetchedTodos = service.fetchTodos(for: selectedDate)
-        async let fetchedCategories = categoryService.fetchCategories()
-        todos = await fetchedTodos
-        categories = await fetchedCategories
+        todos = await service.fetchTodos(for: selectedDate)
         isLoading = false
         validateCategoryFilter()
     }
 
     private func validateCategoryFilter() {
         guard let filterId = selectedCategoryFilter else { return }
-        if !categories.contains(where: { $0.id == filterId }) {
+        if !categoryService.activeCategories.contains(where: { $0.id == filterId }) {
             selectedCategoryFilter = nil
         }
     }
@@ -101,6 +96,13 @@ final class TodoViewModel {
     func toggleTodo(_ todo: Todo) {
         guard let index = todos.firstIndex(where: { $0.id == todo.id }) else { return }
         todos[index].isCompleted.toggle()
+        let updated = todos[index]
+        Task { try? await service.updateTodo(updated) }
+    }
+
+    func pinTodo(_ todo: Todo) {
+        guard let index = todos.firstIndex(where: { $0.id == todo.id }) else { return }
+        todos[index].isPinned.toggle()
         let updated = todos[index]
         Task { try? await service.updateTodo(updated) }
     }
@@ -124,6 +126,35 @@ final class TodoViewModel {
         moved.date = nextDay
         todos.removeAll { $0.id == todo.id }
         Task { try? await service.updateTodo(moved) }
+    }
+
+    func changeTodoDate(_ todo: Todo, to newDate: Date) {
+        var updated = todo
+        updated.date = newDate
+        if Calendar.current.isDate(newDate, inSameDayAs: selectedDate) {
+            if let index = todos.firstIndex(where: { $0.id == todo.id }) {
+                todos[index].date = newDate
+            }
+        } else {
+            todos.removeAll { $0.id == todo.id }
+        }
+        Task { try? await service.updateTodo(updated) }
+    }
+
+    func saveTodoEdit(_ updated: Todo) {
+        let isSameDay = Calendar.current.isDate(updated.date, inSameDayAs: selectedDate)
+        if isSameDay {
+            if let index = todos.firstIndex(where: { $0.id == updated.id }) {
+                todos[index] = updated
+            }
+        } else {
+            todos.removeAll { $0.id == updated.id }
+        }
+        Task { try? await service.updateTodo(updated) }
+    }
+
+    func selectPlanner(name: String) {
+        plannerName = name
     }
 
     func goToPreviousDay() {

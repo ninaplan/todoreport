@@ -1,11 +1,14 @@
 import Foundation
+import SwiftData
 
-// 1파일 1타입 원칙상 별도 모델 파일이 맞으나 MVP 단계에서 TodoService와 함께 관리
+// MARK: - Todo 모델
+
 struct Todo: Identifiable, Codable {
     let id: String
     var title: String
     var memo: String?
     var isCompleted: Bool
+    var isPinned: Bool
     var date: Date
     var categoryId: String?
     var notionPageId: String
@@ -15,6 +18,7 @@ struct Todo: Identifiable, Codable {
         title: String,
         memo: String? = nil,
         isCompleted: Bool = false,
+        isPinned: Bool = false,
         date: Date = .now,
         categoryId: String? = nil,
         notionPageId: String = ""
@@ -23,21 +27,33 @@ struct Todo: Identifiable, Codable {
         self.title = title
         self.memo = memo
         self.isCompleted = isCompleted
+        self.isPinned = isPinned
         self.date = date
         self.categoryId = categoryId
         self.notionPageId = notionPageId
     }
 }
 
+// MARK: - TodoService
+
 final class TodoService {
     static let shared = TodoService()
     private init() {}
 
-    private let apiClient = APIClient.shared
+    private var context: ModelContext { PersistenceController.shared.context }
 
     func fetchTodos(for date: Date) async -> [Todo] {
-        // TODO: APIClient로 백엔드 호출 → SwiftData 캐싱
-        return Self.dummyTodos(for: date)
+        let startOfDay = Calendar.current.startOfDay(for: date)
+        guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return [] }
+        do {
+            let descriptor = FetchDescriptor<TodoItem>(
+                predicate: #Predicate { $0.date >= startOfDay && $0.date < endOfDay },
+                sortBy: [SortDescriptor(\.createdAt)]
+            )
+            return try context.fetch(descriptor).map { $0.toTodo() }
+        } catch {
+            return []
+        }
     }
 
     func incompleteTodoCount(for categoryId: String) async -> Int {
@@ -46,28 +62,46 @@ final class TodoService {
     }
 
     func saveTodo(_ todo: Todo) async throws {
-        // Offline-First:
-        // 1. SwiftData 즉시 저장 (TODO)
-        // 2. SyncManager.shared.enqueue(.createTodo(todo))
+        // 중복 삽입 방지
+        let id = todo.id
+        let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == id })
+        guard (try context.fetch(descriptor)).isEmpty else { return }
+        context.insert(TodoItem.from(todo))
+        try context.save()
+        ensureDailyReport(for: todo.date)
+        // TODO: SyncManager.shared.enqueue(.createTodo(todo))
     }
 
     func updateTodo(_ todo: Todo) async throws {
-        // 1. SwiftData 즉시 업데이트 (TODO)
-        // 2. SyncManager.shared.enqueue(.updateTodo(todo))
+        let id = todo.id
+        let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == id })
+        guard let item = try context.fetch(descriptor).first else { return }
+        item.update(from: todo)
+        try context.save()
+        ensureDailyReport(for: todo.date)
+        // TODO: SyncManager.shared.enqueue(.updateTodo(todo))
     }
 
     func deleteTodo(id: String) async throws {
-        // 1. SwiftData 즉시 삭제 (TODO)
-        // 2. SyncManager.shared.enqueue(.deleteTodo(id))
+        let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == id })
+        guard let item = try context.fetch(descriptor).first else { return }
+        context.delete(item)
+        try context.save()
+        // TODO: SyncManager.shared.enqueue(.deleteTodo(id))
     }
 
-    private static func dummyTodos(for date: Date) -> [Todo] {
-        [
-            Todo(id: "1", title: "수학 문제 풀기", isCompleted: true,  date: date, categoryId: "cat-1"),
-            Todo(id: "2", title: "영어 단어 30개", isCompleted: true,  date: date, categoryId: "cat-2"),
-            Todo(id: "3", title: "독서 30분",      isCompleted: false, date: date, categoryId: "cat-3"),
-            Todo(id: "4", title: "운동하기",        isCompleted: false, date: date, categoryId: "cat-4"),
-            Todo(id: "5", title: "장보기",          isCompleted: false, date: date),
-        ]
+    // MARK: - Private
+
+    // 투두가 속한 날짜의 DailyReportItem이 없으면 자동 생성
+    private func ensureDailyReport(for date: Date) {
+        let startOfDay = Calendar.current.startOfDay(for: date)
+        guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return }
+        let descriptor = FetchDescriptor<DailyReportItem>(
+            predicate: #Predicate { $0.date >= startOfDay && $0.date < endOfDay }
+        )
+        guard let existing = try? context.fetch(descriptor), existing.isEmpty else { return }
+        let item = DailyReportItem(date: startOfDay)
+        context.insert(item)
+        try? context.save()
     }
 }

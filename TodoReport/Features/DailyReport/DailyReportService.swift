@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 // MARK: - Model
 
@@ -41,24 +42,33 @@ enum DayRating: String, CaseIterable, Codable {
 // MARK: - Service
 
 final class DailyReportService {
-    // 인메모리 저장소 — Notion 연동 전 더미 구현
-    private var store: [String: DailyReport] = [:]
+    private var context: ModelContext { PersistenceController.shared.context }
 
     func fetchReport(for date: Date) async -> DailyReport? {
-        // TODO: SwiftData 캐싱 → APIClient → 백엔드 순으로 교체
-        return store[key(for: date)]
+        let startOfDay = Calendar.current.startOfDay(for: date)
+        guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return nil }
+        do {
+            let descriptor = FetchDescriptor<DailyReportItem>(
+                predicate: #Predicate { $0.date >= startOfDay && $0.date < endOfDay }
+            )
+            return try context.fetch(descriptor).first?.toReport()
+        } catch {
+            return nil
+        }
     }
 
     func saveReport(_ report: DailyReport) async throws {
-        // Offline-First:
-        // 1. SwiftData 즉시 저장 (TODO)
-        // 2. SyncManager.shared.enqueue(.updateDailyReport(report))
-        store[key(for: report.date)] = report
-    }
-
-    private func key(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
+        let startOfDay = Calendar.current.startOfDay(for: report.date)
+        guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return }
+        let descriptor = FetchDescriptor<DailyReportItem>(
+            predicate: #Predicate { $0.date >= startOfDay && $0.date < endOfDay }
+        )
+        if let existing = try context.fetch(descriptor).first {
+            existing.update(from: report)
+        } else {
+            context.insert(DailyReportItem.from(report))
+        }
+        try context.save()
+        // TODO: SyncManager.shared.enqueue(.saveDailyReport(report))
     }
 }

@@ -418,3 +418,28 @@ Phase 5 (출시)
 - [ ] Phase 3: 홈 화면 위젯 (WidgetKit + App Group)
 - [ ] Phase 4: StoreKit 2 + 주간/월간 리포트 + 멀티 플래너 + 반복 투두 (유료)
 - [ ] Phase 5: App Store 심사 제출
+
+---
+
+## 현재 진행 상태 (2026-05-27 기준)
+
+**Phase 1 ✅ 완료**
+- Sign in with Apple (개발용 로그인 포함)
+- 온보딩 플로우 (로컬/노션 선택)
+- MainTabView, Colors, APIClient 기반 세팅
+
+**Phase 2 진행 중**
+- ✅ 투두 화면 (TodoView/ViewModel/Service)
+- ✅ 퀵캡처 바텀시트 (QuickCaptureView/ViewModel)
+- ✅ 리포트 카드 (DailyReportView/ViewModel/Service)
+- ✅ 카테고리 관리 (CategoryView/ViewModel/Service)
+- ✅ 설정 탭 기본 구조 (SettingsView - 더미)
+- ❌ SwiftData 실제 연동 (현재 인메모리 더미)
+- ❌ SyncQueue 구현
+- ❌ Notion API 실제 연동
+
+**Phase 3 ❌** 홈 화면 위젯
+
+**Phase 4 ❌** StoreKit + Notion 연동 + 리포트 탭
+
+**Phase 5 ❌** 앱스토어 출시

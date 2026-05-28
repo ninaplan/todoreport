@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct TodoReportApp: App {
@@ -21,5 +22,6 @@ struct TodoReportApp: App {
                 }
             }
         }
+        .modelContainer(PersistenceController.shared.container)
     }
 }

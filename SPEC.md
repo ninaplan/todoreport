@@ -39,7 +39,7 @@
 | 최소 지원 버전 | iOS 26+ |
 | 아키텍처 패턴 | MVVM |
 | 로컬 저장소 | SwiftData |
-| 로컬 캐시 | SwiftData + TTL 정책 |
+| 로컬 캐시 | SwiftData + 이벤트 기반 캐시 (16절 참고) |
 | 네트워크 | URLSession (자체 APIClient 래퍼) |
 | 결제 | StoreKit 2 (Apple IAP) |
 | 인증 | Notion OAuth (ASWebAuthenticationSession) |
@@ -309,6 +309,7 @@ api/
 | 속성명 | 타입 | 비고 |
 |---|---|---|
 | 완료 | checkbox | |
+| 중요 | checkbox | isPinned 연동. 없으면 NotionSchemaManager 자동 추가 |
 | 날짜 | date | |
 | 메모 | text | 투두 상세 내용. 앱에서 입력 시 Notion 페이지 텍스트 블록으로 저장 |
 | 데일리 리포트 | relation → 데일리리포트DB | |
@@ -387,18 +388,7 @@ SyncQueue에 작업 추가
 
 > 로컬 사용자는 SyncQueue 없이 SwiftData만 사용.
 
-앱 코드는 저장 위치를 몰라도 된다. DataRepository 프로토콜만 바라본다.
-
-```
-ViewModel
-    ↓
-DataRepository (protocol)
-  ├── NotionRepository    ← 노션 연결 사용자
-  └── LocalRepository     ← 로컬 모드 사용자 (SwiftData)
-  (└── iCloudRepository)  ← v2 백업 기능 추가 시
-```
-
-장점: 노션 → 로컬, 로컬 → 노션 전환 시 ViewModel 코드 변경 없음.
+> DataRepository 프로토콜 상세 → 15절 참고.
 
 ## 8-3. NotionSchemaManager 패턴
 
@@ -425,6 +415,22 @@ DataRepository (protocol)
 - 사용자가 거부하면 해당 기능 비활성화 (UI에서 회색 처리)
 - 새 템플릿 사용자는 속성이 이미 있으므로 이 단계 스킵
 - 기존 사용자만 자동 추가 플로우 진행
+
+### 자동 추가 대상 속성
+
+**데일리리포트DB**
+
+| 속성명 | 타입 | 추가 조건 |
+|---|---|---|
+| 완료율_앱 | number | 없을 경우 자동 추가 |
+| 별점 | select (⭐~⭐⭐⭐⭐⭐) | 없을 경우 자동 추가 |
+
+**투두DB**
+
+| 속성명 | 타입 | 추가 조건 |
+|---|---|---|
+| 메모 | text | 없을 경우 자동 추가 |
+| 중요 | checkbox | 없을 경우 자동 추가 |
 
 ## 8-2. DailyReport 데이터 모델
 
@@ -552,6 +558,12 @@ struct Category: Identifiable, Codable {
 
 > 카테고리 필터는 투두 목록 상단 칩으로 이동. 보기 옵션에서 제거.
 
+> **[확정] 카테고리 필터 칩 스타일 (탭바 방식)**
+> - 전체 바 하단에 1pt `Color(.separator)` 구분선 가로 전체 표시
+> - 선택된 칩 아래만 2.5pt `Color(.label)` 두꺼운 선 오버레이
+> - 미선택 칩: 회색 텍스트, 개별 라인 없음
+> - 배경/테두리 없음 — 텍스트 + 하단 라인만
+
 **할일 메모 보기 동작:**
 - 기본값: 꺼짐 (메모 숨김)
 - 켜면: 메모가 있는 투두에 한 줄 미리보기 표시
@@ -607,6 +619,12 @@ struct Category: Identifiable, Codable {
 ```
 
 > 완료율은 현재 선택된 카테고리 필터 기준으로 계산된다. 전체 선택 시 전체 투두 기준.
+
+> **[확정] 완료율·별점·리뷰 카드 스타일**
+> - 날짜 행 바로 아래 단일 흰색 카드로 통합 (완료율 → 별점 → 리뷰 순)
+> - 배경 `Color(.secondarySystemGroupedBackground)`, `RoundedRectangle(cornerRadius: 16, style: .continuous)`
+> - 테두리 0.5pt `Color(.separator)`, 그림자 없음
+> - 좌우 margin 16pt (리스트 행 insets), 리스트 배경 `Color(.systemGroupedBackground)`
 
 > 카테고리 필터 선택 상태에서 인라인 "+ 투두 추가" 또는 플로팅 + 버튼으로 투두 추가 시, 선택된 카테고리가 자동 지정된다.
 
@@ -714,20 +732,9 @@ struct Category: Identifiable, Codable {
 └─────────────────────────────────┘
 ```
 
-### 실시간 완료율 동작 원칙
+### 완료율 계산 원칙
 
-```
-투두 체크
-    ↓
-앱 로컬에서 즉시 계산 (완료 수 ÷ 전체 수)
-    ↓
-화면 즉시 업데이트 (Notion 응답 기다리지 않음)
-    ↓
-백그라운드에서 Notion 비동기 저장
-```
-
-> Notion 수식(완료율)은 서버 계산이라 실시간 반영 불가.
-> 앱에서 직접 계산해 표시하고, Notion엔 백그라운드 동기화.
+> 완료율 계산 주체 및 저장 원칙 → 17절 참고.
 
 ### i18n (다국어) 처리 원칙
 
@@ -816,6 +823,249 @@ Phase 4 (출시)
   - Privacy Policy / Terms of Service
   - 심사 제출
 ```
+
+---
+
+## 14. 데이터 모델 상세
+
+### TodoItem
+
+```swift
+struct TodoItem: Identifiable, Codable {
+    // 📱 로컬 전용 (SwiftData)
+    let id: String              // 앱 내부 UUID (Notion ID 아님)
+    var title: String           // 할일 이름 (Notion 페이지 제목)
+    var isCompleted: Bool       // 완료 여부
+    var date: Date              // 날짜
+    var memo: String?           // 메모 (없으면 nil)
+    var categoryId: String?     // 카테고리 ID (없으면 nil, 앱 전용)
+    let createdAt: Date         // 생성 시각 — 정렬용, 로컬 전용 (Notion에 저장 안 함)
+
+    // 🔄 노션 동기화용
+    var notionPageId: String?   // Notion 페이지 ID (로컬 사용자는 nil)
+    var syncStatus: SyncStatus  // 동기화 상태
+}
+
+enum SyncStatus: String, Codable {
+    case pending  // SwiftData 저장 완료, Notion 전송 대기 중
+    case synced   // Notion 동기화 완료
+    case failed   // 재시도 3회 실패
+}
+```
+
+#### Notion 투두DB 속성 매핑
+
+| Swift 필드 | Notion 속성 | 타입 | 비고 |
+|---|---|---|---|
+| title | 제목 | title | Notion 페이지 제목 |
+| isCompleted | 완료 | checkbox | |
+| date | 날짜 | date | |
+| memo | 메모 | text | **없는 사용자 있음 → NotionSchemaManager 자동 추가** |
+| — | 데일리 리포트 | relation | SyncQueue가 자동 연결 (15절 참고) |
+| — | 시간표 | relation | v2, 앱에서 건드리지 않음 |
+| — | 알림 | formula | v2, 앱에서 건드리지 않음 |
+| createdAt | — | — | 로컬 전용, Notion에 저장 안 함 |
+| categoryId | — | — | 앱 전용, Notion에 저장 안 함 |
+| isPinned | 중요 | checkbox | 없는 사용자는 NotionSchemaManager 자동 추가 |
+
+---
+
+## 15. 아키텍처 상세
+
+### DataRepository 프로토콜
+
+ViewModel은 저장 위치(Notion / SwiftData)를 몰라도 된다.
+DataRepository 프로토콜만 바라본다.
+
+```swift
+protocol DataRepository {
+
+    // MARK: - 투두
+    func fetchTodos(date: Date) async throws -> [TodoItem]
+    func createTodo(_ todo: TodoItem) async throws
+    func updateTodo(_ todo: TodoItem) async throws  // 완료체크 / 제목 / 메모 / 카테고리 / 날짜 변경 포함
+    func deleteTodo(id: String) async throws
+
+    // MARK: - 데일리리포트
+    func fetchDailyReport(date: Date) async throws -> DailyReport?
+    func saveDailyReport(_ report: DailyReport) async throws
+
+    // MARK: - 카테고리
+    func fetchCategories() async throws -> [Category]
+    func createCategory(_ category: Category) async throws
+    func updateCategory(_ category: Category) async throws
+    func archiveCategory(id: String) async throws  // 소프트 삭제 (status = .archived)
+}
+```
+
+### Repository 구현체
+
+```
+DataRepository (protocol)
+  ├── NotionRepository    ← 노션 연결 사용자
+  │     투두/리포트: SyncQueue 통해 Notion 동기화
+  │     카테고리: v1은 SwiftData, v2에서 Notion 프로젝트DB 연동 예정
+  └── LocalRepository     ← 로컬 모드 사용자
+        투두/리포트/카테고리: SwiftData 직접 읽기/쓰기
+        SyncQueue 없음
+  (└── iCloudRepository)  ← v2
+```
+
+### 카테고리 v2 확장 경로
+
+카테고리는 v1에서 앱 전용(SwiftData)이지만, v2에서 Notion 프로젝트DB / 목표DB 연동 예정.
+DataRepository 프로토콜로 추상화되어 있으므로 **ViewModel / View 코드 변경 없이**
+NotionRepository 내부 구현만 교체하면 된다.
+
+```
+v1: ViewModel → DataRepository.fetchCategories()
+                        ↓
+                NotionRepository 내부: SwiftData에서 읽어옴
+
+v2: ViewModel → DataRepository.fetchCategories()  ← 변경 없음
+                        ↓
+                NotionRepository 내부: Notion 프로젝트DB에서 읽어옴
+```
+
+v2 전환 시 작업 범위:
+- NotionRepository의 카테고리 메서드 구현만 교체
+- CategoryStatus → Notion 속성 매핑은 8-5절 참고
+- ViewModel, View, DataRepository 프로토콜 변경 없음
+
+### MVVM + Repository 전체 흐름
+
+```
+View
+  ↓ (사용자 액션)
+ViewModel
+  ↓ (DataRepository 프로토콜 호출)
+  ├── NotionRepository
+  │     ↓
+  │   SwiftData 즉시 저장 → 화면 업데이트
+  │     ↓
+  │   SyncQueue → 백그라운드 Notion 전송
+  │
+  └── LocalRepository
+        ↓
+      SwiftData 즉시 저장 → 화면 업데이트
+```
+
+---
+
+## 16. 데이터 동기화 전략
+
+### 기본 원칙: 이벤트 기반 (타이머 기반 아님)
+
+타이머로 주기적으로 자동 갱신하지 않는다.
+아래 이벤트가 발생할 때만 Notion에서 새로 가져온다.
+
+| 이벤트 | Notion fetch 여부 |
+|---|---|
+| 앱 처음 열 때 | ✅ 오늘 날짜 fetch |
+| 백그라운드 갔다가 복귀 | ✅ 오늘 날짜 fetch |
+| 처음 보는 날짜로 이동 | ✅ 해당 날짜 fetch |
+| 이미 캐시 있는 날짜로 이동 | ❌ 캐시 그대로 사용 |
+| 사용자가 Pull to Refresh | ✅ 현재 날짜 fetch |
+| 앱 켜놓고 있는 동안 자동 | ❌ 하지 않음 |
+
+### 캐시 정책
+
+- 한 번 fetch한 날짜 데이터는 그 세션 동안 캐시 유지
+- 앱을 껐다 켜면 (새 세션) 오늘 날짜는 다시 fetch
+- 과거 날짜는 앱 껐다 켜도 캐시 유지 (과거 데이터는 잘 바뀌지 않음)
+- Pull to Refresh로 언제든 수동 갱신 가능
+
+### 충돌 해결 원칙: Notion = Source of Truth
+
+앱 SwiftData는 캐시다. Notion에서 가져온 데이터로 언제든 덮어써질 수 있다.
+
+**상황 A: 앱에 pending 항목 있는데 Notion에서도 수정됨**
+```
+pending 항목 먼저 Notion에 push → 그 다음 fetch
+결과: 앱에서 마지막 수정한 값이 최종값
+```
+
+**상황 B: 앱 캐시 있는데 Notion에서 직접 수정됨 (앱은 모름)**
+```
+다음 fetch 이벤트 발생 시 → Notion 최신값으로 SwiftData 덮어씀
+결과: Notion 수정값이 앱에 반영됨
+```
+
+- syncStatus: `.pending` 항목은 push 완료 전까지 덮어쓰지 않는다
+- v2에서 고려: 진짜 충돌 감지 (양쪽 동시 수정) — MVP 미구현
+
+### 데일리리포트 relation 연결 (SyncQueue 처리)
+
+투두 생성 시 해당 날짜 데일리리포트와 relation 연결은 앱이 SyncQueue를 통해 관리한다.
+
+```
+투두 생성
+  ↓
+SwiftData 즉시 저장 → 화면 즉시 업데이트
+  ↓
+SyncQueue에 createTodo 추가
+  ↓
+백그라운드 실행:
+  해당 날짜 데일리리포트 Notion에서 조회
+  ├── 있으면 → 투두와 relation 연결
+  └── 없으면 → 데일리리포트 먼저 생성 → relation 연결
+```
+
+**로컬 사용자의 DailyReport:**
+- 로컬 사용자도 SwiftData에 DailyReport 객체 저장 (리포트 탭 표시 필요)
+- relation 연결 로직은 생략, SyncQueue 없음
+
+---
+
+## 17. 완료율 계산 원칙
+
+| 완료율 종류 | 계산 주체 | 저장 위치 | 용도 |
+|---|---|---|---|
+| 화면 표시 완료율 | 앱 로컬 계산 | 저장 안 함 | 실시간 화면 업데이트 |
+| Notion formula (완료율) | Notion 자동 계산 | Notion DB | 앱에서 읽지도 쓰지도 않음 |
+| 완료율_앱 (number) | 앱 계산 후 PATCH | Notion DB | 주간/월간 리포트 저장 시에만 (유료) |
+
+- 화면 완료율: 선택된 카테고리 필터 기준으로 계산
+- **Notion 저장 시 완료율은 항상 전체 투두 기준** — 카테고리 필터 상태 무관
+- Notion의 `완료율` formula: 관계형 연결 시 자동 계산, 앱이 건드리지 않음
+
+---
+
+## 18. 플래너 전환 시 상태 규칙
+
+| 상태 항목 | 전환 시 동작 | 저장 위치 | 이유 |
+|---|---|---|---|
+| 선택된 날짜 | **유지** | 메모리 | 같은 날 두 플래너 비교가 자연스러움 |
+| 카테고리 필터 | **"전체"로 초기화** | 메모리 | 플래너마다 카테고리가 다를 수 있음 |
+| 완료 숨기기 | **유지 (전역)** | UserDefaults | 취향 설정, 플래너별 다를 필요 없음 |
+| 할일 메모 보기 | **유지 (전역)** | UserDefaults | 취향 설정, 플래너별 다를 필요 없음 |
+| 정렬 옵션 | **유지 (전역)** | UserDefaults | 취향 설정, 플래너별 다를 필요 없음 |
+
+---
+
+## 19. 온보딩 재진입 플로우
+
+로컬 모드 사용자가 설정 탭 > 계정 > 노션 연결을 탭했을 때.
+온보딩 3-A와 동일한 플로우를 재사용한다.
+
+```
+설정 > 노션 연결 탭
+  ↓
+Notion OAuth 진행
+  ↓
+플래너 이름 입력
+  ↓
+투두DB 선택
+  ↓
+데일리리포트DB 선택
+  ↓
+필수 속성 자동 추가 (완료율_앱, 별점, 메모)
+  ↓
+완료 → NotionRepository로 전환
+```
+
+- 기존 로컬(SwiftData) 데이터는 건드리지 않음
+- 로컬 → 노션 데이터 마이그레이션은 v2 유료 기능으로 별도 구현
 
 ---
 

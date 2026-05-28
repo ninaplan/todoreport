@@ -1,21 +1,41 @@
 import SwiftUI
 
+// MARK: - 플래너 모델 (더미)
+
+struct Planner: Identifiable, Hashable {
+    var id: String
+    var name: String
+    var colorHex: String
+    var isNotionConnected: Bool
+}
+
+// MARK: - 설정 뷰
+
 struct SettingsView: View {
     @AppStorage("onboardingCompleted") private var onboardingCompleted = false
-    @State private var showLogoutAlert = false
 
-    private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-    }
+    // 더미 데이터
+    private let isNotionConnected = false
+    private let notionAccountEmail = "nina@notion.so"
+    @State private var planners: [Planner] = [
+        Planner(id: "p1", name: "내 플래너", colorHex: "FD6845", isNotionConnected: false),
+        Planner(id: "p2", name: "노션 워크스페이스", colorHex: "4E9AF1", isNotionConnected: true)
+    ]
+    private let isPro = false
+    private let appleIdEmail = "user@icloud.com"
+
+    @State private var language = "한국어"
+    @State private var startWeekday = "월"
+    @State private var notificationEnabled = true
+    @State private var showLogoutAlert = false
 
     var body: some View {
         List {
-            plannerSection
-            appSettingsSection
-            categorySection
+            notionSection
+            plannersSection
+            globalSettingsSection
             subscriptionSection
-            accountSection
-            infoSection
+            accountFooterSection
 
             #if DEBUG
             debugSection
@@ -23,66 +43,68 @@ struct SettingsView: View {
         }
         .navigationTitle("설정")
         .alert("로그아웃", isPresented: $showLogoutAlert) {
-            Button("로그아웃", role: .destructive) { }
+            Button("로그아웃", role: .destructive) { onboardingCompleted = false }
             Button("취소", role: .cancel) { }
         } message: {
             Text("로그아웃하시겠어요?")
         }
     }
 
-    // MARK: - 내 플래너
+    // MARK: - 노션 연결
 
-    private var plannerSection: some View {
-        Section("내 플래너") {
-            LabeledContent("플래너 이름") {
-                Text("내 플래너")
-                    .foregroundStyle(.secondary)
+    private var notionSection: some View {
+        Section("노션 연결") {
+            NavigationLink {
+                NotionConnectionView(isConnected: isNotionConnected)
+            } label: {
+                HStack {
+                    Text("노션 연결")
+                    Spacer()
+                    if isNotionConnected {
+                        Text(notionAccountEmail)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
             }
-            LabeledContent("투두DB") {
-                Text("할일 목록")
-                    .foregroundStyle(.secondary)
-            }
-            LabeledContent("데일리리포트DB") {
-                Text("데일리리포트")
-                    .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - 플래너
+
+    private var plannersSection: some View {
+        Section("플래너") {
+            ForEach(planners) { planner in
+                NavigationLink {
+                    PlannerDetailView(planner: planner)
+                } label: {
+                    PlannerRow(planner: planner)
+                }
             }
             Button {
-                // TODO: 유료 게이트 → Paywall 표시
+                // TODO: Pro 게이트 → Paywall 표시
             } label: {
-                Label("플래너 추가하기 🔒", systemImage: "plus")
-                    .foregroundStyle(.secondary)
+                Label(isPro ? "플래너 추가" : "플래너 추가  🔒", systemImage: "plus")
+                    .foregroundStyle(isPro ? Color.nockOrange : .secondary)
             }
         }
     }
 
-    // MARK: - 앱 설정
+    // MARK: - 전역 설정
 
-    private var appSettingsSection: some View {
-        Section("앱 설정") {
-            LabeledContent("언어") {
-                Text("한국어")
-                    .foregroundStyle(.secondary)
+    private var globalSettingsSection: some View {
+        Section("전역 설정") {
+            Picker("언어", selection: $language) {
+                Text("한국어").tag("한국어")
+                Text("English").tag("English")
             }
-            LabeledContent("시작 요일") {
-                Text("월요일")
-                    .foregroundStyle(.secondary)
+            Picker("시작 요일", selection: $startWeekday) {
+                Text("일요일").tag("일")
+                Text("월요일").tag("월")
             }
-            LabeledContent("주간 리포트 알림") {
-                Text("일 밤 10시")
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    // MARK: - 카테고리 관리
-
-    private var categorySection: some View {
-        Section {
-            NavigationLink {
-                CategoryView()
-            } label: {
-                Text("카테고리 관리")
-            }
+            Toggle("알림", isOn: $notificationEnabled)
+                .tint(Color.nockOrange)
         }
     }
 
@@ -91,63 +113,41 @@ struct SettingsView: View {
     private var subscriptionSection: some View {
         Section("구독") {
             LabeledContent("현재 플랜") {
-                Text("무료")
+                Text(isPro ? "Pro" : "무료")
                     .foregroundStyle(.secondary)
             }
-            Button("구독 관리") {
-                // TODO: StoreKit 2 구독 관리 시트
-            }
-            Button("구매 복원") {
-                // TODO: StoreKit 2 restore purchases
+            if !isPro {
+                Button("Pro로 업그레이드") {
+                    // TODO: Paywall
+                }
+                .foregroundStyle(Color.nockOrange)
             }
         }
     }
 
-    // MARK: - 계정
+    // MARK: - 계정 푸터
 
-    private var accountSection: some View {
-        Section("계정") {
-            LabeledContent("Apple ID") {
-                Text("user@icloud.com")
+    private var accountFooterSection: some View {
+        Section {
+            VStack(spacing: 14) {
+                Text(appleIdEmail)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                Button("로그아웃") {
+                    showLogoutAlert = true
+                }
+                .font(.subheadline)
+                .foregroundStyle(.red)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
-            LabeledContent("노션 연결") {
-                Text("미연결")
-                    .foregroundStyle(.secondary)
-            }
-            HStack(spacing: 6) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                    .font(.caption)
-                Text("기기에만 저장됩니다. 기기 변경 시 데이터를 불러올 수 없어요.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .listRowBackground(Color.orange.opacity(0.08))
-            Button("로그아웃", role: .destructive) {
-                showLogoutAlert = true
-            }
+            .padding(.vertical, 6)
         }
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
-    // MARK: - 정보
-
-    private var infoSection: some View {
-        Section("정보") {
-            LabeledContent("버전") {
-                Text(appVersion)
-                    .foregroundStyle(.secondary)
-            }
-            Button("개인정보처리방침") {
-                // TODO: nock.kr/privacy 링크 연결
-            }
-            Button("이용약관") {
-                // TODO: nock.kr/terms 링크 연결
-            }
-        }
-    }
-
-    // MARK: - 개발용 (DEBUG 빌드 전용)
+    // MARK: - 개발용
 
     #if DEBUG
     private var debugSection: some View {
@@ -158,4 +158,37 @@ struct SettingsView: View {
         }
     }
     #endif
+}
+
+// MARK: - 플래너 행
+
+private struct PlannerRow: View {
+    let planner: Planner
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(Color(hex: planner.colorHex))
+                .frame(width: 10, height: 10)
+            Text(planner.name)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer()
+            if planner.isNotionConnected {
+                NotionBadge()
+            }
+        }
+    }
+}
+
+// MARK: - 노션 배지
+
+struct NotionBadge: View {
+    var body: some View {
+        Text("N")
+            .font(.system(size: 9, weight: .black))
+            .foregroundStyle(.white)
+            .frame(width: 16, height: 16)
+            .background(Color(.label), in: RoundedRectangle(cornerRadius: 3, style: .continuous))
+    }
 }

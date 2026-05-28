@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Observation
 
 // MARK: - Status
@@ -57,15 +58,17 @@ struct Category: Identifiable, Codable {
 @Observable
 final class CategoryService {
     static let shared = CategoryService()
-    private init() {}
+    private init() {
+        // 앱 시작 시 SwiftData에서 즉시 동기 로드 — 카테고리 칩 첫 렌더링에 반영
+        store = (try? PersistenceController.shared.context.fetch(
+            FetchDescriptor<CategoryItem>(sortBy: [SortDescriptor(\.sortOrder)])
+        ))?.map { $0.toCategory() } ?? []
+    }
 
-    // 인메모리 저장소 — SwiftData 연동 전 더미 구현
-    private(set) var store: [Category] = [
-        Category(id: "cat-1", name: "수학",  colorHex: "#007AFF", icon: "pencil"),
-        Category(id: "cat-2", name: "영어",  colorHex: "#34C759", icon: "note.text"),
-        Category(id: "cat-3", name: "독서",  colorHex: "#FF9500", icon: "book.fill"),
-        Category(id: "cat-4", name: "운동",  colorHex: "#FF3B30", icon: "figure.run"),
-    ]
+    private var context: ModelContext { PersistenceController.shared.context }
+
+    // 반응형 스토어 — SwiftData 패치 후 갱신
+    private(set) var store: [Category] = []
 
     var activeCategories: [Category] {
         store.filter { $0.status == .active }
@@ -75,41 +78,75 @@ final class CategoryService {
         store.filter { $0.status == .archived }
     }
 
+    // MARK: - Fetch
+
     func fetchCategories() async -> [Category] {
-        // TODO: SwiftData context.fetch — status == .active 필터
+        await refreshStore()
         return activeCategories
     }
 
     func fetchArchivedCategories() async -> [Category] {
-        // TODO: SwiftData context.fetch — status == .archived 필터
+        await refreshStore()
         return archivedCategories
     }
 
-    func saveCategory(_ category: Category) async throws {
-        // TODO: SwiftData context.insert / context.save()
-        if let index = store.firstIndex(where: { $0.id == category.id }) {
-            store[index] = category
-        } else {
-            store.append(category)
+    private func refreshStore() async {
+        do {
+            let descriptor = FetchDescriptor<CategoryItem>(
+                sortBy: [SortDescriptor(\.sortOrder)]
+            )
+            store = try context.fetch(descriptor).map { $0.toCategory() }
+        } catch {
+            // store 유지 (패치 실패 시 기존 상태 보존)
         }
     }
 
+    // MARK: - Write
+
+    func saveCategory(_ category: Category) async throws {
+        let id = category.id
+        let descriptor = FetchDescriptor<CategoryItem>(predicate: #Predicate { $0.id == id })
+        if let existing = try context.fetch(descriptor).first {
+            existing.update(from: category)
+        } else {
+            let sortOrder = store.count
+            context.insert(CategoryItem.from(category, sortOrder: sortOrder))
+        }
+        try context.save()
+        await refreshStore()
+    }
+
     func archiveCategory(id: String) async throws {
-        // TODO: SwiftData context.save()
-        guard let index = store.firstIndex(where: { $0.id == id }) else { return }
-        store[index].status = .archived
+        let descriptor = FetchDescriptor<CategoryItem>(predicate: #Predicate { $0.id == id })
+        guard let item = try context.fetch(descriptor).first else { return }
+        item.statusRaw = CategoryStatus.archived.rawValue
+        try context.save()
+        await refreshStore()
     }
 
     func restoreCategory(id: String) async throws {
-        // TODO: SwiftData context.save()
-        guard let index = store.firstIndex(where: { $0.id == id }) else { return }
-        store[index].status = .active
+        let descriptor = FetchDescriptor<CategoryItem>(predicate: #Predicate { $0.id == id })
+        guard let item = try context.fetch(descriptor).first else { return }
+        item.statusRaw = CategoryStatus.active.rawValue
+        try context.save()
+        await refreshStore()
     }
 
     func reorderActiveCategories(_ ordered: [Category]) {
-        let orderedIds = ordered.map(\.id)
-        let archived = store.filter { $0.status != .active }
-        let reordered = orderedIds.compactMap { id in store.first { $0.id == id } }
-        store = reordered + archived
+        Task {
+            do {
+                for (index, category) in ordered.enumerated() {
+                    let id = category.id
+                    let descriptor = FetchDescriptor<CategoryItem>(predicate: #Predicate { $0.id == id })
+                    if let item = try context.fetch(descriptor).first {
+                        item.sortOrder = index
+                    }
+                }
+                try context.save()
+                await refreshStore()
+            } catch {
+                // 순서 변경 실패 — UI에서 이미 reorder 반영됐으므로 다음 패치 시 복구
+            }
+        }
     }
 }

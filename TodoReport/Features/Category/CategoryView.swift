@@ -248,6 +248,9 @@ private struct CategoryEditSheet: View {
                 }
             }
             .onAppear { isNameFocused = true }
+            .sensoryFeedback(.selection, trigger: viewModel.editColorHex)
+            .sensoryFeedback(.selection, trigger: viewModel.editIcon)
+            .sensoryFeedback(.warning, trigger: viewModel.showArchiveAlert)
             .alert("보관하시겠어요?", isPresented: $viewModel.showArchiveAlert) {
                 Button("취소", role: .cancel) { viewModel.cancelArchive() }
                 Button("보관", role: .destructive) {
