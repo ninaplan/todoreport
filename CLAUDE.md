@@ -458,6 +458,26 @@ Phase 5 (출시)
 
 ---
 
+## v2 백로그
+
+### 동적 속성 매핑
+노션 속성 타입(text / select / relation 등)에 따라 앱 UI와 저장 방식이 달라지도록 구현.
+
+- 현재: 속성명만 매핑 (고정 타입 가정)
+- v2 목표: 속성 타입을 런타임에 읽어 UI를 동적으로 생성
+  - `rich_text` → 텍스트 입력
+  - `select` → 드롭다운 선택
+  - `relation` → 연결된 DB 페이지 목록을 드롭다운으로 표시
+  - `number`, `checkbox`, `date` 등도 타입에 맞는 입력 컴포넌트
+- 사용자가 자신의 노션 DB 구조에 맞게 완전 커스텀 가능하도록
+
+관련 파일:
+- `Features/Onboarding/OnboardingViewModel.swift` — `TodoPropsMapping`, `ReportPropsMapping` 구조체
+- `Features/Settings/PlannerNotionSettingsView.swift` — 속성 매핑 UI
+- `Features/Settings/PlannerNotionSettingsViewModel.swift` — `autoMapTodoProps`, `autoMapReportProps`
+
+---
+
 ## Widget Extension 설정 (Xcode 수동 작업 필요)
 
 Widget Extension 타겟(`TodoReportWidget`)은 이미 생성되어 있음.
