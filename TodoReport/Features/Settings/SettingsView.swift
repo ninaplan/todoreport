@@ -7,7 +7,7 @@ struct SettingsView: View {
 
     private var planners: [Planner] { PlannerService.shared.store }
     #if DEBUG
-    private let isPro = true
+    private var isPro: Bool { debugIsPro }
     #else
     private let isPro = false
     #endif
@@ -128,6 +128,9 @@ struct SettingsView: View {
         Section("개발자 도구") {
             Toggle("Pro 모드", isOn: $debugIsPro)
                 .tint(AppTheme.shared.accent)
+            Button("SyncQueue 비우기", role: .destructive) {
+                SyncQueueManager.shared.clearAll()
+            }
             Button("온보딩 초기화", role: .destructive) {
                 NotionAuthManager.shared.signOut()
                 onboardingCompleted = false

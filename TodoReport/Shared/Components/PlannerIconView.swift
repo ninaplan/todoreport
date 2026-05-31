@@ -27,7 +27,7 @@ struct PlannerIconView: View {
                 Circle()
                     .fill(Color(.systemGray5))
                     .frame(width: size, height: size)
-                Image(systemName: "book.open")
+                Image(systemName: "checklist")
                     .font(.system(size: size * 0.4, weight: .semibold))
                     .foregroundStyle(.secondary)
             }

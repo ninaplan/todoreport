@@ -6,6 +6,7 @@ final class SyncQueueManager {
     static let shared = SyncQueueManager()
     private init() {
         clearFailedItems()
+        clearOldItems()
     }
 
     private var context: ModelContext { PersistenceController.shared.context }
@@ -138,6 +139,27 @@ final class SyncQueueManager {
         try? context.save()
         print("[SyncQueue] 🗑️ failed 항목 \(items.count)개 삭제")
     }
+
+    private func clearOldItems() {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: .now) ?? .now
+        let descriptor = FetchDescriptor<SyncQueueItem>(
+            predicate: #Predicate<SyncQueueItem> { $0.createdAt < cutoff }
+        )
+        guard let items = try? context.fetch(descriptor), !items.isEmpty else { return }
+        items.forEach { context.delete($0) }
+        try? context.save()
+        print("[SyncQueue] 🗑️ 오래된 항목 \(items.count)개 삭제 (7일 초과)")
+    }
+
+    #if DEBUG
+    func clearAll() {
+        let descriptor = FetchDescriptor<SyncQueueItem>()
+        guard let items = try? context.fetch(descriptor), !items.isEmpty else { return }
+        items.forEach { context.delete($0) }
+        try? context.save()
+        print("[SyncQueue] 🗑️ 전체 큐 초기화 (\(items.count)개)")
+    }
+    #endif
 
     // MARK: - Todo Payload
 

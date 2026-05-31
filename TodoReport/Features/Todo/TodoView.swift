@@ -53,16 +53,6 @@ struct TodoView: View {
 
                     // 투두 목록
                     Section {
-                        if viewModel.isNotionSyncing {
-                            HStack(spacing: 8) {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                                Text("노션에서 자료를 읽어오고 있습니다.")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
-                        }
                         todoRows(for: viewModel.filteredTodos)
                         addTodoRow
                             .id("addTodoRow")
@@ -98,6 +88,10 @@ struct TodoView: View {
 
                 FloatingCaptureButton {
                     showQuickCapture = true
+                }
+
+                if viewModel.isNotionSyncing {
+                    NotionSyncingOverlay()
                 }
             }
             .background(Color(.systemGroupedBackground))
@@ -522,7 +516,8 @@ private struct PlannerSelectionSheet: View {
     @State private var showAddPlanner = false
     @State private var showProAlert = false
     #if DEBUG
-    private let isPro = true
+    @AppStorage("debugIsPro") private var debugIsPro = false
+    private var isPro: Bool { debugIsPro }
     #else
     private let isPro = false
     #endif

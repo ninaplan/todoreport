@@ -28,6 +28,8 @@ final class ReportViewModel {
     private let isPro = false
     #endif
 
+    var isProUser: Bool { isPro }
+
     private let service = ReportService.shared
     private let calendar = Calendar.current
 
@@ -77,6 +79,7 @@ final class ReportViewModel {
     func dismissPaywall() {
         showPaywall = false
         paywallMessage = ""
+        if selectedPeriod == .monthly { selectedPeriod = .weekly }
     }
 
     // MARK: - Data

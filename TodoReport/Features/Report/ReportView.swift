@@ -33,12 +33,13 @@ struct ReportView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Picker("기간", selection: $vm.selectedPeriod) {
-                        ForEach(ReportPeriod.allCases, id: \.self) {
-                            Text($0.rawValue).tag($0)
+                        ForEach(ReportPeriod.allCases, id: \.self) { period in
+                            Text(period == .monthly && !viewModel.isProUser ? "월간 🔒" : period.rawValue)
+                                .tag(period)
                         }
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 160)
+                    .frame(width: 172)
                 }
             }
             .task { await viewModel.fetchReport() }
