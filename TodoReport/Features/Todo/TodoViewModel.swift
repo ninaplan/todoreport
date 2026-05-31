@@ -96,6 +96,7 @@ final class TodoViewModel {
         todos = await service.fetchTodos(for: selectedDate)
         isLoading = false
         validateCategoryFilter()
+        updateWidget()
         notionSyncTask?.cancel()
         let date = selectedDate
         notionSyncTask = Task {
@@ -105,7 +106,13 @@ final class TodoViewModel {
             guard !Task.isCancelled else { return }
             todos = await service.fetchTodos(for: date)
             validateCategoryFilter()
+            updateWidget()
         }
+    }
+
+    private func updateWidget() {
+        guard Calendar.current.isDateInToday(selectedDate) else { return }
+        WidgetDataProvider.shared.update(todos: displayedTodos, plannerName: plannerName)
     }
 
     private func validateCategoryFilter() {

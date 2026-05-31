@@ -413,33 +413,73 @@ Phase 5 (출시)
   - 심사 제출
 ```
 
-- [ ] Phase 1: Notion OAuth + APIClient + 온보딩 + Sign in with Apple
-- [ ] Phase 2: 투두 기록 + 빠른 캡처 + 데일리 리포트 + 카테고리 (무료)
-- [ ] Phase 3: 홈 화면 위젯 (WidgetKit + App Group)
-- [ ] Phase 4: StoreKit 2 + 주간/월간 리포트 + 멀티 플래너 + 반복 투두 (유료)
+- [x] Phase 1: Notion OAuth + APIClient + 온보딩 + Sign in with Apple
+- [x] Phase 2: 투두 기록 + 빠른 캡처 + 데일리 리포트 + 카테고리 (무료)
+- [x] Phase 3: 홈 화면 위젯 (WidgetKit + App Group)
+- [ ] Phase 4: StoreKit 2 + 반복 투두 (유료)
 - [ ] Phase 5: App Store 심사 제출
 
 ---
 
-## 현재 진행 상태 (2026-05-27 기준)
+## 현재 진행 상태 (2026-05-31 기준)
 
 **Phase 1 ✅ 완료**
 - Sign in with Apple (개발용 로그인 포함)
-- 온보딩 플로우 (로컬/노션 선택)
+- 온보딩 플로우 (로컬/노션 선택 → OAuth → DB선택 → 속성매핑)
 - MainTabView, Colors, APIClient 기반 세팅
 
-**Phase 2 진행 중**
-- ✅ 투두 화면 (TodoView/ViewModel/Service)
+**Phase 2 ✅ 완료**
+- ✅ 투두 화면 (TodoView/ViewModel/Service) + 날짜이동/플래너전환/카테고리필터
 - ✅ 퀵캡처 바텀시트 (QuickCaptureView/ViewModel)
-- ✅ 리포트 카드 (DailyReportView/ViewModel/Service)
+- ✅ 데일리리포트 (DailyReportView/ViewModel/Service + Notion 동기화)
 - ✅ 카테고리 관리 (CategoryView/ViewModel/Service)
-- ✅ 설정 탭 기본 구조 (SettingsView - 더미)
-- ❌ SwiftData 실제 연동 (현재 인메모리 더미)
-- ❌ SyncQueue 구현
-- ❌ Notion API 실제 연동
+- ✅ 설정 탭 + 플래너 관리 (Add/Detail/Migration/NotionSettings)
+- ✅ SwiftData 실제 연동 (TodoItem, DailyReportItem, CategoryItem, PlannerItem, SyncQueueItem)
+- ✅ SyncQueue Offline-First (SyncQueueManager + SyncQueueProcessor)
+- ✅ Notion API 연동 (NotionAPIClient → 백엔드 → Notion)
+- ✅ NotionAuthManager (SFSafariViewController OAuth, planner별 토큰)
+- ✅ PlannerService (SwiftData CRUD, 레거시 마이그레이션, plannerId backfill)
 
-**Phase 3 ❌** 홈 화면 위젯
+**Phase 3 ✅ 완료** 홈 화면 위젯
+- ✅ WidgetDataProvider (App Group UserDefaults 공유, main app 타겟)
+- ✅ TodoWidgetBundle / TodoWidgetProvider (widget extension 타겟: TodoReportWidget/)
+- ✅ Small / Medium / Large 위젯 뷰 (SmallWidgetView, MediumWidgetView, LargeWidgetView)
+- ✅ TodoViewModel.updateWidget() — 투두 fetch/toggle/add/delete 후 자동 갱신
+- ⚠️ App Groups capability: 두 타겟 모두 Xcode > Signing & Capabilities에서 수동 활성화 필요
+  → App Group ID: group.kr.nock.TodoReport
 
-**Phase 4 ❌** StoreKit + Notion 연동 + 리포트 탭
+**Phase 4 ✅ 일부 선행 완료**
+- ✅ 주간/월간 리포트 (ReportView/ViewModel/Service + Charts)
+- ✅ Pro 게이팅 (월간, 날짜이동, 이전기간 조회)
+- ❌ StoreKit 2 구독 결제
+- ❌ 반복 투두
 
 **Phase 5 ❌** 앱스토어 출시
+
+---
+
+## Widget Extension 설정 (Xcode 수동 작업 필요)
+
+Widget Extension 타겟(`TodoReportWidget`)은 이미 생성되어 있음.
+소스 파일도 `TodoReportWidget/`에 배치 완료 (PBXFileSystemSynchronizedRootGroup으로 자동 포함).
+
+**남은 수동 작업: App Groups capability 활성화**
+```
+1. TodoReport 타겟 선택 → Signing & Capabilities → + App Groups
+   → + 버튼 → group.kr.nock.TodoReport
+2. TodoReportWidget 타겟 선택 → 동일하게 반복
+3. 빌드 후 위젯 시뮬레이터에서 확인
+```
+
+**위젯 파일 구조:**
+```
+TodoReportWidget/         ← widget extension 타겟 (자동 포함)
+├── TodoWidgetBundle.swift   # @main WidgetBundle
+├── TodoWidgetProvider.swift # TimelineProvider + Widget declarations
+├── SmallWidgetView.swift
+├── MediumWidgetView.swift
+└── LargeWidgetView.swift
+
+TodoReport/Widget/        ← main app 타겟
+└── WidgetDataProvider.swift # update() App Group에 씀 + reloadAllTimelines()
+```
