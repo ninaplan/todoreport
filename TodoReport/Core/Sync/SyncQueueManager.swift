@@ -152,12 +152,15 @@ final class SyncQueueManager {
     }
 
     #if DEBUG
-    func clearAll() {
+    @discardableResult
+    func clearAllReturningCount() -> Int {
         let descriptor = FetchDescriptor<SyncQueueItem>()
-        guard let items = try? context.fetch(descriptor), !items.isEmpty else { return }
+        let items = (try? context.fetch(descriptor)) ?? []
+        guard !items.isEmpty else { return 0 }
         items.forEach { context.delete($0) }
         try? context.save()
         print("[SyncQueue] 🗑️ 전체 큐 초기화 (\(items.count)개)")
+        return items.count
     }
     #endif
 

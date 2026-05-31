@@ -199,10 +199,10 @@ final class DailyReportService {
         try context.save()
 
         let captured = r
-        Task { await syncSaveToNotion(captured) }
+        Task { await syncToNotion(captured) }
     }
 
-    private func syncSaveToNotion(_ report: DailyReport) async {
+    func syncToNotion(_ report: DailyReport) async {
         print("[DailyReport] 📤 Notion sync 시작")
         let planner = PlannerService.shared.store.first(where: { $0.id == report.plannerId })
             ?? PlannerService.shared.selectedPlanner
@@ -217,8 +217,10 @@ final class DailyReportService {
         var body: [String: Any] = [
             "dbId": dbId,
             "date": seoulDateString(from: report.date),
+            "completionRate": report.completionRate,
         ]
         body["review"] = report.review
+        if !report.notionPageId.isEmpty { body["notionPageId"] = report.notionPageId }
         if let v = mapping.date   { body["dateProp"] = v }
         if let v = mapping.review { body["reviewProp"] = v }
         if let v = mapping.rating { body["ratingProp"] = v }
@@ -229,15 +231,30 @@ final class DailyReportService {
             let response: NotionSaveResponse = try await APIClient.shared.post(
                 "/api/notion/daily-report", body: AnyEncodableDict(body), token: token
             )
-            guard !report.notionPageId.isEmpty else { return }
-            let pageId = report.notionPageId
-            let descriptor = FetchDescriptor<DailyReportItem>(
-                predicate: #Predicate { $0.notionPageId == pageId }
-            )
-            print("[DailyReport] ✅ Notion 저장 성공")
-            if let item = try? context.fetch(descriptor).first {
-                item.notionPageId = response.id
-                try? context.save()
+            print("[DailyReport] ✅ Notion 저장 성공 - responseId:\(response.id)")
+            let startOfDay = Calendar.current.startOfDay(for: report.date)
+
+            if !report.notionPageId.isEmpty {
+                let pageId = report.notionPageId
+                let descriptor = FetchDescriptor<DailyReportItem>(
+                    predicate: #Predicate { $0.notionPageId == pageId }
+                )
+                if let item = try? context.fetch(descriptor).first {
+                    item.notionPageId = response.id
+                    try? context.save()
+                }
+            } else {
+                // 신규 생성: date + plannerId로 찾아서 notionPageId 저장
+                guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return }
+                let pid = report.plannerId
+                let allDesc = FetchDescriptor<DailyReportItem>()
+                let all = (try? context.fetch(allDesc)) ?? []
+                if let item = all.first(where: {
+                    $0.date >= startOfDay && $0.date < endOfDay && $0.plannerId == pid && $0.notionPageId.isEmpty
+                }) {
+                    item.notionPageId = response.id
+                    try? context.save()
+                }
             }
         } catch {
             print("[DailyReport] ❌ Notion 저장 실패 - \(error)")

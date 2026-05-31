@@ -20,6 +20,9 @@ struct SettingsView: View {
 
     #if DEBUG
     @AppStorage("debugIsPro") private var debugIsPro = false
+    @State private var showClearQueueConfirm = false
+    @State private var clearQueueResultMessage = ""
+    @State private var showClearQueueResult = false
     #endif
 
     var body: some View {
@@ -128,13 +131,29 @@ struct SettingsView: View {
         Section("개발자 도구") {
             Toggle("Pro 모드", isOn: $debugIsPro)
                 .tint(AppTheme.shared.accent)
-            Button("SyncQueue 비우기", role: .destructive) {
-                SyncQueueManager.shared.clearAll()
+            Button("SyncQueue 비우기") {
+                showClearQueueConfirm = true
             }
+            .foregroundStyle(.red)
             Button("온보딩 초기화", role: .destructive) {
                 NotionAuthManager.shared.signOut()
                 onboardingCompleted = false
             }
+        }
+        .alert("SyncQueue 비우기", isPresented: $showClearQueueConfirm) {
+            Button("비우기", role: .destructive) {
+                let count = SyncQueueManager.shared.clearAllReturningCount()
+                clearQueueResultMessage = count > 0 ? "\(count)개 항목이 삭제됐습니다." : "삭제할 항목이 없습니다."
+                showClearQueueResult = true
+            }
+            Button("취소", role: .cancel) { }
+        } message: {
+            Text("대기 중인 Notion 동기화 작업을 모두 삭제합니다.")
+        }
+        .alert("완료", isPresented: $showClearQueueResult) {
+            Button("확인", role: .cancel) { }
+        } message: {
+            Text(clearQueueResultMessage)
         }
     }
     #endif

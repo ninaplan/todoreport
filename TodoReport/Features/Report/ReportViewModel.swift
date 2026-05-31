@@ -21,14 +21,14 @@ final class ReportViewModel {
     private(set) var paywallMessage: String = ""
 
     private(set) var isSyncing: Bool = false
+    private(set) var isSavingToNotion: Bool = false
+    var notionSaveSuccess: Bool = false
 
     #if DEBUG
     private var isPro: Bool { UserDefaults.standard.bool(forKey: "debugIsPro") }
     #else
     private let isPro = false
     #endif
-
-    var isProUser: Bool { isPro }
 
     private let service = ReportService.shared
     private let calendar = Calendar.current
@@ -80,6 +80,24 @@ final class ReportViewModel {
         showPaywall = false
         paywallMessage = ""
         if selectedPeriod == .monthly { selectedPeriod = .weekly }
+    }
+
+    func saveWeeklyToNotion() async {
+        guard isPro else {
+            paywallMessage = "노션에 저장하기는 Pro 기능이에요"
+            showPaywall = true
+            return
+        }
+        guard let report = weeklyReport else { return }
+        guard PlannerService.shared.selectedPlanner?.isNotionConnected == true else { return }
+        isSavingToNotion = true
+        defer { isSavingToNotion = false }
+        await service.syncWeeklyToNotion(period: report.period)
+        notionSaveSuccess = true
+    }
+
+    func dismissNotionSaveSuccess() {
+        notionSaveSuccess = false
     }
 
     // MARK: - Data

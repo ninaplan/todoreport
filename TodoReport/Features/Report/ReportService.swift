@@ -158,6 +158,17 @@ final class ReportService {
         )
     }
 
+    // MARK: - 노션 저장
+
+    func syncWeeklyToNotion(period: DateInterval) async {
+        let plannerId = PlannerService.shared.selectedPlanner?.id
+        let reports = fetchReports(in: period.start..<period.end, plannerId: plannerId)
+        let dailyService = DailyReportService()
+        for item in reports {
+            await dailyService.syncToNotion(item.toReport())
+        }
+    }
+
     // MARK: - SwiftData Fetch
 
     func hasTodos(in range: Range<Date>) async -> Bool {

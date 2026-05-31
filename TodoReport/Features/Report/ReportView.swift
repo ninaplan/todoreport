@@ -3,6 +3,12 @@ import Charts
 
 struct ReportView: View {
     @State private var viewModel = ReportViewModel()
+    #if DEBUG
+    @AppStorage("debugIsPro") private var debugIsPro = false
+    private var isPro: Bool { debugIsPro }
+    #else
+    private let isPro = false
+    #endif
 
     var body: some View {
         @Bindable var vm = viewModel
@@ -34,7 +40,7 @@ struct ReportView: View {
                 ToolbarItem(placement: .principal) {
                     Picker("기간", selection: $vm.selectedPeriod) {
                         ForEach(ReportPeriod.allCases, id: \.self) { period in
-                            Text(period == .monthly && !viewModel.isProUser ? "월간 🔒" : period.rawValue)
+                            Text(period == .monthly && !isPro ? "월간 🔒" : period.rawValue)
                                 .tag(period)
                         }
                     }
@@ -52,6 +58,11 @@ struct ReportView: View {
                     onDismiss: { viewModel.dismissPaywall() }
                 )
                 .presentationDetents([.medium])
+            }
+            .alert("노션 저장 완료", isPresented: $vm.notionSaveSuccess) {
+                Button("확인") { viewModel.dismissNotionSaveSuccess() }
+            } message: {
+                Text("이번 주 리포트를 노션에 저장했습니다.")
             }
         }
     }
@@ -122,7 +133,9 @@ struct ReportView: View {
             values: report.dailyRatings.map(\.rating)
         )
         CategoryStatsCard(stats: report.categoryStats)
-        NotionSaveButton { viewModel.showNotionSavePaywall() }
+        NotionSaveButton(isSaving: viewModel.isSavingToNotion) {
+            Task { await viewModel.saveWeeklyToNotion() }
+        }
     }
 
     @ViewBuilder
@@ -143,7 +156,9 @@ struct ReportView: View {
             values: report.weeklyRatings.map(\.rating)
         )
         CategoryStatsCard(stats: report.categoryStats)
-        NotionSaveButton { viewModel.showNotionSavePaywall() }
+        NotionSaveButton(isSaving: false) {
+            Task { await viewModel.saveWeeklyToNotion() }
+        }
     }
 }
 
@@ -392,26 +407,33 @@ private struct CategoryStatRow: View {
 // MARK: - 노션에 저장하기 버튼
 
 private struct NotionSaveButton: View {
+    let isSaving: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Image(systemName: "lock.fill")
-                    .font(.subheadline)
-                Text("노션에 저장하기")
+                if isSaving {
+                    ProgressView()
+                        .scaleEffect(0.85)
+                } else {
+                    Image(systemName: "arrow.up.circle")
+                        .font(.subheadline)
+                }
+                Text(isSaving ? "저장 중..." : "노션에 저장하기")
                     .font(.subheadline.bold())
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .foregroundStyle(Color(.tertiaryLabel))
+            .foregroundStyle(isSaving ? Color(.tertiaryLabel) : AppTheme.shared.accent)
             .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color(.separator), lineWidth: 0.5)
+                    .strokeBorder(isSaving ? Color(.separator) : AppTheme.shared.accent.opacity(0.4), lineWidth: 0.5)
             )
         }
+        .disabled(isSaving)
     }
 }
 
