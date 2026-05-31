@@ -1,6 +1,7 @@
 import Foundation
 
 // Notion API는 이 클래스를 통해서만 간접 호출 — iOS에서 직접 호출 금지
+@MainActor
 final class APIClient {
     static let shared = APIClient()
 
@@ -9,27 +10,26 @@ final class APIClient {
 
     private init() {
         session = URLSession.shared
-        // TODO: 실제 Vercel 배포 URL로 교체
-        baseURL = "https://your-backend.vercel.app"
+        baseURL = "https://todoreport-backend.vercel.app"
     }
 
-    func get<T: Decodable>(_ path: String, params: [String: String] = [:]) async throws -> T {
-        let request = try buildRequest(path: path, method: "GET", params: params)
+    func get<T: Decodable>(_ path: String, params: [String: String] = [:], token: String? = nil) async throws -> T {
+        let request = try buildRequest(path: path, method: "GET", params: params, token: token)
         return try await perform(request)
     }
 
-    func post<T: Decodable>(_ path: String, body: Encodable) async throws -> T {
-        let request = try buildRequest(path: path, method: "POST", body: body)
+    func post<T: Decodable>(_ path: String, body: Encodable, token: String? = nil) async throws -> T {
+        let request = try buildRequest(path: path, method: "POST", body: body, token: token)
         return try await perform(request)
     }
 
-    func patch<T: Decodable>(_ path: String, body: Encodable) async throws -> T {
-        let request = try buildRequest(path: path, method: "PATCH", body: body)
+    func patch<T: Decodable>(_ path: String, body: Encodable, token: String? = nil) async throws -> T {
+        let request = try buildRequest(path: path, method: "PATCH", body: body, token: token)
         return try await perform(request)
     }
 
-    func delete(_ path: String) async throws {
-        let request = try buildRequest(path: path, method: "DELETE")
+    func delete(_ path: String, token: String? = nil) async throws {
+        let request = try buildRequest(path: path, method: "DELETE", token: token)
         let (_, response) = try await session.data(for: request)
         try validate(response)
     }
@@ -42,7 +42,8 @@ private extension APIClient {
         path: String,
         method: String,
         params: [String: String] = [:],
-        body: Encodable? = nil
+        body: Encodable? = nil,
+        token: String? = nil
     ) throws -> URLRequest {
         guard var components = URLComponents(string: baseURL + path) else {
             throw APIError.invalidURL
@@ -56,6 +57,11 @@ private extension APIClient {
 
         var request = URLRequest(url: url)
         request.httpMethod = method
+        let resolvedToken = token
+            ?? PlannerService.shared.selectedPlanner?.resolvedNotionToken
+            ?? NotionAuthManager.shared.accessToken
+            ?? ""
+        request.setValue("Bearer \(resolvedToken)", forHTTPHeaderField: "Authorization")
 
         if let body {
             request.httpBody = try JSONEncoder().encode(body)

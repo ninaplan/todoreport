@@ -5,27 +5,28 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage("onboardingCompleted") private var onboardingCompleted = false
 
-    private let isNotionConnected = false
-    private let notionAccountEmail = "nina@notion.so"
     private var planners: [Planner] { PlannerService.shared.store }
     #if DEBUG
     private let isPro = true
     #else
     private let isPro = false
     #endif
-    private let appleIdEmail = "user@icloud.com"
 
     @State private var language = "한국어"
-    @State private var startWeekday = "월"
+    @AppStorage("startWeekday") private var startWeekday = "월"
     @State private var notificationEnabled = true
     @State private var showLogoutAlert = false
+    @State private var showAddPlannerSheet = false
+
+    #if DEBUG
+    @AppStorage("debugIsPro") private var debugIsPro = false
+    #endif
 
     var body: some View {
         List {
-            notionSection
+            subscriptionSection
             plannersSection
             globalSettingsSection
-            subscriptionSection
             accountFooterSection
 
             #if DEBUG
@@ -34,30 +35,32 @@ struct SettingsView: View {
         }
         .navigationTitle("설정")
         .alert("로그아웃", isPresented: $showLogoutAlert) {
-            Button("로그아웃", role: .destructive) { onboardingCompleted = false }
+            Button("로그아웃", role: .destructive) {
+                NotionAuthManager.shared.signOut()
+                onboardingCompleted = false
+            }
             Button("취소", role: .cancel) { }
         } message: {
             Text("로그아웃하시겠어요?")
         }
+        .sheet(isPresented: $showAddPlannerSheet) {
+            PlannerAddView()
+        }
     }
 
-    // MARK: - 노션 연결
+    // MARK: - 구독
 
-    private var notionSection: some View {
-        Section("노션 연결") {
-            NavigationLink {
-                NotionConnectionView(isConnected: isNotionConnected)
-            } label: {
-                HStack {
-                    Text("노션 연결")
-                    Spacer()
-                    if isNotionConnected {
-                        Text(notionAccountEmail)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
+    private var subscriptionSection: some View {
+        Section("구독") {
+            LabeledContent("현재 플랜") {
+                Text(isPro ? "Pro" : "무료")
+                    .foregroundStyle(.secondary)
+            }
+            if !isPro {
+                Button("Pro로 업그레이드") {
+                    // TODO: Paywall
                 }
+                .foregroundStyle(AppTheme.shared.accent)
             }
         }
     }
@@ -74,18 +77,19 @@ struct SettingsView: View {
                 }
             }
             Button {
-                // TODO: Pro 게이트 → Paywall 표시
+                guard isPro else { return /* TODO: Paywall */ }
+                showAddPlannerSheet = true
             } label: {
                 Label(isPro ? "플래너 추가" : "플래너 추가  🔒", systemImage: "plus")
-                    .foregroundStyle(isPro ? Color.nockOrange : .secondary)
+                    .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
             }
         }
     }
 
-    // MARK: - 전역 설정
+    // MARK: - 환경 설정
 
     private var globalSettingsSection: some View {
-        Section("전역 설정") {
+        Section("환경 설정") {
             Picker("언어", selection: $language) {
                 Text("한국어").tag("한국어")
                 Text("English").tag("English")
@@ -95,24 +99,7 @@ struct SettingsView: View {
                 Text("월요일").tag("월")
             }
             Toggle("알림", isOn: $notificationEnabled)
-                .tint(Color.nockOrange)
-        }
-    }
-
-    // MARK: - 구독
-
-    private var subscriptionSection: some View {
-        Section("구독") {
-            LabeledContent("현재 플랜") {
-                Text(isPro ? "Pro" : "무료")
-                    .foregroundStyle(.secondary)
-            }
-            if !isPro {
-                Button("Pro로 업그레이드") {
-                    // TODO: Paywall
-                }
-                .foregroundStyle(Color.nockOrange)
-            }
+                .tint(AppTheme.shared.accent)
         }
     }
 
@@ -121,10 +108,6 @@ struct SettingsView: View {
     private var accountFooterSection: some View {
         Section {
             VStack(spacing: 14) {
-                Text(appleIdEmail)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
                 Button("로그아웃") {
                     showLogoutAlert = true
                 }
@@ -143,7 +126,10 @@ struct SettingsView: View {
     #if DEBUG
     private var debugSection: some View {
         Section("개발자 도구") {
+            Toggle("Pro 모드", isOn: $debugIsPro)
+                .tint(AppTheme.shared.accent)
             Button("온보딩 초기화", role: .destructive) {
+                NotionAuthManager.shared.signOut()
                 onboardingCompleted = false
             }
         }
@@ -158,9 +144,12 @@ private struct PlannerRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Circle()
-                .fill(Color(hex: planner.colorHex))
-                .frame(width: 10, height: 10)
+            PlannerIconView(
+                iconType: planner.iconType,
+                iconImageData: planner.iconImageData,
+                colorHex: planner.colorHex,
+                size: 28
+            )
             Text(planner.name)
                 .lineLimit(1)
                 .truncationMode(.tail)
@@ -176,10 +165,9 @@ private struct PlannerRow: View {
 
 struct NotionBadge: View {
     var body: some View {
-        Text("N")
-            .font(.system(size: 9, weight: .black))
-            .foregroundStyle(.white)
-            .frame(width: 16, height: 16)
-            .background(Color(.label), in: RoundedRectangle(cornerRadius: 3, style: .continuous))
+        Image(systemName: "n.square.fill")
+            .symbolRenderingMode(.palette)
+            .foregroundStyle(.white, .black)
+            .font(.system(size: 16, weight: .bold))
     }
 }

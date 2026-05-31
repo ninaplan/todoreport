@@ -5,7 +5,6 @@ struct TodoView: View {
     @State private var dailyReportViewModel = DailyReportViewModel()
     @State private var newTodoTitle: String = ""
     @State private var isAddingTodo: Bool = false
-    @State private var showDatePicker: Bool = false
     @State private var showViewOptions: Bool = false
     @State private var showPlannerSheet: Bool = false
     @State private var showQuickCapture: Bool = false
@@ -18,12 +17,14 @@ struct TodoView: View {
     @State private var hapticWarningTrigger = false
 
     var body: some View {
+        @Bindable var vm = viewModel
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
+                ScrollViewReader { proxy in
                 List {
                     // 날짜 + 완료율 + 데일리리포트 카드
                     Section {
-                        DateNavigationRow(viewModel: viewModel, showDatePicker: $showDatePicker)
+                        DateNavigationRow(viewModel: viewModel)
                         DailyReportCard(
                             viewModel: dailyReportViewModel,
                             date: viewModel.selectedDate,
@@ -52,15 +53,48 @@ struct TodoView: View {
 
                     // 투두 목록
                     Section {
+                        if viewModel.isNotionSyncing {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("노션에서 자료를 읽어오고 있습니다.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
+                        }
                         todoRows(for: viewModel.filteredTodos)
                         addTodoRow
+                            .id("addTodoRow")
                     }
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                 }
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                    guard isAddingTodo else { return }
+                    withAnimation { proxy.scrollTo("addTodoRow", anchor: .bottom) }
+                }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .refreshable {
+                    await viewModel.fetchTodos()
+                    await dailyReportViewModel.fetchReport(for: viewModel.selectedDate, completionRate: viewModel.completionRate)
+                }
                 .onAppear { Task { await viewModel.fetchTodos() } }
+                .onChange(of: PlannerService.shared.selectedPlannerId) { _, _ in
+                    dailyReportViewModel.switchReport()
+                    Task {
+                        await viewModel.switchPlanner()
+                        await dailyReportViewModel.fetchReport(
+                            for: viewModel.selectedDate,
+                            completionRate: viewModel.completionRate
+                        )
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                    Task { await viewModel.fetchTodos() }
+                }
+                } // ScrollViewReader
 
                 FloatingCaptureButton {
                     showQuickCapture = true
@@ -73,7 +107,15 @@ struct TodoView: View {
                     Button {
                         showPlannerSheet = true
                     } label: {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
+                            if let planner = PlannerService.shared.selectedPlanner {
+                                PlannerIconView(
+                                    iconType: planner.iconType,
+                                    iconImageData: planner.iconImageData,
+                                    colorHex: planner.colorHex,
+                                    size: 22
+                                )
+                            }
                             Text(PlannerService.shared.selectedPlanner?.name ?? "내 플래너")
                                 .font(.headline)
                             Image(systemName: "chevron.down")
@@ -100,11 +142,18 @@ struct TodoView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showDatePicker) {
+            .sheet(isPresented: $vm.showDatePicker) {
                 DatePickerSheet(selectedDate: Binding(
                     get: { viewModel.selectedDate },
                     set: { viewModel.selectedDate = $0 }
                 ))
+            }
+            .sheet(isPresented: $vm.showDatePaywall) {
+                ProPaywallSheet(
+                    message: viewModel.datePaywallMessage,
+                    onDismiss: { viewModel.dismissDatePaywall() }
+                )
+                .presentationDetents([.medium])
             }
             .sheet(isPresented: $showPlannerSheet) {
                 PlannerSelectionSheet()
@@ -194,7 +243,6 @@ struct TodoView: View {
         AddTodoRow(newTodoTitle: $newTodoTitle, isAdding: $isAddingTodo) {
             viewModel.addTodo(title: newTodoTitle, categoryId: viewModel.selectedCategoryFilter)
             newTodoTitle = ""
-            isAddingTodo = false
             hapticSuccessTrigger.toggle()
         }
         .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
@@ -210,7 +258,7 @@ private struct CategoryFilterBar: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                FilterChip(label: "전체", color: .nockOrange, isSelected: selectedId == nil) {
+                FilterChip(label: "전체", color: AppTheme.shared.accent, isSelected: selectedId == nil) {
                     selectedId = nil
                 }
                 ForEach(categories) { category in
@@ -268,7 +316,6 @@ private struct FilterChip: View {
 
 private struct DateNavigationRow: View {
     let viewModel: TodoViewModel
-    @Binding var showDatePicker: Bool
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -287,7 +334,7 @@ private struct DateNavigationRow: View {
                     .contentShape(Rectangle())
             }
 
-            Button { showDatePicker = true } label: {
+            Button { viewModel.requestDatePicker() } label: {
                 Text(Self.dateFormatter.string(from: viewModel.selectedDate))
                     .font(.subheadline.bold())
                     .foregroundStyle(.primary)
@@ -316,7 +363,7 @@ private struct TodoRow: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
                 .font(.title3)
-                .foregroundStyle(todo.isCompleted ? Color.nockOrange : Color(.tertiaryLabel))
+                .foregroundStyle(todo.isCompleted ? AppTheme.shared.accent : Color(.tertiaryLabel))
                 .animation(.easeInOut(duration: 0.15), value: todo.isCompleted)
                 .padding(.top, (showMemo && todo.memo != nil) ? 2 : 0)
 
@@ -355,7 +402,6 @@ private struct TodoRow: View {
 private struct AddTodoRow: View {
     @Binding var newTodoTitle: String
     @Binding var isAdding: Bool
-    @FocusState private var isFocused: Bool
     let onAdd: () -> Void
 
     var body: some View {
@@ -364,27 +410,32 @@ private struct AddTodoRow: View {
                 Image(systemName: "circle")
                     .font(.title3)
                     .foregroundStyle(Color(.tertiaryLabel))
-                TextField("새 투두", text: $newTodoTitle)
-                    .focused($isFocused)
-                    .submitLabel(.done)
-                    .onSubmit {
-                        guard !newTodoTitle.trimmingCharacters(in: .whitespaces).isEmpty else {
-                            isAdding = false
-                            return
-                        }
+                // AutoFocusTextField(UITextField 기반) — SwiftUI TextField 사용 시 한글 자모음 분리 버그 방지
+                AutoFocusTextField(
+                    text: $newTodoTitle,
+                    placeholder: "새 투두",
+                    font: .systemFont(ofSize: 17),
+                    onReturn: {
+                        let trimmed = newTodoTitle.trimmingCharacters(in: .whitespaces)
+                        if trimmed.isEmpty { return false }
                         onAdd()
+                        return true  // 포커스 유지 → textFieldShouldReturn이 tf.text="" 처리
+                    },
+                    onDismiss: {
+                        isAdding = false
                     }
-                    .onAppear { isFocused = true }
+                )
+                .frame(height: 36)
             }
         } else {
             Button { isAdding = true } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "plus.circle.fill")
                         .font(.title3)
-                        .foregroundStyle(Color.nockOrange)
+                        .foregroundStyle(AppTheme.shared.accent)
                     Text("투두 추가")
                         .font(.body)
-                        .foregroundStyle(Color.nockOrange)
+                        .foregroundStyle(AppTheme.shared.accent)
                     Spacer()
                 }
                 .contentShape(Rectangle())
@@ -399,7 +450,6 @@ private struct AddTodoRow: View {
 private struct ViewOptionsPopover: View {
     @Bindable var viewModel: TodoViewModel
     let onShowCategorySheet: () -> Void
-    @State private var sortExpanded: Bool = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -410,56 +460,6 @@ private struct ViewOptionsPopover: View {
             optionRow(icon: "text.alignleft", label: "할일 메모 보기", isOn: viewModel.showMemo) {
                 viewModel.showMemo.toggle()
             }
-            Divider()
-
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    sortExpanded.toggle()
-                }
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "arrow.up.arrow.down")
-                        .font(.system(size: AppConstants.IconSize.menu))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 20)
-                    Text("정렬 옵션")
-                        .font(.subheadline)
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    Image(systemName: sortExpanded ? "chevron.up" : "chevron.right")
-                        .font(.system(size: AppConstants.IconSize.menu).bold())
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            if sortExpanded {
-                Divider()
-                ForEach(TodoSortOrder.allCases, id: \.self) { order in
-                    Button {
-                        viewModel.sortOrder = order
-                    } label: {
-                        HStack(spacing: 12) {
-                            Color.clear.frame(width: 20)
-                            Text(order.rawValue)
-                                .font(.subheadline)
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            checkmark(visible: viewModel.sortOrder == order)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                    }
-                    .buttonStyle(.plain)
-                    if order != TodoSortOrder.allCases.last {
-                        Divider().padding(.leading, 52)
-                    }
-                }
-            }
-
             Divider()
 
             Button(action: onShowCategorySheet) {
@@ -509,7 +509,7 @@ private struct ViewOptionsPopover: View {
     private func checkmark(visible: Bool) -> some View {
         Image(systemName: "checkmark")
             .font(.system(size: AppConstants.IconSize.menu).bold())
-            .foregroundStyle(Color.nockOrange)
+            .foregroundStyle(AppTheme.shared.accent)
             .opacity(visible ? 1 : 0)
             .frame(width: 16)
     }
@@ -519,6 +519,7 @@ private struct ViewOptionsPopover: View {
 
 private struct PlannerSelectionSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var showAddPlanner = false
     @State private var showProAlert = false
     #if DEBUG
     private let isPro = true
@@ -536,16 +537,26 @@ private struct PlannerSelectionSheet: View {
                             dismiss()
                         } label: {
                             HStack(spacing: 12) {
-                                Circle()
-                                    .fill(Color(hex: planner.colorHex))
-                                    .frame(width: 10, height: 10)
+                                PlannerIconView(
+                                    iconType: planner.iconType,
+                                    iconImageData: planner.iconImageData,
+                                    colorHex: planner.colorHex,
+                                    size: 28
+                                )
                                 Text(planner.name)
                                     .foregroundStyle(.primary)
                                 Spacer()
+                                if planner.isNotionConnected {
+                                    Text("N")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(.white)
+                                        .frame(width: 18, height: 18)
+                                        .background(Color.black, in: Circle())
+                                }
                                 if planner.id == PlannerService.shared.selectedPlannerId {
                                     Image(systemName: "checkmark")
                                         .font(.subheadline.bold())
-                                        .foregroundStyle(Color.nockOrange)
+                                        .foregroundStyle(AppTheme.shared.accent)
                                 }
                             }
                         }
@@ -555,9 +566,10 @@ private struct PlannerSelectionSheet: View {
                 Section {
                     Button {
                         guard isPro else { showProAlert = true; return }
+                        showAddPlanner = true
                     } label: {
                         Label("플래너 추가", systemImage: "plus")
-                            .foregroundStyle(isPro ? Color.nockOrange : .secondary)
+                            .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
                     }
                 }
             }
@@ -566,11 +578,14 @@ private struct PlannerSelectionSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("완료") { dismiss() }
-                        .tint(Color.nockOrange)
+                        .tint(AppTheme.shared.accent)
                 }
             }
         }
         .presentationDetents([.medium])
+        .sheet(isPresented: $showAddPlanner) {
+            PlannerAddView()
+        }
         .alert("Pro 기능", isPresented: $showProAlert) {
             Button("확인", role: .cancel) { }
         } message: {
@@ -589,14 +604,14 @@ private struct DatePickerSheet: View {
         NavigationStack {
             DatePicker("날짜 선택", selection: $selectedDate, displayedComponents: .date)
                 .datePickerStyle(.graphical)
-                .tint(Color.nockOrange)
+                .tint(AppTheme.shared.accent)
                 .padding(.horizontal)
                 .navigationTitle("날짜 선택")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("완료") { dismiss() }
-                            .tint(Color.nockOrange)
+                            .tint(AppTheme.shared.accent)
                     }
                 }
         }
@@ -622,7 +637,7 @@ private struct TodoDateChangeSheet: View {
         NavigationStack {
             DatePicker("날짜 선택", selection: $selectedDate, displayedComponents: .date)
                 .datePickerStyle(.graphical)
-                .tint(Color.nockOrange)
+                .tint(AppTheme.shared.accent)
                 .padding(.horizontal)
                 .navigationTitle("날짜 변경")
                 .navigationBarTitleDisplayMode(.inline)
@@ -637,7 +652,7 @@ private struct TodoDateChangeSheet: View {
                             dismiss()
                         }
                         .fontWeight(.semibold)
-                        .tint(Color.nockOrange)
+                        .tint(AppTheme.shared.accent)
                     }
                 }
         }
@@ -713,7 +728,7 @@ private struct TodoEditSheet: View {
                         DatePicker("", selection: $draft.date, displayedComponents: .date)
                             .datePickerStyle(.graphical)
                             .labelsHidden()
-                            .tint(Color.nockOrange)
+                            .tint(AppTheme.shared.accent)
                     }
                 }
             }
@@ -734,7 +749,7 @@ private struct TodoEditSheet: View {
                         dismiss()
                     }
                     .disabled(!isSaveEnabled)
-                    .tint(isSaveEnabled ? Color.nockOrange : Color(.tertiaryLabel))
+                    .tint(isSaveEnabled ? AppTheme.shared.accent : Color(.tertiaryLabel))
                     .fontWeight(.semibold)
                 }
             }
@@ -754,9 +769,9 @@ private struct FloatingCaptureButton: View {
                 .font(.title2.bold())
                 .foregroundStyle(.white)
                 .frame(width: 56, height: 56)
-                .background(Color.nockOrange)
+                .background(AppTheme.shared.accent)
                 .clipShape(Circle())
-                .shadow(color: Color.nockOrange.opacity(0.4), radius: 8, y: 4)
+                .shadow(color: AppTheme.shared.accent.opacity(0.4), radius: 8, y: 4)
         }
         .padding(.trailing, 20)
         .padding(.bottom, 20)

@@ -1070,3 +1070,24 @@ Notion OAuth 진행
 ---
 
 *이 문서는 개발 진행에 따라 업데이트됩니다.*
+
+---
+
+## 리팩토링 TODO
+
+### TodoService → DataRepository 패턴 통합 (v1 후반 또는 v2)
+- 현재: TodoService가 SwiftData + SyncQueue를 직접 사용
+- 목표: ViewModel → RepositoryFactory.make() → NotionRepository/LocalRepository 단일 경로로 통합
+- 이유: 현재 DataRepository 프로토콜과 TodoService 두 패턴이 병렬 존재 → 장기적으로 혼란
+- 작업 범위: TodoViewModel, DailyReportViewModel 등 Service 직접 참조 → Repository 참조로 교체
+
+### UserDefaults 키 정리
+- 현재: "notionConnected", "isNotionConnected" 혼재
+- 목표: 단일 키로 통일, AppConstants에 상수로 관리
+- 관련 파일: OnboardingViewModel.swift, SyncQueueManager.swift
+
+### 별점/기분 속성 옵션 매핑
+- 현재: iOS DayRating(⭐~⭐⭐⭐⭐⭐)을 Notion select 옵션값으로 그대로 전송
+- 문제: 사용자마다 Notion select 옵션명이 다름 (별이 아닌 숫자, 텍스트 등)
+- 해결 방향: 온보딩 속성 매핑 시 별점 1~5에 해당하는 Notion 옵션값을 사용자가 직접 매핑
+- 관련 파일: OnboardingViewModel.swift, DailyReportService.swift, ReportPropsMapping

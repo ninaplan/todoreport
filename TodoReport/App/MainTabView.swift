@@ -16,6 +16,6 @@ struct MainTabView: View {
                 .background(Color(.systemGroupedBackground))
             }
         }
-        .tint(.nockOrange)
+        .tint(AppTheme.shared.accent)
     }
 }

@@ -1,10 +1,5 @@
 import Foundation
-
-enum TodoSortOrder: String, CaseIterable {
-    case addedOrder    = "추가한 순서"
-    case categoryOrder = "카테고리순"
-    case completedFirst = "완료 먼저"
-}
+import SwiftUI
 
 @Observable
 final class TodoViewModel {
@@ -13,9 +8,12 @@ final class TodoViewModel {
 
     var plannerName: String { PlannerService.shared.selectedPlanner?.name ?? "내 플래너" }
     var isViewOptionsVisible: Bool = false
-    var hideCompleted: Bool = false
-    var showMemo: Bool = false
-    var sortOrder: TodoSortOrder = .addedOrder
+    var hideCompleted: Bool = UserDefaults.standard.bool(forKey: "todoHideCompleted") {
+        didSet { UserDefaults.standard.set(hideCompleted, forKey: "todoHideCompleted") }
+    }
+    var showMemo: Bool = UserDefaults.standard.bool(forKey: "todoShowMemo") {
+        didSet { UserDefaults.standard.set(showMemo, forKey: "todoShowMemo") }
+    }
     var selectedCategoryFilter: String? = nil  // nil = 전체
 
     var selectedDate: Date = .now {
@@ -24,10 +22,21 @@ final class TodoViewModel {
 
     private let service = TodoService.shared
     private let categoryService = CategoryService.shared
+    private var notionSyncTask: Task<Void, Never>?
+
+    #if DEBUG
+    private var isPro: Bool { UserDefaults.standard.bool(forKey: "debugIsPro") }
+    #else
+    private let isPro = false
+    #endif
+
+    var showDatePaywall: Bool = false
+    private(set) var datePaywallMessage: String = ""
+    var showDatePicker: Bool = false
+    private(set) var isNotionSyncing: Bool = false
 
     // MARK: - Computed
 
-    // CategoryService.shared(@Observable)를 직접 참조 → store 변경 시 뷰 자동 갱신
     var activeCategories: [Category] { categoryService.activeCategories }
 
     var completionRate: Double {
@@ -41,20 +50,14 @@ final class TodoViewModel {
     }
 
     var displayedTodos: [Todo] {
-        var result = todos
-        if hideCompleted {
-            result = result.filter { !$0.isCompleted }
-        }
-        switch sortOrder {
-        case .addedOrder:
-            break
-        case .categoryOrder:
-            result.sort { ($0.categoryId ?? "") < ($1.categoryId ?? "") }
-        case .completedFirst:
-            result.sort { $0.isCompleted && !$1.isCompleted }
-        }
-        result.sort { $0.isPinned && !$1.isPinned }
-        return result
+        let pinned   = todos.filter {  $0.isPinned && !$0.isCompleted }
+                            .sorted { sortDate($0) < sortDate($1) }
+        let normal   = todos.filter { !$0.isPinned && !$0.isCompleted }
+                            .sorted { sortDate($0) < sortDate($1) }
+        let completed = hideCompleted ? [] :
+                        todos.filter { $0.isCompleted }
+                             .sorted { ($0.completedAt ?? $0.createdAt) > ($1.completedAt ?? $1.createdAt) }
+        return pinned + normal + completed
     }
 
     var filteredTodos: [Todo] {
@@ -70,6 +73,10 @@ final class TodoViewModel {
     var filteredCompletedCount: Int { todosForRate.filter(\.isCompleted).count }
     var filteredTotalCount: Int { todosForRate.count }
 
+    private func sortDate(_ todo: Todo) -> Date {
+        todo.notionCreatedAt ?? todo.createdAt
+    }
+
     func category(for id: String?) -> Category? {
         guard let id else { return nil }
         return categoryService.activeCategories.first(where: { $0.id == id })
@@ -77,11 +84,28 @@ final class TodoViewModel {
 
     // MARK: - Data
 
+    func switchPlanner() async {
+        notionSyncTask?.cancel()
+        notionSyncTask = nil
+        todos = []
+        await fetchTodos()
+    }
+
     func fetchTodos() async {
         isLoading = true
         todos = await service.fetchTodos(for: selectedDate)
         isLoading = false
         validateCategoryFilter()
+        notionSyncTask?.cancel()
+        let date = selectedDate
+        notionSyncTask = Task {
+            isNotionSyncing = true
+            defer { isNotionSyncing = false }
+            await service.syncTodosFromNotion(for: date)
+            guard !Task.isCancelled else { return }
+            todos = await service.fetchTodos(for: date)
+            validateCategoryFilter()
+        }
     }
 
     private func validateCategoryFilter() {
@@ -96,7 +120,10 @@ final class TodoViewModel {
     func toggleTodo(_ todo: Todo) {
         guard let index = todos.firstIndex(where: { $0.id == todo.id }) else { return }
         todos[index].isCompleted.toggle()
+        todos[index].completedAt = todos[index].isCompleted ? .now : nil
         let updated = todos[index]
+        notionSyncTask?.cancel()
+        notionSyncTask = nil
         Task { try? await service.updateTodo(updated) }
     }
 
@@ -104,6 +131,8 @@ final class TodoViewModel {
         guard let index = todos.firstIndex(where: { $0.id == todo.id }) else { return }
         todos[index].isPinned.toggle()
         let updated = todos[index]
+        notionSyncTask?.cancel()
+        notionSyncTask = nil
         Task { try? await service.updateTodo(updated) }
     }
 
@@ -157,12 +186,36 @@ final class TodoViewModel {
         PlannerService.shared.selectPlanner(planner)
     }
 
+    func requestDatePicker() {
+        guard isPro else {
+            datePaywallMessage = "다른 날 투두 확인은 Pro 기능이에요"
+            showDatePaywall = true
+            return
+        }
+        showDatePicker = true
+    }
+
+    func dismissDatePaywall() {
+        showDatePaywall = false
+        datePaywallMessage = ""
+    }
+
     func goToPreviousDay() {
+        guard isPro else {
+            datePaywallMessage = "다른 날 투두 확인은 Pro 기능이에요"
+            showDatePaywall = true
+            return
+        }
         guard let prev = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) else { return }
         selectedDate = prev
     }
 
     func goToNextDay() {
+        guard isPro else {
+            datePaywallMessage = "다른 날 투두 확인은 Pro 기능이에요"
+            showDatePaywall = true
+            return
+        }
         guard let next = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) else { return }
         selectedDate = next
     }

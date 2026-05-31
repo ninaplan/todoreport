@@ -1,0 +1,380 @@
+import Foundation
+import SwiftData
+
+@Observable
+final class PlannerMigrationViewModel {
+
+    enum Step: Equatable {
+        case idle               // 시작 전
+        case oauthRequired      // OAuth 진행 중
+        case selectTodoDB       // 투두 DB 선택
+        case mapTodoProps       // 투두 속성 매핑
+        case selectReportDB     // 리포트 DB 선택
+        case mapReportProps     // 리포트 속성 매핑
+        case chooseMode         // 데이터 처리 방법 선택
+        case running            // 마이그레이션 실행 중
+        case completed          // 완료
+        case failed(String)     // 실패
+    }
+
+    enum SyncMode {
+        case uploadToNotion
+        case importFromNotion
+    }
+
+    // MARK: - OAuth / DB / 속성 상태
+
+    private(set) var step: Step = .idle
+    private(set) var isLoading: Bool = false
+    var alertMessage: String?
+
+    private(set) var capturedAccessToken: String?
+    private(set) var databases: [NotionDatabase] = []
+    var selectedTodoDBId: String?
+    var selectedReportDBId: String?
+    private(set) var todoProperties: [NotionProperty] = []
+    private(set) var reportProperties: [NotionProperty] = []
+    var todoPropsMapping = TodoPropsMapping()
+    var reportPropsMapping = ReportPropsMapping()
+
+    var memoMode: PropMappingMode = .appOnly
+    var isPinnedMode: PropMappingMode = .appOnly
+    var reportRelationMode: PropMappingMode = .appOnly
+    var reviewMode: PropMappingMode = .appOnly
+    var ratingMode: PropMappingMode = .appOnly
+
+    var canProceedFromTodoProps: Bool {
+        todoPropsMapping.completed != nil && todoPropsMapping.date != nil
+    }
+    var canProceedFromReportProps: Bool {
+        reportPropsMapping.date != nil
+    }
+
+    // MARK: - 마이그레이션 진행 상태
+
+    private(set) var totalCount: Int = 0
+    private(set) var completedCount: Int = 0
+    private(set) var completionMessage: String = ""
+
+    var progress: Double {
+        totalCount == 0 ? 0 : Double(completedCount) / Double(totalCount)
+    }
+
+    private let planner: Planner
+    private var context: ModelContext { PersistenceController.shared.context }
+    private let reportService = DailyReportService()
+    private let todoService = TodoService.shared
+    private let backendBase = "https://todoreport-backend.vercel.app"
+
+    init(planner: Planner) {
+        self.planner = planner
+    }
+
+    var showNotionWorkspaceInfo: Bool {
+        PlannerService.shared.store.contains(where: { $0.isNotionConnected && $0.id != planner.id })
+    }
+
+    // MARK: - 연결 시작 (OAuth)
+
+    func startConnection() {
+        step = .oauthRequired
+        isLoading = true
+        NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token in
+            guard let self else { return }
+            self.capturedAccessToken = token
+            self.isLoading = false
+            Task { await self.fetchDatabases() }
+        }
+        NotionAuthManager.shared.startOAuth()
+    }
+
+    // MARK: - DB 선택
+
+    func selectTodoDB(_ id: String) {
+        selectedTodoDBId = id
+        Task { await fetchTodoProperties() }
+    }
+
+    func proceedFromMapTodoProps() {
+        step = .selectReportDB
+    }
+
+    func selectReportDB(_ id: String) {
+        selectedReportDBId = id
+        Task { await fetchReportProperties() }
+    }
+
+    func proceedFromMapReportProps() async {
+        await saveConnectionSettings()
+        step = .chooseMode
+    }
+
+    // MARK: - 마이그레이션 시작
+
+    func startMigration(mode: SyncMode) async {
+        step = .running
+        completedCount = 0
+        switch mode {
+        case .uploadToNotion:   await uploadToNotion()
+        case .importFromNotion: await importFromNotion()
+        }
+    }
+
+    // MARK: - 뒤로가기
+
+    func goBack() {
+        switch step {
+        case .oauthRequired:
+            NotionAuthManager.shared.secondaryOAuthCompletion = nil
+            isLoading = false
+            step = .idle
+        case .selectTodoDB:
+            databases = []
+            capturedAccessToken = nil
+            step = .idle
+        case .mapTodoProps:
+            selectedTodoDBId = nil
+            step = .selectTodoDB
+        case .selectReportDB:
+            step = .mapTodoProps
+        case .mapReportProps:
+            selectedReportDBId = nil
+            step = .selectReportDB
+        default: break
+        }
+    }
+
+    // MARK: - 연결 설정 저장
+
+    private func saveConnectionSettings() async {
+        var updated = planner
+        updated.notionAccessToken = capturedAccessToken
+        updated.notionTodoDBId    = selectedTodoDBId
+        updated.notionReportDBId  = selectedReportDBId
+        updated.isNotionConnected = true
+        if let data = try? JSONEncoder().encode(todoPropsMapping),
+           let json = String(data: data, encoding: .utf8) {
+            updated.todoPropsMapping = json
+        }
+        if let data = try? JSONEncoder().encode(reportPropsMapping),
+           let json = String(data: data, encoding: .utf8) {
+            updated.reportPropsMapping = json
+        }
+        try? await PlannerService.shared.savePlanner(updated)
+    }
+
+    // MARK: - API
+
+    func fetchDatabases() async {
+        guard databases.isEmpty else { return }
+        isLoading = true
+        defer { isLoading = false }
+        let token = capturedAccessToken ?? ""
+        guard let url = URL(string: "\(backendBase)/api/notion/databases") else { return }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let decoded = try JSONDecoder().decode(DatabasesResponse.self, from: data)
+            databases = decoded.databases.map {
+                NotionDatabase(id: $0.id, title: $0.title, icon: $0.icon?.emoji)
+            }
+            step = .selectTodoDB
+        } catch {
+            alertMessage = "DB 목록을 불러오지 못했어요"
+        }
+    }
+
+    func fetchTodoProperties() async {
+        guard let dbId = selectedTodoDBId else { return }
+        isLoading = true
+        defer { isLoading = false }
+        let token = capturedAccessToken ?? ""
+        guard let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else { return }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let decoded = try JSONDecoder().decode(PropertiesResponse.self, from: data)
+            todoProperties = decoded.properties.map {
+                NotionProperty(id: $0.id, name: $0.name, type: $0.type, options: $0.options)
+            }
+            autoMapTodoProps()
+            step = .mapTodoProps
+        } catch {
+            alertMessage = "속성을 불러오지 못했어요"
+        }
+    }
+
+    func fetchReportProperties() async {
+        guard let dbId = selectedReportDBId else { return }
+        isLoading = true
+        defer { isLoading = false }
+        let token = capturedAccessToken ?? ""
+        guard let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else { return }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let decoded = try JSONDecoder().decode(PropertiesResponse.self, from: data)
+            reportProperties = decoded.properties.map {
+                NotionProperty(id: $0.id, name: $0.name, type: $0.type, options: $0.options)
+            }
+            autoMapReportProps()
+            step = .mapReportProps
+        } catch {
+            alertMessage = "속성을 불러오지 못했어요"
+        }
+    }
+
+    func createMemoProperty() async {
+        let token = capturedAccessToken ?? ""
+        guard let dbId = selectedTodoDBId,
+              let name = await addNotionProperty(dbId: dbId, name: "메모", type: "rich_text", token: token) else { return }
+        todoPropsMapping.memo = name
+        memoMode = .existing
+    }
+
+    func createPinnedProperty() async {
+        let token = capturedAccessToken ?? ""
+        guard let dbId = selectedTodoDBId,
+              let name = await addNotionProperty(dbId: dbId, name: "상단고정", type: "checkbox", token: token) else { return }
+        todoPropsMapping.isPinned = name
+        isPinnedMode = .existing
+    }
+
+    func createRatingProperty() async {
+        let token = capturedAccessToken ?? ""
+        let options = DayRating.allCases.map { $0.rawValue }
+        guard let dbId = selectedReportDBId,
+              let name = await addNotionProperty(dbId: dbId, name: "별점", type: "select", options: options, token: token) else { return }
+        reportPropsMapping.rating = name
+        ratingMode = .existing
+    }
+
+    private func addNotionProperty(dbId: String, name: String, type: String, options: [String] = [], token: String) async -> String? {
+        guard let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/add-property") else { return nil }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var body: [String: Any] = ["propertyName": name, "type": type]
+        if !options.isEmpty { body["options"] = options }
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
+        request.httpBody = bodyData
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            struct Response: Decodable { let propertyName: String }
+            return try JSONDecoder().decode(Response.self, from: data).propertyName
+        } catch {
+            alertMessage = "\(name) 속성 생성에 실패했어요"
+            return nil
+        }
+    }
+
+    // MARK: - Auto Mapping
+
+    private func autoMapTodoProps() {
+        func best(type: String, default name: String) -> String? {
+            let typed = todoProperties.filter { $0.type == type }
+            return typed.first(where: { $0.name == name })?.name ?? typed.first?.name
+        }
+        todoPropsMapping.completed      = best(type: "checkbox",  default: "완료")
+        todoPropsMapping.date           = best(type: "date",      default: "날짜")
+        todoPropsMapping.memo           = best(type: "rich_text", default: "메모")
+        todoPropsMapping.isPinned       = best(type: "checkbox",  default: "중요")
+        todoPropsMapping.reportRelation = best(type: "relation",  default: "데일리 리포트")
+        memoMode           = todoPropsMapping.memo != nil           ? .existing : .appOnly
+        isPinnedMode       = todoPropsMapping.isPinned != nil       ? .existing : .appOnly
+        reportRelationMode = todoPropsMapping.reportRelation != nil ? .existing : .appOnly
+    }
+
+    private func autoMapReportProps() {
+        func best(type: String, default name: String) -> NotionProperty? {
+            let typed = reportProperties.filter { $0.type == type }
+            return typed.first(where: { $0.name == name }) ?? typed.first
+        }
+        reportPropsMapping.date = best(type: "date", default: "날짜")?.name
+        if let p = best(type: "rich_text", default: "하루 리뷰") { reportPropsMapping.review = p.name; reviewMode = .existing }
+        if let p = best(type: "select",    default: "별점")      { reportPropsMapping.rating = p.name; ratingMode = .existing }
+    }
+
+    // MARK: - 앱 → Notion 업로드
+
+    private func uploadToNotion() async {
+        let plannerId = planner.id
+        let todoDesc   = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.plannerId == plannerId })
+        let reportDesc = FetchDescriptor<DailyReportItem>(predicate: #Predicate { $0.plannerId == plannerId })
+
+        let todoItems   = (try? context.fetch(todoDesc))   ?? []
+        let reportItems = (try? context.fetch(reportDesc)) ?? []
+        await MainActor.run { totalCount = todoItems.count + reportItems.count }
+
+        if totalCount == 0 {
+            await MainActor.run { completionMessage = "업로드할 데이터가 없어요"; step = .completed }
+            return
+        }
+
+        for item in todoItems {
+            let todo = item.toTodo()
+            await MainActor.run {
+                SyncQueueManager.shared.enqueueTodoCreate(todo)
+                completedCount += 1
+            }
+        }
+        for item in reportItems {
+            let report = item.toReport()
+            do { try await reportService.saveReport(report) } catch { }
+            await MainActor.run { completedCount += 1 }
+        }
+
+        await MainActor.run { completionMessage = "모든 데이터가 Notion에 업로드됐어요"; step = .completed }
+    }
+
+    // MARK: - Notion → 앱 가져오기
+
+    private func importFromNotion() async {
+        let calendar = Calendar.current
+        guard let start = calendar.date(byAdding: .day, value: -30, to: .now),
+              let end   = calendar.date(byAdding: .day, value:  30, to: .now) else {
+            await MainActor.run { step = .failed("날짜 범위 계산 실패") }
+            return
+        }
+
+        await MainActor.run { totalCount = 1 }
+
+        var current = calendar.startOfDay(for: start)
+        while current <= end {
+            await todoService.syncTodosFromNotion(for: current)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
+            current = next
+        }
+
+        await MainActor.run { completedCount = 1; completionMessage = "Notion 데이터를 앱으로 가져왔어요"; step = .completed }
+    }
+}
+
+// MARK: - Decodable Helpers
+
+private struct DatabasesResponse: Decodable {
+    let databases: [DBItem]
+    struct DBItem: Decodable {
+        let id: String
+        let title: String
+        let icon: IconItem?
+        struct IconItem: Decodable {
+            let type: String
+            let emoji: String?
+        }
+    }
+}
+
+private struct PropertiesResponse: Decodable {
+    let properties: [PropItem]
+    struct PropItem: Decodable {
+        let id: String
+        let name: String
+        let type: String
+        let options: [String]?
+    }
+}

@@ -87,7 +87,7 @@ struct QuickCaptureView: View {
                         dismiss()
                     }
                     .disabled(!viewModel.isSaveEnabled)
-                    .tint(viewModel.isSaveEnabled ? Color.nockOrange : Color(.tertiaryLabel))
+                    .tint(viewModel.isSaveEnabled ? AppTheme.shared.accent : Color(.tertiaryLabel))
                     .fontWeight(.semibold)
                 }
             }

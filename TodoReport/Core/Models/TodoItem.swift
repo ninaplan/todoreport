@@ -10,6 +10,8 @@ final class TodoItem {
     var isPinned: Bool
     var date: Date
     var createdAt: Date
+    var completedAt: Date?
+    var notionCreatedAt: Date?
     var categoryId: String?
     var notionPageId: String
     var plannerId: String?
@@ -21,6 +23,8 @@ final class TodoItem {
         isCompleted: Bool = false,
         isPinned: Bool = false,
         date: Date = .now,
+        completedAt: Date? = nil,
+        notionCreatedAt: Date? = nil,
         categoryId: String? = nil,
         notionPageId: String = "",
         plannerId: String? = nil
@@ -32,6 +36,8 @@ final class TodoItem {
         self.isPinned = isPinned
         self.date = date
         self.createdAt = .now
+        self.completedAt = completedAt
+        self.notionCreatedAt = notionCreatedAt
         self.categoryId = categoryId
         self.notionPageId = notionPageId
         self.plannerId = plannerId
@@ -41,8 +47,10 @@ final class TodoItem {
         Todo(
             id: id, title: title, memo: memo,
             isCompleted: isCompleted, isPinned: isPinned,
-            date: date, categoryId: categoryId,
-            notionPageId: notionPageId, plannerId: plannerId
+            date: date, createdAt: createdAt,
+            completedAt: completedAt, notionCreatedAt: notionCreatedAt,
+            categoryId: categoryId, notionPageId: notionPageId,
+            plannerId: plannerId
         )
     }
 
@@ -52,6 +60,8 @@ final class TodoItem {
         isCompleted = todo.isCompleted
         isPinned = todo.isPinned
         date = todo.date
+        completedAt = todo.completedAt
+        if let nc = todo.notionCreatedAt { notionCreatedAt = nc }
         categoryId = todo.categoryId
         notionPageId = todo.notionPageId
         // plannerId는 생성 시 고정 — 플래너 이동 기능 구현 시 별도 메서드로 처리
@@ -61,7 +71,9 @@ final class TodoItem {
         TodoItem(
             id: todo.id, title: todo.title, memo: todo.memo,
             isCompleted: todo.isCompleted, isPinned: todo.isPinned,
-            date: todo.date, categoryId: todo.categoryId,
+            date: todo.date, completedAt: todo.completedAt,
+            notionCreatedAt: todo.notionCreatedAt,
+            categoryId: todo.categoryId,
             notionPageId: todo.notionPageId, plannerId: todo.plannerId
         )
     }

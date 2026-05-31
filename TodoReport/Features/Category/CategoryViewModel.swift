@@ -16,8 +16,10 @@ final class CategoryViewModel {
     private(set) var archivingCategory: Category? = nil
     private(set) var pendingArchiveCount: Int = 0
 
-    var showRestoreAlert: Bool = false
-    private(set) var restoringCategory: Category? = nil
+    // showRestoreAlert, restoringCategory 제거 — 복원은 팝업 없이 즉시 실행
+
+    var showDeleteAlert: Bool = false
+    private(set) var deletingCategory: Category? = nil
 
     private var editingId: String? = nil
     private let service = CategoryService.shared
@@ -101,10 +103,15 @@ final class CategoryViewModel {
     }
 
     func confirmArchive(_ category: Category) async {
-        categories.removeAll { $0.id == category.id }
-        var archived = category
-        archived.status = .archived
-        archivedCategories.append(archived)
+        withAnimation(.easeOut(duration: 0.25)) {
+            categories.removeAll { $0.id == category.id }
+        }
+        try? await Task.sleep(nanoseconds: 280_000_000)
+        withAnimation(.easeOut(duration: 0.25)) {
+            var archived = category
+            archived.status = .archived
+            archivedCategories.append(archived)
+        }
         try? await service.archiveCategory(id: category.id)
         archivingCategory = nil
         pendingArchiveCount = 0
@@ -116,25 +123,41 @@ final class CategoryViewModel {
         pendingArchiveCount = 0
     }
 
+    // MARK: - Delete
+
+    func requestDelete(_ category: Category) {
+        deletingCategory = category
+        showDeleteAlert = true
+    }
+
+    func cancelDelete() {
+        deletingCategory = nil
+        showDeleteAlert = false
+    }
+
+    func confirmDelete() async {
+        guard let category = deletingCategory else { return }
+        withAnimation(.default) {
+            categories.removeAll { $0.id == category.id }
+            archivedCategories.removeAll { $0.id == category.id }
+        }
+        try? await service.deleteCategory(id: category.id)
+        deletingCategory = nil
+        isSheetPresented = false
+    }
+
     // MARK: - Restore
 
-    func requestRestore(_ category: Category) {
-        restoringCategory = category
-        showRestoreAlert = true
-    }
-
-    func cancelRestore() {
-        restoringCategory = nil
-        showRestoreAlert = false
-    }
-
-    func confirmRestore() async {
-        guard let category = restoringCategory else { return }
-        archivedCategories.removeAll { $0.id == category.id }
-        var restored = category
-        restored.status = .active
-        categories.append(restored)
+    func confirmRestore(_ category: Category) async {
+        withAnimation(.easeOut(duration: 0.25)) {
+            archivedCategories.removeAll { $0.id == category.id }
+        }
+        try? await Task.sleep(nanoseconds: 280_000_000)
+        withAnimation(.easeOut(duration: 0.25)) {
+            var restored = category
+            restored.status = .active
+            categories.append(restored)
+        }
         try? await service.restoreCategory(id: category.id)
-        restoringCategory = nil
     }
 }

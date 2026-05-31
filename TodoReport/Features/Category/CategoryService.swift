@@ -143,6 +143,22 @@ final class CategoryService {
         await refreshStore()
     }
 
+    func deleteCategory(id: String) async throws {
+        let catDesc = FetchDescriptor<CategoryItem>(predicate: #Predicate { $0.id == id })
+        guard let item = try context.fetch(catDesc).first else { return }
+        context.delete(item)
+
+        let todoDesc = FetchDescriptor<TodoItem>()
+        if let todos = try? context.fetch(todoDesc) {
+            for todo in todos where todo.categoryId == id {
+                todo.categoryId = nil
+            }
+        }
+
+        try context.save()
+        await refreshStore()
+    }
+
     func reorderActiveCategories(_ ordered: [Category]) {
         Task {
             do {

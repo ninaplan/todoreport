@@ -10,6 +10,19 @@ struct CategoryView: View {
                 CategoryRow(category: category)
                     .contentShape(Rectangle())
                     .onTapGesture { viewModel.openEditSheet(category) }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            viewModel.requestDelete(category)
+                        } label: {
+                            Label("삭제", systemImage: "trash")
+                        }
+                        Button {
+                            Task { await viewModel.requestArchive(category) }
+                        } label: {
+                            Label("보관", systemImage: "archivebox")
+                        }
+                        .tint(.orange)
+                    }
             }
             .onMove { viewModel.moveCategory(from: $0, to: $1) }
 
@@ -19,7 +32,20 @@ struct CategoryView: View {
                     ForEach(viewModel.archivedCategories) { category in
                         ArchivedCategoryRow(category: category)
                             .contentShape(Rectangle())
-                            .onTapGesture { viewModel.requestRestore(category) }
+                            .onTapGesture { Task { await viewModel.confirmRestore(category) } }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    viewModel.requestDelete(category)
+                                } label: {
+                                    Label("삭제", systemImage: "trash")
+                                }
+                                Button {
+                                    Task { await viewModel.confirmRestore(category) }
+                                } label: {
+                                    Label("복원", systemImage: "arrow.counterclockwise")
+                                }
+                                .tint(.blue)
+                            }
                     }
                 }
             }
@@ -48,14 +74,14 @@ struct CategoryView: View {
                 )
             }
         }
-        .alert("복원", isPresented: $viewModel.showRestoreAlert) {
-            Button("취소", role: .cancel) { viewModel.cancelRestore() }
-            Button("복원") {
-                Task { await viewModel.confirmRestore() }
+        .alert("카테고리 삭제", isPresented: $viewModel.showDeleteAlert) {
+            Button("취소", role: .cancel) { viewModel.cancelDelete() }
+            Button("삭제", role: .destructive) {
+                Task { await viewModel.confirmDelete() }
             }
         } message: {
-            if let category = viewModel.restoringCategory {
-                Text("'\(category.name)' 카테고리를 다시 활성화할까요?")
+            if let category = viewModel.deletingCategory {
+                Text("'\(category.name)' 카테고리를 삭제할까요?\n이 카테고리를 사용하는 투두는 카테고리 없음으로 변경됩니다.")
             }
         }
     }
@@ -217,18 +243,38 @@ private struct CategoryEditSheet: View {
                     .padding(.vertical, 4)
                 }
 
-                // 보관 버튼 (편집 시에만 표시)
+                // 보관/삭제 버튼 (편집 시에만 표시)
                 if viewModel.isEditing {
                     Section {
-                        Button {
-                            if let category = viewModel.editingCategory {
-                                Task { await viewModel.requestArchive(category) }
+                        HStack(spacing: 12) {
+                            Button {
+                                if let category = viewModel.editingCategory {
+                                    Task { await viewModel.requestArchive(category) }
+                                }
+                            } label: {
+                                Label("보관", systemImage: "archivebox")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(Color.orange, in: Capsule())
                             }
-                        } label: {
-                            Text("이 카테고리 보관")
-                                .foregroundStyle(Color(.systemRed))
-                                .frame(maxWidth: .infinity, alignment: .center)
+                            .buttonStyle(.plain)
+                            Button {
+                                if let category = viewModel.editingCategory {
+                                    viewModel.requestDelete(category)
+                                }
+                            } label: {
+                                Label("영구 삭제", systemImage: "trash")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(Color.red, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
                         }
+                        .listRowBackground(Color.clear)
                     }
                 }
             }
@@ -243,7 +289,7 @@ private struct CategoryEditSheet: View {
                         Task { await viewModel.saveEdit() }
                     }
                     .fontWeight(.semibold)
-                    .tint(Color.nockOrange)
+                    .tint(AppTheme.shared.accent)
                     .disabled(viewModel.editName.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
@@ -251,6 +297,16 @@ private struct CategoryEditSheet: View {
             .sensoryFeedback(.selection, trigger: viewModel.editColorHex)
             .sensoryFeedback(.selection, trigger: viewModel.editIcon)
             .sensoryFeedback(.warning, trigger: viewModel.showArchiveAlert)
+            .alert("카테고리 삭제", isPresented: $viewModel.showDeleteAlert) {
+                Button("취소", role: .cancel) { viewModel.cancelDelete() }
+                Button("삭제", role: .destructive) {
+                    Task { await viewModel.confirmDelete() }
+                }
+            } message: {
+                if let category = viewModel.deletingCategory {
+                    Text("'\(category.name)' 카테고리를 삭제할까요?\n이 카테고리를 사용하는 투두는 카테고리 없음으로 변경됩니다.")
+                }
+            }
             .alert("보관하시겠어요?", isPresented: $viewModel.showArchiveAlert) {
                 Button("취소", role: .cancel) { viewModel.cancelArchive() }
                 Button("보관", role: .destructive) {

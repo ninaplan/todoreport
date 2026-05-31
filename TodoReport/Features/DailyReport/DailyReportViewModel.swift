@@ -11,6 +11,7 @@ final class DailyReportViewModel {
     private var currentCompletionRate: Double = 0
     private var savedReview: String = ""
     private let service: DailyReportService
+    private var fetchTask: Task<Void, Never>?
 
     init(service: DailyReportService = DailyReportService()) {
         self.service = service
@@ -22,19 +23,41 @@ final class DailyReportViewModel {
 
     // MARK: - Data
 
+    func switchReport() {
+        fetchTask?.cancel()
+        fetchTask = nil
+        selectedRating = nil
+        reviewText = ""
+        savedReview = ""
+    }
+
     func fetchReport(for date: Date, completionRate: Double) async {
+        fetchTask?.cancel()
         currentDate = date
         currentCompletionRate = completionRate
 
-        guard let existing = await service.fetchReport(for: date) else {
+        if let existing = await service.fetchReport(for: date) {
+            selectedRating = existing.dayRating
+            reviewText = existing.review
+            savedReview = existing.review
+        } else {
             selectedRating = nil
             reviewText = ""
             savedReview = ""
-            return
         }
-        selectedRating = existing.dayRating
-        reviewText = existing.review
-        savedReview = existing.review
+
+        let d = date
+        fetchTask = Task {
+            await service.syncReportFromNotion(for: d)
+            guard !Task.isCancelled else { return }
+            if let synced = await service.fetchReport(for: d) {
+                selectedRating = synced.dayRating
+                if !hasUnsavedReview {
+                    reviewText = synced.review
+                    savedReview = synced.review
+                }
+            }
+        }
     }
 
     // MARK: - Actions
@@ -45,6 +68,7 @@ final class DailyReportViewModel {
     }
 
     func saveReport() async {
+        stripTrailingNewline()
         isSaving = true
         defer { isSaving = false }
 
@@ -60,5 +84,11 @@ final class DailyReportViewModel {
 
     func updateCompletionRate(_ rate: Double) {
         currentCompletionRate = rate
+    }
+
+    func stripTrailingNewline() {
+        if reviewText.hasSuffix("\n") {
+            reviewText = String(reviewText.dropLast())
+        }
     }
 }

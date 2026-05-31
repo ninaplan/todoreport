@@ -11,6 +11,7 @@ final class SyncQueueItem {
     var retryCount: Int
     var status: String      // "pending" / "processing" / "failed"
     var createdAt: Date
+    var plannerId: String?
 
     init(
         id: String = UUID().uuidString,
@@ -20,7 +21,8 @@ final class SyncQueueItem {
         payload: Data,
         retryCount: Int = 0,
         status: String = "pending",
-        createdAt: Date = .now
+        createdAt: Date = .now,
+        plannerId: String? = nil
     ) {
         self.id = id
         self.action = action
@@ -30,5 +32,6 @@ final class SyncQueueItem {
         self.retryCount = retryCount
         self.status = status
         self.createdAt = createdAt
+        self.plannerId = plannerId
     }
 }

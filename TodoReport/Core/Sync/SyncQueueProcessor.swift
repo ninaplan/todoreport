@@ -19,29 +19,57 @@ final class SyncQueueProcessor {
                 predicate: #Predicate<SyncQueueItem> { $0.status == "pending" },
                 sortBy: [SortDescriptor(\.createdAt)]
             )
-            let items = try context.fetch(descriptor)
+            let fetched = try context.fetch(descriptor)
+            // update(완료 체크)를 create/delete보다 먼저 처리
+            let items = fetched.filter { $0.action == "update" } + fetched.filter { $0.action != "update" }
+            print("[Processor] 🔄 처리 시작 - \(items.count)개")
 
             for item in items {
+                // 아이템의 plannerId로 플래너 조회 (없으면 현재 선택 플래너 사용)
+                let planner = PlannerService.shared.store.first(where: { $0.id == item.plannerId })
+                    ?? PlannerService.shared.selectedPlanner
+                guard let planner, planner.isNotionConnected else {
+                    print("[Processor] ⚠️ 플래너 미연결 - 스킵 \(item.entityId)")
+                    continue
+                }
+
                 item.status = "processing"
                 try? context.save()
 
                 do {
-                    try await NotionAPIClient.shared.sync(
+                    let notionPageId = try await NotionAPIClient.shared.sync(
                         action: item.action,
                         entityType: item.entityType,
                         entityId: item.entityId,
-                        payload: item.payload
+                        payload: item.payload,
+                        planner: planner
                     )
+                    if item.action == "create", item.entityType == "todo",
+                       let pageId = notionPageId {
+                        updateNotionPageId(localId: item.entityId, notionPageId: pageId)
+                    }
                     context.delete(item)
                     try? context.save()
+                    print("[Processor] ✅ 성공 - \(item.entityId)")
                 } catch {
                     item.retryCount += 1
                     item.status = item.retryCount > 3 ? "failed" : "pending"
                     try? context.save()
+                    print("[Processor] ❌ 실패 - \(item.entityId) retryCount:\(item.retryCount)")
                 }
             }
         } catch {
             // fetch 실패 — 다음 실행 시 재시도
         }
+    }
+
+    private func updateNotionPageId(localId: String, notionPageId: String) {
+        let descriptor = FetchDescriptor<TodoItem>(
+            predicate: #Predicate { $0.id == localId }
+        )
+        guard let item = try? context.fetch(descriptor).first else { return }
+        item.notionPageId = notionPageId
+        try? context.save()
+        print("[Processor] 🔗 notionPageId 업데이트 - \(localId) → \(notionPageId)")
     }
 }

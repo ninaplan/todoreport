@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct DailyReportCard: View {
     @Bindable var viewModel: DailyReportViewModel
@@ -36,6 +37,9 @@ struct DailyReportCard: View {
             guard !focused, viewModel.hasUnsavedReview else { return }
             Task { await viewModel.saveReport() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            Task { await viewModel.fetchReport(for: date, completionRate: completionRate) }
+        }
     }
 
     // MARK: - 완료율
@@ -49,10 +53,10 @@ struct DailyReportCard: View {
                 Spacer()
                 Text("\(displayCompleted)/\(displayTotal)개  \(Int(displayRate * 100))%")
                     .font(.caption.bold())
-                    .foregroundStyle(Color.nockOrange)
+                    .foregroundStyle(AppTheme.shared.accent)
             }
             ProgressView(value: displayRate)
-                .tint(Color.nockOrange)
+                .tint(AppTheme.shared.accent)
                 .scaleEffect(y: 1.4)
         }
     }
@@ -102,7 +106,7 @@ struct DailyReportCard: View {
                         Task { await viewModel.saveReport() }
                     }
                     .font(.caption.bold())
-                    .foregroundStyle(Color.nockOrange)
+                    .foregroundStyle(AppTheme.shared.accent)
                 }
             }
 
@@ -112,7 +116,11 @@ struct DailyReportCard: View {
                 .focused($isReviewFocused)
                 .submitLabel(.done)
                 .onSubmit {
-                    Task { await viewModel.saveReport() }
+                    isReviewFocused = false
+                }
+                .onChange(of: viewModel.reviewText) { _, newValue in
+                    guard newValue.hasSuffix("\n") else { return }
+                    isReviewFocused = false
                 }
         }
     }

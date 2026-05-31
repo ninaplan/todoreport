@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 struct WeeklyReportData {
     let period: DateInterval
@@ -57,108 +58,207 @@ final class ReportService {
     static let shared = ReportService()
     private init() {}
 
+    private var context: ModelContext { PersistenceController.shared.context }
+
     func fetchWeeklyReport(startingFrom monday: Date) async -> WeeklyReportData {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: monday)
-        guard let end = calendar.date(byAdding: .day, value: 6, to: start) else {
-            return Self.dummyWeekly(start: start)
-        }
-        return Self.dummyWeekly(start: start)
-    }
-
-    func fetchMonthlyReport(year: Int, month: Int) async -> MonthlyReportData {
-        var components = DateComponents(year: year, month: month, day: 1)
-        let calendar = Calendar.current
-        let start = calendar.date(from: components) ?? .now
-        components.month = month + 1
-        components.day = 0
-        let end = calendar.date(from: components) ?? .now
-        return Self.dummyMonthly(start: start, end: end)
-    }
-
-    // MARK: - 더미 데이터
-
-    private static func dummyWeekly(start: Date) -> WeeklyReportData {
-        let calendar = Calendar.current
-        guard let end = calendar.date(byAdding: .day, value: 6, to: start) else {
-            return WeeklyReportData(
-                period: DateInterval(start: start, end: start),
-                completionRate: 0, averageRating: 0, streakDays: 0,
-                dailyCompletionRates: [], dailyRatings: [], categoryStats: []
-            )
+        guard let end = calendar.date(byAdding: .day, value: 7, to: start) else {
+            return emptyWeekly(start: start)
         }
 
-        let dailyRates: [DailyRate] = [
-            DailyRate(weekday: "월", rate: 0.85),
-            DailyRate(weekday: "화", rate: 0.60),
-            DailyRate(weekday: "수", rate: 1.00),
-            DailyRate(weekday: "목", rate: 0.75),
-            DailyRate(weekday: "금", rate: 0.50),
-            DailyRate(weekday: "토", rate: 0.90),
-            DailyRate(weekday: "일", rate: 0.70),
-        ]
+        let plannerId = PlannerService.shared.selectedPlanner?.id
+        let todos = fetchTodos(in: start..<end, plannerId: plannerId)
+        let reports = fetchReports(in: start..<end, plannerId: plannerId)
+        let categories = fetchCategories(plannerId: plannerId)
 
-        let dailyRatings: [DailyRatingPoint] = [
-            DailyRatingPoint(weekday: "월", rating: 4.0),
-            DailyRatingPoint(weekday: "화", rating: 3.0),
-            DailyRatingPoint(weekday: "수", rating: 5.0),
-            DailyRatingPoint(weekday: "목", rating: 4.0),
-            DailyRatingPoint(weekday: "금", rating: 3.0),
-            DailyRatingPoint(weekday: "토", rating: 5.0),
-            DailyRatingPoint(weekday: "일", rating: 4.0),
-        ]
+        let weekdays = ["월", "화", "수", "목", "금", "토", "일"]
+        var dailyRates: [DailyRate] = []
+        var dailyRatings: [DailyRatingPoint] = []
 
-        let avgRate = dailyRates.map(\.rate).reduce(0, +) / Double(dailyRates.count)
-        let avgRating = dailyRatings.map(\.rating).reduce(0, +) / Double(dailyRatings.count)
+        for i in 0..<7 {
+            guard let dayStart = calendar.date(byAdding: .day, value: i, to: start),
+                  let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { continue }
+            let dayTodos = todos.filter { $0.date >= dayStart && $0.date < dayEnd }
+            let rate = dayTodos.isEmpty ? 0 : Double(dayTodos.filter { $0.isCompleted }.count) / Double(dayTodos.count)
+            dailyRates.append(DailyRate(weekday: weekdays[i], rate: rate))
+
+            let report = reports.first { $0.date >= dayStart && $0.date < dayEnd }
+            let ratingValue = ratingDouble(report?.dayRatingRaw)
+            dailyRatings.append(DailyRatingPoint(weekday: weekdays[i], rating: ratingValue))
+        }
+
+        let avgRate = dailyRates.map(\.rate).reduce(0, +) / max(1, Double(dailyRates.count))
+        let ratedDays = dailyRatings.filter { $0.rating > 0 }
+        let avgRating = ratedDays.isEmpty ? 0 : ratedDays.map(\.rating).reduce(0, +) / Double(ratedDays.count)
+        let streak = calculateStreak(reports: reports, endingAt: start, calendar: calendar)
 
         return WeeklyReportData(
             period: DateInterval(start: start, end: end),
             completionRate: avgRate,
             averageRating: avgRating,
-            streakDays: 5,
+            streakDays: streak,
             dailyCompletionRates: dailyRates,
             dailyRatings: dailyRatings,
-            categoryStats: dummyCategoryStats()
+            categoryStats: buildCategoryStats(todos: todos, categories: categories)
         )
     }
 
-    private static func dummyMonthly(start: Date, end: Date) -> MonthlyReportData {
-        let weeklyRates: [WeeklyRate] = [
-            WeeklyRate(label: "1주차", rate: 0.72),
-            WeeklyRate(label: "2주차", rate: 0.85),
-            WeeklyRate(label: "3주차", rate: 0.68),
-            WeeklyRate(label: "4주차", rate: 0.91),
-            WeeklyRate(label: "5주차", rate: 0.80),
-        ]
+    func fetchMonthlyReport(year: Int, month: Int) async -> MonthlyReportData {
+        let calendar = Calendar.current
+        guard let start = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
+              let end = calendar.date(byAdding: .month, value: 1, to: start) else {
+            return emptyMonthly(start: .now)
+        }
 
-        let weeklyRatings: [WeeklyRatingPoint] = [
-            WeeklyRatingPoint(label: "1주차", rating: 3.5),
-            WeeklyRatingPoint(label: "2주차", rating: 4.2),
-            WeeklyRatingPoint(label: "3주차", rating: 3.8),
-            WeeklyRatingPoint(label: "4주차", rating: 4.6),
-            WeeklyRatingPoint(label: "5주차", rating: 4.0),
-        ]
+        let plannerId = PlannerService.shared.selectedPlanner?.id
+        let todos = fetchTodos(in: start..<end, plannerId: plannerId)
+        let reports = fetchReports(in: start..<end, plannerId: plannerId)
+        let categories = fetchCategories(plannerId: plannerId)
 
-        let avgRate = weeklyRates.map(\.rate).reduce(0, +) / Double(weeklyRates.count)
-        let avgRating = weeklyRatings.map(\.rating).reduce(0, +) / Double(weeklyRatings.count)
+        // 주차별 집계
+        var weeklyRates: [WeeklyRate] = []
+        var weeklyRatings: [WeeklyRatingPoint] = []
+        var weekStart = start
+        var weekIndex = 1
+
+        while weekStart < end {
+            guard let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) else { break }
+            let actualEnd = min(weekEnd, end)
+            let label = "\(weekIndex)주차"
+
+            let weekTodos = todos.filter { $0.date >= weekStart && $0.date < actualEnd }
+            let rate = weekTodos.isEmpty ? 0 : Double(weekTodos.filter { $0.isCompleted }.count) / Double(weekTodos.count)
+            weeklyRates.append(WeeklyRate(label: label, rate: rate))
+
+            let weekReports = reports.filter { $0.date >= weekStart && $0.date < actualEnd }
+            let ratedReports = weekReports.filter { $0.dayRatingRaw != nil }
+            let avgRating = ratedReports.isEmpty
+                ? 0
+                : ratedReports.map { ratingDouble($0.dayRatingRaw) }.reduce(0, +) / Double(ratedReports.count)
+            weeklyRatings.append(WeeklyRatingPoint(label: label, rating: avgRating))
+
+            weekStart = weekEnd
+            weekIndex += 1
+        }
+
+        let avgRate = weeklyRates.map(\.rate).reduce(0, +) / max(1, Double(weeklyRates.count))
+        let ratedWeeks = weeklyRatings.filter { $0.rating > 0 }
+        let avgRating = ratedWeeks.isEmpty ? 0 : ratedWeeks.map(\.rating).reduce(0, +) / Double(ratedWeeks.count)
+        let streak = calculateStreak(reports: reports, endingAt: start, calendar: calendar)
 
         return MonthlyReportData(
             period: DateInterval(start: start, end: end),
             completionRate: avgRate,
             averageRating: avgRating,
-            streakDays: 14,
+            streakDays: streak,
             weeklyCompletionRates: weeklyRates,
             weeklyRatings: weeklyRatings,
-            categoryStats: dummyCategoryStats()
+            categoryStats: buildCategoryStats(todos: todos, categories: categories)
         )
     }
 
-    private static func dummyCategoryStats() -> [CategoryStat] {
-        [
-            CategoryStat(name: "공부",  colorHex: "4A90D9", rate: 0.83, completed: 10, total: 12),
-            CategoryStat(name: "운동",  colorHex: "E8794A", rate: 0.60, completed:  6, total: 10),
-            CategoryStat(name: "독서",  colorHex: "5BAD72", rate: 0.75, completed:  9, total: 12),
-            CategoryStat(name: "생활",  colorHex: "9B71C8", rate: 0.50, completed:  4, total:  8),
-        ]
+    // MARK: - SwiftData Fetch
+
+    func hasTodos(in range: Range<Date>) async -> Bool {
+        let plannerId = PlannerService.shared.selectedPlanner?.id
+        return !fetchTodos(in: range, plannerId: plannerId).isEmpty
+    }
+
+    private func fetchTodos(in range: Range<Date>, plannerId: String?) -> [TodoItem] {
+        let start = range.lowerBound
+        let end = range.upperBound
+        let descriptor = FetchDescriptor<TodoItem>(
+            predicate: #Predicate { $0.date >= start && $0.date < end }
+        )
+        let all = (try? context.fetch(descriptor)) ?? []
+        guard let pid = plannerId else { return all }
+        return all.filter { $0.plannerId == pid || $0.plannerId == nil }
+    }
+
+    private func fetchReports(in range: Range<Date>, plannerId: String?) -> [DailyReportItem] {
+        let start = range.lowerBound
+        let end = range.upperBound
+        let descriptor = FetchDescriptor<DailyReportItem>(
+            predicate: #Predicate { $0.date >= start && $0.date < end }
+        )
+        let all = (try? context.fetch(descriptor)) ?? []
+        guard let pid = plannerId else { return all }
+        return all.filter { $0.plannerId == pid }
+    }
+
+    private func fetchCategories(plannerId: String?) -> [CategoryItem] {
+        let descriptor = FetchDescriptor<CategoryItem>()
+        let all = (try? context.fetch(descriptor)) ?? []
+        let pid = plannerId
+        return all.filter { $0.statusRaw != "archived" && ($0.plannerId == pid || $0.plannerId == nil) }
+    }
+
+    // MARK: - 집계 헬퍼
+
+    private func buildCategoryStats(todos: [TodoItem], categories: [CategoryItem]) -> [CategoryStat] {
+        // 카테고리 없는 투두도 "미분류"로 포함
+        var stats: [CategoryStat] = categories.compactMap { category in
+            let catTodos = todos.filter { $0.categoryId == category.id }
+            guard !catTodos.isEmpty else { return nil }
+            let completed = catTodos.filter { $0.isCompleted }.count
+            let total = catTodos.count
+            return CategoryStat(
+                name: category.name,
+                colorHex: category.colorHex,
+                rate: Double(completed) / Double(total),
+                completed: completed,
+                total: total
+            )
+        }
+        // 완료율 내림차순 정렬
+        stats.sort { $0.rate > $1.rate }
+        return stats
+    }
+
+    private func ratingDouble(_ raw: String?) -> Double {
+        guard let raw else { return 0 }
+        return Double(raw.filter { $0 == "⭐" }.count)
+    }
+
+    // 연속 달성: 오늘 기준으로 completionRate > 0인 연속 날 수
+    private func calculateStreak(reports: [DailyReportItem], endingAt: Date, calendar: Calendar) -> Int {
+        // 전체 기간 포함 추가 조회 (streak은 기간과 무관하게 오늘 기준)
+        let today = calendar.startOfDay(for: .now)
+        var streak = 0
+        var checkDate = today
+        let allReportDesc = FetchDescriptor<DailyReportItem>()
+        let allReports = (try? context.fetch(allReportDesc)) ?? []
+        let plannerId = PlannerService.shared.selectedPlanner?.id
+
+        for _ in 0..<365 {
+            guard let nextDate = calendar.date(byAdding: .day, value: 1, to: checkDate) else { break }
+            let dayReports = allReports.filter {
+                $0.date >= checkDate && $0.date < nextDate &&
+                ($0.plannerId == plannerId || plannerId == nil)
+            }
+            guard let report = dayReports.first, report.completionRate > 0 else { break }
+            streak += 1
+            checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate) ?? checkDate
+        }
+        return streak
+    }
+
+    // MARK: - 빈 데이터
+
+    private func emptyWeekly(start: Date) -> WeeklyReportData {
+        WeeklyReportData(
+            period: DateInterval(start: start, end: start),
+            completionRate: 0, averageRating: 0, streakDays: 0,
+            dailyCompletionRates: [], dailyRatings: [], categoryStats: []
+        )
+    }
+
+    private func emptyMonthly(start: Date) -> MonthlyReportData {
+        MonthlyReportData(
+            period: DateInterval(start: start, end: start),
+            completionRate: 0, averageRating: 0, streakDays: 0,
+            weeklyCompletionRates: [], weeklyRatings: [], categoryStats: []
+        )
     }
 }

@@ -5,13 +5,21 @@ struct ReportView: View {
     @State private var viewModel = ReportViewModel()
 
     var body: some View {
+        @Bindable var vm = viewModel
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
                     periodHeader
                     if viewModel.isLoading {
-                        ProgressView()
-                            .frame(maxWidth: .infinity, minHeight: 200)
+                        VStack(spacing: 10) {
+                            ProgressView()
+                            if viewModel.isSyncing {
+                                Text("노션에서 자료를 읽어오고 있습니다.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 200)
                     } else {
                         content
                     }
@@ -24,7 +32,7 @@ struct ReportView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Picker("기간", selection: $viewModel.selectedPeriod) {
+                    Picker("기간", selection: $vm.selectedPeriod) {
                         ForEach(ReportPeriod.allCases, id: \.self) {
                             Text($0.rawValue).tag($0)
                         }
@@ -36,6 +44,13 @@ struct ReportView: View {
             .task { await viewModel.fetchReport() }
             .onChange(of: viewModel.selectedPeriod) { _, _ in
                 viewModel.onPeriodChanged()
+            }
+            .sheet(isPresented: $vm.showPaywall) {
+                ProPaywallSheet(
+                    message: viewModel.paywallMessage,
+                    onDismiss: { viewModel.dismissPaywall() }
+                )
+                .presentationDetents([.medium])
             }
         }
     }
@@ -106,7 +121,7 @@ struct ReportView: View {
             values: report.dailyRatings.map(\.rating)
         )
         CategoryStatsCard(stats: report.categoryStats)
-        NotionSaveButton()
+        NotionSaveButton { viewModel.showNotionSavePaywall() }
     }
 
     @ViewBuilder
@@ -127,7 +142,7 @@ struct ReportView: View {
             values: report.weeklyRatings.map(\.rating)
         )
         CategoryStatsCard(stats: report.categoryStats)
-        NotionSaveButton()
+        NotionSaveButton { viewModel.showNotionSavePaywall() }
     }
 }
 
@@ -143,7 +158,7 @@ private struct SummaryCard: View {
             summaryItem(
                 value: "\(Int(completionRate * 100))%",
                 label: "평균 완료율",
-                color: .nockOrange
+                color: AppTheme.shared.accent
             )
             Divider().frame(height: 48)
             summaryItem(
@@ -209,7 +224,7 @@ private struct CompletionBarChart: View {
                         x: .value("기간", item.label),
                         y: .value("완료율", item.value)
                     )
-                    .foregroundStyle(Color.nockOrange.gradient)
+                    .foregroundStyle(AppTheme.shared.accent.gradient)
                     .cornerRadius(4)
                 }
                 RuleMark(y: .value("평균", values.reduce(0, +) / Double(max(values.count, 1))))
@@ -264,7 +279,7 @@ private struct RatingLineChart: View {
                         x: .value("기간", item.label),
                         y: .value("별점", item.value)
                     )
-                    .foregroundStyle(Color.nockOrange)
+                    .foregroundStyle(AppTheme.shared.accent)
                     .lineStyle(StrokeStyle(lineWidth: 2))
                     .interpolationMethod(.catmullRom)
 
@@ -272,14 +287,14 @@ private struct RatingLineChart: View {
                         x: .value("기간", item.label),
                         y: .value("별점", item.value)
                     )
-                    .foregroundStyle(Color.nockOrange)
+                    .foregroundStyle(AppTheme.shared.accent)
                     .symbolSize(36)
 
                     AreaMark(
                         x: .value("기간", item.label),
                         y: .value("별점", item.value)
                     )
-                    .foregroundStyle(Color.nockOrange.opacity(0.08).gradient)
+                    .foregroundStyle(AppTheme.shared.accent.opacity(0.08).gradient)
                     .interpolationMethod(.catmullRom)
                 }
             }
@@ -319,9 +334,17 @@ private struct CategoryStatsCard: View {
             Text("카테고리별 달성률")
                 .font(.subheadline.bold())
 
-            VStack(spacing: 12) {
-                ForEach(stats) { stat in
-                    CategoryStatRow(stat: stat)
+            if stats.isEmpty {
+                Text("카테고리를 추가하면 달성률을 확인할 수 있습니다.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 8)
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(stats) { stat in
+                        CategoryStatRow(stat: stat)
+                    }
                 }
             }
         }
@@ -368,10 +391,10 @@ private struct CategoryStatRow: View {
 // MARK: - 노션에 저장하기 버튼
 
 private struct NotionSaveButton: View {
+    let action: () -> Void
+
     var body: some View {
-        Button {
-            // 유료 기능 — 페이월 연동 없음
-        } label: {
+        Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: "lock.fill")
                     .font(.subheadline)
@@ -388,7 +411,59 @@ private struct NotionSaveButton: View {
                     .strokeBorder(Color(.separator), lineWidth: 0.5)
             )
         }
-        .disabled(true)
+    }
+}
+
+// MARK: - Pro 페이월 시트
+
+struct ProPaywallSheet: View {
+    let message: String
+    let onDismiss: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            VStack(spacing: 12) {
+                Image(systemName: "lock.circle.fill")
+                    .font(.system(size: 52))
+                    .foregroundStyle(AppTheme.shared.accent)
+
+                Text("Pro 기능")
+                    .font(.title3.bold())
+
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            VStack(spacing: 12) {
+                Button {
+                    // TODO: StoreKit 연동
+                } label: {
+                    Text("Pro로 업그레이드")
+                        .font(.subheadline.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .foregroundStyle(.white)
+                        .background(AppTheme.shared.accent)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+
+                Button("닫기") {
+                    onDismiss()
+                    dismiss()
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 32)
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
     }
 }
 

@@ -15,11 +15,18 @@ struct TodoReportApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if onboardingCompleted {
-                MainTabView()
-            } else {
-                OnboardingView {
-                    onboardingCompleted = true
+            Group {
+                if onboardingCompleted {
+                    MainTabView()
+                } else {
+                    OnboardingView {
+                        onboardingCompleted = true
+                    }
+                }
+            }
+            .onOpenURL { url in
+                Task { @MainActor in
+                    NotionAuthManager.shared.handleCallback(url: url)
                 }
             }
         }

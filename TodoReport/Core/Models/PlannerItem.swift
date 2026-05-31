@@ -9,7 +9,15 @@ final class PlannerItem {
     var isNotionConnected: Bool
     var notionTodoDBId: String?
     var notionReportDBId: String?
+    // 플래너별 Notion 토큰 (온보딩 플래너는 nil → NotionAuthManager Keychain 사용)
+    var notionAccessToken: String?
+    // 아이콘: SF Symbol 이름 또는 "photo"
+    var iconType: String?
+    @Attribute(.externalStorage) var iconImageData: Data?
     var createdAt: Date
+    // Notion 속성 매핑 (JSON 문자열)
+    var todoPropsMapping: String?
+    var reportPropsMapping: String?
 
     init(
         id: String = UUID().uuidString,
@@ -18,7 +26,12 @@ final class PlannerItem {
         isNotionConnected: Bool = false,
         notionTodoDBId: String? = nil,
         notionReportDBId: String? = nil,
-        createdAt: Date = .now
+        notionAccessToken: String? = nil,
+        iconType: String? = nil,
+        iconImageData: Data? = nil,
+        createdAt: Date = .now,
+        todoPropsMapping: String? = nil,
+        reportPropsMapping: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -26,7 +39,12 @@ final class PlannerItem {
         self.isNotionConnected = isNotionConnected
         self.notionTodoDBId = notionTodoDBId
         self.notionReportDBId = notionReportDBId
+        self.notionAccessToken = notionAccessToken
+        self.iconType = iconType
+        self.iconImageData = iconImageData
         self.createdAt = createdAt
+        self.todoPropsMapping = todoPropsMapping
+        self.reportPropsMapping = reportPropsMapping
     }
 
     func toPlanner() -> Planner {
@@ -35,7 +53,12 @@ final class PlannerItem {
             isNotionConnected: isNotionConnected,
             notionTodoDBId: notionTodoDBId,
             notionReportDBId: notionReportDBId,
-            createdAt: createdAt
+            notionAccessToken: notionAccessToken,
+            iconType: iconType,
+            iconImageData: iconImageData,
+            createdAt: createdAt,
+            todoPropsMapping: todoPropsMapping,
+            reportPropsMapping: reportPropsMapping
         )
     }
 
@@ -45,6 +68,11 @@ final class PlannerItem {
         isNotionConnected = planner.isNotionConnected
         notionTodoDBId = planner.notionTodoDBId
         notionReportDBId = planner.notionReportDBId
+        notionAccessToken = planner.notionAccessToken
+        iconType = planner.iconType
+        iconImageData = planner.iconImageData
+        todoPropsMapping = planner.todoPropsMapping
+        reportPropsMapping = planner.reportPropsMapping
     }
 
     static func from(_ planner: Planner) -> PlannerItem {
@@ -53,7 +81,12 @@ final class PlannerItem {
             isNotionConnected: planner.isNotionConnected,
             notionTodoDBId: planner.notionTodoDBId,
             notionReportDBId: planner.notionReportDBId,
-            createdAt: planner.createdAt
+            notionAccessToken: planner.notionAccessToken,
+            iconType: planner.iconType,
+            iconImageData: planner.iconImageData,
+            createdAt: planner.createdAt,
+            todoPropsMapping: planner.todoPropsMapping,
+            reportPropsMapping: planner.reportPropsMapping
         )
     }
 }
