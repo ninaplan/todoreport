@@ -12,6 +12,9 @@ struct DailyReport: Identifiable, Codable {
     var photoURLs: [String]
     var notionPageId: String
     var plannerId: String?
+    var endDate: Date?
+    var periodCompletionRate: Double?
+    var aiComment: String?
 
     init(
         id: String = UUID().uuidString,
@@ -21,7 +24,10 @@ struct DailyReport: Identifiable, Codable {
         dayRating: DayRating? = nil,
         photoURLs: [String] = [],
         notionPageId: String = "",
-        plannerId: String? = nil
+        plannerId: String? = nil,
+        endDate: Date? = nil,
+        periodCompletionRate: Double? = nil,
+        aiComment: String? = nil
     ) {
         self.id = id
         self.date = date
@@ -31,6 +37,9 @@ struct DailyReport: Identifiable, Codable {
         self.photoURLs = photoURLs
         self.notionPageId = notionPageId
         self.plannerId = plannerId
+        self.endDate = endDate
+        self.periodCompletionRate = periodCompletionRate
+        self.aiComment = aiComment
     }
 }
 
@@ -56,14 +65,16 @@ final class DailyReportService {
                 predicate: #Predicate { $0.date >= startOfDay && $0.date < endOfDay }
             )
             let items = try context.fetch(descriptor)
-            print("[DailyReport] 📚 fetch 전체 결과 - \(items.count)개")
-            items.forEach { item in
+            // 기간 리포트(endDate != nil) 제외 — 데일리 리포트만
+            let dailyOnly = items.filter { $0.endDate == nil }
+            print("[DailyReport] 📚 fetch 전체 결과 - \(dailyOnly.count)개")
+            dailyOnly.forEach { item in
                 print("[DailyReport]   - id:\(item.id) plannerId:\(item.plannerId ?? "nil") notionPageId:\(item.notionPageId) review:\(item.review)")
             }
 
             // 같은 date + plannerId 항목이 여러 개면 notionPageId 없는 항목 삭제
             let pid = plannerId
-            let candidates = items.filter { $0.plannerId == pid }
+            let candidates = dailyOnly.filter { $0.plannerId == pid }
             if candidates.count > 1 {
                 let withPageId = candidates.filter { !$0.notionPageId.isEmpty }
                 if !withPageId.isEmpty {
@@ -74,13 +85,13 @@ final class DailyReportService {
                 }
             }
 
-            let filtered = items.filter { $0.plannerId == pid }
+            let filtered = dailyOnly.filter { $0.plannerId == pid }
             // notionPageId 있는 항목 우선
             let preferred = filtered.first(where: { !$0.notionPageId.isEmpty }) ?? filtered.first
             if let pid {
                 print("[DailyReport] 📌 plannerId 필터 - pid:\(pid) result:\(preferred?.review ?? "nil")")
             } else {
-                let fallback = items.first(where: { !$0.notionPageId.isEmpty }) ?? items.first
+                let fallback = dailyOnly.first(where: { !$0.notionPageId.isEmpty }) ?? dailyOnly.first
                 print("[DailyReport] 📌 plannerId 없음 - result:\(fallback?.review ?? "nil")")
                 return fallback?.toReport()
             }
@@ -214,6 +225,7 @@ final class DailyReportService {
         let mapping = planner?.decodedReportPropsMapping ?? ReportPropsMapping()
         let token = planner?.resolvedNotionToken
 
+        let cal = Calendar.current
         var body: [String: Any] = [
             "dbId": dbId,
             "date": seoulDateString(from: report.date),
@@ -225,6 +237,14 @@ final class DailyReportService {
         if let v = mapping.review { body["reviewProp"] = v }
         if let v = mapping.rating { body["ratingProp"] = v }
         if let rating = report.dayRating { body["rating"] = rating.rawValue }
+        if let end = report.endDate {
+            let inclusiveEnd = cal.date(byAdding: .day, value: -1, to: end) ?? end
+            body["endDate"] = seoulDateString(from: inclusiveEnd)
+        }
+        if let pc = report.periodCompletionRate {
+            body["periodCompletionRate"] = pc * 100
+        }
+        if let v = mapping.periodCompletionRate { body["periodCompletionRateProp"] = v }
 
         print("[DailyReport] 📤 body: \(body)")
         do {

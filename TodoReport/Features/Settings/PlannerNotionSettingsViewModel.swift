@@ -23,6 +23,7 @@ final class PlannerNotionSettingsViewModel {
     var reportRelationMode: PropMappingMode = .appOnly
     var reviewMode: PropMappingMode = .appOnly
     var ratingMode: PropMappingMode = .appOnly
+    var periodCompletionRateMode: PropMappingMode = .appOnly
 
     private let planner: Planner
     private let backendBase = "https://todoreport-backend.vercel.app"
@@ -45,8 +46,9 @@ final class PlannerNotionSettingsViewModel {
 
         let report = planner.decodedReportPropsMapping
         reportPropsMapping = report
-        if report.review != nil { reviewMode = .existing }
-        if report.rating != nil { ratingMode = .existing }
+        if report.review != nil                { reviewMode = .existing }
+        if report.rating != nil                { ratingMode = .existing }
+        if report.periodCompletionRate != nil  { periodCompletionRateMode = .existing }
     }
 
     // MARK: - DB 목록
@@ -159,6 +161,10 @@ final class PlannerNotionSettingsViewModel {
             reportPropsMapping.rating = ratingProp.name
             ratingMode = .existing
         }
+        if let pcProp = best(type: "number", default: "기간완료율") {
+            reportPropsMapping.periodCompletionRate = pcProp.name
+            periodCompletionRateMode = .existing
+        }
     }
 
     // MARK: - 속성 생성
@@ -191,7 +197,18 @@ final class PlannerNotionSettingsViewModel {
         ratingMode = .existing
     }
 
-    private func addNotionProperty(dbId: String, name: String, type: String, options: [String] = []) async -> String? {
+    func createPeriodCompletionRateProperty() async {
+        isLoading = true
+        defer { isLoading = false }
+        guard let dbId = selectedReportDBId,
+              let name = await addNotionProperty(dbId: dbId, name: "기간완료율", type: "number", format: "percent") else { return }
+        reportPropsMapping.periodCompletionRate = name
+        periodCompletionRateMode = .existing
+    }
+
+    private func addNotionProperty(
+        dbId: String, name: String, type: String, options: [String] = [], format: String? = nil
+    ) async -> String? {
         guard let token = planner.resolvedNotionToken,
               let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/add-property") else { return nil }
 
@@ -202,6 +219,7 @@ final class PlannerNotionSettingsViewModel {
 
         var body: [String: Any] = ["propertyName": name, "type": type]
         if !options.isEmpty { body["options"] = options }
+        if let format { body["format"] = format }
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
         request.httpBody = bodyData
 

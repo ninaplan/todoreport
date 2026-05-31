@@ -24,6 +24,15 @@ final class ReportViewModel {
     private(set) var isSavingToNotion: Bool = false
     var notionSaveSuccess: Bool = false
 
+    // Save editor
+    var showSaveEditor: Bool = false
+    private(set) var pendingPeriod: DateInterval?
+    private(set) var pendingPeriodTitle: String = ""
+    private(set) var pendingNotionTitle: String = ""
+    private(set) var pendingAvgRating: Double = 0
+    private(set) var pendingCompletionRate: Double = 0
+    var notionSaveError: String?
+
     #if DEBUG
     private var isPro: Bool { UserDefaults.standard.bool(forKey: "debugIsPro") }
     #else
@@ -71,29 +80,67 @@ final class ReportViewModel {
         Task { await fetchReport() }
     }
 
-    func showNotionSavePaywall() {
-        paywallMessage = "노션에 저장하기는 Pro 기능이에요"
-        showPaywall = true
-    }
-
     func dismissPaywall() {
         showPaywall = false
         paywallMessage = ""
         if selectedPeriod == .monthly { selectedPeriod = .weekly }
     }
 
-    func saveWeeklyToNotion() async {
+    func prepareSave() {
         guard isPro else {
             paywallMessage = "노션에 저장하기는 Pro 기능이에요"
             showPaywall = true
             return
         }
-        guard let report = weeklyReport else { return }
         guard PlannerService.shared.selectedPlanner?.isNotionConnected == true else { return }
+
+        switch selectedPeriod {
+        case .weekly:
+            guard let report = weeklyReport else { return }
+            pendingPeriod = report.period
+            pendingPeriodTitle = periodTitle
+            pendingNotionTitle = notionTitle(for: report.period, type: .weekly)
+            pendingAvgRating = report.averageRating
+            pendingCompletionRate = report.completionRate
+        case .monthly:
+            guard let report = monthlyReport else { return }
+            pendingPeriod = report.period
+            pendingPeriodTitle = periodTitle
+            pendingNotionTitle = notionTitle(for: report.period, type: .monthly)
+            pendingAvgRating = report.averageRating
+            pendingCompletionRate = report.completionRate
+        }
+        showSaveEditor = true
+    }
+
+    func confirmSave(comment: String) async {
+        guard let period = pendingPeriod else { return }
         isSavingToNotion = true
+        showSaveEditor = false
         defer { isSavingToNotion = false }
-        await service.syncWeeklyToNotion(period: report.period)
-        notionSaveSuccess = true
+        do {
+            try await service.savePeriodReport(
+                period: period,
+                title: pendingNotionTitle,
+                comment: comment,
+                completionRate: pendingCompletionRate,
+                avgRating: pendingAvgRating
+            )
+            notionSaveSuccess = true
+        } catch {
+            print("[ReportVM] ❌ 저장 실패 - \(error)")
+            notionSaveError = error.localizedDescription
+        }
+        pendingPeriod = nil
+    }
+
+    func dismissSaveError() {
+        notionSaveError = nil
+    }
+
+    func cancelSave() {
+        showSaveEditor = false
+        pendingPeriod = nil
     }
 
     func dismissNotionSaveSuccess() {
@@ -194,5 +241,23 @@ final class ReportViewModel {
     private func formatMonthlyPeriod(_ interval: DateInterval) -> String {
         let comps = calendar.dateComponents([.year, .month], from: interval.start)
         return "\(comps.year ?? 2026)년 \(comps.month ?? 1)월"
+    }
+
+    private func notionTitle(for period: DateInterval, type: ReportPeriod) -> String {
+        switch type {
+        case .weekly:
+            let startComps = calendar.dateComponents([.year, .month, .day], from: period.start)
+            let lastDay    = calendar.date(byAdding: .day, value: -1, to: period.end) ?? period.end
+            let endComps   = calendar.dateComponents([.month, .day], from: lastDay)
+            let y  = startComps.year  ?? 0
+            let sm = startComps.month ?? 0
+            let sd = startComps.day   ?? 0
+            let em = endComps.month   ?? 0
+            let ed = endComps.day     ?? 0
+            return "주간 리포트 (\(y)년 \(sm)월 \(sd)일 - \(em)월 \(ed)일)"
+        case .monthly:
+            let comps = calendar.dateComponents([.year, .month], from: period.start)
+            return "월간 리포트 (\(comps.year ?? 2026)년 \(comps.month ?? 1)월)"
+        }
     }
 }

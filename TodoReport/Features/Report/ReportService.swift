@@ -59,6 +59,7 @@ final class ReportService {
     private init() {}
 
     private var context: ModelContext { PersistenceController.shared.context }
+    private let calendar = Calendar.current
 
     func fetchWeeklyReport(startingFrom monday: Date) async -> WeeklyReportData {
         let calendar = Calendar.current
@@ -158,15 +159,166 @@ final class ReportService {
         )
     }
 
-    // MARK: - 노션 저장
+    // MARK: - 기간 리포트 저장 (주간/월간)
 
-    func syncWeeklyToNotion(period: DateInterval) async {
-        let plannerId = PlannerService.shared.selectedPlanner?.id
-        let reports = fetchReports(in: period.start..<period.end, plannerId: plannerId)
-        let dailyService = DailyReportService()
-        for item in reports {
-            await dailyService.syncToNotion(item.toReport())
+    func savePeriodReport(
+        period: DateInterval,
+        title: String,
+        comment: String,
+        completionRate: Double,
+        avgRating: Double
+    ) async throws {
+        guard let planner = PlannerService.shared.selectedPlanner,
+              planner.isNotionConnected,
+              let dbId = planner.notionReportDBId else { return }
+
+        var mapping = planner.decodedReportPropsMapping
+        let token = planner.resolvedNotionToken
+
+        // 기간완료율 속성 자동 생성 (없으면)
+        if mapping.periodCompletionRate == nil {
+            if let propName = await autoCreateAndSavePeriodCompletionRateProp(
+                planner: planner, dbId: dbId, token: token
+            ) {
+                mapping.periodCompletionRate = propName
+            }
         }
+
+        let rating = dayRatingFromAverage(avgRating)
+        let start = calendar.startOfDay(for: period.start)
+        let existing = findPeriodReport(startDate: start, plannerId: planner.id)
+
+        // 로컬 먼저 (offline-first)
+        let localItem = saveLocalPeriodReport(
+            start: start, end: period.end,
+            comment: comment, completionRate: completionRate,
+            rating: rating, plannerId: planner.id,
+            existing: existing
+        )
+
+        // Notion 전송
+        let endInclusive = calendar.date(byAdding: .day, value: -1, to: period.end) ?? period.end
+        var body: [String: Any] = [
+            "dbId": dbId,
+            "date": seoulDateString(from: start),
+            "endDate": seoulDateString(from: endInclusive),
+            "title": title,
+            "completionRate": completionRate,
+            "review": comment,
+        ]
+        if !localItem.notionPageId.isEmpty { body["notionPageId"] = localItem.notionPageId }
+        if let v = mapping.date   { body["dateProp"] = v }
+        if let v = mapping.review { body["reviewProp"] = v }
+        if let v = mapping.rating { body["ratingProp"] = v }
+        if let r = rating         { body["rating"] = r.rawValue }
+        if let prop = mapping.periodCompletionRate {
+            body["periodCompletionRateProp"] = prop
+            body["periodCompletionRate"] = completionRate * 100
+        }
+
+        let response: NotionSaveResponse = try await APIClient.shared.post(
+            "/api/notion/daily-report", body: AnyEncodableDict(body), token: token
+        )
+
+        // notionPageId 로컬 갱신
+        let itemId = localItem.id
+        let descriptor = FetchDescriptor<DailyReportItem>(
+            predicate: #Predicate { $0.id == itemId }
+        )
+        if let item = try? context.fetch(descriptor).first {
+            item.notionPageId = response.id
+            try? context.save()
+        }
+    }
+
+    // MARK: - 기간완료율 속성 자동 생성
+
+    private func autoCreateAndSavePeriodCompletionRateProp(
+        planner: Planner, dbId: String, token: String?
+    ) async -> String? {
+        struct AddPropResponse: Decodable { let propertyName: String }
+        struct AddPropBody: Encodable {
+            let propertyName: String
+            let type: String
+            let format: String
+        }
+        do {
+            let response: AddPropResponse = try await APIClient.shared.post(
+                "/api/notion/databases/\(dbId)/add-property",
+                body: AddPropBody(propertyName: "기간완료율", type: "number", format: "percent"),
+                token: token
+            )
+            var updated = planner
+            var mapping = planner.decodedReportPropsMapping
+            mapping.periodCompletionRate = response.propertyName
+            if let data = try? JSONEncoder().encode(mapping),
+               let json = String(data: data, encoding: .utf8) {
+                updated.reportPropsMapping = json
+            }
+            try? await PlannerService.shared.savePlanner(updated)
+            return response.propertyName
+        } catch {
+            print("[ReportService] ⚠️ 기간완료율 속성 생성 실패 - \(error)")
+            return nil
+        }
+    }
+
+    // MARK: - 기간 리포트 로컬 헬퍼
+
+    private func findPeriodReport(startDate: Date, plannerId: String) -> DailyReportItem? {
+        let descriptor = FetchDescriptor<DailyReportItem>()
+        let all = (try? context.fetch(descriptor)) ?? []
+        return all.first {
+            calendar.isDate($0.date, inSameDayAs: startDate) &&
+            $0.plannerId == plannerId &&
+            $0.endDate != nil
+        }
+    }
+
+    private func saveLocalPeriodReport(
+        start: Date, end: Date,
+        comment: String, completionRate: Double,
+        rating: DayRating?, plannerId: String,
+        existing: DailyReportItem?
+    ) -> DailyReportItem {
+        if let item = existing {
+            item.review = comment
+            item.completionRate = completionRate
+            item.periodCompletionRate = completionRate
+            item.dayRatingRaw = rating?.rawValue
+            item.endDate = end
+            try? context.save()
+            return item
+        }
+        let item = DailyReportItem(
+            date: start, review: comment,
+            completionRate: completionRate,
+            dayRatingRaw: rating?.rawValue,
+            plannerId: plannerId,
+            endDate: end,
+            periodCompletionRate: completionRate
+        )
+        context.insert(item)
+        try? context.save()
+        return item
+    }
+
+    private func dayRatingFromAverage(_ avg: Double) -> DayRating? {
+        guard avg > 0 else { return nil }
+        switch avg {
+        case ..<1.5: return .one
+        case ..<2.5: return .two
+        case ..<3.5: return .three
+        case ..<4.5: return .four
+        default:     return .five
+        }
+    }
+
+    private func seoulDateString(from date: Date) -> String {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        fmt.timeZone = TimeZone(identifier: "Asia/Seoul")
+        return fmt.string(from: date)
     }
 
     // MARK: - SwiftData Fetch
@@ -194,8 +346,10 @@ final class ReportService {
             predicate: #Predicate { $0.date >= start && $0.date < end }
         )
         let all = (try? context.fetch(descriptor)) ?? []
-        guard let pid = plannerId else { return all }
-        return all.filter { $0.plannerId == pid }
+        // 기간 리포트(endDate != nil) 제외 — 데일리 리포트만 집계에 사용
+        let dailyOnly = all.filter { $0.endDate == nil }
+        guard let pid = plannerId else { return dailyOnly }
+        return dailyOnly.filter { $0.plannerId == pid }
     }
 
     private func fetchCategories(plannerId: String?) -> [CategoryItem] {
@@ -246,6 +400,7 @@ final class ReportService {
             guard let nextDate = calendar.date(byAdding: .day, value: 1, to: checkDate) else { break }
             let dayReports = allReports.filter {
                 $0.date >= checkDate && $0.date < nextDate &&
+                $0.endDate == nil &&
                 ($0.plannerId == plannerId || plannerId == nil)
             }
             guard let report = dayReports.first, report.completionRate > 0 else { break }
@@ -271,5 +426,38 @@ final class ReportService {
             completionRate: 0, averageRating: 0, streakDays: 0,
             weeklyCompletionRates: [], weeklyRatings: [], categoryStats: []
         )
+    }
+}
+
+// MARK: - Private helpers
+
+private struct NotionSaveResponse: Decodable {
+    let id: String
+}
+
+private struct AnyEncodableDict: Encodable {
+    private let value: [String: Any]
+    init(_ value: [String: Any]) { self.value = value }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: RawKey.self)
+        for (key, val) in value {
+            let k = RawKey(key)
+            switch val {
+            case let v as String:  try container.encode(v, forKey: k)
+            case let v as Bool:    try container.encode(v, forKey: k)
+            case let v as Int:     try container.encode(v, forKey: k)
+            case let v as Double:  try container.encode(v, forKey: k)
+            default: break
+            }
+        }
+    }
+
+    private struct RawKey: CodingKey {
+        var stringValue: String
+        var intValue: Int? { nil }
+        init(_ s: String) { stringValue = s }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { return nil }
     }
 }

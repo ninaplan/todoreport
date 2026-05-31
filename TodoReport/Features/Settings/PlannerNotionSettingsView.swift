@@ -162,6 +162,13 @@ struct PlannerNotionSettingsView: View {
                 selection: $viewModel.reportPropsMapping.rating,
                 onCreate: { Task { await viewModel.createRatingProperty() } }
             )
+            SettingsOptionalPropRow(
+                label: "기간완료율", typeIcon: "percent",
+                candidates: viewModel.reportProperties.filter { $0.type == "number" },
+                mode: $viewModel.periodCompletionRateMode,
+                selection: $viewModel.reportPropsMapping.periodCompletionRate,
+                onCreate: { Task { await viewModel.createPeriodCompletionRateProperty() } }
+            )
         }
     }
 }

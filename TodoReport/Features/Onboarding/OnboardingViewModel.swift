@@ -29,6 +29,7 @@ struct ReportPropsMapping: Codable {
     var date: String? = nil
     var review: String? = nil
     var rating: String? = nil
+    var periodCompletionRate: String? = nil
 }
 
 enum PropMappingMode: Equatable {

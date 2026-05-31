@@ -59,10 +59,33 @@ struct ReportView: View {
                 )
                 .presentationDetents([.medium])
             }
+            .sheet(isPresented: $vm.showSaveEditor) {
+                if let period = viewModel.pendingPeriod {
+                    NotionSaveEditorView(
+                        periodTitle: viewModel.pendingPeriodTitle,
+                        period: period,
+                        completionRate: viewModel.pendingCompletionRate,
+                        avgRating: viewModel.pendingAvgRating,
+                        onConfirm: { comment in
+                            Task { await viewModel.confirmSave(comment: comment) }
+                        },
+                        onCancel: { viewModel.cancelSave() }
+                    )
+                    .presentationDetents([.medium])
+                }
+            }
             .alert("노션 저장 완료", isPresented: $vm.notionSaveSuccess) {
                 Button("확인") { viewModel.dismissNotionSaveSuccess() }
             } message: {
-                Text("이번 주 리포트를 노션에 저장했습니다.")
+                Text("리포트를 노션에 저장했습니다.")
+            }
+            .alert("저장 실패", isPresented: Binding(
+                get: { viewModel.notionSaveError != nil },
+                set: { if !$0 { viewModel.dismissSaveError() } }
+            )) {
+                Button("확인") { viewModel.dismissSaveError() }
+            } message: {
+                Text(viewModel.notionSaveError ?? "")
             }
         }
     }
@@ -134,7 +157,7 @@ struct ReportView: View {
         )
         CategoryStatsCard(stats: report.categoryStats)
         NotionSaveButton(isSaving: viewModel.isSavingToNotion) {
-            Task { await viewModel.saveWeeklyToNotion() }
+            viewModel.prepareSave()
         }
     }
 
@@ -156,8 +179,8 @@ struct ReportView: View {
             values: report.weeklyRatings.map(\.rating)
         )
         CategoryStatsCard(stats: report.categoryStats)
-        NotionSaveButton(isSaving: false) {
-            Task { await viewModel.saveWeeklyToNotion() }
+        NotionSaveButton(isSaving: viewModel.isSavingToNotion) {
+            viewModel.prepareSave()
         }
     }
 }
