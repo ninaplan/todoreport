@@ -27,6 +27,7 @@ struct TodoEditFormView: View {
     @State private var selectedWeekdays: Set<Int> = []
     @State private var endCondition: EndCondition = .none
     @State private var showEndDatePicker = false
+    @State private var showStartDatePicker = false
     @State private var recurrenceCountInput = 4
 
     private enum EndCondition { case none, date, count }
@@ -52,13 +53,13 @@ struct TodoEditFormView: View {
         Section {
             // 카테고리
             Picker("카테고리", selection: $categoryId) {
-                Text("없음").tag(Optional<String>.none)
+                Text("없음").foregroundStyle(.secondary).tag(Optional<String>.none)
                 ForEach(categories) { category in
-                    Text(category.name).tag(Optional(category.id))
+                    Text(category.name).foregroundStyle(.secondary).tag(Optional(category.id))
                 }
             }
             .pickerStyle(.menu)
-            .tint(.primary)
+            .tint(.secondary)
             .simultaneousGesture(TapGesture().onEnded { resignKeyboard() })
 
             // 날짜
@@ -72,6 +73,10 @@ struct TodoEditFormView: View {
                     Spacer()
                     Text(date.formatted(date: .abbreviated, time: .omitted))
                         .foregroundStyle(.primary)
+                        .font(.subheadline)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color(.systemGray6), in: Capsule())
                 }
             }
             .buttonStyle(.plain)
@@ -107,10 +112,13 @@ struct TodoEditFormView: View {
                     Spacer()
                     if let st = scheduledTime {
                         Text(st, format: .dateTime.hour().minute())
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(.secondary)
                     } else {
-                        Text("없음").foregroundStyle(.primary)
+                        Text("없음").foregroundStyle(.secondary)
                     }
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
                 }
                 .contentShape(Rectangle())
             }
@@ -165,21 +173,21 @@ struct TodoEditFormView: View {
                         }
                     }
                 )) {
-                    Text("없음").tag(Optional<Int>.none)
-                    Text("정시").tag(Optional(0))
-                    Text("5분 전").tag(Optional(5))
-                    Text("10분 전").tag(Optional(10))
-                    Text("15분 전").tag(Optional(15))
-                    Text("30분 전").tag(Optional(30))
-                    Text("1시간 전").tag(Optional(60))
-                    Text("2시간 전").tag(Optional(120))
-                    Text("1일 전").tag(Optional(1440))
-                    Text("2일 전").tag(Optional(2880))
-                    Text("1주 전").tag(Optional(10080))
-                    Text("직접 입력").tag(Optional(-1))
+                    Text("없음").foregroundStyle(.secondary).tag(Optional<Int>.none)
+                    Text("정시").foregroundStyle(.secondary).tag(Optional(0))
+                    Text("5분 전").foregroundStyle(.secondary).tag(Optional(5))
+                    Text("10분 전").foregroundStyle(.secondary).tag(Optional(10))
+                    Text("15분 전").foregroundStyle(.secondary).tag(Optional(15))
+                    Text("30분 전").foregroundStyle(.secondary).tag(Optional(30))
+                    Text("1시간 전").foregroundStyle(.secondary).tag(Optional(60))
+                    Text("2시간 전").foregroundStyle(.secondary).tag(Optional(120))
+                    Text("1일 전").foregroundStyle(.secondary).tag(Optional(1440))
+                    Text("2일 전").foregroundStyle(.secondary).tag(Optional(2880))
+                    Text("1주 전").foregroundStyle(.secondary).tag(Optional(10080))
+                    Text("직접 입력").foregroundStyle(.secondary).tag(Optional(-1))
                 }
                 .pickerStyle(.menu)
-                .tint(.primary)
+                .tint(.secondary)
                 .simultaneousGesture(TapGesture().onEnded { resignKeyboard() })
 
                 if showCustomAlarmInput {
@@ -214,11 +222,11 @@ struct TodoEditFormView: View {
                 // 반복 종류
                 Picker("반복", selection: $recurrenceKind) {
                     ForEach(RecurrenceKind.allCases, id: \.self) { kind in
-                        Text(kind.rawValue).tag(kind)
+                        Text(kind.rawValue).foregroundStyle(.secondary).tag(kind)
                     }
                 }
                 .pickerStyle(.menu)
-                .tint(recurrence != nil ? AppTheme.shared.accent : .primary)
+                .tint(.secondary)
                 .simultaneousGesture(TapGesture().onEnded { resignKeyboard() })
                 .onChange(of: recurrenceKind) { _, _ in syncRecurrenceBinding() }
 
@@ -245,20 +253,48 @@ struct TodoEditFormView: View {
                     .padding(.vertical, 4)
                 }
 
-                // 종료 조건
-                Picker("종료", selection: $endCondition) {
-                    Text("없음").tag(EndCondition.none)
-                    Text("날짜 지정").tag(EndCondition.date)
-                    Text("횟수 지정").tag(EndCondition.count)
+                // 시작일 (반복 설정 시에만 표시)
+                if recurrenceKind != .none {
+                    Button {
+                        resignKeyboard()
+                        withAnimation { showStartDatePicker.toggle() }
+                    } label: {
+                        HStack {
+                            Text("시작일").foregroundStyle(.primary)
+                            Spacer()
+                            Text(date.formatted(date: .abbreviated, time: .omitted))
+                                .foregroundStyle(.primary)
+                                .font(.subheadline)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Color(.systemGray6), in: Capsule())
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    if showStartDatePicker {
+                        DatePicker("", selection: $date, displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                            .labelsHidden()
+                            .tint(AppTheme.shared.accent)
+                    }
                 }
-                .pickerStyle(.menu)
-                .tint(.primary)
-                .simultaneousGesture(TapGesture().onEnded { resignKeyboard() })
-                .onChange(of: endCondition) { _, newVal in
-                    switch newVal {
-                    case .none:  recurrenceEndDate = nil; recurrenceCount = nil
-                    case .date:  recurrenceCount = nil
-                    case .count: recurrenceEndDate = nil
+
+                // 종료 조건 (반복 설정 시에만 표시)
+                if recurrenceKind != .none {
+                    Picker("종료", selection: $endCondition) {
+                        Text("없음").foregroundStyle(.secondary).tag(EndCondition.none)
+                        Text("날짜 지정").foregroundStyle(.secondary).tag(EndCondition.date)
+                        Text("횟수 지정").foregroundStyle(.secondary).tag(EndCondition.count)
+                    }
+                    .pickerStyle(.menu)
+                    .tint(.secondary)
+                    .simultaneousGesture(TapGesture().onEnded { resignKeyboard() })
+                    .onChange(of: endCondition) { _, newVal in
+                        switch newVal {
+                        case .none:  recurrenceEndDate = nil; recurrenceCount = nil
+                        case .date:  recurrenceCount = nil
+                        case .count: recurrenceEndDate = nil
+                        }
                     }
                 }
 
