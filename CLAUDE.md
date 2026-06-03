@@ -426,7 +426,7 @@ Phase 5 (출시)
 
 ---
 
-## 현재 진행 상태 (2026-05-31 기준)
+## 현재 진행 상태 (2026-06-04 기준)
 
 **Phase 1 ✅ 완료**
 - Sign in with Apple (개발용 로그인 포함)
@@ -453,11 +453,19 @@ Phase 5 (출시)
 - ⚠️ App Groups capability: 두 타겟 모두 Xcode > Signing & Capabilities에서 수동 활성화 필요
   → App Group ID: group.kr.nock.TodoReport
 
-**Phase 4 ✅ 일부 선행 완료**
+**Phase 4 🔄 진행 중**
 - ✅ 주간/월간 리포트 (ReportView/ViewModel/Service + Charts)
 - ✅ Pro 게이팅 (월간, 날짜이동, 이전기간 조회)
+- ✅ 주간/월간 리포트 그래프 개선 (꺾은선 차트, 막대 탭 시 해당 날 투두 목록)
+- ✅ 하루 리뷰 타임라인 (DailyReportView 개선)
+- ✅ 시간 지정 + 투두 알림 (TodoNotificationManager, TodoEditFormView)
+- ✅ 반복 투두 (RecurrenceRule, RecurringTodoManager, TodoEditFormView 반복 섹션)
+- ✅ Notion relation 자동 연결 (NotionRelationLinker)
+- ✅ TodoEditFormView 공통 편집 컴포넌트 (QuickCapture/TodoEdit 공유)
+- ✅ 무료 사용자 날짜 범위 ±1일 (오늘 기준 전날·내일 무료 접근)
+- ❌ 반복 설정 변경/해제 처리 (기존 시리즈 수정 플로우)
+- ❌ 언어 피커 한/영 실제 연동
 - ❌ StoreKit 2 구독 결제
-- ❌ 반복 투두
 
 **Phase 5 ❌** 앱스토어 출시
 
