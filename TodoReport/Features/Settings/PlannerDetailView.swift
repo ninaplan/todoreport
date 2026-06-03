@@ -55,8 +55,9 @@ struct PlannerDetailView: View {
         }
         .sheet(isPresented: $showIconSheet) {
             iconPickerSheet
+                .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $showMigrationSheet) {
+        .fullScreenCover(isPresented: $showMigrationSheet) {
             PlannerMigrationView(planner: planner)
         }
         .onChange(of: photoItem) { _, item in
@@ -182,7 +183,7 @@ struct PlannerDetailView: View {
                     let isSelected = selectedIconType == symbol
                     ZStack {
                         Circle()
-                            .fill(isSelected ? Color.nockOrange : Color(.systemGray5))
+                            .fill(isSelected ? AppTheme.shared.accent : Color(.systemGray5))
                             .frame(width: 44, height: 44)
                         Image(systemName: symbol)
                             .font(.system(size: 18))
@@ -200,7 +201,7 @@ struct PlannerDetailView: View {
 
     private var categorySection: some View {
         Section("카테고리") {
-            NavigationLink { CategoryView() } label: { Text("카테고리 관리") }
+            NavigationLink { CategoryView(plannerId: planner.id) } label: { Text("카테고리 관리") }
         }
     }
 

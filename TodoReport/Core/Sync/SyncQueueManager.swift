@@ -192,6 +192,13 @@ final class SyncQueueManager {
             "isCompleted": todo.isCompleted,
             "isPinned": todo.isPinned,
         ]
+        if let st = todo.scheduledTime {
+            let fmt = ISO8601DateFormatter()
+            fmt.formatOptions = [.withInternetDateTime, .withColonSeparatorInTimeZone]
+            fmt.timeZone = TimeZone(identifier: "Asia/Seoul")
+            body["scheduledTime"] = fmt.string(from: st)
+        }
+        if let ao = todo.alarmOffset                                                     { body["alarmOffset"] = ao }
         if let memo = todo.memo                                                          { body["memo"] = memo }
         if let v = planner?.notionTodoDBId   ?? legacyString("todoDBId")                { body["dbId"] = v }
         if let v = mapping.completed         ?? legacyTodo?.completed                   { body["completedProp"] = v }
@@ -199,6 +206,7 @@ final class SyncQueueManager {
         if let v = mapping.memo              ?? legacyTodo?.memo                        { body["memoProp"] = v }
         if let v = mapping.isPinned          ?? legacyTodo?.isPinned                    { body["isPinnedProp"] = v }
         if let v = planner?.notionReportDBId ?? legacyString("reportDBId")              { body["reportDBId"] = v }
+        print("[Debug] reportRelation: \(mapping.reportRelation ?? "nil")")
         if let v = mapping.reportRelation    ?? legacyTodo?.reportRelation              { body["reportRelationProp"] = v }
         if let v = reportMapping.date        ?? legacyReport?.date                      { body["reportDateProp"] = v }
 

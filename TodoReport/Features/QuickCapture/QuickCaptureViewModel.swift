@@ -8,6 +8,11 @@ final class QuickCaptureViewModel {
     var selectedDate: Date = .now
     var showDatePicker: Bool = false
     var showProAlert: Bool = false
+    var scheduledTime: Date? = nil
+    var alarmOffset: Int? = nil
+    var recurrenceRule: RecurrenceRule? = nil
+    var recurrenceEndDate: Date? = nil
+    var recurrenceCount: Int? = nil
     private(set) var categories: [Category] = []
 
     private let categoryService = CategoryService.shared

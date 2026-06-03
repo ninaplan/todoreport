@@ -17,7 +17,10 @@ final class TodoViewModel {
     var selectedCategoryFilter: String? = nil  // nil = 전체
 
     var selectedDate: Date = .now {
-        didSet { Task { await fetchTodos() } }
+        didSet {
+            Task { await fetchTodos() }
+            Task { @MainActor in RecurringTodoManager.shared.generateUpcoming() }
+        }
     }
 
     private let service = TodoService.shared
@@ -34,6 +37,9 @@ final class TodoViewModel {
     private(set) var datePaywallMessage: String = ""
     var showDatePicker: Bool = false
     private(set) var isNotionSyncing: Bool = false
+
+    var showDeleteAlert: Bool = false
+    private(set) var pendingDeleteTodo: Todo? = nil
 
     // MARK: - Computed
 
@@ -88,6 +94,7 @@ final class TodoViewModel {
         notionSyncTask?.cancel()
         notionSyncTask = nil
         todos = []
+        await categoryService.refresh()
         await fetchTodos()
     }
 
@@ -135,25 +142,67 @@ final class TodoViewModel {
     }
 
     func pinTodo(_ todo: Todo) {
-        guard let index = todos.firstIndex(where: { $0.id == todo.id }) else { return }
-        todos[index].isPinned.toggle()
-        let updated = todos[index]
         notionSyncTask?.cancel()
-        notionSyncTask = nil
-        Task { try? await service.updateTodo(updated) }
+        notionSyncTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            guard let index = todos.firstIndex(where: { $0.id == todo.id }) else { return }
+            todos[index].isPinned.toggle()
+            let updated = todos[index]
+            try? await service.updateTodo(updated)
+        }
     }
 
-    func addTodo(title: String, memo: String? = nil, categoryId: String? = nil, date: Date? = nil) {
+    func addTodo(title: String, memo: String? = nil, categoryId: String? = nil, date: Date? = nil, scheduledTime: Date? = nil, alarmOffset: Int? = nil, recurrenceRule: RecurrenceRule? = nil, recurrenceEndDate: Date? = nil, recurrenceCount: Int? = nil) {
         let trimmed = title.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        let todo = Todo(title: trimmed, memo: memo, date: date ?? selectedDate, categoryId: categoryId)
+        let recurrenceId = recurrenceRule != nil ? UUID().uuidString : nil
+        let todo = Todo(
+            title: trimmed, memo: memo,
+            date: date ?? selectedDate,
+            categoryId: categoryId,
+            scheduledTime: scheduledTime, alarmOffset: alarmOffset,
+            recurrenceRule: recurrenceRule,
+            recurrenceId: recurrenceId,
+            recurrenceEndDate: recurrenceEndDate,
+            recurrenceCount: recurrenceCount
+        )
         todos.append(todo)
         Task { try? await service.saveTodo(todo) }
+        if recurrenceRule != nil {
+            Task { RecurringTodoManager.shared.generateUpcoming() }
+        }
     }
 
     func deleteTodo(_ todo: Todo) {
         todos.removeAll { $0.id == todo.id }
         Task { try? await service.deleteTodo(id: todo.id) }
+    }
+
+    func requestDelete(_ todo: Todo) {
+        if todo.recurrenceId != nil {
+            pendingDeleteTodo = todo
+            showDeleteAlert = true
+        } else {
+            deleteTodo(todo)
+        }
+    }
+
+    func confirmDeleteSingle() {
+        guard let todo = pendingDeleteTodo else { return }
+        pendingDeleteTodo = nil
+        deleteTodo(todo)
+    }
+
+    func confirmDeleteFuture() {
+        guard let todo = pendingDeleteTodo else { return }
+        guard let rid = todo.recurrenceId else { pendingDeleteTodo = nil; return }
+        pendingDeleteTodo = nil
+        todos.removeAll { $0.recurrenceId == rid && $0.date >= todo.date }
+        Task { try? await service.deleteFutureItems(recurrenceId: rid, from: todo.date) }
+    }
+
+    func cancelDelete() {
+        pendingDeleteTodo = nil
     }
 
     func moveToTomorrow(_ todo: Todo) {
@@ -186,6 +235,10 @@ final class TodoViewModel {
         } else {
             todos.removeAll { $0.id == updated.id }
         }
+        // 사용자가 시간을 명시적으로 제거한 경우 알림 직접 취소
+        if updated.scheduledTime == nil {
+            TodoNotificationManager.shared.cancel(for: updated.id)
+        }
         Task { try? await service.updateTodo(updated) }
     }
 
@@ -207,23 +260,43 @@ final class TodoViewModel {
         datePaywallMessage = ""
     }
 
-    func goToPreviousDay() {
+    var canGoNextDay: Bool {
+        !Calendar.current.isDateInToday(selectedDate)
+    }
+
+    func requestPreviousDay() {
         guard isPro else {
             datePaywallMessage = "다른 날 투두 확인은 Pro 기능이에요"
             showDatePaywall = true
             return
         }
+        goToPreviousDay()
+    }
+
+    func goToPreviousDay() {
         guard let prev = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) else { return }
         selectedDate = prev
     }
 
-    func goToNextDay() {
-        guard isPro else {
+    func requestNextDay() {
+        let todayStart = Calendar.current.startOfDay(for: .now)
+        let selectedStart = Calendar.current.startOfDay(for: selectedDate)
+        guard isPro || selectedStart < todayStart else {
             datePaywallMessage = "다른 날 투두 확인은 Pro 기능이에요"
             showDatePaywall = true
             return
         }
         guard let next = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) else { return }
         selectedDate = next
+    }
+
+    func goToNextDay() {
+        guard canGoNextDay else { return }
+        guard let next = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) else { return }
+        selectedDate = next
+    }
+
+    func goToToday() {
+        selectedDate = .now
     }
 }

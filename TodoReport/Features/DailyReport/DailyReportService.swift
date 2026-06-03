@@ -141,7 +141,7 @@ final class DailyReportService {
         )
         if let existing = try? context.fetch(byPageId).first {
             existing.review = r.review ?? ""
-            existing.dayRatingRaw = r.rating
+            if let rating = r.rating { existing.dayRatingRaw = rating }
             existing.notionPageId = r.notionPageId
             print("[DailyReport] 🔄 upsert - notionPageId 일치 항목 업데이트")
         } else {
@@ -156,7 +156,7 @@ final class DailyReportService {
             }
             if let pendingItem = pending?.first {
                 pendingItem.review = r.review ?? ""
-                pendingItem.dayRatingRaw = r.rating
+                if let rating = r.rating { pendingItem.dayRatingRaw = rating }
                 pendingItem.notionPageId = r.notionPageId
                 print("[DailyReport] 🔄 upsert - 빈 notionPageId 항목에 연결")
             } else {
@@ -164,6 +164,7 @@ final class DailyReportService {
                     date: startOfDay,
                     review: r.review ?? "",
                     completionRate: r.completionRate,
+                    dayRating: r.rating.flatMap { DayRating(rawValue: $0) },
                     notionPageId: r.notionPageId,
                     plannerId: plannerId
                 )
@@ -213,7 +214,7 @@ final class DailyReportService {
         Task { await syncToNotion(captured) }
     }
 
-    func syncToNotion(_ report: DailyReport) async {
+    func syncToNotion(_ report: DailyReport, retryCount: Int = 0) async {
         print("[DailyReport] 📤 Notion sync 시작")
         let planner = PlannerService.shared.store.first(where: { $0.id == report.plannerId })
             ?? PlannerService.shared.selectedPlanner
@@ -242,7 +243,7 @@ final class DailyReportService {
             body["endDate"] = seoulDateString(from: inclusiveEnd)
         }
         if let pc = report.periodCompletionRate {
-            body["periodCompletionRate"] = pc * 100
+            body["periodCompletionRate"] = pc
         }
         if let v = mapping.periodCompletionRate { body["periodCompletionRateProp"] = v }
 
@@ -265,8 +266,8 @@ final class DailyReportService {
                 }
             } else {
                 // 신규 생성: date + plannerId로 찾아서 notionPageId 저장
-                guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return }
-                let pid = report.plannerId
+                guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay),
+                      let pid = report.plannerId else { return }
                 let allDesc = FetchDescriptor<DailyReportItem>()
                 let all = (try? context.fetch(allDesc)) ?? []
                 if let item = all.first(where: {
@@ -278,6 +279,10 @@ final class DailyReportService {
             }
         } catch {
             print("[DailyReport] ❌ Notion 저장 실패 - \(error)")
+            if retryCount < 2 {
+                try? await Task.sleep(for: .seconds(3))
+                await syncToNotion(report, retryCount: retryCount + 1)
+            }
         }
     }
 }

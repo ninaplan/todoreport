@@ -16,6 +16,13 @@ struct Todo: Identifiable, Codable {
     var categoryId: String?
     var notionPageId: String
     var plannerId: String?
+    var scheduledTime: Date?
+    var alarmOffset: Int?
+    var recurrenceRule: RecurrenceRule?
+    var recurrenceId: String?
+    var recurrenceEndDate: Date?
+    var recurrenceCount: Int?
+    var notionRelationLinked: Bool
 
     init(
         id: String = UUID().uuidString,
@@ -29,7 +36,14 @@ struct Todo: Identifiable, Codable {
         notionCreatedAt: Date? = nil,
         categoryId: String? = nil,
         notionPageId: String = "",
-        plannerId: String? = nil
+        plannerId: String? = nil,
+        scheduledTime: Date? = nil,
+        alarmOffset: Int? = nil,
+        recurrenceRule: RecurrenceRule? = nil,
+        recurrenceId: String? = nil,
+        recurrenceEndDate: Date? = nil,
+        recurrenceCount: Int? = nil,
+        notionRelationLinked: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -43,6 +57,13 @@ struct Todo: Identifiable, Codable {
         self.categoryId = categoryId
         self.notionPageId = notionPageId
         self.plannerId = plannerId
+        self.scheduledTime = scheduledTime
+        self.alarmOffset = alarmOffset
+        self.recurrenceRule = recurrenceRule
+        self.recurrenceId = recurrenceId
+        self.recurrenceEndDate = recurrenceEndDate
+        self.recurrenceCount = recurrenceCount
+        self.notionRelationLinked = notionRelationLinked
     }
 }
 
@@ -87,6 +108,8 @@ final class TodoService {
         context.insert(TodoItem.from(t))
         try context.save()
         ensureDailyReport(for: t.date)
+        print("[TodoService] 💾 saveTodo - id:\(t.id) scheduledTime:\(String(describing: t.scheduledTime)) alarmOffset:\(String(describing: t.alarmOffset))")
+        TodoNotificationManager.shared.schedule(for: t)
         let captured = t
         Task { @MainActor in SyncQueueManager.shared.enqueueTodoCreate(captured) }
     }
@@ -98,6 +121,8 @@ final class TodoService {
         item.update(from: todo)
         try context.save()
         ensureDailyReport(for: todo.date)
+        print("[TodoService] ✏️ updateTodo - id:\(todo.id) scheduledTime:\(String(describing: todo.scheduledTime)) alarmOffset:\(String(describing: todo.alarmOffset))")
+        TodoNotificationManager.shared.schedule(for: todo)
         let captured = todo
         Task { @MainActor in SyncQueueManager.shared.enqueueTodoUpdate(captured) }
     }
@@ -108,7 +133,23 @@ final class TodoService {
         let notionPageId = item.notionPageId
         context.delete(item)
         try context.save()
+        TodoNotificationManager.shared.cancel(for: id)
         Task { @MainActor in SyncQueueManager.shared.enqueueTodoDelete(notionPageId: notionPageId) }
+    }
+
+    func deleteFutureItems(recurrenceId: String, from date: Date) async throws {
+        let fromDate = Calendar.current.startOfDay(for: date)
+        let allItems = try context.fetch(FetchDescriptor<TodoItem>())
+        let toDelete = allItems.filter {
+            $0.recurrenceId == recurrenceId &&
+            Calendar.current.startOfDay(for: $0.date) >= fromDate
+        }
+        let pageIds = toDelete.compactMap { $0.notionPageId.isEmpty ? nil : $0.notionPageId }
+        let todoIds = toDelete.map { $0.id }
+        toDelete.forEach { context.delete($0) }
+        try context.save()
+        todoIds.forEach { TodoNotificationManager.shared.cancel(for: $0) }
+        Task { @MainActor in pageIds.forEach { SyncQueueManager.shared.enqueueTodoDelete(notionPageId: $0) } }
     }
 
     // MARK: - Notion Sync
@@ -211,7 +252,11 @@ final class TodoService {
             }
         )
         if let allItems = try? context.fetch(allDescriptor) {
-            let toDelete = allItems.filter { !notionPageIds.contains($0.notionPageId) }
+            let gracePeriodCutoff = Date().addingTimeInterval(-300)  // Notion 전파 지연 대비 5분 유예
+            let toDelete = allItems.filter {
+                !notionPageIds.contains($0.notionPageId) &&
+                $0.createdAt < gracePeriodCutoff
+            }
             toDelete.forEach { context.delete($0) }
             if !toDelete.isEmpty {
                 print("[TodoService] 🗑️ Notion에 없는 항목 \(toDelete.count)개 삭제")
@@ -223,7 +268,7 @@ final class TodoService {
         // relation 미연결 항목 update 시도
         // UserDefaults로 "이미 연결됨" 추적 → 한 번 연결 후 재시도 안 함
         let linkedKey = "reportLinkedNotionIds"
-        var linkedIds = Set(UserDefaults.standard.stringArray(forKey: linkedKey) ?? [])
+        let linkedIds = Set(UserDefaults.standard.stringArray(forKey: linkedKey) ?? [])
         let unlinked = notionTodos.filter { !linkedIds.contains($0.notionPageId) }
         guard !unlinked.isEmpty else { return }
 

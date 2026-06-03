@@ -20,6 +20,10 @@ final class ReportViewModel {
     var showPaywall: Bool = false
     private(set) var paywallMessage: String = ""
 
+    // 노션 연결 유도
+    var showNotionConnectAlert: Bool = false
+    var showMigrationSheet: Bool = false
+
     private(set) var isSyncing: Bool = false
     private(set) var isSavingToNotion: Bool = false
     var notionSaveSuccess: Bool = false
@@ -31,6 +35,7 @@ final class ReportViewModel {
     private(set) var pendingNotionTitle: String = ""
     private(set) var pendingAvgRating: Double = 0
     private(set) var pendingCompletionRate: Double = 0
+    private var pendingChartData: PeriodReportChartData?
     var notionSaveError: String?
 
     #if DEBUG
@@ -43,6 +48,10 @@ final class ReportViewModel {
     private let calendar = Calendar.current
 
     // MARK: - Computed
+
+    var isNotionConnected: Bool {
+        PlannerService.shared.selectedPlanner?.isNotionConnected == true
+    }
 
     var periodTitle: String {
         switch selectedPeriod {
@@ -80,6 +89,22 @@ final class ReportViewModel {
         Task { await fetchReport() }
     }
 
+    func onPlannerChanged() {
+        weeklyReport = nil
+        monthlyReport = nil
+        periodOffset = 0
+        Task { await fetchReport() }
+    }
+
+    func cancelNotionConnect() {
+        showNotionConnectAlert = false
+    }
+
+    func confirmNotionConnect() {
+        showNotionConnectAlert = false
+        showMigrationSheet = true
+    }
+
     func dismissPaywall() {
         showPaywall = false
         paywallMessage = ""
@@ -92,7 +117,10 @@ final class ReportViewModel {
             showPaywall = true
             return
         }
-        guard PlannerService.shared.selectedPlanner?.isNotionConnected == true else { return }
+        guard isNotionConnected else {
+            showNotionConnectAlert = true
+            return
+        }
 
         switch selectedPeriod {
         case .weekly:
@@ -102,6 +130,11 @@ final class ReportViewModel {
             pendingNotionTitle = notionTitle(for: report.period, type: .weekly)
             pendingAvgRating = report.averageRating
             pendingCompletionRate = report.completionRate
+            pendingChartData = PeriodReportChartData(
+                rates: report.dailyCompletionRates.map { .init(label: $0.weekday, rate: $0.rate) },
+                ratings: report.dailyRatings.filter { $0.rating > 0 }.map { .init(label: $0.weekday, rating: $0.rating) },
+                categories: report.categoryStats.map { .init(name: $0.name, rate: $0.rate, completed: $0.completed, total: $0.total) }
+            )
         case .monthly:
             guard let report = monthlyReport else { return }
             pendingPeriod = report.period
@@ -109,6 +142,11 @@ final class ReportViewModel {
             pendingNotionTitle = notionTitle(for: report.period, type: .monthly)
             pendingAvgRating = report.averageRating
             pendingCompletionRate = report.completionRate
+            pendingChartData = PeriodReportChartData(
+                rates: report.weeklyCompletionRates.map { .init(label: $0.label, rate: $0.rate) },
+                ratings: report.weeklyRatings.filter { $0.rating > 0 }.map { .init(label: $0.label, rating: $0.rating) },
+                categories: report.categoryStats.map { .init(name: $0.name, rate: $0.rate, completed: $0.completed, total: $0.total) }
+            )
         }
         showSaveEditor = true
     }
@@ -124,7 +162,8 @@ final class ReportViewModel {
                 title: pendingNotionTitle,
                 comment: comment,
                 completionRate: pendingCompletionRate,
-                avgRating: pendingAvgRating
+                avgRating: pendingAvgRating,
+                chartData: pendingChartData
             )
             notionSaveSuccess = true
         } catch {
@@ -132,6 +171,7 @@ final class ReportViewModel {
             notionSaveError = error.localizedDescription
         }
         pendingPeriod = nil
+        pendingChartData = nil
     }
 
     func dismissSaveError() {
@@ -141,6 +181,7 @@ final class ReportViewModel {
     func cancelSave() {
         showSaveEditor = false
         pendingPeriod = nil
+        pendingChartData = nil
     }
 
     func dismissNotionSaveSuccess() {
@@ -151,28 +192,33 @@ final class ReportViewModel {
 
     func fetchReport() async {
         isLoading = true
-        defer { isLoading = false }
 
         switch selectedPeriod {
         case .weekly:
             let weekStart = startOfCurrentWeek(offset: periodOffset)
+            weeklyReport = await service.fetchWeeklyReport(startingFrom: weekStart)
+            isLoading = false
             await syncMissingDays(from: weekStart, count: 7)
             weeklyReport = await service.fetchWeeklyReport(startingFrom: weekStart)
+
         case .monthly:
             guard isPro else {
                 paywallMessage = "월간 리포트는 Pro 기능이에요"
                 showPaywall = true
+                isLoading = false
                 return
             }
             let (year, month) = yearMonthOfCurrent(offset: periodOffset)
             let monthStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)) ?? .now
             let daysInMonth = calendar.range(of: .day, in: .month, for: monthStart)?.count ?? 30
+            monthlyReport = await service.fetchMonthlyReport(year: year, month: month)
+            isLoading = false
             await syncMissingDays(from: monthStart, count: daysInMonth)
             monthlyReport = await service.fetchMonthlyReport(year: year, month: month)
         }
     }
 
-    // MARK: - Notion Sync (없는 날짜만)
+    // MARK: - Notion Sync (없는 날짜만, 병렬 처리)
 
     private func syncMissingDays(from start: Date, count: Int) async {
         let planner = PlannerService.shared.selectedPlanner
@@ -182,19 +228,28 @@ final class ReportViewModel {
         defer { isSyncing = false }
 
         let todoService = TodoService.shared
-        let reportService = DailyReportService()
+        let calendar = self.calendar
 
+        // sync 필요한 날짜 수집 (SwiftData 조회, 순차, 빠름)
+        var daysToSync: [Date] = []
         for i in 0..<count {
             guard let dayStart = calendar.date(byAdding: .day, value: i, to: start),
                   let dayEnd   = calendar.date(byAdding: .day, value: 1, to: dayStart) else { continue }
-
-            // 해당 날이 오늘 이후면 스킵
             if dayStart > calendar.startOfDay(for: .now) { continue }
+            let hasTodos        = await self.service.hasTodos(in: dayStart..<dayEnd)
+            let hasNotionReport = await self.service.hasNotionDailyReport(in: dayStart..<dayEnd)
+            if !hasTodos || !hasNotionReport { daysToSync.append(dayStart) }
+        }
 
-            let hasTodos = await self.service.hasTodos(in: dayStart..<dayEnd)
-            if !hasTodos {
-                await todoService.syncTodosFromNotion(for: dayStart)
-                await reportService.syncReportFromNotion(for: dayStart)
+        guard !daysToSync.isEmpty else { return }
+
+        // 병렬 네트워크 요청
+        await withTaskGroup(of: Void.self) { group in
+            for dayStart in daysToSync {
+                group.addTask {
+                    await todoService.syncTodosFromNotion(for: dayStart)
+                    await DailyReportService().syncReportFromNotion(for: dayStart)
+                }
             }
         }
     }

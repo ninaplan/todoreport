@@ -15,6 +15,18 @@ final class TodoItem {
     var categoryId: String?
     var notionPageId: String
     var plannerId: String?
+    var scheduledTime: Date?
+    var alarmOffset: Int?
+    var recurrenceData: Data?
+    var recurrenceId: String?
+    var recurrenceEndDate: Date?
+    var recurrenceCount: Int?
+    var notionRelationLinked: Bool = false
+
+    var decodedRecurrence: RecurrenceRule? {
+        guard let data = recurrenceData else { return nil }
+        return try? JSONDecoder().decode(RecurrenceRule.self, from: data)
+    }
 
     init(
         id: String = UUID().uuidString,
@@ -27,7 +39,14 @@ final class TodoItem {
         notionCreatedAt: Date? = nil,
         categoryId: String? = nil,
         notionPageId: String = "",
-        plannerId: String? = nil
+        plannerId: String? = nil,
+        scheduledTime: Date? = nil,
+        alarmOffset: Int? = nil,
+        recurrenceRule: RecurrenceRule? = nil,
+        recurrenceId: String? = nil,
+        recurrenceEndDate: Date? = nil,
+        recurrenceCount: Int? = nil,
+        notionRelationLinked: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -41,6 +60,13 @@ final class TodoItem {
         self.categoryId = categoryId
         self.notionPageId = notionPageId
         self.plannerId = plannerId
+        self.scheduledTime = scheduledTime
+        self.alarmOffset = alarmOffset
+        self.recurrenceData = recurrenceRule.flatMap { try? JSONEncoder().encode($0) }
+        self.recurrenceId = recurrenceId
+        self.recurrenceEndDate = recurrenceEndDate
+        self.recurrenceCount = recurrenceCount
+        self.notionRelationLinked = notionRelationLinked
     }
 
     func toTodo() -> Todo {
@@ -50,7 +76,13 @@ final class TodoItem {
             date: date, createdAt: createdAt,
             completedAt: completedAt, notionCreatedAt: notionCreatedAt,
             categoryId: categoryId, notionPageId: notionPageId,
-            plannerId: plannerId
+            plannerId: plannerId, scheduledTime: scheduledTime,
+            alarmOffset: alarmOffset,
+            recurrenceRule: decodedRecurrence,
+            recurrenceId: recurrenceId,
+            recurrenceEndDate: recurrenceEndDate,
+            recurrenceCount: recurrenceCount,
+            notionRelationLinked: notionRelationLinked
         )
     }
 
@@ -64,6 +96,13 @@ final class TodoItem {
         if let nc = todo.notionCreatedAt { notionCreatedAt = nc }
         categoryId = todo.categoryId
         notionPageId = todo.notionPageId
+        scheduledTime = todo.scheduledTime
+        alarmOffset = todo.alarmOffset
+        recurrenceData = todo.recurrenceRule.flatMap { try? JSONEncoder().encode($0) }
+        recurrenceId = todo.recurrenceId
+        recurrenceEndDate = todo.recurrenceEndDate
+        recurrenceCount = todo.recurrenceCount
+        notionRelationLinked = todo.notionRelationLinked
         // plannerId는 생성 시 고정 — 플래너 이동 기능 구현 시 별도 메서드로 처리
     }
 
@@ -74,7 +113,13 @@ final class TodoItem {
             date: todo.date, completedAt: todo.completedAt,
             notionCreatedAt: todo.notionCreatedAt,
             categoryId: todo.categoryId,
-            notionPageId: todo.notionPageId, plannerId: todo.plannerId
+            notionPageId: todo.notionPageId, plannerId: todo.plannerId,
+            scheduledTime: todo.scheduledTime, alarmOffset: todo.alarmOffset,
+            recurrenceRule: todo.recurrenceRule,
+            recurrenceId: todo.recurrenceId,
+            recurrenceEndDate: todo.recurrenceEndDate,
+            recurrenceCount: todo.recurrenceCount,
+            notionRelationLinked: todo.notionRelationLinked
         )
     }
 }

@@ -17,16 +17,18 @@ struct ReportView: View {
                 VStack(spacing: 16) {
                     periodHeader
                     if viewModel.isLoading {
-                        VStack(spacing: 10) {
-                            ProgressView()
-                            if viewModel.isSyncing {
-                                Text("노션에서 자료를 읽어오고 있습니다.")
-                                    .font(.subheadline)
+                        ProgressView()
+                            .frame(maxWidth: .infinity, minHeight: 200)
+                    } else {
+                        if viewModel.isSyncing {
+                            HStack(spacing: 6) {
+                                ProgressView().scaleEffect(0.75)
+                                Text("노션 동기화 중...")
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
+                            .frame(maxWidth: .infinity, alignment: .center)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 200)
-                    } else {
                         content
                     }
                 }
@@ -52,12 +54,16 @@ struct ReportView: View {
             .onChange(of: viewModel.selectedPeriod) { _, _ in
                 viewModel.onPeriodChanged()
             }
+            .onChange(of: PlannerService.shared.selectedPlannerId) { _, _ in
+                viewModel.onPlannerChanged()
+            }
             .sheet(isPresented: $vm.showPaywall) {
                 ProPaywallSheet(
                     message: viewModel.paywallMessage,
                     onDismiss: { viewModel.dismissPaywall() }
                 )
                 .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $vm.showSaveEditor) {
                 if let period = viewModel.pendingPeriod {
@@ -72,6 +78,21 @@ struct ReportView: View {
                         onCancel: { viewModel.cancelSave() }
                     )
                     .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+                }
+            }
+            .alert("노션에 연결하시겠습니까?", isPresented: $vm.showNotionConnectAlert) {
+                Button("취소", role: .cancel) { viewModel.cancelNotionConnect() }
+                Button("연결하기") { viewModel.confirmNotionConnect() }
+                    .tint(AppTheme.shared.accent)
+            } message: {
+                Text("노션에 연결하면 리포트를 노션에 저장할 수 있습니다.")
+            }
+            .sheet(isPresented: $vm.showMigrationSheet) {
+                if let planner = PlannerService.shared.selectedPlanner {
+                    PlannerMigrationView(planner: planner)
+                        .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
                 }
             }
             .alert("노션 저장 완료", isPresented: $vm.notionSaveSuccess) {
@@ -98,11 +119,12 @@ struct ReportView: View {
                 viewModel.goToPreviousPeriod()
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 40, height: 36)
-                    .contentShape(Rectangle())
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 44)
             }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
 
             Text(viewModel.periodTitle)
                 .font(.subheadline.bold())
@@ -112,11 +134,12 @@ struct ReportView: View {
                 viewModel.goToNextPeriod()
             } label: {
                 Image(systemName: "chevron.right")
-                    .font(.subheadline)
-                    .foregroundStyle(viewModel.canGoNext ? .secondary : Color(.quaternaryLabel))
-                    .frame(width: 40, height: 36)
-                    .contentShape(Rectangle())
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(viewModel.canGoNext ? .primary : Color(.quaternaryLabel))
+                    .frame(width: 44, height: 44)
             }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
             .disabled(!viewModel.canGoNext)
         }
         .padding(.top, 4)
@@ -140,15 +163,24 @@ struct ReportView: View {
 
     @ViewBuilder
     private func weeklyContent(_ report: WeeklyReportData) -> some View {
+        let cal = Calendar.current
+        let weekBarRanges: [Range<Date>] = (0..<7).compactMap { i in
+            guard let ds = cal.date(byAdding: .day, value: i, to: report.period.start),
+                  let de = cal.date(byAdding: .day, value: 1, to: ds) else { return nil }
+            return ds..<de
+        }
+
         SummaryCard(
             completionRate: report.completionRate,
             averageRating: report.averageRating,
             streakDays: report.streakDays
         )
-        CompletionBarChart(
+        ExpandableCompletionCard(
             title: "완료율",
             labels: report.dailyCompletionRates.map(\.weekday),
-            values: report.dailyCompletionRates.map(\.rate)
+            values: report.dailyCompletionRates.map(\.rate),
+            todos: report.todos,
+            barRanges: weekBarRanges
         )
         RatingLineChart(
             title: "별점",
@@ -156,30 +188,54 @@ struct ReportView: View {
             values: report.dailyRatings.map(\.rating)
         )
         CategoryStatsCard(stats: report.categoryStats)
-        NotionSaveButton(isSaving: viewModel.isSavingToNotion) {
+        ReviewTimelineCard(entries: report.reviewTimeline)
+        NotionSaveButton(
+            isSaving: viewModel.isSavingToNotion,
+            isNotionConnected: viewModel.isNotionConnected
+        ) {
             viewModel.prepareSave()
         }
     }
 
+    private func monthlyBarRanges(for report: MonthlyReportData) -> [Range<Date>] {
+        let cal = Calendar.current
+        var ranges: [Range<Date>] = []
+        var ws = report.period.start
+        while ws < report.period.end {
+            let we = min(cal.date(byAdding: .day, value: 7, to: ws) ?? report.period.end, report.period.end)
+            ranges.append(ws..<we)
+            ws = we
+        }
+        return ranges
+    }
+
     @ViewBuilder
     private func monthlyContent(_ report: MonthlyReportData) -> some View {
+        let monthBarRanges = monthlyBarRanges(for: report)
+
         SummaryCard(
             completionRate: report.completionRate,
             averageRating: report.averageRating,
             streakDays: report.streakDays
         )
-        CompletionBarChart(
+        ExpandableCompletionCard(
             title: "완료율",
             labels: report.weeklyCompletionRates.map(\.label),
-            values: report.weeklyCompletionRates.map(\.rate)
+            values: report.weeklyCompletionRates.map(\.rate),
+            todos: report.todos,
+            barRanges: monthBarRanges
         )
         RatingLineChart(
             title: "별점",
-            labels: report.weeklyRatings.map(\.label),
-            values: report.weeklyRatings.map(\.rating)
+            labels: report.dailyRatings.map(\.weekday),
+            values: report.dailyRatings.map(\.rating)
         )
         CategoryStatsCard(stats: report.categoryStats)
-        NotionSaveButton(isSaving: viewModel.isSavingToNotion) {
+        ReviewTimelineCard(entries: report.reviewTimeline)
+        NotionSaveButton(
+            isSaving: viewModel.isSavingToNotion,
+            isNotionConnected: viewModel.isNotionConnected
+        ) {
             viewModel.prepareSave()
         }
     }
@@ -197,7 +253,7 @@ private struct SummaryCard: View {
             summaryItem(
                 value: "\(Int(completionRate * 100))%",
                 label: "평균 완료율",
-                color: AppTheme.shared.accent
+                color: .primary
             )
             Divider().frame(height: 48)
             summaryItem(
@@ -241,58 +297,163 @@ private struct SummaryCard: View {
     }
 }
 
-// MARK: - 완료율 막대 그래프
+// MARK: - 완료율 막대 그래프 (막대 탭으로 해당 기간 투두 목록)
 
-private struct CompletionBarChart: View {
+private struct ExpandableCompletionCard: View {
     let title: String
     let labels: [String]
     let values: [Double]
+    let todos: [ReportTodoEntry]
+    let barRanges: [Range<Date>]
+
+    @State private var selectedBarIndex: Int? = nil
 
     private var data: [(label: String, value: Double)] {
         zip(labels, values).map { ($0, $1) }
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.subheadline.bold())
+    private func todosFor(barIndex: Int) -> [ReportTodoEntry] {
+        guard barIndex < barRanges.count else { return [] }
+        let range = barRanges[barIndex]
+        return todos.filter { range.contains($0.date) }
+    }
 
-            Chart {
-                ForEach(data, id: \.label) { item in
-                    BarMark(
-                        x: .value("기간", item.label),
-                        y: .value("완료율", item.value)
-                    )
-                    .foregroundStyle(AppTheme.shared.accent.gradient)
-                    .cornerRadius(4)
+    private func barHeader(for barIndex: Int) -> String {
+        guard barIndex < barRanges.count else { return "" }
+        let range = barRanges[barIndex]
+        let cal = Calendar.current
+        let days = cal.dateComponents([.day], from: range.lowerBound, to: range.upperBound).day ?? 1
+        if days <= 1 {
+            return Self.dailyHeaderFmt.string(from: range.lowerBound)
+        } else {
+            let end = cal.date(byAdding: .day, value: -1, to: range.upperBound) ?? range.lowerBound
+            return "\(Self.shortDateFmt.string(from: range.lowerBound)) ~ \(Self.shortDateFmt.string(from: end))"
+        }
+    }
+
+    private static let dailyHeaderFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ko_KR")
+        f.dateFormat = "yyyy.MM.dd EEEE"
+        return f
+    }()
+
+    private static let shortDateFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy.MM.dd"
+        return f
+    }()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text(title).font(.subheadline.bold())
+                    Spacer()
+                    if selectedBarIndex != nil {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) { selectedBarIndex = nil }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.subheadline)
+                                .foregroundStyle(Color(.tertiaryLabel))
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                RuleMark(y: .value("평균", values.reduce(0, +) / Double(max(values.count, 1))))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
-                    .foregroundStyle(Color(.tertiaryLabel))
-            }
-            .chartYScale(domain: 0...1)
-            .chartYAxis {
-                AxisMarks(values: [0, 0.5, 1.0]) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let v = value.as(Double.self) {
-                            Text("\(Int(v * 100))%")
-                                .font(.caption2)
-                                .foregroundStyle(Color(.secondaryLabel))
+
+                Chart {
+                    ForEach(Array(data.enumerated()), id: \.element.label) { idx, item in
+                        BarMark(
+                            x: .value("기간", item.label),
+                            y: .value("완료율", item.value)
+                        )
+                        .foregroundStyle(
+                            selectedBarIndex == idx
+                            ? AppTheme.shared.accent
+                            : Color(.label).opacity(0.7)
+                        )
+                        .cornerRadius(4)
+                    }
+                    RuleMark(y: .value("평균", values.reduce(0, +) / Double(max(values.count, 1))))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+                        .foregroundStyle(Color(.tertiaryLabel))
+                }
+                .chartYScale(domain: 0...1)
+                .chartYAxis {
+                    AxisMarks(values: [0, 0.5, 1.0]) { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let v = value.as(Double.self) {
+                                Text("\(Int(v * 100))%")
+                                    .font(.caption2)
+                                    .foregroundStyle(Color(.secondaryLabel))
+                            }
                         }
                     }
                 }
-            }
-            .chartXAxis {
-                AxisMarks { value in
-                    AxisValueLabel()
-                        .font(.caption2)
+                .chartXAxis {
+                    AxisMarks { _ in AxisValueLabel().font(.caption2) }
+                }
+                .frame(height: 160)
+                .chartOverlay { proxy in
+                    GeometryReader { _ in
+                        Rectangle().fill(.clear).contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onEnded { value in
+                                        if let label: String = proxy.value(atX: value.location.x, as: String.self),
+                                           let idx = data.firstIndex(where: { $0.label == label }) {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                selectedBarIndex = (selectedBarIndex == idx) ? nil : idx
+                                            }
+                                        }
+                                    }
+                            )
+                    }
                 }
             }
-            .frame(height: 160)
+            .padding(16)
+
+            if let idx = selectedBarIndex {
+                let barTodos = todosFor(barIndex: idx)
+                let incompleteTodos = barTodos.filter { !$0.isCompleted }.sorted { $0.date < $1.date }
+                let completedTodos  = barTodos.filter {  $0.isCompleted }.sorted { $0.date < $1.date }
+                Divider().padding(.horizontal, 16)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(barHeader(for: idx))
+                        .font(.caption.bold())
+                        .foregroundStyle(.primary)
+                    Text("\(barTodos.count)개 중 \(completedTodos.count)개 완료")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if barTodos.isEmpty {
+                        Text("이 기간에 기록된 할일이 없습니다.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(incompleteTodos) { todo in todoRow(todo) }
+                        ForEach(completedTodos)  { todo in todoRow(todo) }
+                    }
+                }
+                .padding(16)
+                .transition(.opacity)
+            }
         }
-        .padding(16)
         .reportCard()
+    }
+
+    private func todoRow(_ todo: ReportTodoEntry) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 14))
+                .foregroundStyle(todo.isCompleted ? AppTheme.shared.accent : Color(.tertiaryLabel))
+            Text(todo.title)
+                .font(.subheadline)
+                .foregroundStyle(todo.isCompleted ? Color(.secondaryLabel) : .primary)
+                .strikethrough(todo.isCompleted, color: Color(.secondaryLabel))
+            Spacer()
+        }
     }
 }
 
@@ -303,60 +464,77 @@ private struct RatingLineChart: View {
     let labels: [String]
     let values: [Double]
 
-    private var data: [(label: String, value: Double)] {
-        zip(labels, values).map { ($0, $1) }
+    private struct RatedPoint {
+        let index: Int
+        let value: Double
     }
+
+    private var ratedPoints: [RatedPoint] {
+        zip(values.indices, values)
+            .filter { $0.1 > 0 }
+            .map { RatedPoint(index: $0.0, value: $0.1) }
+    }
+
+    private var axisStep: Int { labels.count > 10 ? 5 : 1 }
+    private var chartHeight: CGFloat { labels.count > 10 ? 160 : 140 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.subheadline.bold())
 
-            Chart {
-                ForEach(data, id: \.label) { item in
-                    LineMark(
-                        x: .value("기간", item.label),
-                        y: .value("별점", item.value)
-                    )
-                    .foregroundStyle(AppTheme.shared.accent)
-                    .lineStyle(StrokeStyle(lineWidth: 2))
-                    .interpolationMethod(.catmullRom)
+            if ratedPoints.isEmpty {
+                Text("별점 데이터가 없습니다.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .frame(height: chartHeight)
+            } else {
+                Chart {
+                    ForEach(Array(ratedPoints.enumerated()), id: \.offset) { _, point in
+                        LineMark(
+                            x: .value("인덱스", point.index),
+                            y: .value("별점", point.value)
+                        )
+                        .foregroundStyle(AppTheme.shared.accent)
+                        .interpolationMethod(.linear)
 
-                    PointMark(
-                        x: .value("기간", item.label),
-                        y: .value("별점", item.value)
-                    )
-                    .foregroundStyle(AppTheme.shared.accent)
-                    .symbolSize(36)
-
-                    AreaMark(
-                        x: .value("기간", item.label),
-                        y: .value("별점", item.value)
-                    )
-                    .foregroundStyle(AppTheme.shared.accent.opacity(0.08).gradient)
-                    .interpolationMethod(.catmullRom)
+                        PointMark(
+                            x: .value("인덱스", point.index),
+                            y: .value("별점", point.value)
+                        )
+                        .foregroundStyle(AppTheme.shared.accent)
+                        .symbolSize(48)
+                    }
                 }
-            }
-            .chartYScale(domain: 1...5)
-            .chartYAxis {
-                AxisMarks(values: [1, 2, 3, 4, 5]) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let v = value.as(Int.self) {
-                            Text("\(v)⭐")
-                                .font(.caption2)
-                                .foregroundStyle(Color(.secondaryLabel))
+                .chartXScale(domain: 0...(max(labels.count - 1, 1)))
+                .chartYScale(domain: 1...5)
+                .chartXAxis {
+                    AxisMarks(values: Array(stride(from: 0, to: labels.count, by: axisStep))) { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let i = value.as(Int.self), i < labels.count {
+                                Text(labels[i])
+                                    .font(.caption2)
+                                    .foregroundStyle(Color(.secondaryLabel))
+                            }
                         }
                     }
                 }
-            }
-            .chartXAxis {
-                AxisMarks { _ in
-                    AxisValueLabel()
-                        .font(.caption2)
+                .chartYAxis {
+                    AxisMarks(values: [1, 2, 3, 4, 5]) { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let v = value.as(Int.self) {
+                                Text("\(v)⭐")
+                                    .font(.caption2)
+                                    .foregroundStyle(Color(.secondaryLabel))
+                            }
+                        }
+                    }
                 }
+                .frame(height: chartHeight)
             }
-            .frame(height: 140)
         }
         .padding(16)
         .reportCard()
@@ -427,11 +605,101 @@ private struct CategoryStatRow: View {
     }
 }
 
+// MARK: - 하루 리뷰 타임라인
+
+private struct ReviewTimelineCard: View {
+    let entries: [ReviewTimelineEntry]
+
+    @State private var isExpanded = false
+
+    private static let dateFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ko_KR")
+        f.dateFormat = "M월 d일 (E)"
+        return f
+    }()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("하루 리뷰")
+                    .font(.subheadline.bold())
+                Spacer()
+                if !entries.isEmpty {
+                    Text(isExpanded ? "접기" : "\(entries.count)일 보기")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.shared.accent)
+                }
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(Color(.tertiaryLabel))
+                    .animation(.easeInOut(duration: 0.2), value: isExpanded)
+            }
+            .padding(16)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard !entries.isEmpty else { return }
+                withAnimation(.easeInOut(duration: 0.25)) { isExpanded.toggle() }
+            }
+
+            if entries.isEmpty {
+                Text("리뷰를 작성한 날이 없습니다.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, 16)
+            } else if isExpanded {
+                Divider().padding(.horizontal, 16)
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(entries.enumerated()), id: \.element.id) { idx, entry in
+                        timelineRow(entry)
+                        if idx < entries.count - 1 {
+                            Divider().padding(.horizontal, 16)
+                        }
+                    }
+                }
+                .transition(.opacity)
+            }
+        }
+        .reportCard()
+    }
+
+    private func timelineRow(_ entry: ReviewTimelineEntry) -> some View {
+        NavigationLink(destination: DayTodoDetailView(date: entry.date)) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Text(Self.dateFmt.string(from: entry.date))
+                            .font(.caption.bold())
+                            .foregroundStyle(.primary)
+                        if entry.rating > 0 {
+                            Text(String(repeating: "⭐", count: Int(entry.rating)))
+                                .font(.caption2)
+                        }
+                    }
+                    Text(entry.review)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer()
+            }
+            .padding(16)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - 노션에 저장하기 버튼
 
 private struct NotionSaveButton: View {
     let isSaving: Bool
+    let isNotionConnected: Bool
     let action: () -> Void
+
+    private var isInactive: Bool { isSaving || !isNotionConnected }
 
     var body: some View {
         Button(action: action) {
@@ -440,7 +708,7 @@ private struct NotionSaveButton: View {
                     ProgressView()
                         .scaleEffect(0.85)
                 } else {
-                    Image(systemName: "arrow.up.circle")
+                    Image(systemName: isNotionConnected ? "arrow.up.circle" : "lock.circle")
                         .font(.subheadline)
                 }
                 Text(isSaving ? "저장 중..." : "노션에 저장하기")
@@ -448,12 +716,12 @@ private struct NotionSaveButton: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .foregroundStyle(isSaving ? Color(.tertiaryLabel) : AppTheme.shared.accent)
+            .foregroundStyle(isInactive ? Color(.tertiaryLabel) : AppTheme.shared.accent)
             .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(isSaving ? Color(.separator) : AppTheme.shared.accent.opacity(0.4), lineWidth: 0.5)
+                    .strokeBorder(isInactive ? Color(.separator) : AppTheme.shared.accent.opacity(0.4), lineWidth: 0.5)
             )
         }
         .disabled(isSaving)
@@ -468,24 +736,24 @@ struct ProPaywallSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(spacing: 28) {
-            Spacer()
+        NavigationStack {
+            VStack(spacing: 28) {
+                Spacer()
 
-            VStack(spacing: 12) {
-                Image(systemName: "lock.circle.fill")
-                    .font(.system(size: 52))
-                    .foregroundStyle(AppTheme.shared.accent)
+                VStack(spacing: 12) {
+                    Image(systemName: "lock.circle.fill")
+                        .font(.system(size: 52))
+                        .foregroundStyle(AppTheme.shared.accent)
 
-                Text("Pro 기능")
-                    .font(.title3.bold())
+                    Text("Pro 기능")
+                        .font(.title3.bold())
 
-                Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
 
-            VStack(spacing: 12) {
                 Button {
                     // TODO: StoreKit 연동
                 } label: {
@@ -497,19 +765,22 @@ struct ProPaywallSheet: View {
                         .background(AppTheme.shared.accent)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
+                .padding(.horizontal, 32)
 
-                Button("닫기") {
-                    onDismiss()
-                    dismiss()
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                Spacer()
             }
-            .padding(.horizontal, 32)
-
-            Spacer()
+            .navigationTitle("Pro 업그레이드")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("닫기") {
+                        onDismiss()
+                        dismiss()
+                    }
+                    .foregroundStyle(.secondary)
+                }
+            }
         }
-        .padding(.horizontal, 16)
     }
 }
 

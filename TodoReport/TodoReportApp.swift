@@ -24,6 +24,17 @@ struct TodoReportApp: App {
                     }
                 }
             }
+            .onAppear {
+                TodoNotificationManager.shared.requestPermission()
+                Task { @MainActor in
+                    RecurringTodoManager.shared.generateUpcoming()
+                    NotionRelationLinker.shared.linkMissing()
+                }
+                UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+                    print("[Notification] 📋 등록된 알림 수: \(requests.count)")
+                    requests.forEach { print("[Notification] - \($0.identifier) \($0.trigger.debugDescription)") }
+                }
+            }
             .onOpenURL { url in
                 Task { @MainActor in
                     NotionAuthManager.shared.handleCallback(url: url)

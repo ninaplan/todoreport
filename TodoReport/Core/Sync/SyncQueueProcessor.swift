@@ -58,6 +58,14 @@ final class SyncQueueProcessor {
                     print("[Processor] ❌ 실패 - \(item.entityId) retryCount:\(item.retryCount)")
                 }
             }
+
+            // 루프 실행 중 새로 enqueue된 아이템 처리
+            let remainingDesc = FetchDescriptor<SyncQueueItem>(
+                predicate: #Predicate<SyncQueueItem> { $0.status == "pending" }
+            )
+            if let remaining = try? context.fetch(remainingDesc), !remaining.isEmpty {
+                Task { await self.process() }
+            }
         } catch {
             // fetch 실패 — 다음 실행 시 재시도
         }

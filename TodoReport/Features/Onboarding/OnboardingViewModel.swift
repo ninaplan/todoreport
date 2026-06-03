@@ -72,9 +72,12 @@ final class OnboardingViewModel {
     // 선택 속성 매핑 모드
     var memoMode: PropMappingMode = .appOnly
     var isPinnedMode: PropMappingMode = .appOnly
-    var reportRelationMode: PropMappingMode = .appOnly
     var reviewMode: PropMappingMode = .appOnly
     var ratingMode: PropMappingMode = .appOnly
+
+    // 온보딩 완료 후 초기 fetch
+    private(set) var isFetchingInitialData: Bool = false
+    private(set) var fetchProgress: Double = 0
 
     // 필수 속성 validation
     var canProceedFromTodoProps: Bool {
@@ -174,12 +177,44 @@ final class OnboardingViewModel {
     // MARK: - Step 8: Map Report Props
 
     func proceedFromMapReportProps() {
-        saveOnboardingData()
+        Task { await performInitialFetch() }
+    }
+
+    @MainActor
+    private func performInitialFetch() async {
+        await saveOnboardingData()
+        guard PlannerService.shared.selectedPlanner?.isNotionConnected == true else {
+            UserDefaults.standard.set(true, forKey: "onboardingCompleted")
+            isComplete = true
+            return
+        }
+        isFetchingInitialData = true
+        fetchProgress = 0
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let days: [Date] = (0..<7).compactMap { i in
+            calendar.date(byAdding: .day, value: -i, to: today)
+        }
+        let total = Double(days.count)
+        var completed = 0.0
+        await withTaskGroup(of: Void.self) { group in
+            for day in days {
+                group.addTask {
+                    await TodoService.shared.syncTodosFromNotion(for: day)
+                    await DailyReportService().syncReportFromNotion(for: day)
+                }
+            }
+            for await _ in group {
+                completed += 1
+                fetchProgress = completed / total
+            }
+        }
+        isFetchingInitialData = false
         UserDefaults.standard.set(true, forKey: "onboardingCompleted")
         isComplete = true
     }
 
-    private func saveOnboardingData() {
+    private func saveOnboardingData() async {
         guard var planner = PlannerService.shared.selectedPlanner else { return }
         planner.name = plannerName
         planner.notionTodoDBId = selectedTodoDBId
@@ -194,7 +229,7 @@ final class OnboardingViewModel {
            let json = String(data: data, encoding: .utf8) {
             planner.reportPropsMapping = json
         }
-        Task { try? await PlannerService.shared.savePlanner(planner) }
+        try? await PlannerService.shared.savePlanner(planner)
         SyncQueueManager.shared.onNotionConnected()
     }
 
@@ -309,11 +344,10 @@ final class OnboardingViewModel {
             let typed = props.filter { $0.type == type }
             return typed.first(where: { $0.name == name })?.name ?? typed.first?.name
         }
-        todoPropsMapping.completed      = best(props: todoProperties, type: "checkbox",  default: "완료")
-        todoPropsMapping.date           = best(props: todoProperties, type: "date",      default: "날짜")
-        todoPropsMapping.memo           = best(props: todoProperties, type: "rich_text", default: "메모")
-        todoPropsMapping.isPinned       = best(props: todoProperties, type: "checkbox",  default: "중요")
-        todoPropsMapping.reportRelation = best(props: todoProperties, type: "relation",  default: "데일리 리포트")
+        todoPropsMapping.completed = best(props: todoProperties, type: "checkbox",  default: "완료")
+        todoPropsMapping.date      = best(props: todoProperties, type: "date",      default: "날짜")
+        todoPropsMapping.memo      = best(props: todoProperties, type: "rich_text", default: "메모")
+        todoPropsMapping.isPinned  = best(props: todoProperties, type: "checkbox",  default: "중요")
     }
 
     // MARK: - 속성 생성

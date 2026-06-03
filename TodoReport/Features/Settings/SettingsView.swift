@@ -17,6 +17,7 @@ struct SettingsView: View {
     @State private var notificationEnabled = true
     @State private var showLogoutAlert = false
     @State private var showAddPlannerSheet = false
+    @State private var showRestoreAlert = false
 
     #if DEBUG
     @AppStorage("debugIsPro") private var debugIsPro = false
@@ -30,6 +31,8 @@ struct SettingsView: View {
             subscriptionSection
             plannersSection
             globalSettingsSection
+            supportSection
+            appInfoSection
             accountFooterSection
 
             #if DEBUG
@@ -48,6 +51,13 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showAddPlannerSheet) {
             PlannerAddView()
+                .presentationDragIndicator(.visible)
+                .presentationDetents([.large])
+        }
+        .alert("준비 중", isPresented: $showRestoreAlert) {
+            Button("확인", role: .cancel) { }
+        } message: {
+            Text("준비 중입니다.")
         }
     }
 
@@ -65,6 +75,10 @@ struct SettingsView: View {
                 }
                 .foregroundStyle(AppTheme.shared.accent)
             }
+            Button("구독 복원") {
+                showRestoreAlert = true
+            }
+            .foregroundStyle(.secondary)
         }
     }
 
@@ -83,7 +97,7 @@ struct SettingsView: View {
                 guard isPro else { return /* TODO: Paywall */ }
                 showAddPlannerSheet = true
             } label: {
-                Label(isPro ? "플래너 추가" : "플래너 추가  🔒", systemImage: "plus")
+                Label(isPro ? "플래너 추가" : "플래너 추가  🔒", systemImage: "plus.circle.fill")
                     .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
             }
         }
@@ -97,12 +111,69 @@ struct SettingsView: View {
                 Text("한국어").tag("한국어")
                 Text("English").tag("English")
             }
+            .tint(.primary)
             Picker("시작 요일", selection: $startWeekday) {
                 Text("일요일").tag("일")
                 Text("월요일").tag("월")
             }
+            .tint(.primary)
             Toggle("알림", isOn: $notificationEnabled)
                 .tint(AppTheme.shared.accent)
+        }
+    }
+
+    // MARK: - 고객지원
+
+    private var supportSection: some View {
+        Section("고객지원") {
+            Link(destination: URL(string: "https://nock.kr/privacy")!) {
+                LabeledContent("개인정보처리방침") {
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .foregroundStyle(.primary)
+            }
+            Link(destination: URL(string: "https://nock.kr/terms")!) {
+                LabeledContent("이용약관") {
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .foregroundStyle(.primary)
+            }
+            Link(destination: URL(string: "mailto:support@nock.kr")!) {
+                LabeledContent("오류신고") {
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .foregroundStyle(.primary)
+            }
+            Link(destination: URL(string: "https://nock.kr/updates")!) {
+                LabeledContent("업데이트 타임라인") {
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .foregroundStyle(.primary)
+            }
+        }
+        .tint(.primary)
+    }
+
+    // MARK: - 앱 정보
+
+    private var appInfoSection: some View {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "-"
+        let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "-"
+        return Section("앱 정보") {
+            LabeledContent("버전") {
+                Text(version).foregroundStyle(.secondary)
+            }
+            LabeledContent("빌드") {
+                Text(build).foregroundStyle(.secondary)
+            }
         }
     }
 

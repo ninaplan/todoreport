@@ -32,7 +32,7 @@ struct LargeWidgetView: View {
                 VStack(alignment: .trailing, spacing: 1) {
                     Text("\(Int(rate * 100))%")
                         .font(.title2.bold())
-                        .foregroundStyle(nockOrangeL)
+                        .foregroundStyle(nockOrange)
                     Text("\(completed)/\(total)개")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -46,7 +46,7 @@ struct LargeWidgetView: View {
                         .fill(Color(.systemGray5))
                         .frame(height: 5)
                     Capsule()
-                        .fill(nockOrangeL)
+                        .fill(nockOrange)
                         .frame(width: geo.size.width * CGFloat(rate), height: 5)
                 }
             }
@@ -86,7 +86,7 @@ struct LargeWidgetView: View {
         HStack(spacing: 8) {
             Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : (todo.isPinned ? "pin.circle.fill" : "circle"))
                 .font(.system(size: 16))
-                .foregroundStyle(todo.isCompleted ? nockOrangeL : (todo.isPinned ? .orange : Color(.systemGray4)))
+                .foregroundStyle(todo.isCompleted ? nockOrange : (todo.isPinned ? .orange : Color(.systemGray4)))
 
             Text(todo.title)
                 .font(.subheadline)
@@ -104,4 +104,4 @@ struct LargeWidgetView: View {
     }
 }
 
-private let nockOrangeL = Color(red: 0xFD / 255, green: 0x68 / 255, blue: 0x45 / 255)
+private let nockOrange = Color(red: 0xFD / 255, green: 0x68 / 255, blue: 0x45 / 255)

@@ -9,8 +9,9 @@ final class CategoryViewModel {
 
     var isSheetPresented: Bool = false
     var editName: String = ""
-    var editColorHex: String = Category.colorPalette.first ?? "#FD6845"
+    var editColorHex: String = "#000000"
     var editIcon: String = Category.iconPalette.first ?? "tag.fill"
+    private var userDidSelectIcon: Bool = false
 
     var showArchiveAlert: Bool = false
     private(set) var archivingCategory: Category? = nil
@@ -24,6 +25,11 @@ final class CategoryViewModel {
     private var editingId: String? = nil
     private let service = CategoryService.shared
     private let todoService = TodoService.shared
+    private let plannerId: String?
+
+    init(plannerId: String? = nil) {
+        self.plannerId = plannerId
+    }
 
     var isEditing: Bool { editingId != nil }
 
@@ -36,10 +42,17 @@ final class CategoryViewModel {
 
     func fetchCategories() async {
         isLoading = true
-        async let active = service.fetchCategories()
-        async let archived = service.fetchArchivedCategories()
-        categories = await active
-        archivedCategories = await archived
+        if let pid = plannerId {
+            async let active   = service.fetchCategories(for: pid)
+            async let archived = service.fetchArchivedCategories(for: pid)
+            categories = await active
+            archivedCategories = await archived
+        } else {
+            async let active   = service.fetchCategories()
+            async let archived = service.fetchArchivedCategories()
+            categories = await active
+            archivedCategories = await archived
+        }
         isLoading = false
     }
 
@@ -53,8 +66,9 @@ final class CategoryViewModel {
     func openAddSheet() {
         editingId = nil
         editName = ""
-        editColorHex = Category.colorPalette.first ?? "#FD6845"
+        editColorHex = "#000000"
         editIcon = Category.iconPalette.first ?? "tag.fill"
+        userDidSelectIcon = false
         isSheetPresented = true
     }
 
@@ -63,8 +77,53 @@ final class CategoryViewModel {
         editName = category.name
         editColorHex = category.colorHex
         editIcon = category.icon
+        userDidSelectIcon = true
         isSheetPresented = true
     }
+
+    func selectIcon(_ symbol: String) {
+        editIcon = symbol
+        userDidSelectIcon = true
+    }
+
+    func selectColor(_ hex: String) {
+        editColorHex = hex
+    }
+
+    func autoMatchIcon(for name: String) {
+        guard !userDidSelectIcon else { return }
+        let lowered = name.lowercased()
+        guard let entry = Self.keywordIconMap.first(where: { entry in
+            entry.keywords.contains(where: { lowered.contains($0) })
+        }) else { return }
+        editIcon = entry.icon
+    }
+
+    private static let keywordIconMap: [(keywords: [String], icon: String)] = [
+        (["운동", "헬스", "달리기", "걷기", "exercise", "workout", "run", "gym"], "figure.run"),
+        (["공부", "학습", "수업", "강의", "study", "learn", "class"], "book.fill"),
+        (["업무", "회사", "일", "work", "office", "job"], "briefcase.fill"),
+        (["식사", "밥", "음식", "요리", "meal", "food", "cook", "eat", "lunch", "dinner"], "fork.knife"),
+        (["음악", "music", "song", "playlist"], "music.note"),
+        (["독서", "책", "reading", "book"], "book.fill"),
+        (["쇼핑", "shopping", "buy", "purchase"], "cart.fill"),
+        (["집", "청소", "house", "home", "clean"], "house.fill"),
+        (["여행", "travel", "trip", "vacation"], "airplane"),
+        (["게임", "gaming", "game"], "gamecontroller.fill"),
+        (["사진", "포토", "photo", "camera"], "camera.fill"),
+        (["건강", "병원", "health", "hospital", "medical"], "heart.fill"),
+        (["친구", "약속", "모임", "friend", "meeting", "social"], "person.2.fill"),
+        (["취미", "hobby"], "star.fill"),
+        (["자전거", "cycling", "bicycle", "bike"], "bicycle"),
+        (["카페", "커피", "coffee", "cafe"], "cup.and.saucer.fill"),
+        (["운전", "차", "drive", "driving"], "car.fill"),
+        (["기록", "메모", "일기", "note", "memo", "journal", "diary"], "note.text"),
+        (["그림", "미술", "art", "draw", "paint", "design"], "paintbrush.fill"),
+        (["알림", "notification", "reminder", "bell"], "bell.fill"),
+        (["목표", "goal", "target"], "flag.fill"),
+        (["영화", "드라마", "movie", "film", "drama"], "film.fill"),
+        (["tv", "티비", "television", "넷플릭스"], "tv.fill"),
+    ]
 
     // MARK: - Save
 
@@ -81,7 +140,7 @@ final class CategoryViewModel {
             copy.icon = editIcon
             updated = copy
         } else {
-            updated = Category(name: trimmed, colorHex: editColorHex, icon: editIcon)
+            updated = Category(name: trimmed, colorHex: editColorHex, icon: editIcon, plannerId: plannerId)
         }
 
         try? await service.saveCategory(updated)

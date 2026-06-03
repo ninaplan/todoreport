@@ -23,7 +23,7 @@ struct Category: Identifiable, Codable {
     init(
         id: String = UUID().uuidString,
         name: String,
-        colorHex: String = "#FD6845",
+        colorHex: String = "#000000",
         icon: String = "tag.fill",
         status: CategoryStatus = .active,
         plannerId: String? = nil
@@ -37,22 +37,32 @@ struct Category: Identifiable, Codable {
     }
 
     static let colorPalette: [String] = [
+        "#000000",
         "#FF3B30", "#FF9500", "#FFCC00", "#34C759",
         "#00C7BE", "#007AFF", "#5856D6", "#AF52DE",
         "#FF2D55", "#A2845E", "#8E8E93", "#FD6845"
     ]
 
     static let iconPalette: [String] = [
-        // 공부/학습
-        "book.fill", "pencil", "graduationcap.fill", "brain.head.profile", "note.text",
-        // 운동/건강
-        "figure.run", "dumbbell.fill", "heart.fill", "bicycle", "leaf.fill",
         // 업무/생산성
-        "briefcase.fill", "doc.text.fill", "chart.line.uptrend.xyaxis", "clock.fill", "flag.fill",
-        // 생활
-        "house.fill", "cart.fill", "fork.knife", "car.fill", "creditcard.fill",
-        // 취미/기타
-        "music.note", "paintbrush.fill", "camera.fill", "star.fill", "gamecontroller.fill"
+        "briefcase.fill", "desktopcomputer", "laptopcomputer", "doc.text.fill", "chart.line.uptrend.xyaxis",
+        "clock.fill", "calendar", "tray.full.fill", "paperplane.fill", "flag.fill",
+        // 학습
+        "book.fill", "pencil", "graduationcap.fill", "brain.head.profile", "note.text",
+        "magnifyingglass", "lightbulb.fill", "newspaper.fill",
+        // 건강/운동
+        "heart.fill", "figure.run", "dumbbell.fill", "bicycle", "leaf.fill",
+        "cross.fill", "flame.fill", "drop.fill",
+        // 식생활
+        "fork.knife", "cup.and.saucer.fill", "cart.fill",
+        // 생활/이동
+        "house.fill", "car.fill", "airplane", "bag.fill", "creditcard.fill",
+        // 취미/문화
+        "music.note", "headphones", "camera.fill", "paintbrush.fill", "gamecontroller.fill",
+        "tv.fill", "film.fill", "theatermasks.fill",
+        // 소셜/기타
+        "star.fill", "tag.fill", "gift.fill", "bell.fill", "person.2.fill",
+        "globe", "map.fill", "location.fill", "lock.fill"
     ]
 }
 
@@ -75,14 +85,14 @@ final class CategoryService {
         let pid = PlannerService.shared.selectedPlanner?.id
         let active = store.filter { $0.status == .active }
         guard let pid else { return active }
-        return active.filter { $0.plannerId == pid || $0.plannerId == nil }
+        return active.filter { $0.plannerId == pid }
     }
 
     var archivedCategories: [Category] {
         let pid = PlannerService.shared.selectedPlanner?.id
         let archived = store.filter { $0.status == .archived }
         guard let pid else { return archived }
-        return archived.filter { $0.plannerId == pid || $0.plannerId == nil }
+        return archived.filter { $0.plannerId == pid }
     }
 
     // MARK: - Fetch
@@ -96,6 +106,18 @@ final class CategoryService {
         await refreshStore()
         return archivedCategories
     }
+
+    func fetchCategories(for plannerId: String) async -> [Category] {
+        await refreshStore()
+        return store.filter { $0.status == .active && $0.plannerId == plannerId }
+    }
+
+    func fetchArchivedCategories(for plannerId: String) async -> [Category] {
+        await refreshStore()
+        return store.filter { $0.status == .archived && $0.plannerId == plannerId }
+    }
+
+    func refresh() async { await refreshStore() }
 
     private func refreshStore() async {
         do {

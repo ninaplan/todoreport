@@ -50,6 +50,7 @@ final class PlannerAddViewModel {
         let name = trimmed.isEmpty ? defaultPlannerName() : trimmed
         let planner = Planner(name: name)
         try? await PlannerService.shared.savePlanner(planner)
+        PlannerService.shared.selectPlanner(planner)
         createdLocalPlanner = planner
     }
 
@@ -111,6 +112,7 @@ final class PlannerAddViewModel {
             planner.reportPropsMapping = json
         }
         try? await PlannerService.shared.savePlanner(planner)
+        PlannerService.shared.selectPlanner(planner)
     }
 
     // MARK: - 뒤로가기

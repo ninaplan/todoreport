@@ -35,6 +35,7 @@ final class NotionAPIClient {
         let path = "/api/notion/todo"
         let token = planner.resolvedNotionToken
         print("[Sync] 📤 요청 - path:\(path) body:\(jsonLog(body))")
+        print("[Sync] 📤 payload: \(body)")
         let response: CreateResponse = try await APIClient.shared.post(path, body: AnyEncodable(body), token: token)
         return response.id
     }
@@ -44,6 +45,7 @@ final class NotionAPIClient {
         let path = "/api/notion/todo/\(entityId)"
         let token = planner.resolvedNotionToken
         print("[Sync] 📤 요청 - path:\(path) body:\(jsonLog(body))")
+        print("[Sync] 📤 payload: \(body)")
         let _: EmptyResponse = try await APIClient.shared.patch(path, body: AnyEncodable(body), token: token)
     }
 

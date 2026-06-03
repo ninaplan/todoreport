@@ -4,9 +4,9 @@ struct QuickCaptureView: View {
     let defaultCategoryId: String?
     @State private var viewModel = QuickCaptureViewModel()
     @Environment(\.dismiss) private var dismiss
-    let onSave: (String, String?, String?, Date) -> Void
+    let onSave: (String, String?, String?, Date, Date?, Int?, RecurrenceRule?, Date?, Int?) -> Void
 
-    init(defaultCategoryId: String? = nil, onSave: @escaping (String, String?, String?, Date) -> Void) {
+    init(defaultCategoryId: String? = nil, onSave: @escaping (String, String?, String?, Date, Date?, Int?, RecurrenceRule?, Date?, Int?) -> Void) {
         self.defaultCategoryId = defaultCategoryId
         self.onSave = onSave
     }
@@ -14,66 +14,28 @@ struct QuickCaptureView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    AutoFocusTextField(
-                        text: $viewModel.title,
-                        placeholder: "할일",
-                        font: .systemFont(ofSize: 20, weight: .medium)
-                    )
-                    .frame(height: 44)
-
-                    TextField("메모", text: $viewModel.memo, axis: .vertical)
-                        .lineLimit(3...6)
-                }
-
-                Section {
-                    Picker("카테고리", selection: $viewModel.selectedCategoryId) {
-                        Text("없음").tag(Optional<String>.none)
-                        ForEach(viewModel.categories) { category in
-                            Text(category.name).tag(Optional(category.id))
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .tint(.primary)
-
-                    Button {
-                        withAnimation { viewModel.showDatePicker.toggle() }
-                    } label: {
-                        HStack {
-                            Text("날짜").foregroundStyle(.primary)
-                            Spacer()
-                            Text(viewModel.selectedDate.formatted(date: .abbreviated, time: .omitted))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-
-                    if viewModel.showDatePicker {
-                        DatePicker("", selection: $viewModel.selectedDate, displayedComponents: .date)
-                            .datePickerStyle(.graphical)
-                            .labelsHidden()
-                    }
-                }
-
-                Section {
-                    Button {
-                        viewModel.showProAlert = true
-                    } label: {
-                        HStack {
-                            Text("반복 설정").foregroundStyle(.primary)
-                            Spacer()
-                            Text("🔒 Pro").foregroundStyle(.secondary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
+                TodoEditFormView(
+                    title: $viewModel.title,
+                    memo: $viewModel.memo,
+                    categoryId: $viewModel.selectedCategoryId,
+                    date: $viewModel.selectedDate,
+                    showDatePicker: $viewModel.showDatePicker,
+                    scheduledTime: $viewModel.scheduledTime,
+                    alarmOffset: $viewModel.alarmOffset,
+                    recurrence: $viewModel.recurrenceRule,
+                    recurrenceEndDate: $viewModel.recurrenceEndDate,
+                    recurrenceCount: $viewModel.recurrenceCount,
+                    categories: viewModel.categories,
+                    isPro: UserDefaults.standard.bool(forKey: "debugIsPro"),
+                    onRepeatTap: { viewModel.showProAlert = true }
+                )
             }
             .navigationTitle("할일 추가")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("취소", role: .cancel) { dismiss() }
-                        .tint(.primary)
+                        .foregroundStyle(.secondary)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("저장") {
@@ -82,7 +44,12 @@ struct QuickCaptureView: View {
                             viewModel.title.trimmingCharacters(in: .whitespaces),
                             memo.isEmpty ? nil : memo,
                             viewModel.selectedCategoryId,
-                            viewModel.selectedDate
+                            viewModel.selectedDate,
+                            viewModel.scheduledTime,
+                            viewModel.alarmOffset,
+                            viewModel.recurrenceRule,
+                            viewModel.recurrenceEndDate,
+                            viewModel.recurrenceCount
                         )
                         dismiss()
                     }

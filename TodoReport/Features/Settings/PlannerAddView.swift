@@ -4,22 +4,59 @@ struct PlannerAddView: View {
     @State private var viewModel = PlannerAddViewModel()
     @Environment(\.dismiss) private var dismiss
     @State private var showingPlannerDetail = false
+    @FocusState private var nameFocused: Bool
+
+    private var isDBPickerStep: Bool {
+        viewModel.step == .selectTodoDB || viewModel.step == .selectReportDB
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            navBar
-
-            switch viewModel.step {
-            case .chooseMode, .notionOAuth:
-                chooseModeView
-            case .selectTodoDB:
-                selectDBView(isTodo: true)
-            case .mapTodoProps:
-                mapPropsView(isTodo: true)
-            case .selectReportDB:
-                selectDBView(isTodo: false)
-            case .mapReportProps:
-                mapPropsView(isTodo: false)
+        NotionFlowContainer(title: navTitle, titleDisplayMode: .inline) {
+            Group {
+                switch viewModel.step {
+                case .chooseMode, .notionOAuth:
+                    chooseModeView
+                case .selectTodoDB:
+                    NotionDBPickerView(
+                        subtitle: "할일을 저장할 Notion DB를 선택하세요",
+                        databases: viewModel.databases,
+                        selectedId: viewModel.selectedTodoDBId,
+                        isLoading: viewModel.isLoading,
+                        onSelect: { viewModel.selectTodoDB($0) },
+                        onRefresh: { await viewModel.fetchDatabases() }
+                    )
+                case .mapTodoProps:
+                    mapTodoPropsView
+                case .selectReportDB:
+                    NotionDBPickerView(
+                        subtitle: "데일리 리포트를 저장할 Notion DB를 선택하세요",
+                        databases: viewModel.databases,
+                        selectedId: viewModel.selectedReportDBId,
+                        isLoading: viewModel.isLoading,
+                        onSelect: { viewModel.selectReportDB($0) },
+                        onRefresh: { await viewModel.fetchDatabases() }
+                    )
+                case .mapReportProps:
+                    mapReportPropsView
+                }
+            }
+            .toolbar {
+                if viewModel.step != .chooseMode {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        BackButton { viewModel.goBack() }
+                    }
+                }
+                if isDBPickerStep {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        RefreshButton(isLoading: viewModel.isLoading) {
+                            Task { await viewModel.fetchDatabases() }
+                        }
+                    }
+                } else {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        CloseButton { dismiss() }
+                    }
+                }
             }
         }
         .onChange(of: viewModel.createdLocalPlanner) { _, planner in
@@ -29,6 +66,11 @@ struct PlannerAddView: View {
             if let planner = viewModel.createdLocalPlanner {
                 NavigationStack {
                     PlannerDetailView(planner: planner)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                CloseButton { showingPlannerDetail = false }
+                            }
+                        }
                 }
             }
         }
@@ -42,420 +84,223 @@ struct PlannerAddView: View {
         }
     }
 
-    // MARK: - 네비게이션 바
-
-    private var navBar: some View {
-        HStack {
-            if viewModel.step != .chooseMode {
-                Button { viewModel.goBack() } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .frame(width: 44, height: 44)
-                }
-            } else {
-                Color.clear.frame(width: 44, height: 44)
-            }
-
-            Spacer()
-
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .padding(8)
-                    .background(Color(.systemGray5), in: Circle())
-            }
+    private var navTitle: String {
+        switch viewModel.step {
+        case .chooseMode, .notionOAuth: return "플래너 추가"
+        case .selectTodoDB:             return "투두 DB 선택"
+        case .mapTodoProps:             return "투두 속성 연결"
+        case .selectReportDB:           return "리포트 DB 선택"
+        case .mapReportProps:           return "리포트 속성 연결"
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
     }
 
     // MARK: - 모드 선택
 
     private var chooseModeView: some View {
-        VStack(spacing: 32) {
+        VStack(spacing: 28) {
             Spacer()
 
             VStack(spacing: 8) {
-                Text("플래너 추가")
-                    .font(.title2.bold())
+                Text("노션 워크스페이스당 플래너 1개를 연결할 수 있어요.")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
+                Text("여러 워크스페이스를 사용하면 플래너를 더 추가할 수 있습니다.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, 24)
+
+            VStack(spacing: 10) {
                 Text("이름을 입력하고 저장 방식을 선택하세요")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-            }
 
-            TextField("플래너 이름 (선택)", text: $viewModel.plannerName)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .background(
-                    Color(.secondarySystemGroupedBackground),
-                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                )
-                .padding(.horizontal, 24)
+                TextField("플래너 이름 (선택)", text: $viewModel.plannerName)
+                    .focused($nameFocused)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background(
+                        Color(.secondarySystemGroupedBackground),
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    )
+            }
+            .padding(.horizontal, 24)
 
             VStack(spacing: 12) {
-                modeCard(
-                    icon: "internaldrive",
-                    iconColor: .secondary,
-                    title: "기기에 저장",
-                    description: "Notion 없이 이 기기에만 저장해요",
-                    isLoading: false
-                ) {
-                    Task { await viewModel.selectLocalMode() }
-                }
-
-                modeCard(
-                    icon: "n.square.fill",
-                    iconColor: AppTheme.shared.accent,
-                    title: "Notion에 저장",
-                    description: "Notion DB에 연결해서 저장해요",
-                    isLoading: viewModel.step == .notionOAuth && viewModel.isLoading
-                ) {
+                Button {
                     viewModel.selectNotionMode()
-                }
-
-                if viewModel.showNotionWorkspaceInfo {
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "info.circle")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Text("같은 노션 워크스페이스는 1개 플래너만 연동 가능해요.\n다른 워크스페이스로 연동하면 여러 플래너를 사용할 수 있어요.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(12)
-                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                }
-            }
-            .padding(.horizontal, 24)
-
-            Spacer()
-        }
-    }
-
-    private func modeCard(
-        icon: String,
-        iconColor: Color,
-        title: String,
-        description: String,
-        isLoading: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Group {
-                    if isLoading {
-                        ProgressView()
-                    } else {
-                        Image(systemName: icon)
-                            .font(.system(size: 22))
-                            .foregroundStyle(iconColor)
-                    }
-                }
-                .frame(width: 36, height: 36)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.subheadline.bold())
-                        .foregroundStyle(.primary)
-                    Text(description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(16)
-            .background(
-                Color(.secondarySystemGroupedBackground),
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color(.separator), lineWidth: 0.5)
-            )
-        }
-        .buttonStyle(.plain)
-        .disabled(isLoading)
-    }
-
-    // MARK: - DB 선택
-
-    private func selectDBView(isTodo: Bool) -> some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 8) {
-                Text(isTodo ? "투두 DB 선택" : "리포트 DB 선택")
-                    .font(.title2.bold())
-                Text(isTodo
-                     ? "할일을 저장할 Notion DB를 선택하세요"
-                     : "데일리 리포트를 저장할 Notion DB를 선택하세요")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.top, 20)
-            .padding(.horizontal, 24)
-
-            if viewModel.isLoading && viewModel.databases.isEmpty {
-                Spacer()
-                ProgressView()
-                Spacer()
-            } else {
-                ScrollView {
-                    VStack(spacing: 10) {
-                        ForEach(viewModel.databases) { db in
-                            let isSelected = isTodo
-                                ? viewModel.selectedTodoDBId == db.id
-                                : viewModel.selectedReportDBId == db.id
-                            Button {
-                                if isTodo { viewModel.selectTodoDB(db.id) }
-                                else      { viewModel.selectReportDB(db.id) }
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "tablecells")
-                                        .font(.system(size: 16))
-                                        .foregroundStyle(AppTheme.shared.accent)
-                                        .frame(width: 36, height: 36)
-                                        .background(
-                                            Color(.tertiarySystemGroupedBackground),
-                                            in: RoundedRectangle(cornerRadius: 8)
-                                        )
-                                    Text(db.title)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.primary)
-                                        .lineLimit(1)
-                                    Spacer()
-                                    if isSelected {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(AppTheme.shared.accent)
-                                    }
-                                }
-                                .padding(14)
-                                .background(
-                                    Color(.secondarySystemGroupedBackground),
-                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                )
+                } label: {
+                    HStack(spacing: 14) {
+                        Group {
+                            if viewModel.step == .notionOAuth && viewModel.isLoading {
+                                ProgressView()
+                            } else {
+                                Image(systemName: "n.square.fill")
+                                    .font(.system(size: 22))
+                                    .foregroundStyle(AppTheme.shared.accent)
                             }
-                            .buttonStyle(.plain)
                         }
+                        .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("노션에 저장")
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.primary)
+                            Text("사용자의 노션 DB와 연결해요")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 20)
-                    .padding(.bottom, 16)
-                }
-            }
-        }
-        .task {
-            if viewModel.databases.isEmpty {
-                await viewModel.fetchDatabases()
-            }
-        }
-    }
-
-    // MARK: - 속성 매핑
-
-    private func mapPropsView(isTodo: Bool) -> some View {
-        let props = isTodo ? viewModel.todoProperties : viewModel.reportProperties
-        let canProceed = isTodo
-            ? viewModel.canProceedFromTodoProps
-            : (viewModel.canProceedFromReportProps && !viewModel.isLoading)
-
-        return VStack(spacing: 0) {
-            VStack(spacing: 8) {
-                Text(isTodo ? "투두 속성 연결" : "리포트 속성 연결")
-                    .font(.title2.bold())
-                Text(isTodo
-                     ? "필수 속성을 Notion DB와 연결해주세요"
-                     : "리포트 연결 없이도 계속할 수 있어요")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.top, 20)
-            .padding(.horizontal, 24)
-
-            List {
-                Section("필수") {
-                    if isTodo {
-                        requiredPropRow(
-                            label: "완료 여부",
-                            props: props.filter { $0.type == "checkbox" },
-                            binding: Binding(
-                                get: { viewModel.todoPropsMapping.completed },
-                                set: { viewModel.todoPropsMapping.completed = $0 }
-                            )
-                        )
-                        requiredPropRow(
-                            label: "날짜",
-                            props: props.filter { $0.type == "date" },
-                            binding: Binding(
-                                get: { viewModel.todoPropsMapping.date },
-                                set: { viewModel.todoPropsMapping.date = $0 }
-                            )
-                        )
-                    } else {
-                        requiredPropRow(
-                            label: "날짜",
-                            props: props.filter { $0.type == "date" },
-                            binding: Binding(
-                                get: { viewModel.reportPropsMapping.date },
-                                set: { viewModel.reportPropsMapping.date = $0 }
-                            )
-                        )
-                    }
-                }
-
-                Section("선택") {
-                    if isTodo {
-                        optionalPropMenu(
-                            label: "메모",
-                            mode: $viewModel.memoMode,
-                            props: props.filter { $0.type == "rich_text" },
-                            binding: Binding(
-                                get: { viewModel.todoPropsMapping.memo },
-                                set: { viewModel.todoPropsMapping.memo = $0 }
-                            ),
-                            onCreateTap: { Task { await viewModel.createMemoProperty() } }
-                        )
-                        optionalPropMenu(
-                            label: "상단고정",
-                            mode: $viewModel.isPinnedMode,
-                            props: props.filter { $0.type == "checkbox" },
-                            binding: Binding(
-                                get: { viewModel.todoPropsMapping.isPinned },
-                                set: { viewModel.todoPropsMapping.isPinned = $0 }
-                            ),
-                            onCreateTap: { Task { await viewModel.createPinnedProperty() } }
-                        )
-                    } else {
-                        optionalPropMenu(
-                            label: "하루 리뷰",
-                            mode: $viewModel.reviewMode,
-                            props: props.filter { $0.type == "rich_text" },
-                            binding: Binding(
-                                get: { viewModel.reportPropsMapping.review },
-                                set: { viewModel.reportPropsMapping.review = $0 }
-                            ),
-                            onCreateTap: { }
-                        )
-                        optionalPropMenu(
-                            label: "별점",
-                            mode: $viewModel.ratingMode,
-                            props: props.filter { $0.type == "select" },
-                            binding: Binding(
-                                get: { viewModel.reportPropsMapping.rating },
-                                set: { viewModel.reportPropsMapping.rating = $0 }
-                            ),
-                            onCreateTap: { Task { await viewModel.createRatingProperty() } }
-                        )
-                    }
-                }
-            }
-            .listStyle(.insetGrouped)
-
-            Button {
-                if isTodo {
-                    viewModel.proceedFromMapTodoProps()
-                } else {
-                    Task { await viewModel.proceedFromMapReportProps(); dismiss() }
-                }
-            } label: {
-                Text(isTodo ? "다음" : "완료")
-                    .font(.body.bold())
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 20)
                     .padding(.vertical, 16)
-                    .background(canProceed ? AppTheme.shared.accent : Color(.systemGray4), in: Capsule())
+                    .background(Color(.secondarySystemGroupedBackground), in: Capsule())
+                    .overlay(Capsule().strokeBorder(Color(.separator), lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.step == .notionOAuth && viewModel.isLoading)
+
+                Button {
+                    Task { await viewModel.selectLocalMode() }
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "iphone.circle.fill")
+                            .font(.system(size: 22))
+                            .foregroundStyle(.blue)
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("기기에 저장")
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.primary)
+                            Text("노션 연결 없이 이 기기에만 저장")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    .background(Color(.secondarySystemGroupedBackground), in: Capsule())
+                    .overlay(Capsule().strokeBorder(Color(.separator), lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
             }
-            .disabled(!canProceed)
             .padding(.horizontal, 24)
-            .padding(.bottom, 24)
-        }
-    }
 
-    // MARK: - 속성 행 헬퍼
-
-    private func requiredPropRow(
-        label: String,
-        props: [NotionProperty],
-        binding: Binding<String?>
-    ) -> some View {
-        HStack {
-            Text(label)
-            PlannerAddSmallTag("필수")
             Spacer()
-            Menu {
-                ForEach(props) { prop in
-                    Button {
-                        binding.wrappedValue = prop.name
-                    } label: {
-                        HStack {
-                            Text(prop.name)
-                            if binding.wrappedValue == prop.name {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Text(binding.wrappedValue ?? "선택")
-                    .foregroundStyle(binding.wrappedValue == nil ? .secondary : .primary)
-            }
         }
+        .onAppear { nameFocused = true }
     }
 
-    private func optionalPropMenu(
-        label: String,
-        mode: Binding<PropMappingMode>,
-        props: [NotionProperty],
-        binding: Binding<String?>,
-        onCreateTap: @escaping () -> Void
-    ) -> some View {
-        HStack {
-            Text(label)
-            Spacer()
-            Menu {
-                Button("앱에만 저장") {
-                    mode.wrappedValue = .appOnly
-                    binding.wrappedValue = nil
-                }
-                Divider()
-                ForEach(props) { prop in
-                    Button {
-                        mode.wrappedValue = .existing
-                        binding.wrappedValue = prop.name
-                    } label: {
-                        HStack {
-                            Text(prop.name)
-                            if binding.wrappedValue == prop.name { Image(systemName: "checkmark") }
-                        }
-                    }
-                }
-                Divider()
-                Button("Notion에 생성하기", action: onCreateTap)
-            } label: {
-                Text(mode.wrappedValue == .appOnly ? "앱에만 저장" : (binding.wrappedValue ?? "선택"))
-                    .foregroundStyle(.secondary)
+    // MARK: - 투두 속성 매핑
+
+    private var mapTodoPropsView: some View {
+        PropMappingList(
+            subtitle: "사용자의 노션 템플릿에 맞게 속성을 지정할 수 있습니다.",
+            ctaTitle: "다음",
+            ctaEnabled: viewModel.canProceedFromTodoProps,
+            onCTA: { viewModel.proceedFromMapTodoProps() },
+            requiredRows: {
+                RequiredPropRow(
+                    label: "완료 여부",
+                    props: viewModel.todoProperties.filter { $0.type == "checkbox" },
+                    selection: Binding(
+                        get: { viewModel.todoPropsMapping.completed },
+                        set: { viewModel.todoPropsMapping.completed = $0 }
+                    )
+                )
+                RequiredPropRow(
+                    label: "날짜",
+                    props: viewModel.todoProperties.filter { $0.type == "date" },
+                    selection: Binding(
+                        get: { viewModel.todoPropsMapping.date },
+                        set: { viewModel.todoPropsMapping.date = $0 }
+                    )
+                )
+            },
+            optionalRows: {
+                OptionalPropMenu(
+                    label: "메모",
+                    mode: $viewModel.memoMode,
+                    props: viewModel.todoProperties.filter { $0.type == "rich_text" },
+                    selection: Binding(
+                        get: { viewModel.todoPropsMapping.memo },
+                        set: { viewModel.todoPropsMapping.memo = $0 }
+                    ),
+                    onCreateTap: { Task { await viewModel.createMemoProperty() } }
+                )
+                OptionalPropMenu(
+                    label: "상단고정",
+                    mode: $viewModel.isPinnedMode,
+                    props: viewModel.todoProperties.filter { $0.type == "checkbox" },
+                    selection: Binding(
+                        get: { viewModel.todoPropsMapping.isPinned },
+                        set: { viewModel.todoPropsMapping.isPinned = $0 }
+                    ),
+                    onCreateTap: { Task { await viewModel.createPinnedProperty() } }
+                )
+                OptionalPropMenu(
+                    label: "리포트 연결",
+                    mode: $viewModel.reportRelationMode,
+                    props: viewModel.todoProperties.filter { $0.type == "relation" },
+                    selection: Binding(
+                        get: { viewModel.todoPropsMapping.reportRelation },
+                        set: { viewModel.todoPropsMapping.reportRelation = $0 }
+                    ),
+                    hint: "투두 DB와 리포트 DB가 노션에서 관계형으로 연결되어 있지 않습니다"
+                )
             }
-        }
+        )
     }
-}
 
-// MARK: - 작은 태그
+    // MARK: - 리포트 속성 매핑
 
-private struct PlannerAddSmallTag: View {
-    let text: String
-    init(_ text: String) { self.text = text }
-    var body: some View {
-        Text(text)
-            .font(.caption2.bold())
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+    private var mapReportPropsView: some View {
+        PropMappingList(
+            subtitle: "사용자의 노션 템플릿에 맞게 속성을 지정할 수 있습니다.",
+            ctaTitle: "완료",
+            ctaEnabled: viewModel.canProceedFromReportProps && !viewModel.isLoading,
+            isLoading: viewModel.isLoading,
+            onCTA: { Task { await viewModel.proceedFromMapReportProps(); dismiss() } },
+            requiredRows: {
+                RequiredPropRow(
+                    label: "날짜",
+                    props: viewModel.reportProperties.filter { $0.type == "date" },
+                    selection: Binding(
+                        get: { viewModel.reportPropsMapping.date },
+                        set: { viewModel.reportPropsMapping.date = $0 }
+                    )
+                )
+            },
+            optionalRows: {
+                OptionalPropMenu(
+                    label: "하루 리뷰",
+                    mode: $viewModel.reviewMode,
+                    props: viewModel.reportProperties.filter { $0.type == "rich_text" },
+                    selection: Binding(
+                        get: { viewModel.reportPropsMapping.review },
+                        set: { viewModel.reportPropsMapping.review = $0 }
+                    )
+                )
+                OptionalPropMenu(
+                    label: "별점",
+                    mode: $viewModel.ratingMode,
+                    props: viewModel.reportProperties.filter { $0.type == "select" },
+                    selection: Binding(
+                        get: { viewModel.reportPropsMapping.rating },
+                        set: { viewModel.reportPropsMapping.rating = $0 }
+                    ),
+                    onCreateTap: { Task { await viewModel.createRatingProperty() } }
+                )
+            }
+        )
     }
 }

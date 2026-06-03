@@ -110,16 +110,14 @@ struct PlannerNotionSettingsView: View {
                 onCreate: { Task { await viewModel.createPinnedProperty() } }
             )
             SettingsOptionalPropRow(
-                label: "리포트", typeIcon: "link",
+                label: "리포트 연결", typeIcon: "link",
                 candidates: viewModel.todoProperties.filter { $0.type == "relation" },
                 mode: $viewModel.reportRelationMode,
                 selection: $viewModel.todoPropsMapping.reportRelation,
-                isRecommended: true
+                hint: viewModel.todoProperties.isEmpty ? nil : "투두 DB와 리포트 DB가 노션에서 관계형으로 연결되어 있지 않습니다"
             )
         } header: {
             Text("투두 속성 매핑")
-        } footer: {
-            Text("리포트를 연결하지 않으면 노션 데일리리포트 연동이 되지 않아요")
         }
     }
 
@@ -161,13 +159,6 @@ struct PlannerNotionSettingsView: View {
                 mode: $viewModel.ratingMode,
                 selection: $viewModel.reportPropsMapping.rating,
                 onCreate: { Task { await viewModel.createRatingProperty() } }
-            )
-            SettingsOptionalPropRow(
-                label: "기간완료율", typeIcon: "percent",
-                candidates: viewModel.reportProperties.filter { $0.type == "number" },
-                mode: $viewModel.periodCompletionRateMode,
-                selection: $viewModel.reportPropsMapping.periodCompletionRate,
-                onCreate: { Task { await viewModel.createPeriodCompletionRateProperty() } }
             )
         }
     }
@@ -283,6 +274,7 @@ private struct SettingsOptionalPropRow: View {
     @Binding var selection: String?
     var isRecommended: Bool = false
     var onCreate: (() -> Void)? = nil
+    var hint: String? = nil
 
     private var displayLabel: String {
         switch mode {
@@ -292,6 +284,7 @@ private struct SettingsOptionalPropRow: View {
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
         HStack {
             Image(systemName: typeIcon)
                 .foregroundStyle(AppTheme.shared.accent)
@@ -329,6 +322,13 @@ private struct SettingsOptionalPropRow: View {
                 }
                 .foregroundStyle(mode == .appOnly ? .secondary : AppTheme.shared.accent)
             }
+        }
+        if let hint, candidates.isEmpty {
+            Text(hint)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 28)
+        }
         }
     }
 }

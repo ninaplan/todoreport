@@ -1,7 +1,11 @@
 import SwiftUI
 
 struct CategoryView: View {
-    @State private var viewModel = CategoryViewModel()
+    @State private var viewModel: CategoryViewModel
+
+    init(plannerId: String? = nil) {
+        _viewModel = State(initialValue: CategoryViewModel(plannerId: plannerId))
+    }
 
     var body: some View {
         List {
@@ -63,6 +67,8 @@ struct CategoryView: View {
         }
         .sheet(isPresented: $viewModel.isSheetPresented) {
             CategoryEditSheet(viewModel: viewModel)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .task { await viewModel.fetchCategories() }
         .overlay {
@@ -163,7 +169,7 @@ private struct CategoryEditSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                // 미리보기
+                // 미리보기 + 이름 인라인 입력
                 Section {
                     HStack(spacing: 12) {
                         CategoryBadge(
@@ -174,18 +180,11 @@ private struct CategoryEditSheet: View {
                             ),
                             size: 40
                         )
-                        Text(viewModel.editName.isEmpty ? "카테고리 이름" : viewModel.editName)
+                        TextField("카테고리 이름", text: $viewModel.editName)
                             .font(.body)
-                            .foregroundStyle(viewModel.editName.isEmpty ? .tertiary : .primary)
-                        Spacer()
+                            .focused($isNameFocused)
                     }
                     .padding(.vertical, 4)
-                }
-
-                // 이름
-                Section("이름") {
-                    TextField("카테고리 이름", text: $viewModel.editName)
-                        .focused($isNameFocused)
                 }
 
                 // 색상
@@ -193,7 +192,7 @@ private struct CategoryEditSheet: View {
                     LazyVGrid(columns: colorColumns, spacing: 14) {
                         ForEach(Category.colorPalette, id: \.self) { hex in
                             Button {
-                                viewModel.editColorHex = hex
+                                viewModel.selectColor(hex)
                             } label: {
                                 ZStack {
                                     Circle()
@@ -217,7 +216,7 @@ private struct CategoryEditSheet: View {
                     LazyVGrid(columns: iconColumns, spacing: 12) {
                         ForEach(Category.iconPalette, id: \.self) { symbol in
                             Button {
-                                viewModel.editIcon = symbol
+                                viewModel.selectIcon(symbol)
                             } label: {
                                 ZStack {
                                     Circle()
@@ -294,6 +293,7 @@ private struct CategoryEditSheet: View {
                 }
             }
             .onAppear { isNameFocused = true }
+            .onChange(of: viewModel.editName) { _, name in viewModel.autoMatchIcon(for: name) }
             .sensoryFeedback(.selection, trigger: viewModel.editColorHex)
             .sensoryFeedback(.selection, trigger: viewModel.editIcon)
             .sensoryFeedback(.warning, trigger: viewModel.showArchiveAlert)

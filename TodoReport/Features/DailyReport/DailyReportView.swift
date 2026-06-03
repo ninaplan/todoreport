@@ -53,7 +53,7 @@ struct DailyReportCard: View {
                 Spacer()
                 Text("\(displayCompleted)/\(displayTotal)개  \(Int(displayRate * 100))%")
                     .font(.caption.bold())
-                    .foregroundStyle(AppTheme.shared.accent)
+                    .foregroundStyle(.primary)
             }
             ProgressView(value: displayRate)
                 .tint(AppTheme.shared.accent)

@@ -1,6 +1,20 @@
 import Foundation
 import SwiftData
 
+struct ReportTodoEntry: Identifiable {
+    let id: String
+    let title: String
+    let date: Date
+    let isCompleted: Bool
+}
+
+struct ReviewTimelineEntry: Identifiable {
+    let id: String
+    let date: Date
+    let rating: Double
+    let review: String
+}
+
 struct WeeklyReportData {
     let period: DateInterval
     let completionRate: Double
@@ -9,6 +23,8 @@ struct WeeklyReportData {
     let dailyCompletionRates: [DailyRate]
     let dailyRatings: [DailyRatingPoint]
     let categoryStats: [CategoryStat]
+    let todos: [ReportTodoEntry]
+    let reviewTimeline: [ReviewTimelineEntry]
 }
 
 struct MonthlyReportData {
@@ -18,7 +34,10 @@ struct MonthlyReportData {
     let streakDays: Int
     let weeklyCompletionRates: [WeeklyRate]
     let weeklyRatings: [WeeklyRatingPoint]
+    let dailyRatings: [DailyRatingPoint]
     let categoryStats: [CategoryStat]
+    let todos: [ReportTodoEntry]
+    let reviewTimeline: [ReviewTimelineEntry]
 }
 
 struct DailyRate: Identifiable {
@@ -54,6 +73,15 @@ struct CategoryStat: Identifiable {
     let total: Int
 }
 
+struct PeriodReportChartData {
+    struct Entry { let label: String; let rate: Double }
+    struct RatingEntry { let label: String; let rating: Double }
+    struct CategoryEntry { let name: String; let rate: Double; let completed: Int; let total: Int }
+    let rates: [Entry]
+    let ratings: [RatingEntry]
+    let categories: [CategoryEntry]
+}
+
 final class ReportService {
     static let shared = ReportService()
     private init() {}
@@ -74,8 +102,10 @@ final class ReportService {
         let categories = fetchCategories(plannerId: plannerId)
 
         let weekdays = ["월", "화", "수", "목", "금", "토", "일"]
+        let today = calendar.startOfDay(for: .now)
         var dailyRates: [DailyRate] = []
         var dailyRatings: [DailyRatingPoint] = []
+        var elapsedCount = 0
 
         for i in 0..<7 {
             guard let dayStart = calendar.date(byAdding: .day, value: i, to: start),
@@ -87,12 +117,23 @@ final class ReportService {
             let report = reports.first { $0.date >= dayStart && $0.date < dayEnd }
             let ratingValue = ratingDouble(report?.dayRatingRaw)
             dailyRatings.append(DailyRatingPoint(weekday: weekdays[i], rating: ratingValue))
+
+            if dayStart <= today { elapsedCount += 1 }
         }
 
-        let avgRate = dailyRates.map(\.rate).reduce(0, +) / max(1, Double(dailyRates.count))
+        let avgRate = elapsedCount == 0 ? 0 : dailyRates.prefix(elapsedCount).map(\.rate).reduce(0, +) / Double(elapsedCount)
         let ratedDays = dailyRatings.filter { $0.rating > 0 }
         let avgRating = ratedDays.isEmpty ? 0 : ratedDays.map(\.rating).reduce(0, +) / Double(ratedDays.count)
         let streak = calculateStreak(reports: reports, endingAt: start, calendar: calendar)
+
+        let todoEntries = todos
+            .sorted { $0.date < $1.date }
+            .map { ReportTodoEntry(id: $0.id, title: $0.title, date: $0.date, isCompleted: $0.isCompleted) }
+
+        let reviewTimeline = reports
+            .filter { !$0.review.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .sorted { $0.date < $1.date }
+            .map { ReviewTimelineEntry(id: $0.id, date: $0.date, rating: ratingDouble($0.dayRatingRaw), review: $0.review) }
 
         return WeeklyReportData(
             period: DateInterval(start: start, end: end),
@@ -101,7 +142,9 @@ final class ReportService {
             streakDays: streak,
             dailyCompletionRates: dailyRates,
             dailyRatings: dailyRatings,
-            categoryStats: buildCategoryStats(todos: todos, categories: categories)
+            categoryStats: buildCategoryStats(todos: todos, categories: categories),
+            todos: todoEntries,
+            reviewTimeline: reviewTimeline
         )
     }
 
@@ -118,10 +161,12 @@ final class ReportService {
         let categories = fetchCategories(plannerId: plannerId)
 
         // 주차별 집계
+        let today = calendar.startOfDay(for: .now)
         var weeklyRates: [WeeklyRate] = []
         var weeklyRatings: [WeeklyRatingPoint] = []
         var weekStart = start
         var weekIndex = 1
+        var elapsedWeekCount = 0
 
         while weekStart < end {
             guard let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) else { break }
@@ -139,14 +184,35 @@ final class ReportService {
                 : ratedReports.map { ratingDouble($0.dayRatingRaw) }.reduce(0, +) / Double(ratedReports.count)
             weeklyRatings.append(WeeklyRatingPoint(label: label, rating: avgRating))
 
+            if weekStart <= today { elapsedWeekCount += 1 }
+
             weekStart = weekEnd
             weekIndex += 1
         }
 
-        let avgRate = weeklyRates.map(\.rate).reduce(0, +) / max(1, Double(weeklyRates.count))
+        let avgRate = elapsedWeekCount == 0 ? 0 : weeklyRates.prefix(elapsedWeekCount).map(\.rate).reduce(0, +) / Double(elapsedWeekCount)
         let ratedWeeks = weeklyRatings.filter { $0.rating > 0 }
         let avgRating = ratedWeeks.isEmpty ? 0 : ratedWeeks.map(\.rating).reduce(0, +) / Double(ratedWeeks.count)
         let streak = calculateStreak(reports: reports, endingAt: start, calendar: calendar)
+
+        // 일별 별점 집계 (꺾은선 그래프용)
+        let daysInMonth = calendar.range(of: .day, in: .month, for: start)?.count ?? 30
+        var dailyRatings: [DailyRatingPoint] = []
+        for i in 0..<daysInMonth {
+            guard let dayStart = calendar.date(byAdding: .day, value: i, to: start),
+                  let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { continue }
+            let report = reports.first { $0.date >= dayStart && $0.date < dayEnd }
+            dailyRatings.append(DailyRatingPoint(weekday: "\(i + 1)", rating: ratingDouble(report?.dayRatingRaw)))
+        }
+
+        let todoEntries = todos
+            .sorted { $0.date < $1.date }
+            .map { ReportTodoEntry(id: $0.id, title: $0.title, date: $0.date, isCompleted: $0.isCompleted) }
+
+        let reviewTimeline = reports
+            .filter { !$0.review.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .sorted { $0.date < $1.date }
+            .map { ReviewTimelineEntry(id: $0.id, date: $0.date, rating: ratingDouble($0.dayRatingRaw), review: $0.review) }
 
         return MonthlyReportData(
             period: DateInterval(start: start, end: end),
@@ -155,7 +221,10 @@ final class ReportService {
             streakDays: streak,
             weeklyCompletionRates: weeklyRates,
             weeklyRatings: weeklyRatings,
-            categoryStats: buildCategoryStats(todos: todos, categories: categories)
+            dailyRatings: dailyRatings,
+            categoryStats: buildCategoryStats(todos: todos, categories: categories),
+            todos: todoEntries,
+            reviewTimeline: reviewTimeline
         )
     }
 
@@ -166,7 +235,8 @@ final class ReportService {
         title: String,
         comment: String,
         completionRate: Double,
-        avgRating: Double
+        avgRating: Double,
+        chartData: PeriodReportChartData? = nil
     ) async throws {
         guard let planner = PlannerService.shared.selectedPlanner,
               planner.isNotionConnected,
@@ -213,7 +283,18 @@ final class ReportService {
         if let r = rating         { body["rating"] = r.rawValue }
         if let prop = mapping.periodCompletionRate {
             body["periodCompletionRateProp"] = prop
-            body["periodCompletionRate"] = completionRate * 100
+            body["periodCompletionRate"] = completionRate
+        }
+        if let data = chartData {
+            body["chartRates"] = data.rates.map { ["label": $0.label, "rate": $0.rate] as [String: Any] }
+            if !data.ratings.isEmpty {
+                body["chartRatings"] = data.ratings.map { ["label": $0.label, "rating": $0.rating] as [String: Any] }
+            }
+            if !data.categories.isEmpty {
+                body["chartCategories"] = data.categories.map {
+                    ["name": $0.name, "rate": $0.rate, "completed": $0.completed, "total": $0.total] as [String: Any]
+                }
+            }
         }
 
         let response: NotionSaveResponse = try await APIClient.shared.post(
@@ -328,6 +409,17 @@ final class ReportService {
         return !fetchTodos(in: range, plannerId: plannerId).isEmpty
     }
 
+    func hasDailyReport(in range: Range<Date>) async -> Bool {
+        let plannerId = PlannerService.shared.selectedPlanner?.id
+        return !fetchReports(in: range, plannerId: plannerId).isEmpty
+    }
+
+    func hasNotionDailyReport(in range: Range<Date>) async -> Bool {
+        let plannerId = PlannerService.shared.selectedPlanner?.id
+        let reports = fetchReports(in: range, plannerId: plannerId)
+        return reports.contains { !$0.notionPageId.isEmpty }
+    }
+
     private func fetchTodos(in range: Range<Date>, plannerId: String?) -> [TodoItem] {
         let start = range.lowerBound
         let end = range.upperBound
@@ -403,7 +495,7 @@ final class ReportService {
                 $0.endDate == nil &&
                 ($0.plannerId == plannerId || plannerId == nil)
             }
-            guard let report = dayReports.first, report.completionRate > 0 else { break }
+            guard let report = dayReports.first, report.completionRate == 1.0 else { break }
             streak += 1
             checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate) ?? checkDate
         }
@@ -416,7 +508,7 @@ final class ReportService {
         WeeklyReportData(
             period: DateInterval(start: start, end: start),
             completionRate: 0, averageRating: 0, streakDays: 0,
-            dailyCompletionRates: [], dailyRatings: [], categoryStats: []
+            dailyCompletionRates: [], dailyRatings: [], categoryStats: [], todos: [], reviewTimeline: []
         )
     }
 
@@ -424,7 +516,7 @@ final class ReportService {
         MonthlyReportData(
             period: DateInterval(start: start, end: start),
             completionRate: 0, averageRating: 0, streakDays: 0,
-            weeklyCompletionRates: [], weeklyRatings: [], categoryStats: []
+            weeklyCompletionRates: [], weeklyRatings: [], dailyRatings: [], categoryStats: [], todos: [], reviewTimeline: []
         )
     }
 }
@@ -444,10 +536,13 @@ private struct AnyEncodableDict: Encodable {
         for (key, val) in value {
             let k = RawKey(key)
             switch val {
-            case let v as String:  try container.encode(v, forKey: k)
-            case let v as Bool:    try container.encode(v, forKey: k)
-            case let v as Int:     try container.encode(v, forKey: k)
-            case let v as Double:  try container.encode(v, forKey: k)
+            case let v as String:            try container.encode(v, forKey: k)
+            case let v as Bool:              try container.encode(v, forKey: k)
+            case let v as Int:               try container.encode(v, forKey: k)
+            case let v as Double:            try container.encode(v, forKey: k)
+            case let arr as [[String: Any]]:
+                var nested = container.nestedUnkeyedContainer(forKey: k)
+                for dict in arr { try nested.encode(AnyEncodableDict(dict)) }
             default: break
             }
         }

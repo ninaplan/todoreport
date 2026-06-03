@@ -77,6 +77,7 @@ final class PlannerMigrationViewModel {
     // MARK: - 연결 시작 (OAuth)
 
     func startConnection() {
+        guard step == .idle else { return }
         step = .oauthRequired
         isLoading = true
         NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token in
@@ -109,15 +110,25 @@ final class PlannerMigrationViewModel {
         step = .chooseMode
     }
 
+    private var migrationTask: Task<Void, Never>?
+
     // MARK: - 마이그레이션 시작
 
-    func startMigration(mode: SyncMode) async {
+    func startMigration(mode: SyncMode) {
         step = .running
         completedCount = 0
-        switch mode {
-        case .uploadToNotion:   await uploadToNotion()
-        case .importFromNotion: await importFromNotion()
+        migrationTask = Task {
+            switch mode {
+            case .uploadToNotion:   await uploadToNotion()
+            case .importFromNotion: await importFromNotion()
+            }
         }
+    }
+
+    func cancelMigration() {
+        migrationTask?.cancel()
+        migrationTask = nil
+        step = .chooseMode
     }
 
     // MARK: - 뒤로가기
@@ -140,6 +151,8 @@ final class PlannerMigrationViewModel {
         case .mapReportProps:
             selectedReportDBId = nil
             step = .selectReportDB
+        case .failed:
+            step = .chooseMode
         default: break
         }
     }
@@ -161,12 +174,12 @@ final class PlannerMigrationViewModel {
             updated.reportPropsMapping = json
         }
         try? await PlannerService.shared.savePlanner(updated)
+        PlannerService.shared.selectPlanner(updated)
     }
 
     // MARK: - API
 
     func fetchDatabases() async {
-        guard databases.isEmpty else { return }
         isLoading = true
         defer { isLoading = false }
         let token = capturedAccessToken ?? ""
@@ -179,7 +192,7 @@ final class PlannerMigrationViewModel {
             databases = decoded.databases.map {
                 NotionDatabase(id: $0.id, title: $0.title, icon: $0.icon?.emoji)
             }
-            step = .selectTodoDB
+            if step == .oauthRequired { step = .selectTodoDB }
         } catch {
             alertMessage = "DB 목록을 불러오지 못했어요"
         }
@@ -303,19 +316,23 @@ final class PlannerMigrationViewModel {
 
     private func uploadToNotion() async {
         let plannerId = planner.id
-        let todoDesc   = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.plannerId == plannerId })
-        let reportDesc = FetchDescriptor<DailyReportItem>(predicate: #Predicate { $0.plannerId == plannerId })
+        let allTodos   = (try? context.fetch(FetchDescriptor<TodoItem>()))   ?? []
+        let allReports = (try? context.fetch(FetchDescriptor<DailyReportItem>())) ?? []
 
-        let todoItems   = (try? context.fetch(todoDesc))   ?? []
-        let reportItems = (try? context.fetch(reportDesc)) ?? []
+        // plannerId nil인 레거시 항목 포함
+        let todoItems   = allTodos.filter   { $0.plannerId == plannerId || $0.plannerId == nil }
+        let reportItems = allReports.filter { ($0.plannerId == plannerId || $0.plannerId == nil) && $0.endDate == nil }
+
         await MainActor.run { totalCount = todoItems.count + reportItems.count }
 
         if totalCount == 0 {
+            guard !Task.isCancelled else { return }
             await MainActor.run { completionMessage = "업로드할 데이터가 없어요"; step = .completed }
             return
         }
 
         for item in todoItems {
+            guard !Task.isCancelled else { return }
             let todo = item.toTodo()
             await MainActor.run {
                 SyncQueueManager.shared.enqueueTodoCreate(todo)
@@ -323,34 +340,56 @@ final class PlannerMigrationViewModel {
             }
         }
         for item in reportItems {
+            guard !Task.isCancelled else { return }
             let report = item.toReport()
             do { try await reportService.saveReport(report) } catch { }
             await MainActor.run { completedCount += 1 }
         }
 
+        guard !Task.isCancelled else { return }
         await MainActor.run { completionMessage = "모든 데이터가 Notion에 업로드됐어요"; step = .completed }
     }
 
     // MARK: - Notion → 앱 가져오기
 
     private func importFromNotion() async {
+        let plannerId = planner.id
+
+        // 해당 플래너 SwiftData 초기화 (레거시 nil 포함)
+        let allTodos   = (try? context.fetch(FetchDescriptor<TodoItem>()))   ?? []
+        let allReports = (try? context.fetch(FetchDescriptor<DailyReportItem>())) ?? []
+        allTodos.filter   { $0.plannerId == plannerId || $0.plannerId == nil }
+                .forEach  { context.delete($0) }
+        allReports.filter { ($0.plannerId == plannerId || $0.plannerId == nil) && $0.endDate == nil }
+                  .forEach { context.delete($0) }
+        try? context.save()
+
         let calendar = Calendar.current
-        guard let start = calendar.date(byAdding: .day, value: -30, to: .now),
-              let end   = calendar.date(byAdding: .day, value:  30, to: .now) else {
+        guard let start = calendar.date(byAdding: .day, value: -30, to: .now) else {
             await MainActor.run { step = .failed("날짜 범위 계산 실패") }
             return
         }
+        let today = calendar.startOfDay(for: .now)
 
-        await MainActor.run { totalCount = 1 }
-
+        var days: [Date] = []
         var current = calendar.startOfDay(for: start)
-        while current <= end {
-            await todoService.syncTodosFromNotion(for: current)
+        while current <= today {
+            days.append(current)
             guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
             current = next
         }
 
-        await MainActor.run { completedCount = 1; completionMessage = "Notion 데이터를 앱으로 가져왔어요"; step = .completed }
+        await MainActor.run { totalCount = days.count }
+
+        for (i, day) in days.enumerated() {
+            guard !Task.isCancelled else { return }
+            await todoService.syncTodosFromNotion(for: day)
+            await reportService.syncReportFromNotion(for: day)
+            await MainActor.run { completedCount = i + 1 }
+        }
+
+        guard !Task.isCancelled else { return }
+        await MainActor.run { completionMessage = "Notion 데이터를 앱으로 가져왔어요"; step = .completed }
     }
 }
 

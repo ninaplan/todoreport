@@ -27,7 +27,7 @@ struct MediumWidgetView: View {
 
                 Text("\(Int(rate * 100))%")
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(nockOrangeW)
+                    .foregroundStyle(nockOrange)
 
                 Text("\(completed)/\(total)")
                     .font(.caption2)
@@ -70,7 +70,7 @@ struct MediumWidgetView: View {
         HStack(spacing: 6) {
             Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 13))
-                .foregroundStyle(todo.isCompleted ? nockOrangeW : Color(.systemGray4))
+                .foregroundStyle(todo.isCompleted ? nockOrange : Color(.systemGray4))
 
             Text(todo.title)
                 .font(.caption)
@@ -88,4 +88,4 @@ struct MediumWidgetView: View {
     }
 }
 
-private let nockOrangeW = Color(red: 0xFD / 255, green: 0x68 / 255, blue: 0x45 / 255)
+private let nockOrange = Color(red: 0xFD / 255, green: 0x68 / 255, blue: 0x45 / 255)
