@@ -28,6 +28,8 @@ struct TodoReportApp: App {
                 }
             }
             .onAppear {
+                // 앱 실행 시 로그 파일 없으면 새로 생성, 있으면 세션 구분선만 추가
+                AppLogger.shared.logNewSession()
                 TodoNotificationManager.shared.requestPermission()
                 SubscriptionManager.shared.onSubscriptionExpired = {
                     if PlannerService.shared.store.count > 1 {

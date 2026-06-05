@@ -197,6 +197,7 @@ final class TodoService {
             upsertFromNotion(notionTodos, for: date, plannerId: pid)
         } catch {
             print("[TodoService] ⚠️ Notion sync 실패 - \(error.localizedDescription)")
+            AppLogger.shared.warn("TodoService", "Notion sync 실패 - \(error.localizedDescription)")
         }
     }
 

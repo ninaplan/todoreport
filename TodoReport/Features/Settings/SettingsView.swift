@@ -1,4 +1,5 @@
 import SwiftUI
+import MessageUI
 
 // MARK: - 설정 뷰
 
@@ -14,6 +15,7 @@ struct SettingsView: View {
     @State private var showLogoutAlert = false
     @State private var showAddPlannerSheet = false
     @State private var showPaywall = false
+    @State private var showSupportMail: Bool = false
 
     #if DEBUG
     @AppStorage("debugIsPro") private var debugIsPro = false
@@ -54,6 +56,9 @@ struct SettingsView: View {
             PaywallView()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showSupportMail) {
+            SupportMailView()
         }
     }
 
@@ -145,7 +150,9 @@ struct SettingsView: View {
                 }
                 .foregroundStyle(.primary)
             }
-            Link(destination: URL(string: "mailto:support@nock.kr")!) {
+            Button {
+                showSupportMail = true
+            } label: {
                 LabeledContent("오류신고") {
                     Image(systemName: "arrow.up.right")
                         .font(.caption)
@@ -153,6 +160,7 @@ struct SettingsView: View {
                 }
                 .foregroundStyle(.primary)
             }
+            .foregroundStyle(.primary)
             Link(destination: URL(string: "https://nock.kr/updates")!) {
                 LabeledContent("업데이트 타임라인") {
                     Image(systemName: "arrow.up.right")
@@ -212,6 +220,11 @@ struct SettingsView: View {
                 showClearQueueConfirm = true
             }
             .foregroundStyle(.red)
+            Button("로그 파일 초기화", role: .destructive) {
+                print("[DEBUG] clearLogs 호출")
+                AppLogger.shared.resetWithHeader()
+                print("[DEBUG] clearLogs 완료")
+            }
             Button("온보딩 초기화", role: .destructive) {
                 NotionAuthManager.shared.signOut()
                 onboardingCompleted = false
@@ -280,5 +293,71 @@ struct NotionBadge: View {
             .symbolRenderingMode(.palette)
             .foregroundStyle(.white, .black)
             .font(.system(size: 16, weight: .bold))
+    }
+}
+
+// MARK: - 오류 신고 메일
+
+import UIKit
+
+struct SupportMailView: UIViewControllerRepresentable {
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> MFMailComposeViewController {
+        let mail = MFMailComposeViewController()
+        mail.mailComposeDelegate = context.coordinator
+        mail.setToRecipients(["nockcreator@gmail.com"])
+        mail.setSubject("투두리포트 오류 신고")
+
+        let version  = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let build    = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        let device   = UIDevice.current.model
+        let os       = UIDevice.current.systemVersion
+        let locale   = Locale.current.identifier
+        let timezone = TimeZone.current.identifier
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .medium
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        let timestamp = formatter.string(from: Date())
+
+        let logContent: String
+        if let url = AppLogger.shared.exportLogFileURL(),
+           let content = try? String(contentsOf: url, encoding: .utf8) {
+            logContent = content
+        } else {
+            logContent = "(로그 없음)"
+        }
+
+        let body = "아래에 증상이나 재현 방법을 적어 주세요:\n\n\n" +
+                   "---\n" +
+                   "Debug info:\n" +
+                   "- 앱 버전: \(version) (\(build))\n" +
+                   "- 기기: \(device), iOS \(os)\n" +
+                   "- 로케일: \(locale)\n" +
+                   "- 시간대: \(timezone)\n" +
+                   "- 타임스탬프: \(timestamp)\n\n" +
+                   "---\n" +
+                   "로그:\n" +
+                   logContent
+
+        mail.setMessageBody(body, isHTML: false)
+        return mail
+    }
+
+    func updateUIViewController(_ uvc: MFMailComposeViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(dismiss: dismiss) }
+
+    class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
+        let dismiss: DismissAction
+        init(dismiss: DismissAction) { self.dismiss = dismiss }
+        func mailComposeController(_ controller: MFMailComposeViewController,
+                                   didFinishWith result: MFMailComposeResult,
+                                   error: Error?) {
+            dismiss()
+        }
     }
 }

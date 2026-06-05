@@ -76,6 +76,7 @@ private extension APIClient {
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
+            AppLogger.shared.error("APIClient", "디코딩 실패 - \(error.localizedDescription)")
             throw APIError.decodingFailed(error)
         }
     }
@@ -85,6 +86,7 @@ private extension APIClient {
             throw APIError.invalidResponse
         }
         guard (200..<300).contains(http.statusCode) else {
+            AppLogger.shared.error("APIClient", "HTTP 오류 - statusCode:\(http.statusCode) url:\(http.url?.path ?? "")")
             throw APIError.httpError(statusCode: http.statusCode)
         }
     }

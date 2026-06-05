@@ -51,6 +51,7 @@ final class SyncQueueProcessor {
                                     item.status = "failed"
                                     try? context.save()
                                     print("[Processor] ❌ update 재배치 한도 초과 → failed localId:\(eid) requeueCount:\(item.requeueCount)")
+                                    AppLogger.shared.error("Processor", "update 재배치 한도 초과 → failed localId:\(eid) requeueCount:\(item.requeueCount)")
                                 } else {
                                     item.createdAt = Date()
                                     try? context.save()
@@ -95,6 +96,7 @@ final class SyncQueueProcessor {
                     item.status = isFinalFailure ? "failed" : "pending"
                     try? context.save()
                     print("[Processor] ❌ 실패 - \(item.entityId) retryCount:\(item.retryCount)")
+                    AppLogger.shared.error("Processor", "동기화 실패 - \(item.entityId) retryCount:\(item.retryCount) isFinalFailure:\(isFinalFailure) error:\(error.localizedDescription)")
 
                     // create 최종 실패 시 같은 localId의 update 아이템도 함께 failed 처리
                     if isFinalFailure, item.action == "create", item.entityType == "todo" {
@@ -128,6 +130,7 @@ final class SyncQueueProcessor {
         updates.forEach { $0.status = "failed" }
         try? context.save()
         print("[Processor] ❌ create 실패 → 연관 update \(updates.count)개 failed 처리 localId:\(localId)")
+        AppLogger.shared.error("Processor", "create 최종 실패 → 연관 update \(updates.count)개 failed 처리 localId:\(localId)")
     }
 
     private func updateNotionPageId(localId: String, notionPageId: String) {
