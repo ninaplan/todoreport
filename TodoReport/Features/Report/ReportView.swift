@@ -3,37 +3,63 @@ import Charts
 
 struct ReportView: View {
     @State private var viewModel = ReportViewModel()
-    #if DEBUG
-    @AppStorage("debugIsPro") private var debugIsPro = false
-    private var isPro: Bool { debugIsPro }
-    #else
-    private let isPro = false
-    #endif
+    @State private var reportScrollOffset: CGFloat = 52
+    private var isPro: Bool { SubscriptionManager.shared.isPro }
+
+    private var reportArrowBgOpacity: Double {
+        let scrolled = max(0, 52 - reportScrollOffset)
+        return Double(min(scrolled / 30, 1))
+    }
 
     var body: some View {
         @Bindable var vm = viewModel
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    periodHeader
-                    if viewModel.isLoading {
-                        ProgressView()
-                            .frame(maxWidth: .infinity, minHeight: 200)
-                    } else {
-                        if viewModel.isSyncing {
-                            HStack(spacing: 6) {
-                                ProgressView().scaleEffect(0.75)
-                                Text("노션 동기화 중...")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+            ZStack(alignment: .top) {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        Color.clear
+                            .frame(height: 0)
+                            .background(
+                                GeometryReader { geo in
+                                    Color.clear.preference(
+                                        key: ScrollOffsetPreferenceKey.self,
+                                        value: geo.frame(in: .named("reportScroll")).minY
+                                    )
+                                }
+                            )
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .frame(maxWidth: .infinity, minHeight: 200)
+                        } else {
+                            if viewModel.isSyncing {
+                                HStack(spacing: 6) {
+                                    ProgressView().scaleEffect(0.75)
+                                    Text("노션 동기화 중...")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
                             }
-                            .frame(maxWidth: .infinity, alignment: .center)
+                            content
                         }
-                        content
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 52)
+                    .padding(.bottom, 32)
                 }
+                .coordinateSpace(.named("reportScroll"))
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { y in
+                    reportScrollOffset = y
+                }
+
+                DateNavigationRow(
+                    title: viewModel.periodTitle,
+                    onPrev: { viewModel.goToPreviousPeriod() },
+                    onNext: { viewModel.goToNextPeriod() },
+                    canGoNext: viewModel.canGoNext,
+                    arrowBgOpacity: reportArrowBgOpacity
+                )
                 .padding(.horizontal, 16)
-                .padding(.bottom, 32)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("리포트")
@@ -42,8 +68,7 @@ struct ReportView: View {
                 ToolbarItem(placement: .principal) {
                     Picker("기간", selection: $vm.selectedPeriod) {
                         ForEach(ReportPeriod.allCases, id: \.self) { period in
-                            Text(period == .monthly && !isPro ? "월간 🔒" : period.rawValue)
-                                .tag(period)
+                            Text(period.rawValue).tag(period)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -57,13 +82,10 @@ struct ReportView: View {
             .onChange(of: PlannerService.shared.selectedPlannerId) { _, _ in
                 viewModel.onPlannerChanged()
             }
-            .sheet(isPresented: $vm.showPaywall) {
-                ProPaywallSheet(
-                    message: viewModel.paywallMessage,
-                    onDismiss: { viewModel.dismissPaywall() }
-                )
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
+            .sheet(isPresented: $vm.showPaywall, onDismiss: { viewModel.dismissPaywall() }) {
+                PaywallView(message: viewModel.paywallMessage)
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $vm.showSaveEditor) {
                 if let period = viewModel.pendingPeriod {
@@ -90,7 +112,7 @@ struct ReportView: View {
             }
             .sheet(isPresented: $vm.showMigrationSheet) {
                 if let planner = PlannerService.shared.selectedPlanner {
-                    PlannerMigrationView(planner: planner)
+                    PlannerMigrationView(planner: planner, mode: .uploadToNotion)
                         .presentationDetents([.large])
                         .presentationDragIndicator(.visible)
                 }
@@ -109,40 +131,6 @@ struct ReportView: View {
                 Text(viewModel.notionSaveError ?? "")
             }
         }
-    }
-
-    // MARK: - 기간 헤더
-
-    private var periodHeader: some View {
-        HStack(spacing: 0) {
-            Button {
-                viewModel.goToPreviousPeriod()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-            .contentShape(Rectangle())
-
-            Text(viewModel.periodTitle)
-                .font(.subheadline.bold())
-                .frame(maxWidth: .infinity, alignment: .center)
-
-            Button {
-                viewModel.goToNextPeriod()
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(viewModel.canGoNext ? .primary : Color(.quaternaryLabel))
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-            .contentShape(Rectangle())
-            .disabled(!viewModel.canGoNext)
-        }
-        .padding(.top, 4)
     }
 
     // MARK: - 기간별 콘텐츠
@@ -183,7 +171,7 @@ struct ReportView: View {
             barRanges: weekBarRanges
         )
         RatingLineChart(
-            title: "별점",
+            title: "지수",
             labels: report.dailyRatings.map(\.weekday),
             values: report.dailyRatings.map(\.rating)
         )
@@ -226,7 +214,7 @@ struct ReportView: View {
             barRanges: monthBarRanges
         )
         RatingLineChart(
-            title: "별점",
+            title: "지수",
             labels: report.dailyRatings.map(\.weekday),
             values: report.dailyRatings.map(\.rating)
         )
@@ -258,8 +246,9 @@ private struct SummaryCard: View {
             Divider().frame(height: 48)
             summaryItem(
                 value: String(format: "%.1f", averageRating),
-                label: "별점 평균",
-                prefix: "⭐",
+                label: "지수 평균",
+                symbolName: "pawprint.circle.fill",
+                symbolColor: Color(.label),
                 color: .primary
             )
             Divider().frame(height: 48)
@@ -278,11 +267,17 @@ private struct SummaryCard: View {
         value: String,
         label: String,
         prefix: String = "",
+        symbolName: String? = nil,
+        symbolColor: Color = .primary,
         color: Color
     ) -> some View {
         VStack(spacing: 4) {
             HStack(spacing: 2) {
-                if !prefix.isEmpty {
+                if let symbolName {
+                    Image(systemName: symbolName)
+                        .font(.subheadline)
+                        .foregroundStyle(symbolColor)
+                } else if !prefix.isEmpty {
                     Text(prefix).font(.subheadline)
                 }
                 Text(value)
@@ -484,7 +479,7 @@ private struct RatingLineChart: View {
                 .font(.subheadline.bold())
 
             if ratedPoints.isEmpty {
-                Text("별점 데이터가 없습니다.")
+                Text("지수 데이터가 없습니다.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -494,14 +489,14 @@ private struct RatingLineChart: View {
                     ForEach(Array(ratedPoints.enumerated()), id: \.offset) { _, point in
                         LineMark(
                             x: .value("인덱스", point.index),
-                            y: .value("별점", point.value)
+                            y: .value("지수", point.value)
                         )
                         .foregroundStyle(AppTheme.shared.accent)
                         .interpolationMethod(.linear)
 
                         PointMark(
                             x: .value("인덱스", point.index),
-                            y: .value("별점", point.value)
+                            y: .value("지수", point.value)
                         )
                         .foregroundStyle(AppTheme.shared.accent)
                         .symbolSize(48)
@@ -526,9 +521,14 @@ private struct RatingLineChart: View {
                         AxisGridLine()
                         AxisValueLabel {
                             if let v = value.as(Int.self) {
-                                Text("\(v)⭐")
-                                    .font(.caption2)
-                                    .foregroundStyle(Color(.secondaryLabel))
+                                HStack(spacing: 1) {
+                                    Text("\(v)")
+                                        .font(.caption2)
+                                        .foregroundStyle(Color(.secondaryLabel))
+                                    Image(systemName: "pawprint.circle.fill")
+                                        .font(.system(size: 7))
+                                        .foregroundStyle(Color(.label))
+                                }
                             }
                         }
                     }
@@ -673,8 +673,7 @@ private struct ReviewTimelineCard: View {
                             .font(.caption.bold())
                             .foregroundStyle(.primary)
                         if entry.rating > 0 {
-                            Text(String(repeating: "⭐", count: Int(entry.rating)))
-                                .font(.caption2)
+                            PawRatingView(rating: Int(entry.rating), size: 10, spacing: 2)
                         }
                     }
                     Text(entry.review)
@@ -728,61 +727,6 @@ private struct NotionSaveButton: View {
     }
 }
 
-// MARK: - Pro 페이월 시트
-
-struct ProPaywallSheet: View {
-    let message: String
-    let onDismiss: () -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 28) {
-                Spacer()
-
-                VStack(spacing: 12) {
-                    Image(systemName: "lock.circle.fill")
-                        .font(.system(size: 52))
-                        .foregroundStyle(AppTheme.shared.accent)
-
-                    Text("Pro 기능")
-                        .font(.title3.bold())
-
-                    Text(message)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-
-                Button {
-                    // TODO: StoreKit 연동
-                } label: {
-                    Text("Pro로 업그레이드")
-                        .font(.subheadline.bold())
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .foregroundStyle(.white)
-                        .background(AppTheme.shared.accent)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .padding(.horizontal, 32)
-
-                Spacer()
-            }
-            .navigationTitle("Pro 업그레이드")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("닫기") {
-                        onDismiss()
-                        dismiss()
-                    }
-                    .foregroundStyle(.secondary)
-                }
-            }
-        }
-    }
-}
 
 // MARK: - 카드 스타일 ViewModifier
 

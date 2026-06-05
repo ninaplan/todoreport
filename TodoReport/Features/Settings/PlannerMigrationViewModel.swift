@@ -5,16 +5,15 @@ import SwiftData
 final class PlannerMigrationViewModel {
 
     enum Step: Equatable {
-        case idle               // 시작 전
-        case oauthRequired      // OAuth 진행 중
-        case selectTodoDB       // 투두 DB 선택
-        case mapTodoProps       // 투두 속성 매핑
-        case selectReportDB     // 리포트 DB 선택
-        case mapReportProps     // 리포트 속성 매핑
-        case chooseMode         // 데이터 처리 방법 선택
-        case running            // 마이그레이션 실행 중
-        case completed          // 완료
-        case failed(String)     // 실패
+        case idle
+        case oauthRequired
+        case selectTodoDB
+        case mapTodoProps
+        case selectReportDB
+        case mapReportProps
+        case running
+        case completed
+        case failed(String)
     }
 
     enum SyncMode {
@@ -55,6 +54,7 @@ final class PlannerMigrationViewModel {
     private(set) var totalCount: Int = 0
     private(set) var completedCount: Int = 0
     private(set) var completionMessage: String = ""
+    private(set) var mode: SyncMode
 
     var progress: Double {
         totalCount == 0 ? 0 : Double(completedCount) / Double(totalCount)
@@ -65,9 +65,11 @@ final class PlannerMigrationViewModel {
     private let reportService = DailyReportService()
     private let todoService = TodoService.shared
     private let backendBase = "https://todoreport-backend.vercel.app"
+    private var migrationTask: Task<Void, Never>?
 
-    init(planner: Planner) {
+    init(planner: Planner, mode: SyncMode) {
         self.planner = planner
+        self.mode = mode
     }
 
     var showNotionWorkspaceInfo: Bool {
@@ -105,16 +107,21 @@ final class PlannerMigrationViewModel {
         Task { await fetchReportProperties() }
     }
 
-    func proceedFromMapReportProps() async {
+    func skipReportDB() async {
+        selectedReportDBId = nil
+        reportPropsMapping = ReportPropsMapping()
         await saveConnectionSettings()
-        step = .chooseMode
+        startMigration()
     }
 
-    private var migrationTask: Task<Void, Never>?
+    func proceedFromMapReportProps() async {
+        await saveConnectionSettings()
+        startMigration()
+    }
 
-    // MARK: - 마이그레이션 시작
+    // MARK: - 마이그레이션 제어
 
-    func startMigration(mode: SyncMode) {
+    private func startMigration() {
         step = .running
         completedCount = 0
         migrationTask = Task {
@@ -128,7 +135,11 @@ final class PlannerMigrationViewModel {
     func cancelMigration() {
         migrationTask?.cancel()
         migrationTask = nil
-        step = .chooseMode
+        step = .idle
+    }
+
+    func retryMigration() {
+        startMigration()
     }
 
     // MARK: - 뒤로가기
@@ -151,8 +162,6 @@ final class PlannerMigrationViewModel {
         case .mapReportProps:
             selectedReportDBId = nil
             step = .selectReportDB
-        case .failed:
-            step = .chooseMode
         default: break
         }
     }
@@ -261,6 +270,8 @@ final class PlannerMigrationViewModel {
         let options = DayRating.allCases.map { $0.rawValue }
         guard let dbId = selectedReportDBId,
               let name = await addNotionProperty(dbId: dbId, name: "별점", type: "select", options: options, token: token) else { return }
+        reportPropsMapping.dayRatingOptions = options
+        reportPropsMapping.ratingPropType = "select"
         reportPropsMapping.rating = name
         ratingMode = .existing
     }
@@ -309,7 +320,35 @@ final class PlannerMigrationViewModel {
         }
         reportPropsMapping.date = best(type: "date", default: "날짜")?.name
         if let p = best(type: "rich_text", default: "하루 리뷰") { reportPropsMapping.review = p.name; reviewMode = .existing }
-        if let p = best(type: "select",    default: "별점")      { reportPropsMapping.rating = p.name; ratingMode = .existing }
+        if let p = best(type: "select", default: "별점") ?? best(type: "status", default: "별점") { selectRating(p.name) }
+    }
+
+    func selectRating(_ name: String?) {
+        reportPropsMapping.rating = name
+        if let name, let prop = reportProperties.first(where: { $0.name == name }) {
+            reportPropsMapping.dayRatingOptions = prop.options ?? []
+            reportPropsMapping.ratingPropType = prop.type
+            ratingMode = .existing
+        } else {
+            reportPropsMapping.dayRatingOptions = []
+            reportPropsMapping.ratingPropType = nil
+            ratingMode = .appOnly
+        }
+    }
+
+    // MARK: - 노션 연결 검증
+
+    private func verifyNotionConnection() async -> Bool {
+        let token = capturedAccessToken ?? ""
+        guard let url = URL(string: "\(backendBase)/api/notion/databases") else { return false }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            return (response as? HTTPURLResponse)?.statusCode == 200
+        } catch {
+            return false
+        }
     }
 
     // MARK: - 앱 → Notion 업로드
@@ -319,7 +358,6 @@ final class PlannerMigrationViewModel {
         let allTodos   = (try? context.fetch(FetchDescriptor<TodoItem>()))   ?? []
         let allReports = (try? context.fetch(FetchDescriptor<DailyReportItem>())) ?? []
 
-        // plannerId nil인 레거시 항목 포함
         let todoItems   = allTodos.filter   { $0.plannerId == plannerId || $0.plannerId == nil }
         let reportItems = allReports.filter { ($0.plannerId == plannerId || $0.plannerId == nil) && $0.endDate == nil }
 
@@ -331,6 +369,7 @@ final class PlannerMigrationViewModel {
             return
         }
 
+        // Todo: SyncQueue enqueue — 네트워크 없어도 항상 로컬 저장 후 자동 재시도
         for item in todoItems {
             guard !Task.isCancelled else { return }
             let todo = item.toTodo()
@@ -339,23 +378,41 @@ final class PlannerMigrationViewModel {
                 completedCount += 1
             }
         }
+
+        // Report: 직접 API 호출 — 실패 감지
+        var reportFailCount = 0
         for item in reportItems {
             guard !Task.isCancelled else { return }
             let report = item.toReport()
-            do { try await reportService.saveReport(report) } catch { }
+            do { try await reportService.saveReport(report) }
+            catch { reportFailCount += 1 }
             await MainActor.run { completedCount += 1 }
         }
 
         guard !Task.isCancelled else { return }
+
+        if !reportItems.isEmpty && reportFailCount == reportItems.count {
+            await MainActor.run {
+                step = .failed("리포트 업로드에 실패했어요.\n인터넷 연결을 확인해주세요.\n투두는 연결 후 자동으로 업로드됩니다.")
+            }
+            return
+        }
         await MainActor.run { completionMessage = "모든 데이터가 Notion에 업로드됐어요"; step = .completed }
     }
 
     // MARK: - Notion → 앱 가져오기
 
     private func importFromNotion() async {
-        let plannerId = planner.id
+        // 1. 로컬 삭제 전에 먼저 노션 연결 검증 — 실패 시 로컬 데이터 보존
+        guard await verifyNotionConnection() else {
+            await MainActor.run { step = .failed("노션에 연결할 수 없어요.\n인터넷 연결을 확인해주세요.") }
+            return
+        }
 
-        // 해당 플래너 SwiftData 초기화 (레거시 nil 포함)
+        guard !Task.isCancelled else { return }
+
+        // 2. 검증 통과 후 로컬 데이터 삭제
+        let plannerId = planner.id
         let allTodos   = (try? context.fetch(FetchDescriptor<TodoItem>()))   ?? []
         let allReports = (try? context.fetch(FetchDescriptor<DailyReportItem>())) ?? []
         allTodos.filter   { $0.plannerId == plannerId || $0.plannerId == nil }
@@ -364,8 +421,9 @@ final class PlannerMigrationViewModel {
                   .forEach { context.delete($0) }
         try? context.save()
 
+        // 3. 날짜 범위 계산 (최근 7일)
         let calendar = Calendar.current
-        guard let start = calendar.date(byAdding: .day, value: -30, to: .now) else {
+        guard let start = calendar.date(byAdding: .day, value: -7, to: .now) else {
             await MainActor.run { step = .failed("날짜 범위 계산 실패") }
             return
         }
@@ -381,8 +439,16 @@ final class PlannerMigrationViewModel {
 
         await MainActor.run { totalCount = days.count }
 
+        // 4. fetch 루프 — syncTodosFromNotion/syncReportFromNotion이 non-throwing이므로
+        //    매 iteration 전 연결 상태를 직접 확인해 루프 중 네트워크 끊김 감지
         for (i, day) in days.enumerated() {
             guard !Task.isCancelled else { return }
+            guard await verifyNotionConnection() else {
+                await MainActor.run {
+                    step = .failed("노션 연결이 끊겼어요.\n인터넷 연결 후 다시 시도해주세요.")
+                }
+                return
+            }
             await todoService.syncTodosFromNotion(for: day)
             await reportService.syncReportFromNotion(for: day)
             await MainActor.run { completedCount = i + 1 }

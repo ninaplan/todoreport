@@ -8,13 +8,8 @@ struct TodoEditFormView: View {
     @Binding var showDatePicker: Bool
     @Binding var scheduledTime: Date?
     @Binding var alarmOffset: Int?
-    @Binding var recurrence: RecurrenceRule?
-    @Binding var recurrenceEndDate: Date?
-    @Binding var recurrenceCount: Int?
     let categories: [Category]
     var autoFocus: Bool = true
-    let isPro: Bool
-    let onRepeatTap: () -> Void
 
     @State private var showTimePicker = false
     @State private var timePickerValue: Date = .now
@@ -22,19 +17,8 @@ struct TodoEditFormView: View {
     @State private var customAlarmNumber = 30
     @State private var customAlarmUnit = 0
 
-    // 반복 설정 로컬 상태
-    @State private var recurrenceKind: RecurrenceKind = .none
-    @State private var selectedWeekdays: Set<Int> = []
-    @State private var endCondition: EndCondition = .none
-    @State private var showEndDatePicker = false
-    @State private var showStartDatePicker = false
-    @State private var recurrenceCountInput = 4
-
-    private enum EndCondition { case none, date, count }
-
     private static let unitNames = ["분", "시간", "일", "주", "개월"]
     private static let unitMultipliers = [1, 60, 1440, 10080, 43200]
-    private static let weekdayNames = ["일", "월", "화", "수", "목", "금", "토"]
 
     var body: some View {
         Section {
@@ -89,40 +73,54 @@ struct TodoEditFormView: View {
             }
 
             // 시간
-            Button {
-                resignKeyboard()
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                withAnimation {
-                    if scheduledTime == nil {
-                        var comps = Calendar.current.dateComponents([.year, .month, .day], from: date)
-                        comps.hour = 9
-                        comps.minute = 0
-                        let defaultTime = Calendar.current.date(from: comps) ?? date
-                        scheduledTime = defaultTime
-                        timePickerValue = defaultTime
-                        showTimePicker = true
-                    } else {
-                        timePickerValue = scheduledTime ?? date
-                        showTimePicker.toggle()
+            HStack {
+                Button {
+                    resignKeyboard()
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation {
+                        if scheduledTime == nil {
+                            var comps = Calendar.current.dateComponents([.year, .month, .day], from: date)
+                            comps.hour = 9
+                            comps.minute = 0
+                            let defaultTime = Calendar.current.date(from: comps) ?? date
+                            scheduledTime = defaultTime
+                            timePickerValue = defaultTime
+                            showTimePicker = true
+                        } else {
+                            timePickerValue = scheduledTime ?? date
+                            showTimePicker.toggle()
+                        }
                     }
+                } label: {
+                    HStack {
+                        Text("시간").foregroundStyle(.primary)
+                        Spacer()
+                        if let st = scheduledTime {
+                            Text(st, format: .dateTime.hour().minute())
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("없음").foregroundStyle(.secondary)
+                        }
+                    }
+                    .contentShape(Rectangle())
                 }
-            } label: {
-                HStack {
-                    Text("시간").foregroundStyle(.primary)
-                    Spacer()
-                    if let st = scheduledTime {
-                        Text(st, format: .dateTime.hour().minute())
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("없음").foregroundStyle(.secondary)
+                .buttonStyle(.plain)
+
+                if scheduledTime != nil {
+                    Button {
+                        withAnimation { clearTime() }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.body)
+                            .foregroundStyle(Color(.tertiaryLabel))
                     }
+                    .buttonStyle(.plain)
+                } else {
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
 
             if showTimePicker {
                 HStack {
@@ -217,170 +215,9 @@ struct TodoEditFormView: View {
             }
         }
 
-        Section {
-            if isPro {
-                // 반복 종류
-                Picker("반복", selection: $recurrenceKind) {
-                    ForEach(RecurrenceKind.allCases, id: \.self) { kind in
-                        Text(kind.rawValue).foregroundStyle(.secondary).tag(kind)
-                    }
-                }
-                .pickerStyle(.menu)
-                .tint(.secondary)
-                .simultaneousGesture(TapGesture().onEnded { resignKeyboard() })
-                .onChange(of: recurrenceKind) { _, _ in syncRecurrenceBinding() }
-
-                // 요일 선택 (매주/격주)
-                if recurrenceKind.needsWeekdaySelection {
-                    HStack(spacing: 6) {
-                        ForEach(0..<7, id: \.self) { i in
-                            let isSelected = selectedWeekdays.contains(i)
-                            Button {
-                                if isSelected { selectedWeekdays.remove(i) }
-                                else { selectedWeekdays.insert(i) }
-                                syncRecurrenceBinding()
-                            } label: {
-                                Text(Self.weekdayNames[i])
-                                    .font(.caption.weight(.semibold))
-                                    .frame(width: 32, height: 32)
-                                    .background(isSelected ? AppTheme.shared.accent : Color(.systemGray5))
-                                    .foregroundStyle(isSelected ? .white : .primary)
-                                    .clipShape(Circle())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-
-                // 시작일 (반복 설정 시에만 표시)
-                if recurrenceKind != .none {
-                    Button {
-                        resignKeyboard()
-                        withAnimation { showStartDatePicker.toggle() }
-                    } label: {
-                        HStack {
-                            Text("시작일").foregroundStyle(.primary)
-                            Spacer()
-                            Text(date.formatted(date: .abbreviated, time: .omitted))
-                                .foregroundStyle(.primary)
-                                .font(.subheadline)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(Color(.systemGray6), in: Capsule())
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    if showStartDatePicker {
-                        DatePicker("", selection: $date, displayedComponents: .date)
-                            .datePickerStyle(.graphical)
-                            .labelsHidden()
-                            .tint(AppTheme.shared.accent)
-                    }
-                }
-
-                // 종료 조건 (반복 설정 시에만 표시)
-                if recurrenceKind != .none {
-                    Picker("종료", selection: $endCondition) {
-                        Text("없음").foregroundStyle(.secondary).tag(EndCondition.none)
-                        Text("날짜 지정").foregroundStyle(.secondary).tag(EndCondition.date)
-                        Text("횟수 지정").foregroundStyle(.secondary).tag(EndCondition.count)
-                    }
-                    .pickerStyle(.menu)
-                    .tint(.secondary)
-                    .simultaneousGesture(TapGesture().onEnded { resignKeyboard() })
-                    .onChange(of: endCondition) { _, newVal in
-                        switch newVal {
-                        case .none:  recurrenceEndDate = nil; recurrenceCount = nil
-                        case .date:  recurrenceCount = nil
-                        case .count: recurrenceEndDate = nil
-                        }
-                    }
-                }
-
-                if endCondition == .date {
-                    Button {
-                        resignKeyboard()
-                        withAnimation { showEndDatePicker.toggle() }
-                    } label: {
-                        HStack {
-                            Text("종료 날짜").foregroundStyle(.primary)
-                            Spacer()
-                            Text((recurrenceEndDate ?? Date()).formatted(date: .abbreviated, time: .omitted))
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    if showEndDatePicker {
-                        DatePicker("", selection: Binding(
-                            get: { recurrenceEndDate ?? Date() },
-                            set: { recurrenceEndDate = $0 }
-                        ), displayedComponents: .date)
-                        .datePickerStyle(.graphical)
-                        .labelsHidden()
-                        .tint(AppTheme.shared.accent)
-                    }
-                }
-
-                if endCondition == .count {
-                    Stepper("\(recurrenceCountInput)회 반복", value: $recurrenceCountInput, in: 1...999)
-                        .onChange(of: recurrenceCountInput) { _, v in recurrenceCount = v }
-                }
-
-                // 시간 미설정 경고
-                if recurrence != nil && scheduledTime == nil {
-                    Text("알림을 받으려면 시간을 설정하세요")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Button(action: onRepeatTap) {
-                    HStack {
-                        Text("반복 설정").foregroundStyle(.primary)
-                        Spacer()
-                        Text("🔒 Pro").foregroundStyle(.secondary)
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .onAppear { loadRecurrenceState() }
     }
 
     // MARK: - Private
-
-    private func loadRecurrenceState() {
-        guard let rule = recurrence else {
-            recurrenceKind = .none
-            selectedWeekdays = []
-            return
-        }
-        recurrenceKind = rule.kind
-        selectedWeekdays = Set(rule.weekdayIndices)
-        if let count = recurrenceCount {
-            endCondition = .count
-            recurrenceCountInput = count
-        } else if recurrenceEndDate != nil {
-            endCondition = .date
-        } else {
-            endCondition = .none
-        }
-    }
-
-    private func syncRecurrenceBinding() {
-        if recurrenceKind == .none {
-            recurrence = nil
-            return
-        }
-        if recurrenceKind.needsWeekdaySelection {
-            let weekdays = selectedWeekdays.isEmpty
-                ? [Calendar.current.component(.weekday, from: date) - 1]
-                : Array(selectedWeekdays)
-            recurrence = recurrenceKind.toRule(weekdays: weekdays)
-        } else {
-            recurrence = recurrenceKind.toRule()
-        }
-    }
 
     private var alarmPickerSelection: Int? {
         guard let offset = alarmOffset else { return nil }

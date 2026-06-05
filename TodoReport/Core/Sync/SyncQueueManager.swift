@@ -11,47 +11,72 @@ final class SyncQueueManager {
 
     private var context: ModelContext { PersistenceController.shared.context }
 
-    private var isNotionConnected: Bool {
-        PlannerService.shared.selectedPlanner?.isNotionConnected == true
+    private var hasNotionConnectedPlanner: Bool {
+        PlannerService.shared.store.contains { $0.isNotionConnected }
     }
 
     // MARK: - Enqueue
 
     func enqueueTodoCreate(_ todo: Todo) {
+        guard let payload = encodedTodoPayload(todo) else { return }
         print("[SyncQueue] ➕ enqueue create - \(todo.title)")
         enqueue(action: "create", entityType: "todo", entityId: todo.id,
-                payload: encodedTodoPayload(todo))
+                payload: payload, plannerId: todo.plannerId)
     }
 
     func enqueueTodoUpdate(_ todo: Todo) {
         guard !todo.notionPageId.isEmpty else {
-            // notionPageId 없음 → pending create 페이로드를 최신 상태(isCompleted 포함)로 갱신
             let lid = todo.id
-            let descriptor = FetchDescriptor<SyncQueueItem>(
+
+            // 1) pending/processing create가 있으면 페이로드를 최신 상태로 갱신
+            //    "processing" 포함: create가 전송 중일 때도 payload를 최신으로 유지
+            let pendingCreateDesc = FetchDescriptor<SyncQueueItem>(
                 predicate: #Predicate<SyncQueueItem> { item in
                     item.entityId == lid &&
                     item.action == "create" &&
-                    item.status == "pending"
+                    (item.status == "pending" || item.status == "processing")
                 }
             )
-            if let existing = try? context.fetch(descriptor).first {
-                existing.payload = encodedTodoPayload(todo)
+            if let existing = try? context.fetch(pendingCreateDesc).first {
+                guard let payload = encodedTodoPayload(todo) else { return }
+                existing.payload = payload
                 existing.createdAt = .now
                 try? context.save()
-                print("[SyncQueue] 🔄 pending create 페이로드 갱신 - \(todo.id)")
+                print("[SyncQueue] 🔄 pending create 페이로드 갱신 - \(lid) status:\(existing.status)")
+                return
             }
+
+            // 2) create가 완료됐다면 SwiftData에 notionPageId가 세팅돼 있을 수 있음
+            let todoItemDesc = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == lid })
+            if let current = try? context.fetch(todoItemDesc).first,
+               !current.notionPageId.isEmpty {
+                guard let payload = encodedTodoPayload(todo) else { return }
+                enqueue(action: "update", entityType: "todo", entityId: current.notionPageId,
+                        payload: payload, plannerId: todo.plannerId)
+                print("[SyncQueue] ➕ update enqueue (resolved) - \(lid) → \(current.notionPageId)")
+                return
+            }
+
+            // 3) notionPageId 미확정 → localId로 enqueue, 처리 시점에 Processor가 해소
+            guard let payload = encodedTodoPayload(todo) else { return }
+            enqueue(action: "update", entityType: "todo", entityId: lid,
+                    payload: payload, plannerId: todo.plannerId)
+            print("[SyncQueue] ➕ update enqueue (localId 임시) - \(lid)")
             return
         }
+        guard let payload = encodedTodoPayload(todo) else { return }
         enqueue(action: "update", entityType: "todo", entityId: todo.notionPageId,
-                payload: encodedTodoPayload(todo))
+                payload: payload, plannerId: todo.plannerId)
+        print("[SyncQueue] ➕ update enqueue (notionPageId) - \(todo.notionPageId)")
     }
 
-    func enqueueTodoDelete(notionPageId: String) {
+    func enqueueTodoDelete(notionPageId: String, plannerId: String?) {
         guard !notionPageId.isEmpty else {
             print("[SyncQueue] 🚫 delete 스킵 - notionPageId 없음")
             return
         }
-        enqueue(action: "delete", entityType: "todo", entityId: notionPageId, payload: Data())
+        enqueue(action: "delete", entityType: "todo", entityId: notionPageId,
+                payload: Data(), plannerId: plannerId)
     }
 
     // MARK: - Notion 연결 완료 시 호출
@@ -63,9 +88,7 @@ final class SyncQueueManager {
 
     // MARK: - Private
 
-    private func enqueue(action: String, entityType: String, entityId: String, payload: Data) {
-        let plannerId = PlannerService.shared.selectedPlanner?.id
-
+    private func enqueue(action: String, entityType: String, entityId: String, payload: Data, plannerId: String?) {
         // update 중복 방지: 동일 entityId의 pending update 항목이 있으면 payload를 최신으로 교체
         if action == "update" {
             let eid = entityId
@@ -119,9 +142,31 @@ final class SyncQueueManager {
         return (try? context.fetch(descriptor))?.isEmpty == false
     }
 
+    func hasPendingDelete(for entityId: String) -> Bool {
+        let descriptor = FetchDescriptor<SyncQueueItem>(
+            predicate: #Predicate<SyncQueueItem> { item in
+                item.entityId == entityId &&
+                item.action == "delete" &&
+                (item.status == "pending" || item.status == "processing")
+            }
+        )
+        return (try? context.fetch(descriptor))?.isEmpty == false
+    }
+
+    func hasPendingOperation(for pageId: String) -> Bool {
+        hasPendingCreate(for: pageId) || hasPendingUpdate(for: pageId) || hasPendingDelete(for: pageId)
+    }
+
+    var hasPendingItems: Bool {
+        let descriptor = FetchDescriptor<SyncQueueItem>(
+            predicate: #Predicate<SyncQueueItem> { $0.status == "pending" || $0.status == "processing" }
+        )
+        return (try? context.fetch(descriptor))?.isEmpty == false
+    }
+
     func processIfConnected() {
-        guard isNotionConnected else {
-            print("[SyncQueue] ⚠️ Notion 미연결 - 스킵")
+        guard hasNotionConnectedPlanner else {
+            print("[SyncQueue] ⚠️ Notion 연결된 플래너 없음 - 스킵")
             return
         }
         print("[SyncQueue] ▶️ 처리 시작")
@@ -166,15 +211,17 @@ final class SyncQueueManager {
 
     // MARK: - Todo Payload
 
-    private func encodedTodoPayload(_ todo: Todo) -> Data {
-        let planner = PlannerService.shared.store.first(where: { $0.id == todo.plannerId })
-            ?? PlannerService.shared.selectedPlanner
-        let mapping = planner?.decodedTodoPropsMapping ?? TodoPropsMapping()
-        let reportMapping = planner?.decodedReportPropsMapping ?? ReportPropsMapping()
+    private func encodedTodoPayload(_ todo: Todo) -> Data? {
+        guard let planner = PlannerService.shared.store.first(where: { $0.id == todo.plannerId }) else {
+            print("[SyncQueue] ❌ encodedTodoPayload: planner not found - todoId:\(todo.id) plannerId:\(todo.plannerId ?? "nil")")
+            return nil
+        }
+        let mapping = planner.decodedTodoPropsMapping
+        let reportMapping = planner.decodedReportPropsMapping
 
-        // 마이그레이션 실패 시 폴백: UserDefaults 레거시 키에서 직접 읽기
+        // 마이그레이션 전 항목 대비 UserDefaults 레거시 폴백
         let prefix = "kr.nock.TodoReport."
-        let pid = planner?.id ?? ""
+        let pid = planner.id
         let defaults = UserDefaults.standard
         func legacyString(_ key: String) -> String? {
             defaults.string(forKey: "\(prefix)\(pid).\(key)") ?? defaults.string(forKey: "\(prefix)\(key)")
@@ -198,19 +245,20 @@ final class SyncQueueManager {
             fmt.timeZone = TimeZone(identifier: "Asia/Seoul")
             body["scheduledTime"] = fmt.string(from: st)
         }
-        if let ao = todo.alarmOffset                                                     { body["alarmOffset"] = ao }
-        if let memo = todo.memo                                                          { body["memo"] = memo }
-        if let v = planner?.notionTodoDBId   ?? legacyString("todoDBId")                { body["dbId"] = v }
-        if let v = mapping.completed         ?? legacyTodo?.completed                   { body["completedProp"] = v }
-        if let v = mapping.date              ?? legacyTodo?.date                        { body["dateProp"] = v }
-        if let v = mapping.memo              ?? legacyTodo?.memo                        { body["memoProp"] = v }
-        if let v = mapping.isPinned          ?? legacyTodo?.isPinned                    { body["isPinnedProp"] = v }
-        if let v = planner?.notionReportDBId ?? legacyString("reportDBId")              { body["reportDBId"] = v }
-        print("[Debug] reportRelation: \(mapping.reportRelation ?? "nil")")
-        if let v = mapping.reportRelation    ?? legacyTodo?.reportRelation              { body["reportRelationProp"] = v }
-        if let v = reportMapping.date        ?? legacyReport?.date                      { body["reportDateProp"] = v }
+        if let ao = todo.alarmOffset                                               { body["alarmOffset"] = ao }
+        if let memo = todo.memo                                                    { body["memo"] = memo }
+        if let v = planner.notionTodoDBId   ?? legacyString("todoDBId")            { body["dbId"] = v }
+        if let v = mapping.completed        ?? legacyTodo?.completed               { body["completedProp"] = v }
+        if let v = mapping.date             ?? legacyTodo?.date                    { body["dateProp"] = v }
+        if let v = mapping.memo             ?? legacyTodo?.memo                    { body["memoProp"] = v }
+        if let v = mapping.isPinned         ?? legacyTodo?.isPinned                { body["isPinnedProp"] = v }
+        if let v = planner.notionReportDBId ?? legacyString("reportDBId")          { body["reportDBId"] = v }
+        if let v = mapping.reportRelation   ?? legacyTodo?.reportRelation          { body["reportRelationProp"] = v }
+        if let v = reportMapping.date       ?? legacyReport?.date                  { body["reportDateProp"] = v }
 
-        return (try? JSONSerialization.data(withJSONObject: body)) ?? Data()
+        print("[Payload] plannerId:\(pid) todoDBId:\(planner.notionTodoDBId ?? "nil") reportDBId:\(planner.notionReportDBId ?? "nil") reportRelation:\(mapping.reportRelation ?? "nil")")
+
+        return try? JSONSerialization.data(withJSONObject: body)
     }
 
     private func seoulDateString(from date: Date) -> String {

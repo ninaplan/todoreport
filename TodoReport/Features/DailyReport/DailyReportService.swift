@@ -115,6 +115,7 @@ final class DailyReportService {
         if let v = mapping.date   { params["dateProp"] = v }
         if let v = mapping.review { params["reviewProp"] = v }
         if let v = mapping.rating { params["ratingProp"] = v }
+        if let v = mapping.ratingPropType { params["ratingPropType"] = v }
 
         do {
             let response: NotionReportResponse? = try await APIClient.shared.get(
@@ -123,15 +124,25 @@ final class DailyReportService {
             print("[DailyReport] 🔄 Notion fetch - \(dateStr)")
             print("[DailyReport] 🔄 fetch 응답 - notionPageId:\(response?.notionPageId ?? "nil") review:\(response?.review ?? "nil")")
             guard let r = response else { return }
-            upsertFromNotion(r, for: date, plannerId: pid)
+            upsertFromNotion(r, for: date, plannerId: pid, mapping: mapping)
         } catch {
             print("[DailyReport] ⚠️ Notion sync 실패 - \(error.localizedDescription)")
         }
     }
 
-    private func upsertFromNotion(_ r: NotionReportResponse, for date: Date, plannerId: String?) {
+    private func notionRatingToDayRatingRaw(_ notionValue: String?, options: [String]) -> String? {
+        guard let notionValue else { return nil }
+        if DayRating(rawValue: notionValue) != nil { return notionValue }
+        guard !options.isEmpty, let idx = options.firstIndex(of: notionValue) else { return nil }
+        let cases = DayRating.allCases
+        guard idx < cases.count else { return nil }
+        return cases[idx].rawValue
+    }
+
+    private func upsertFromNotion(_ r: NotionReportResponse, for date: Date, plannerId: String?, mapping: ReportPropsMapping) {
         let startOfDay = Calendar.current.startOfDay(for: date)
         let pageId = r.notionPageId
+        let convertedRaw = notionRatingToDayRatingRaw(r.rating, options: mapping.dayRatingOptions)
 
         print("[DailyReport] 🔄 upsert - notionPageId:\(pageId) review:\(r.review ?? "nil")")
 
@@ -141,7 +152,7 @@ final class DailyReportService {
         )
         if let existing = try? context.fetch(byPageId).first {
             existing.review = r.review ?? ""
-            if let rating = r.rating { existing.dayRatingRaw = rating }
+            existing.dayRatingRaw = convertedRaw
             existing.notionPageId = r.notionPageId
             print("[DailyReport] 🔄 upsert - notionPageId 일치 항목 업데이트")
         } else {
@@ -156,7 +167,7 @@ final class DailyReportService {
             }
             if let pendingItem = pending?.first {
                 pendingItem.review = r.review ?? ""
-                if let rating = r.rating { pendingItem.dayRatingRaw = rating }
+                pendingItem.dayRatingRaw = convertedRaw
                 pendingItem.notionPageId = r.notionPageId
                 print("[DailyReport] 🔄 upsert - 빈 notionPageId 항목에 연결")
             } else {
@@ -164,7 +175,7 @@ final class DailyReportService {
                     date: startOfDay,
                     review: r.review ?? "",
                     completionRate: r.completionRate,
-                    dayRating: r.rating.flatMap { DayRating(rawValue: $0) },
+                    dayRating: convertedRaw.flatMap { DayRating(rawValue: $0) },
                     notionPageId: r.notionPageId,
                     plannerId: plannerId
                 )
@@ -216,15 +227,14 @@ final class DailyReportService {
 
     func syncToNotion(_ report: DailyReport, retryCount: Int = 0) async {
         print("[DailyReport] 📤 Notion sync 시작")
-        let planner = PlannerService.shared.store.first(where: { $0.id == report.plannerId })
-            ?? PlannerService.shared.selectedPlanner
-        guard planner?.isNotionConnected == true,
-              let dbId = planner?.notionReportDBId else {
-            print("[DailyReport] ⚠️ reportDBId 없음 - 스킵")
+        guard let planner = PlannerService.shared.store.first(where: { $0.id == report.plannerId }),
+              planner.isNotionConnected,
+              let dbId = planner.notionReportDBId else {
+            print("[DailyReport] ⚠️ 플래너 없음 또는 reportDBId 없음 - plannerId:\(report.plannerId ?? "nil") 스킵")
             return
         }
-        let mapping = planner?.decodedReportPropsMapping ?? ReportPropsMapping()
-        let token = planner?.resolvedNotionToken
+        let mapping = planner.decodedReportPropsMapping
+        let token = planner.resolvedNotionToken
 
         let cal = Calendar.current
         var body: [String: Any] = [
@@ -237,7 +247,16 @@ final class DailyReportService {
         if let v = mapping.date   { body["dateProp"] = v }
         if let v = mapping.review { body["reviewProp"] = v }
         if let v = mapping.rating { body["ratingProp"] = v }
-        if let rating = report.dayRating { body["rating"] = rating.rawValue }
+        if let dayRating = report.dayRating {
+            let starIndex = DayRating.allCases.firstIndex(of: dayRating) ?? 0
+            let options = mapping.dayRatingOptions
+            if options.isEmpty {
+                body["rating"] = dayRating.rawValue
+            } else if starIndex < options.count {
+                body["rating"] = options[starIndex]
+            }
+            if let t = mapping.ratingPropType { body["ratingPropType"] = t }
+        }
         if let end = report.endDate {
             let inclusiveEnd = cal.date(byAdding: .day, value: -1, to: end) ?? end
             body["endDate"] = seoulDateString(from: inclusiveEnd)

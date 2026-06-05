@@ -93,17 +93,18 @@ final class TodoItem {
         isPinned = todo.isPinned
         date = todo.date
         completedAt = todo.completedAt
-        if let nc = todo.notionCreatedAt { notionCreatedAt = nc }
         categoryId = todo.categoryId
-        notionPageId = todo.notionPageId
         scheduledTime = todo.scheduledTime
         alarmOffset = todo.alarmOffset
         recurrenceData = todo.recurrenceRule.flatMap { try? JSONEncoder().encode($0) }
         recurrenceId = todo.recurrenceId
         recurrenceEndDate = todo.recurrenceEndDate
         recurrenceCount = todo.recurrenceCount
-        notionRelationLinked = todo.notionRelationLinked
-        // plannerId는 생성 시 고정 — 플래너 이동 기능 구현 시 별도 메서드로 처리
+        // sync 관련 필드는 호출자 객체를 신뢰하지 않음 — SyncQueue/Notion이 단독 관리
+        // notionPageId: SyncQueueProcessor.updateNotionPageId() 가 세팅
+        // notionRelationLinked: updateTodo(dateChanged) / NotionRelationLinker 가 관리
+        // notionCreatedAt: Notion에서 내려온 값만 신뢰 (upsertFromNotion에서 직접 세팅)
+        // plannerId: 생성 시 고정 — 플래너 이동 기능 구현 시 별도 메서드로 처리
     }
 
     static func from(_ todo: Todo) -> TodoItem {

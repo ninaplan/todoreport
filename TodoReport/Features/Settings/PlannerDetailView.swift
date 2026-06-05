@@ -2,7 +2,12 @@ import SwiftUI
 import PhotosUI
 
 struct PlannerDetailView: View {
-    private let planner: Planner
+    private let plannerId: String
+    private let initialPlanner: Planner
+    // PlannerService.shared는 @Observable — store 변경 시 자동 re-render
+    private var currentPlanner: Planner {
+        PlannerService.shared.store.first(where: { $0.id == plannerId }) ?? initialPlanner
+    }
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
     @State private var selectedIconType: String?
@@ -11,20 +16,27 @@ struct PlannerDetailView: View {
     @State private var showIconSheet = false
     @State private var showDeleteAlert = false
     @State private var showResetNotionAlert = false
+    @State private var showMigrationModeAlert = false
     @State private var showMigrationSheet = false
+    @State private var selectedMigrationMode: PlannerMigrationViewModel.SyncMode?
 
     private static let sfSymbols: [String] = [
-        "book.fill", "pencil", "graduationcap.fill", "brain.head.profile", "note.text",
-        "figure.run", "dumbbell.fill", "heart.fill", "bicycle", "leaf.fill",
-        "briefcase.fill", "doc.text.fill", "chart.line.uptrend.xyaxis", "clock.fill", "flag.fill",
-        "house.fill", "cart.fill", "fork.knife", "car.fill", "creditcard.fill",
-        "music.note", "paintbrush.fill", "camera.fill", "star.fill", "gamecontroller.fill"
+        // 플래너/학습/업무
+        "book.fill", "doc.text.fill", "pencil", "note.text", "briefcase.fill", "graduationcap.fill",
+        // 일상/생활
+        "house.fill", "heart.fill", "star.fill", "fork.knife", "figure.run",
+        // 기타
+        "brain.head.profile", "dumbbell.fill", "bicycle", "leaf.fill",
+        "chart.line.uptrend.xyaxis", "clock.fill", "flag.fill",
+        "cart.fill", "car.fill", "creditcard.fill",
+        "music.note", "paintbrush.fill", "camera.fill", "gamecontroller.fill"
     ]
 
     private var totalPlannerCount: Int { PlannerService.shared.store.count }
 
     init(planner: Planner) {
-        self.planner = planner
+        self.plannerId = planner.id
+        self.initialPlanner = planner
         _name = State(initialValue: planner.name)
         _selectedIconType = State(initialValue: planner.iconType)
         _selectedIconImageData = State(initialValue: planner.iconImageData)
@@ -32,10 +44,20 @@ struct PlannerDetailView: View {
 
     var body: some View {
         List {
+            if currentPlanner.isReadOnly {
+                Section {
+                    HStack {
+                        Image(systemName: "lock.fill")
+                        Text("읽기 전용 플래너입니다. Pro 구독 시 다시 활성화됩니다.")
+                            .font(.caption)
+                    }
+                    .foregroundStyle(.secondary)
+                }
+            }
             profileHeaderSection
             basicSection
             categorySection
-            if planner.isNotionConnected {
+            if currentPlanner.isNotionConnected {
                 notionSection
             } else {
                 connectNotionSection
@@ -44,6 +66,7 @@ struct PlannerDetailView: View {
                 deleteSection
             }
         }
+        .disabled(currentPlanner.isReadOnly)
         .navigationTitle("플래너 설정")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -51,6 +74,7 @@ struct PlannerDetailView: View {
                 Button("저장") { Task { await savePlanner(); dismiss() } }
                     .tint(AppTheme.shared.accent)
                     .fontWeight(.semibold)
+                    .disabled(currentPlanner.isReadOnly)
             }
         }
         .sheet(isPresented: $showIconSheet) {
@@ -58,7 +82,14 @@ struct PlannerDetailView: View {
                 .presentationDragIndicator(.visible)
         }
         .fullScreenCover(isPresented: $showMigrationSheet) {
-            PlannerMigrationView(planner: planner)
+            PlannerMigrationView(planner: currentPlanner, mode: selectedMigrationMode ?? .uploadToNotion)
+        }
+        .alert("로컬 데이터를 어떻게 할까요?", isPresented: $showMigrationModeAlert) {
+            Button("노션에 함께 저장하기") { confirmUploadToNotion() }
+            Button("버리고 시작하기", role: .destructive) { confirmDiscardLocal() }
+            Button("취소", role: .cancel) { cancelMigrationMode() }
+        } message: {
+            Text("노션에 연결하면 노션 데이터가 앱에 연결됩니다.")
         }
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
@@ -72,7 +103,7 @@ struct PlannerDetailView: View {
         .alert("플래너 삭제", isPresented: $showDeleteAlert) {
             Button("취소", role: .cancel) { }
             Button("삭제", role: .destructive) {
-                Task { try? await PlannerService.shared.deletePlanner(planner); dismiss() }
+                Task { try? await PlannerService.shared.deletePlanner(currentPlanner); dismiss() }
             }
         } message: {
             Text("플래너를 삭제하면 해당 플래너의 모든 데이터가 삭제됩니다. 계속할까요?")
@@ -80,7 +111,7 @@ struct PlannerDetailView: View {
         .alert("연동 초기화", isPresented: $showResetNotionAlert) {
             Button("취소", role: .cancel) { }
             Button("초기화", role: .destructive) {
-                Task { await PlannerService.shared.resetNotionConnection(for: planner); dismiss() }
+                Task { await PlannerService.shared.resetNotionConnection(for: currentPlanner); dismiss() }
             }
         } message: {
             Text("앱에 저장된 데이터가 모두 삭제됩니다. 노션 데이터는 유지됩니다.")
@@ -97,7 +128,7 @@ struct PlannerDetailView: View {
                         PlannerIconView(
                             iconType: selectedIconType,
                             iconImageData: selectedIconImageData,
-                            colorHex: planner.colorHex,
+                            colorHex: currentPlanner.colorHex,
                             size: 64
                         )
                         Image(systemName: "pencil.circle.fill")
@@ -109,9 +140,9 @@ struct PlannerDetailView: View {
                 .buttonStyle(.plain)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(name.isEmpty ? planner.name : name)
+                    Text(name.isEmpty ? currentPlanner.name : name)
                         .font(.headline)
-                    Text(planner.isNotionConnected ? "Notion 연결됨" : "로컬 저장")
+                    Text(currentPlanner.isNotionConnected ? "Notion 연결됨" : "로컬 저장")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -138,12 +169,6 @@ struct PlannerDetailView: View {
         NavigationStack {
             List {
                 Section {
-                    iconSymbolGrid
-                } header: {
-                    Text("SF Symbol")
-                }
-
-                Section {
                     PhotosPicker(selection: $photoItem, matching: .images) {
                         Label("사진에서 선택", systemImage: "photo")
                             .foregroundStyle(.primary)
@@ -157,6 +182,12 @@ struct PlannerDetailView: View {
                     }
                 } header: {
                     Text("사진")
+                }
+
+                Section {
+                    iconSymbolGrid
+                } header: {
+                    Text("SF Symbol")
                 }
             }
             .navigationTitle("아이콘 선택")
@@ -201,7 +232,7 @@ struct PlannerDetailView: View {
 
     private var categorySection: some View {
         Section("카테고리") {
-            NavigationLink { CategoryView(plannerId: planner.id) } label: { Text("카테고리 관리") }
+            NavigationLink { CategoryView(plannerId: plannerId) } label: { Text("카테고리 관리") }
         }
     }
 
@@ -210,10 +241,10 @@ struct PlannerDetailView: View {
     private var notionSection: some View {
         Section("노션 설정") {
             NavigationLink {
-                PlannerNotionSettingsView(planner: planner, scope: .todo)
+                PlannerNotionSettingsView(planner: currentPlanner, scope: .todo)
             } label: { Text("투두 DB") }
             NavigationLink {
-                PlannerNotionSettingsView(planner: planner, scope: .report)
+                PlannerNotionSettingsView(planner: currentPlanner, scope: .report)
             } label: { Text("리포트 DB") }
             Button(role: .destructive) {
                 showResetNotionAlert = true
@@ -228,7 +259,7 @@ struct PlannerDetailView: View {
     private var connectNotionSection: some View {
         Section {
             Button {
-                showMigrationSheet = true
+                showMigrationModeAlert = true
             } label: {
                 HStack {
                     Image(systemName: "arrow.up.forward.app")
@@ -261,12 +292,28 @@ struct PlannerDetailView: View {
         }
     }
 
+    // MARK: - Migration Mode Alert
+
+    private func cancelMigrationMode() {
+        showMigrationModeAlert = false
+    }
+
+    private func confirmUploadToNotion() {
+        selectedMigrationMode = .uploadToNotion
+        showMigrationSheet = true
+    }
+
+    private func confirmDiscardLocal() {
+        selectedMigrationMode = .importFromNotion
+        showMigrationSheet = true
+    }
+
     // MARK: - Helpers
 
     private func savePlanner() async {
-        var updated = planner
+        var updated = currentPlanner
         let trimmed = name.trimmingCharacters(in: .whitespaces)
-        updated.name = trimmed.isEmpty ? planner.name : trimmed
+        updated.name = trimmed.isEmpty ? currentPlanner.name : trimmed
         updated.iconType = selectedIconType
         updated.iconImageData = selectedIconImageData
         try? await PlannerService.shared.savePlanner(updated)

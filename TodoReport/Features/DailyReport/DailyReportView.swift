@@ -8,6 +8,8 @@ struct DailyReportCard: View {
     let displayRate: Double         // UI 표시용 (필터 반영)
     let displayCompleted: Int
     let displayTotal: Int
+    var onPrevDay: (() -> Void)? = nil
+    var onNextDay: (() -> Void)? = nil
 
     @FocusState private var isReviewFocused: Bool
 
@@ -40,6 +42,15 @@ struct DailyReportCard: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             Task { await viewModel.fetchReport(for: date, completionRate: completionRate) }
         }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 30)
+                .onEnded { value in
+                    let h = value.translation.width
+                    let v = value.translation.height
+                    guard abs(h) > abs(v) else { return }
+                    if h < 0 { onNextDay?() } else { onPrevDay?() }
+                }
+        )
     }
 
     // MARK: - 완료율
@@ -65,22 +76,21 @@ struct DailyReportCard: View {
 
     private var ratingRow: some View {
         HStack(spacing: 0) {
-            Text("별점")
+            Text("지수")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(width: 44, alignment: .leading)
 
-            HStack(spacing: 6) {
-                ForEach(Array(DayRating.allCases.enumerated()), id: \.offset) { index, rating in
-                    Button {
-                        Task { await viewModel.selectRating(rating) }
-                    } label: {
-                        Text(isStarFilled(at: index) ? "⭐" : "☆")
-                            .font(.title3)
-                    }
-                    .buttonStyle(.plain)
+            PawRatingView(
+                rating: currentRatingCount,
+                interactive: true,
+                size: 24,
+                spacing: 6,
+                onTap: { count in
+                    let rating = DayRating.allCases[count - 1]
+                    Task { await viewModel.selectRating(rating) }
                 }
-            }
+            )
 
             Spacer()
 
@@ -89,6 +99,12 @@ struct DailyReportCard: View {
                     .scaleEffect(0.7)
             }
         }
+    }
+
+    private var currentRatingCount: Int {
+        guard let selected = viewModel.selectedRating,
+              let idx = DayRating.allCases.firstIndex(of: selected) else { return 0 }
+        return idx + 1
     }
 
     // MARK: - 리뷰 행
@@ -125,11 +141,5 @@ struct DailyReportCard: View {
         }
     }
 
-    // MARK: - Helpers
-
-    private func isStarFilled(at index: Int) -> Bool {
-        guard let selected = viewModel.selectedRating,
-              let selectedIndex = DayRating.allCases.firstIndex(of: selected) else { return false }
-        return index <= selectedIndex
-    }
 }
+

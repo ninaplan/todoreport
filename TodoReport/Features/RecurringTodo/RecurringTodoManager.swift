@@ -9,7 +9,7 @@ final class RecurringTodoManager {
     private var context: ModelContext { PersistenceController.shared.context }
 
     // 오늘~2주 뒤 반복 투두 생성 (이미 존재하는 날짜는 스킵)
-    func generateUpcoming() {
+    func generateUpcoming() async {
         let cal = Calendar.current
         let today = cal.startOfDay(for: .now)
         guard let twoWeeksLater = cal.date(byAdding: .day, value: 14, to: today) else { return }
@@ -88,9 +88,61 @@ final class RecurringTodoManager {
 
                 context.insert(newItem)
                 print("[RecurringTodo] ➕ 생성: \(origin.title) \(targetDate)")
+                SyncQueueManager.shared.enqueueTodoCreate(newItem.toTodo())
             }
         }
 
         try? context.save()
+    }
+
+    // MARK: - 편집 플로우 지원
+
+    // 특정 항목을 제외하고 시리즈의 미래 항목 삭제
+    func deleteFutureTodos(seriesId: String, from date: Date, excludingId: String) async {
+        let fromDay = Calendar.current.startOfDay(for: date)
+        let allItems = (try? context.fetch(FetchDescriptor<TodoItem>())) ?? []
+        let toDelete = allItems.filter {
+            $0.recurrenceId == seriesId &&
+            Calendar.current.startOfDay(for: $0.date) >= fromDay &&
+            $0.id != excludingId
+        }
+        let deletions: [(notionPageId: String, plannerId: String?)] = toDelete.compactMap {
+            guard !$0.notionPageId.isEmpty else { return nil }
+            return ($0.notionPageId, $0.plannerId)
+        }
+        let todoIds = toDelete.map { $0.id }
+        toDelete.forEach { context.delete($0) }
+        try? context.save()
+        todoIds.forEach { TodoNotificationManager.shared.cancel(for: $0) }
+        deletions.forEach { SyncQueueManager.shared.enqueueTodoDelete(notionPageId: $0.notionPageId, plannerId: $0.plannerId) }
+    }
+
+    // 기존 시리즈 항목들의 종료일을 특정 날짜 직전으로 제한 (미래 재생성 방지)
+    func capSeriesEndDate(seriesId: String, beforeDate: Date, excludingId: String) async {
+        let cal = Calendar.current
+        guard let endDay = cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: beforeDate)) else { return }
+        let allItems = (try? context.fetch(FetchDescriptor<TodoItem>())) ?? []
+        let seriesItems = allItems.filter { $0.recurrenceId == seriesId && $0.id != excludingId }
+        var modified: [TodoItem] = []
+        seriesItems.forEach { item in
+            if item.recurrenceEndDate == nil || item.recurrenceEndDate! > endDay {
+                item.recurrenceEndDate = endDay
+                modified.append(item)
+            }
+        }
+        try? context.save()
+        modified.forEach { SyncQueueManager.shared.enqueueTodoUpdate($0.toTodo()) }
+    }
+
+    // 시리즈 전체 종료 조건 일괄 업데이트
+    func updateSeriesEndCondition(seriesId: String, endDate: Date?, count: Int?) async {
+        let allItems = (try? context.fetch(FetchDescriptor<TodoItem>())) ?? []
+        let seriesItems = allItems.filter { $0.recurrenceId == seriesId }
+        seriesItems.forEach { item in
+            item.recurrenceEndDate = endDate
+            item.recurrenceCount = count
+        }
+        try? context.save()
+        seriesItems.forEach { SyncQueueManager.shared.enqueueTodoUpdate($0.toTodo()) }
     }
 }

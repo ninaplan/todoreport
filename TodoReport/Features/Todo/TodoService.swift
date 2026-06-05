@@ -118,23 +118,37 @@ final class TodoService {
         let id = todo.id
         let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == id })
         guard let item = try context.fetch(descriptor).first else { return }
+        let dateChanged = !Calendar.current.isDate(item.date, inSameDayAs: todo.date)
         item.update(from: todo)
+        if dateChanged {
+            item.notionRelationLinked = false
+            removeFromLinkedIds(notionPageId: item.notionPageId)
+        }
         try context.save()
         ensureDailyReport(for: todo.date)
         print("[TodoService] ✏️ updateTodo - id:\(todo.id) scheduledTime:\(String(describing: todo.scheduledTime)) alarmOffset:\(String(describing: todo.alarmOffset))")
         TodoNotificationManager.shared.schedule(for: todo)
-        let captured = todo
+        let captured = item.toTodo()
         Task { @MainActor in SyncQueueManager.shared.enqueueTodoUpdate(captured) }
+    }
+
+    private func removeFromLinkedIds(notionPageId: String) {
+        guard !notionPageId.isEmpty else { return }
+        let key = "reportLinkedNotionIds"
+        var ids = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+        ids.remove(notionPageId)
+        UserDefaults.standard.set(Array(ids), forKey: key)
     }
 
     func deleteTodo(id: String) async throws {
         let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == id })
         guard let item = try context.fetch(descriptor).first else { return }
         let notionPageId = item.notionPageId
+        let plannerId = item.plannerId
         context.delete(item)
         try context.save()
         TodoNotificationManager.shared.cancel(for: id)
-        Task { @MainActor in SyncQueueManager.shared.enqueueTodoDelete(notionPageId: notionPageId) }
+        Task { @MainActor in SyncQueueManager.shared.enqueueTodoDelete(notionPageId: notionPageId, plannerId: plannerId) }
     }
 
     func deleteFutureItems(recurrenceId: String, from date: Date) async throws {
@@ -144,12 +158,19 @@ final class TodoService {
             $0.recurrenceId == recurrenceId &&
             Calendar.current.startOfDay(for: $0.date) >= fromDate
         }
-        let pageIds = toDelete.compactMap { $0.notionPageId.isEmpty ? nil : $0.notionPageId }
+        let deletions: [(notionPageId: String, plannerId: String?)] = toDelete.compactMap {
+            guard !$0.notionPageId.isEmpty else { return nil }
+            return ($0.notionPageId, $0.plannerId)
+        }
         let todoIds = toDelete.map { $0.id }
         toDelete.forEach { context.delete($0) }
         try context.save()
         todoIds.forEach { TodoNotificationManager.shared.cancel(for: $0) }
-        Task { @MainActor in pageIds.forEach { SyncQueueManager.shared.enqueueTodoDelete(notionPageId: $0) } }
+        Task { @MainActor in
+            deletions.forEach {
+                SyncQueueManager.shared.enqueueTodoDelete(notionPageId: $0.notionPageId, plannerId: $0.plannerId)
+            }
+        }
     }
 
     // MARK: - Notion Sync
@@ -199,13 +220,13 @@ final class TodoService {
                 predicate: #Predicate { $0.notionPageId == pageId }
             )
             if let existing = try? context.fetch(byPageId).first {
+                // pending 작업 중인 항목은 어떤 필드도 노션 결과로 덮어쓰지 않음
+                guard !SyncQueueManager.shared.hasPendingOperation(for: pageId) else { continue }
                 existing.title = nt.title
                 existing.memo = nt.memo
                 if let nc = parsedNotionCreatedAt { existing.notionCreatedAt = nc }
-                if !SyncQueueManager.shared.hasPendingUpdate(for: pageId) {
-                    existing.isCompleted = nt.isCompleted
-                    existing.isPinned = nt.isPinned
-                }
+                existing.isCompleted = nt.isCompleted
+                existing.isPinned = nt.isPinned
                 continue
             }
 
@@ -220,10 +241,12 @@ final class TodoService {
                 }
             )
             if let existing = try? context.fetch(byTitleDate).first {
+                // notionPageId는 항상 연결
                 existing.notionPageId = nt.notionPageId
-                existing.memo = nt.memo
-                if let nc = parsedNotionCreatedAt { existing.notionCreatedAt = nc }
-                if !SyncQueueManager.shared.hasPendingUpdate(for: nt.notionPageId) {
+                // pending 작업 중인 항목의 나머지 필드는 덮어쓰지 않음
+                if !SyncQueueManager.shared.hasPendingOperation(for: nt.notionPageId) {
+                    existing.memo = nt.memo
+                    if let nc = parsedNotionCreatedAt { existing.notionCreatedAt = nc }
                     existing.isCompleted = nt.isCompleted
                     existing.isPinned = nt.isPinned
                 }
@@ -255,7 +278,8 @@ final class TodoService {
             let gracePeriodCutoff = Date().addingTimeInterval(-300)  // Notion 전파 지연 대비 5분 유예
             let toDelete = allItems.filter {
                 !notionPageIds.contains($0.notionPageId) &&
-                $0.createdAt < gracePeriodCutoff
+                $0.createdAt < gracePeriodCutoff &&
+                !SyncQueueManager.shared.hasPendingOperation(for: $0.notionPageId)
             }
             toDelete.forEach { context.delete($0) }
             if !toDelete.isEmpty {

@@ -63,7 +63,7 @@ final class DailyReportViewModel {
     // MARK: - Actions
 
     func selectRating(_ rating: DayRating) async {
-        selectedRating = (selectedRating == rating) ? nil : rating
+        selectedRating = rating
         await saveReport()
     }
 

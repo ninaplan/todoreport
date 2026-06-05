@@ -11,31 +11,63 @@ struct TodoView: View {
     @State private var changingDateTodo: Todo? = nil
     @State private var editingTodo: Todo? = nil
     @State private var showCategorySheet: Bool = false
+    @State private var scrollOffset: CGFloat = 56
 
     @State private var hapticImpactTrigger = false
     @State private var hapticSuccessTrigger = false
     @State private var hapticWarningTrigger = false
 
+    private static let dateFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ko_KR")
+        f.dateFormat = "M월 d일 EEEE"
+        return f
+    }()
+
+    private var formattedDate: String {
+        let cal = Calendar.current
+        let date = viewModel.selectedDate
+        let base = Self.dateFmt.string(from: date)
+        if cal.isDateInToday(date)     { return "오늘, \(base)" }
+        if cal.isDateInYesterday(date) { return "어제, \(base)" }
+        if cal.isDateInTomorrow(date)  { return "내일, \(base)" }
+        return base
+    }
+
+    private var arrowBgOpacity: Double {
+        let scrolled = max(0, 56 - scrollOffset)
+        return Double(min(scrolled / 30, 1))
+    }
+
     var body: some View {
         @Bindable var vm = viewModel
         NavigationStack {
-            ZStack(alignment: .bottomTrailing) {
+            ZStack(alignment: .top) {
+                ZStack(alignment: .bottomTrailing) {
                 ScrollViewReader { proxy in
                 List {
-                    // 날짜 + 완료율 + 데일리리포트 카드
+                    // 데일리리포트 카드
                     Section {
-                        DateNavigationRow(viewModel: viewModel)
                         DailyReportCard(
                             viewModel: dailyReportViewModel,
                             date: viewModel.selectedDate,
                             completionRate: viewModel.completionRate,
                             displayRate: viewModel.filteredCompletionRate,
                             displayCompleted: viewModel.filteredCompletedCount,
-                            displayTotal: viewModel.filteredTotalCount
+                            displayTotal: viewModel.filteredTotalCount,
+                            onPrevDay: { viewModel.requestPreviousDay() },
+                            onNextDay: { viewModel.requestNextDay() }
                         )
                     }
                     .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                    .listRowBackground(
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: ScrollOffsetPreferenceKey.self,
+                                value: geo.frame(in: .named("todoScroll")).minY
+                            )
+                        }
+                    )
                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
 
                     // 카테고리 필터 칩
@@ -60,6 +92,9 @@ struct TodoView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                 }
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    Color.clear.frame(height: 56)
+                }
                 .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
                     guard isAddingTodo else { return }
                     withAnimation { proxy.scrollTo("addTodoRow", anchor: .bottom) }
@@ -73,7 +108,6 @@ struct TodoView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
-                .scrollDismissesKeyboard(.never)
                 .refreshable {
                     await viewModel.fetchTodos()
                     await dailyReportViewModel.fetchReport(for: viewModel.selectedDate, completionRate: viewModel.completionRate)
@@ -90,7 +124,7 @@ struct TodoView: View {
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-                    Task { await viewModel.fetchTodos() }
+                    Task { await viewModel.onForeground() }
                 }
                 } // ScrollViewReader
 
@@ -98,8 +132,33 @@ struct TodoView: View {
                     showQuickCapture = true
                 }
 
-            }
+                } // inner ZStack
+
+                DateNavigationRow(
+                    title: formattedDate,
+                    onPrev: { viewModel.requestPreviousDay() },
+                    onNext: { viewModel.requestNextDay() },
+                    onTapTitle: { viewModel.requestDatePicker() },
+                    arrowBgOpacity: arrowBgOpacity,
+                    showTodayButton: viewModel.canGoNextDay,
+                    onGoToday: { viewModel.goToToday() }
+                )
+                .padding(.horizontal, 16)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 20, coordinateSpace: .local)
+                        .onEnded { value in
+                            let h = value.translation.width
+                            let v = value.translation.height
+                            guard abs(h) > abs(v) else { return }
+                            if h < 0 { viewModel.requestNextDay() } else { viewModel.requestPreviousDay() }
+                        }
+                )
+            } // outer ZStack
             .background(Color(.systemGroupedBackground))
+            .coordinateSpace(.named("todoScroll"))
+            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { y in
+                scrollOffset = y
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -116,7 +175,7 @@ struct TodoView: View {
                                 )
                             }
                             Text(PlannerService.shared.selectedPlanner?.name ?? "내 플래너")
-                                .font(.callout.weight(.medium))
+                                .font(.callout.weight(.semibold))
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 9, weight: .thin))
                         }
@@ -149,19 +208,16 @@ struct TodoView: View {
                 .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $vm.showDatePaywall) {
-                ProPaywallSheet(
-                    message: viewModel.datePaywallMessage,
-                    onDismiss: { viewModel.dismissDatePaywall() }
-                )
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
+                PaywallView(message: viewModel.datePaywallMessage)
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $showPlannerSheet) {
                 PlannerSelectionSheet()
                     .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $showQuickCapture) {
-                QuickCaptureView(defaultCategoryId: viewModel.selectedCategoryFilter) { title, memo, categoryId, date, scheduledTime, alarmOffset, recurrenceRule, recurrenceEndDate, recurrenceCount in
+                QuickCaptureView(defaultCategoryId: viewModel.selectedCategoryFilter, initialDate: viewModel.selectedDate) { title, memo, categoryId, date, scheduledTime, alarmOffset, recurrenceRule, recurrenceEndDate, recurrenceCount in
                     viewModel.addTodo(title: title, memo: memo, categoryId: categoryId, date: date, scheduledTime: scheduledTime, alarmOffset: alarmOffset, recurrenceRule: recurrenceRule, recurrenceEndDate: recurrenceEndDate, recurrenceCount: recurrenceCount)
                     hapticSuccessTrigger.toggle()
                 }
@@ -174,6 +230,13 @@ struct TodoView: View {
             } message: {
                 Text("어떻게 삭제할까요?")
             }
+            .alert(viewModel.recurringEditAlertTitle, isPresented: $viewModel.showRecurringEditAlert) {
+                Button(viewModel.recurringEditSingleLabel) { viewModel.confirmRecurringEditSingle() }
+                Button(viewModel.recurringEditFutureLabel, role: .destructive) { viewModel.confirmRecurringEditFuture() }
+                Button("취소", role: .cancel) { viewModel.cancelRecurringEdit() }
+            } message: {
+                Text("어떻게 변경할까요?")
+            }
             .sheet(item: $changingDateTodo) { todo in
                 TodoDateChangeSheet(initialDate: todo.date) { newDate in
                     viewModel.changeTodoDate(todo, to: newDate)
@@ -184,12 +247,26 @@ struct TodoView: View {
             .sheet(item: $editingTodo, onDismiss: { showCategorySheet = false }) { todo in
                 TodoEditSheet(
                     todo: todo,
-                    categories: viewModel.activeCategories
-                ) { updated in
-                    viewModel.saveTodoEdit(updated)
-                    hapticSuccessTrigger.toggle()
-                }
+                    categories: viewModel.activeCategories,
+                    onSave: { updated in
+                        viewModel.saveTodoEdit(updated)
+                        hapticSuccessTrigger.toggle()
+                    },
+                    onDeleteTapped: { deletingTodo in
+                        editingTodo = nil
+                        viewModel.requestEditDelete(deletingTodo)
+                    }
+                )
                 .presentationDragIndicator(.visible)
+            }
+            .alert("이 할일을 삭제할까요?", isPresented: $viewModel.showEditDeleteAlert) {
+                Button("삭제", role: .destructive) { viewModel.confirmEditDelete() }
+                Button("취소", role: .cancel) { viewModel.cancelEditDelete() }
+            }
+            .alert("읽기 전용 플래너", isPresented: $viewModel.showReadOnlyAlert) {
+                Button("확인", role: .cancel) { viewModel.cancelReadOnlyAlert() }
+            } message: {
+                Text("이 플래너는 읽기 전용입니다. Pro 구독 시 다시 활성화됩니다.")
             }
             .sheet(isPresented: $showCategorySheet) {
                 NavigationStack {
@@ -322,78 +399,6 @@ private struct FilterChip: View {
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
-    }
-}
-
-// MARK: - 날짜 이동 행
-
-private struct DateNavigationRow: View {
-    let viewModel: TodoViewModel
-
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "ko_KR")
-        f.dateFormat = "yyyy년 M월 d일 EEEE"
-        return f
-    }()
-
-    var body: some View {
-        VStack(spacing: 2) {
-            HStack(spacing: 0) {
-                Button { viewModel.requestPreviousDay() } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(.primary)
-                        .frame(width: 44, height: 44)
-                }
-                .buttonStyle(.plain)
-                .contentShape(Rectangle())
-
-                Text(Self.dateFormatter.string(from: viewModel.selectedDate))
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.primary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .frame(height: 44)
-                    .contentShape(Rectangle())
-                    .onTapGesture { viewModel.requestDatePicker() }
-
-                Button { viewModel.requestNextDay() } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(.primary)
-                        .frame(width: 44, height: 44)
-                }
-                .buttonStyle(.plain)
-                .contentShape(Rectangle())
-            }
-
-            if viewModel.canGoNextDay {
-                Button { viewModel.goToToday() } label: {
-                    Text("오늘로")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Color(.secondaryLabel))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color(.systemGray5), in: Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.vertical, 4)
-        .animation(.easeInOut(duration: 0.2), value: viewModel.canGoNextDay)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 20, coordinateSpace: .local)
-                .onEnded { value in
-                    let h = value.translation.width
-                    let v = value.translation.height
-                    guard abs(h) > abs(v) else { return }
-                    if h < 0 {
-                        viewModel.requestNextDay()
-                    } else {
-                        viewModel.requestPreviousDay()
-                    }
-                }
-        )
     }
 }
 
@@ -567,13 +572,8 @@ private struct ViewOptionsPopover: View {
 private struct PlannerSelectionSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showAddPlanner = false
-    @State private var showProAlert = false
-    #if DEBUG
-    @AppStorage("debugIsPro") private var debugIsPro = false
-    private var isPro: Bool { debugIsPro }
-    #else
-    private let isPro = false
-    #endif
+    @State private var showPaywall = false
+    private var isPro: Bool { SubscriptionManager.shared.isPro }
 
     var body: some View {
         NavigationStack {
@@ -590,16 +590,19 @@ private struct PlannerSelectionSheet: View {
                     }
 
                     Button {
-                        guard isPro else { showProAlert = true; return }
+                        guard isPro else { showPaywall = true; return }
                         showAddPlanner = true
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "plus.circle.fill")
                                 .font(.title3)
                                 .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
-                            Text(isPro ? "플래너 추가" : "플래너 추가  🔒")
-                                .font(.subheadline)
-                                .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
+                            HStack(spacing: 6) {
+                                Text("플래너 추가")
+                                    .font(.subheadline)
+                                    .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
+                                ProBadge()
+                            }
                             Spacer()
                         }
                         .padding(16)
@@ -632,10 +635,10 @@ private struct PlannerSelectionSheet: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
-        .alert("Pro 기능", isPresented: $showProAlert) {
-            Button("확인", role: .cancel) { }
-        } message: {
-            Text("멀티 플래너는 Pro 구독 기능입니다.")
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(message: "멀티 플래너는 Pro 기능이에요")
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
     }
 }
@@ -660,7 +663,7 @@ private struct PlannerCard: View {
                     Text(planner.name)
                         .font(.body.bold())
                         .foregroundStyle(.primary)
-                    Text(planner.isNotionConnected ? "노션에 연결됨" : "로컬 저장")
+                    Text(planner.isReadOnly ? "읽기 전용" : (planner.isNotionConnected ? "노션에 연결됨" : "로컬 저장"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -683,6 +686,8 @@ private struct PlannerCard: View {
             )
         }
         .buttonStyle(.plain)
+        .disabled(planner.isReadOnly)
+        .opacity(planner.isReadOnly ? 0.5 : 1.0)
     }
 }
 
@@ -757,14 +762,15 @@ private struct TodoDateChangeSheet: View {
 private struct TodoEditSheet: View {
     let categories: [Category]
     let onSave: (Todo) -> Void
+    let onDeleteTapped: ((Todo) -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var draft: Todo
     @State private var showDatePicker = false
-    @State private var showRepeatAlert = false
 
-    init(todo: Todo, categories: [Category], onSave: @escaping (Todo) -> Void) {
+    init(todo: Todo, categories: [Category], onSave: @escaping (Todo) -> Void, onDeleteTapped: ((Todo) -> Void)? = nil) {
         self.categories = categories
         self.onSave = onSave
+        self.onDeleteTapped = onDeleteTapped
         _draft = State(initialValue: todo)
     }
 
@@ -786,14 +792,19 @@ private struct TodoEditSheet: View {
                     showDatePicker: $showDatePicker,
                     scheduledTime: $draft.scheduledTime,
                     alarmOffset: $draft.alarmOffset,
-                    recurrence: $draft.recurrenceRule,
-                    recurrenceEndDate: $draft.recurrenceEndDate,
-                    recurrenceCount: $draft.recurrenceCount,
                     categories: categories,
-                    autoFocus: false,
-                    isPro: UserDefaults.standard.bool(forKey: "debugIsPro"),
-                    onRepeatTap: { showRepeatAlert = true }
+                    autoFocus: false
                 )
+
+                if onDeleteTapped != nil {
+                    Section {
+                        Button("삭제") {
+                            onDeleteTapped?(draft)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .foregroundStyle(.red)
+                    }
+                }
             }
             .navigationTitle("편집")
             .navigationBarTitleDisplayMode(.inline)
@@ -815,11 +826,6 @@ private struct TodoEditSheet: View {
                     .tint(isSaveEnabled ? AppTheme.shared.accent : Color(.tertiaryLabel))
                     .fontWeight(.semibold)
                 }
-            }
-            .alert("Pro 기능", isPresented: $showRepeatAlert) {
-                Button("확인", role: .cancel) { }
-            } message: {
-                Text("반복 투두는 Pro 구독 기능입니다.")
             }
         }
         .presentationDetents([.large])

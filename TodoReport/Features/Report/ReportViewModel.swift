@@ -38,11 +38,7 @@ final class ReportViewModel {
     private var pendingChartData: PeriodReportChartData?
     var notionSaveError: String?
 
-    #if DEBUG
-    private var isPro: Bool { UserDefaults.standard.bool(forKey: "debugIsPro") }
-    #else
-    private let isPro = false
-    #endif
+    private var isPro: Bool { SubscriptionManager.shared.isPro }
 
     private let service = ReportService.shared
     private let calendar = Calendar.current

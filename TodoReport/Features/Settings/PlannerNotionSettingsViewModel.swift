@@ -120,10 +120,10 @@ final class PlannerNotionSettingsViewModel {
 
     func selectReportDB(_ id: String) {
         selectedReportDBId = id
-        Task { await fetchReportProperties() }
+        Task { await fetchReportProperties(autoMap: true) }
     }
 
-    func fetchReportProperties() async {
+    func fetchReportProperties(autoMap: Bool = false) async {
         guard let dbId = selectedReportDBId else { return }
         isLoading = true
         defer { isLoading = false }
@@ -139,7 +139,7 @@ final class PlannerNotionSettingsViewModel {
             reportProperties = decoded.properties.map {
                 NotionProperty(id: $0.id, name: $0.name, type: $0.type, options: $0.options)
             }
-            autoMapReportProps()
+            if autoMap { autoMapReportProps() }
         } catch {
             alertMessage = "리포트 속성을 불러오지 못했어요"
         }
@@ -155,9 +155,21 @@ final class PlannerNotionSettingsViewModel {
             reportPropsMapping.review = reviewProp.name
             reviewMode = .existing
         }
-        if let ratingProp = best(type: "select", default: "별점") {
-            reportPropsMapping.rating = ratingProp.name
+        if let ratingProp = best(type: "select", default: "별점") ?? best(type: "status", default: "별점") {
+            selectRating(ratingProp.name)
+        }
+    }
+
+    func selectRating(_ name: String?) {
+        reportPropsMapping.rating = name
+        if let name, let prop = reportProperties.first(where: { $0.name == name }) {
+            reportPropsMapping.dayRatingOptions = prop.options ?? []
+            reportPropsMapping.ratingPropType = prop.type
             ratingMode = .existing
+        } else {
+            reportPropsMapping.dayRatingOptions = []
+            reportPropsMapping.ratingPropType = nil
+            ratingMode = .appOnly
         }
     }
 
@@ -187,6 +199,8 @@ final class PlannerNotionSettingsViewModel {
         let options = DayRating.allCases.map { $0.rawValue }
         guard let dbId = selectedReportDBId,
               let name = await addNotionProperty(dbId: dbId, name: "별점", type: "select", options: options) else { return }
+        reportPropsMapping.dayRatingOptions = options
+        reportPropsMapping.ratingPropType = "select"
         reportPropsMapping.rating = name
         ratingMode = .existing
     }

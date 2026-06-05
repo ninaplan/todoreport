@@ -20,6 +20,8 @@ struct Planner: Identifiable, Hashable, Codable {
     // Notion 속성 매핑 (JSON 문자열로 저장)
     var todoPropsMapping: String?
     var reportPropsMapping: String?
+    // Pro 해지 후 읽기 전용 전환 여부
+    var isReadOnly: Bool
 
     init(
         id: String = UUID().uuidString,
@@ -33,7 +35,8 @@ struct Planner: Identifiable, Hashable, Codable {
         iconImageData: Data? = nil,
         createdAt: Date = .now,
         todoPropsMapping: String? = nil,
-        reportPropsMapping: String? = nil
+        reportPropsMapping: String? = nil,
+        isReadOnly: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -47,6 +50,7 @@ struct Planner: Identifiable, Hashable, Codable {
         self.createdAt = createdAt
         self.todoPropsMapping = todoPropsMapping
         self.reportPropsMapping = reportPropsMapping
+        self.isReadOnly = isReadOnly
     }
 
     // 이 플래너에서 사용할 Notion 액세스 토큰
@@ -250,6 +254,30 @@ final class PlannerService {
         try? context.save()
         refreshStore()
         print("[PlannerService] 🔄 연동 초기화 완료 - plannerId:\(id)")
+    }
+
+    // MARK: - Pro 해지 다운그레이드
+
+    func downgradeToFree(keepPlannerId: String) {
+        guard let items = try? context.fetch(FetchDescriptor<PlannerItem>()) else { return }
+        for item in items {
+            item.isReadOnly = (item.id != keepPlannerId)
+        }
+        try? context.save()
+        refreshStore()
+        if selectedPlannerId != keepPlannerId {
+            selectedPlannerId = keepPlannerId
+            UserDefaults.standard.set(keepPlannerId, forKey: "selectedPlannerId")
+        }
+    }
+
+    func restoreAllPlanners() {
+        guard let items = try? context.fetch(FetchDescriptor<PlannerItem>()) else { return }
+        for item in items {
+            item.isReadOnly = false
+        }
+        try? context.save()
+        refreshStore()
     }
 
     func deletePlanner(_ planner: Planner) async throws {

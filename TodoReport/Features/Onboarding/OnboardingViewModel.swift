@@ -30,6 +30,8 @@ struct ReportPropsMapping: Codable {
     var review: String? = nil
     var rating: String? = nil
     var periodCompletionRate: String? = nil
+    var dayRatingOptions: [String] = []
+    var ratingPropType: String? = nil
 }
 
 enum PropMappingMode: Equatable {
@@ -72,6 +74,7 @@ final class OnboardingViewModel {
     // 선택 속성 매핑 모드
     var memoMode: PropMappingMode = .appOnly
     var isPinnedMode: PropMappingMode = .appOnly
+    var reportRelationMode: PropMappingMode = .appOnly
     var reviewMode: PropMappingMode = .appOnly
     var ratingMode: PropMappingMode = .appOnly
 
@@ -172,6 +175,11 @@ final class OnboardingViewModel {
     func selectReportDB(_ id: String) {
         selectedReportDBId = id
         Task { await fetchReportProperties() }
+    }
+
+    func skipReportDB() {
+        selectedReportDBId = nil
+        Task { await performInitialFetch() }
     }
 
     // MARK: - Step 8: Map Report Props
@@ -344,10 +352,14 @@ final class OnboardingViewModel {
             let typed = props.filter { $0.type == type }
             return typed.first(where: { $0.name == name })?.name ?? typed.first?.name
         }
-        todoPropsMapping.completed = best(props: todoProperties, type: "checkbox",  default: "완료")
-        todoPropsMapping.date      = best(props: todoProperties, type: "date",      default: "날짜")
-        todoPropsMapping.memo      = best(props: todoProperties, type: "rich_text", default: "메모")
-        todoPropsMapping.isPinned  = best(props: todoProperties, type: "checkbox",  default: "중요")
+        todoPropsMapping.completed      = best(props: todoProperties, type: "checkbox",  default: "완료")
+        todoPropsMapping.date           = best(props: todoProperties, type: "date",      default: "날짜")
+        todoPropsMapping.memo           = best(props: todoProperties, type: "rich_text", default: "메모")
+        todoPropsMapping.isPinned       = best(props: todoProperties, type: "checkbox",  default: "중요")
+        todoPropsMapping.reportRelation = best(props: todoProperties, type: "relation",  default: "데일리 리포트")
+        memoMode           = todoPropsMapping.memo != nil           ? .existing : .appOnly
+        isPinnedMode       = todoPropsMapping.isPinned != nil       ? .existing : .appOnly
+        reportRelationMode = todoPropsMapping.reportRelation != nil ? .existing : .appOnly
     }
 
     // MARK: - 속성 생성
@@ -376,6 +388,8 @@ final class OnboardingViewModel {
         let options = DayRating.allCases.map { $0.rawValue }
         guard let dbId = selectedReportDBId,
               let name = await addNotionProperty(dbId: dbId, name: "별점", type: "select", options: options) else { return }
+        reportPropsMapping.dayRatingOptions = options
+        reportPropsMapping.ratingPropType = "select"
         reportPropsMapping.rating = name
         ratingMode = .existing
     }
@@ -414,9 +428,21 @@ final class OnboardingViewModel {
             reportPropsMapping.review = reviewProp.name
             reviewMode = .existing
         }
-        if let ratingProp = best(props: reportProperties, type: "select", default: "별점") {
-            reportPropsMapping.rating = ratingProp.name
+        if let ratingProp = best(props: reportProperties, type: "select", default: "별점") ?? best(props: reportProperties, type: "status", default: "별점") {
+            selectRating(ratingProp.name)
+        }
+    }
+
+    func selectRating(_ name: String?) {
+        reportPropsMapping.rating = name
+        if let name, let prop = reportProperties.first(where: { $0.name == name }) {
+            reportPropsMapping.dayRatingOptions = prop.options ?? []
+            reportPropsMapping.ratingPropType = prop.type
             ratingMode = .existing
+        } else {
+            reportPropsMapping.dayRatingOptions = []
+            reportPropsMapping.ratingPropType = nil
+            ratingMode = .appOnly
         }
     }
 }

@@ -94,6 +94,12 @@ final class PlannerAddViewModel {
         await savePlanner()
     }
 
+    func skipReportDB() async {
+        selectedReportDBId = nil
+        reportPropsMapping = ReportPropsMapping()
+        await savePlanner()
+    }
+
     // MARK: - 저장
 
     private func savePlanner() async {
@@ -226,6 +232,8 @@ final class PlannerAddViewModel {
         let options = DayRating.allCases.map { $0.rawValue }
         guard let dbId = selectedReportDBId,
               let name = await addNotionProperty(dbId: dbId, name: "별점", type: "select", options: options, token: token) else { return }
+        reportPropsMapping.dayRatingOptions = options
+        reportPropsMapping.ratingPropType = "select"
         reportPropsMapping.rating = name
         ratingMode = .existing
     }
@@ -274,7 +282,20 @@ final class PlannerAddViewModel {
         }
         reportPropsMapping.date = best(type: "date", default: "날짜")?.name
         if let p = best(type: "rich_text", default: "하루 리뷰") { reportPropsMapping.review = p.name; reviewMode = .existing }
-        if let p = best(type: "select",    default: "별점")      { reportPropsMapping.rating = p.name; ratingMode = .existing }
+        if let p = best(type: "select", default: "별점") ?? best(type: "status", default: "별점") { selectRating(p.name) }
+    }
+
+    func selectRating(_ name: String?) {
+        reportPropsMapping.rating = name
+        if let name, let prop = reportProperties.first(where: { $0.name == name }) {
+            reportPropsMapping.dayRatingOptions = prop.options ?? []
+            reportPropsMapping.ratingPropType = prop.type
+            ratingMode = .existing
+        } else {
+            reportPropsMapping.dayRatingOptions = []
+            reportPropsMapping.ratingPropType = nil
+            ratingMode = .appOnly
+        }
     }
 }
 

@@ -19,7 +19,7 @@ final class TodoViewModel {
     var selectedDate: Date = .now {
         didSet {
             Task { await fetchTodos() }
-            Task { @MainActor in RecurringTodoManager.shared.generateUpcoming() }
+            Task { @MainActor in await RecurringTodoManager.shared.generateUpcoming() }
         }
     }
 
@@ -27,11 +27,13 @@ final class TodoViewModel {
     private let categoryService = CategoryService.shared
     private var notionSyncTask: Task<Void, Never>?
 
-    #if DEBUG
-    private var isPro: Bool { UserDefaults.standard.bool(forKey: "debugIsPro") }
-    #else
-    private let isPro = false
-    #endif
+    private var isPro: Bool { SubscriptionManager.shared.isPro }
+
+    var isCurrentPlannerReadOnly: Bool {
+        PlannerService.shared.selectedPlanner?.isReadOnly ?? false
+    }
+
+    var showReadOnlyAlert: Bool = false
 
     var showDatePaywall: Bool = false
     private(set) var datePaywallMessage: String = ""
@@ -40,6 +42,9 @@ final class TodoViewModel {
 
     var showDeleteAlert: Bool = false
     private(set) var pendingDeleteTodo: Todo? = nil
+
+    var showRecurringEditAlert: Bool = false
+    private(set) var pendingRecurringEdit: RecurringEditPendingInfo? = nil
 
     // MARK: - Computed
 
@@ -98,6 +103,17 @@ final class TodoViewModel {
         await fetchTodos()
     }
 
+    func onForeground() async {
+        // pending SyncQueue 항목 push 완료 대기 (최대 5초) 후 fetch
+        // → 날짜 변경 등 로컬 변경이 Notion에 반영된 뒤 fetch 하도록 순서 보장
+        let timeout = Date.now.addingTimeInterval(5)
+        while await MainActor.run(body: { SyncQueueManager.shared.hasPendingItems })
+                && Date.now < timeout {
+            try? await Task.sleep(for: .milliseconds(200))
+        }
+        await fetchTodos()
+    }
+
     func fetchTodos() async {
         isLoading = true
         todos = await service.fetchTodos(for: selectedDate)
@@ -153,6 +169,7 @@ final class TodoViewModel {
     }
 
     func addTodo(title: String, memo: String? = nil, categoryId: String? = nil, date: Date? = nil, scheduledTime: Date? = nil, alarmOffset: Int? = nil, recurrenceRule: RecurrenceRule? = nil, recurrenceEndDate: Date? = nil, recurrenceCount: Int? = nil) {
+        guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
         let trimmed = title.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         let recurrenceId = recurrenceRule != nil ? UUID().uuidString : nil
@@ -160,6 +177,7 @@ final class TodoViewModel {
             title: trimmed, memo: memo,
             date: date ?? selectedDate,
             categoryId: categoryId,
+            plannerId: PlannerService.shared.selectedPlanner?.id,
             scheduledTime: scheduledTime, alarmOffset: alarmOffset,
             recurrenceRule: recurrenceRule,
             recurrenceId: recurrenceId,
@@ -169,11 +187,12 @@ final class TodoViewModel {
         todos.append(todo)
         Task { try? await service.saveTodo(todo) }
         if recurrenceRule != nil {
-            Task { RecurringTodoManager.shared.generateUpcoming() }
+            Task { await RecurringTodoManager.shared.generateUpcoming() }
         }
     }
 
     func deleteTodo(_ todo: Todo) {
+        guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
         todos.removeAll { $0.id == todo.id }
         Task { try? await service.deleteTodo(id: todo.id) }
     }
@@ -205,6 +224,70 @@ final class TodoViewModel {
         pendingDeleteTodo = nil
     }
 
+    // MARK: - Edit Sheet Delete Alert
+
+    var showEditDeleteAlert: Bool = false
+    private(set) var pendingEditDeleteTodo: Todo? = nil
+
+    func requestEditDelete(_ todo: Todo) {
+        pendingEditDeleteTodo = todo
+        showEditDeleteAlert = true
+    }
+
+    func cancelEditDelete() {
+        pendingEditDeleteTodo = nil
+    }
+
+    func confirmEditDelete() {
+        guard let todo = pendingEditDeleteTodo else { return }
+        pendingEditDeleteTodo = nil
+        requestDelete(todo)
+    }
+
+    // MARK: - Recurring Edit Alert
+
+    var recurringEditAlertTitle: String {
+        switch pendingRecurringEdit?.changeType {
+        case .removeRecurrence: return "반복 해제"
+        case .changeRule:       return "반복 주기 변경"
+        default:                return "반복 투두 편집"
+        }
+    }
+
+    var recurringEditSingleLabel: String {
+        pendingRecurringEdit?.changeType == .removeRecurrence ? "이 항목만 해제" : "이 항목만 변경"
+    }
+
+    var recurringEditFutureLabel: String {
+        pendingRecurringEdit?.changeType == .removeRecurrence ? "이후 항목 모두 해제" : "이후 항목 모두 변경"
+    }
+
+    func cancelRecurringEdit() {
+        pendingRecurringEdit = nil
+    }
+
+    func confirmRecurringEditSingle() {
+        guard let info = pendingRecurringEdit else { return }
+        pendingRecurringEdit = nil
+        Task {
+            try? await RecurringTodoEditHandler.applySingleOnly(
+                original: info.original, updated: info.updated, changeType: info.changeType
+            )
+            todos = await service.fetchTodos(for: selectedDate)
+        }
+    }
+
+    func confirmRecurringEditFuture() {
+        guard let info = pendingRecurringEdit else { return }
+        pendingRecurringEdit = nil
+        Task {
+            try? await RecurringTodoEditHandler.applyFromNowOn(
+                original: info.original, updated: info.updated, changeType: info.changeType
+            )
+            todos = await service.fetchTodos(for: selectedDate)
+        }
+    }
+
     func moveToTomorrow(_ todo: Todo) {
         guard let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) else { return }
         var moved = todo
@@ -227,6 +310,33 @@ final class TodoViewModel {
     }
 
     func saveTodoEdit(_ updated: Todo) {
+        if let original = todos.first(where: { $0.id == updated.id }),
+           let changeType = RecurringTodoEditHandler.detectChange(original: original, updated: updated) {
+            if changeType == .changeEndCondition {
+                // 종료 조건 변경은 alert 없이 시리즈 전체에 적용
+                Task {
+                    try? await RecurringTodoEditHandler.applyFromNowOn(
+                        original: original, updated: updated, changeType: changeType
+                    )
+                    todos = await service.fetchTodos(for: selectedDate)
+                }
+            } else {
+                pendingRecurringEdit = RecurringEditPendingInfo(
+                    original: original, updated: updated, changeType: changeType
+                )
+                showRecurringEditAlert = true
+            }
+            return
+        }
+        performSaveTodoEdit(updated)
+    }
+
+    func cancelReadOnlyAlert() {
+        showReadOnlyAlert = false
+    }
+
+    private func performSaveTodoEdit(_ updated: Todo) {
+        guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
         let isSameDay = Calendar.current.isDate(updated.date, inSameDayAs: selectedDate)
         if isSameDay {
             if let index = todos.firstIndex(where: { $0.id == updated.id }) {
@@ -265,7 +375,11 @@ final class TodoViewModel {
     }
 
     func requestPreviousDay() {
-        guard isPro else {
+        let cal = Calendar.current
+        let todayStart = cal.startOfDay(for: .now)
+        let selectedStart = cal.startOfDay(for: selectedDate)
+        let yesterdayStart = cal.date(byAdding: .day, value: -1, to: todayStart) ?? todayStart
+        guard isPro || selectedStart > yesterdayStart else {
             datePaywallMessage = "다른 날 투두 확인은 Pro 기능이에요"
             showDatePaywall = true
             return
@@ -279,14 +393,16 @@ final class TodoViewModel {
     }
 
     func requestNextDay() {
-        let todayStart = Calendar.current.startOfDay(for: .now)
-        let selectedStart = Calendar.current.startOfDay(for: selectedDate)
-        guard isPro || selectedStart < todayStart else {
+        let cal = Calendar.current
+        let todayStart = cal.startOfDay(for: .now)
+        let selectedStart = cal.startOfDay(for: selectedDate)
+        let tomorrowStart = cal.date(byAdding: .day, value: 1, to: todayStart) ?? todayStart
+        guard isPro || selectedStart < tomorrowStart else {
             datePaywallMessage = "다른 날 투두 확인은 Pro 기능이에요"
             showDatePaywall = true
             return
         }
-        guard let next = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) else { return }
+        guard let next = cal.date(byAdding: .day, value: 1, to: selectedDate) else { return }
         selectedDate = next
     }
 

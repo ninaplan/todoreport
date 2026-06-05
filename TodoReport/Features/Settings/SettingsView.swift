@@ -6,18 +6,14 @@ struct SettingsView: View {
     @AppStorage("onboardingCompleted") private var onboardingCompleted = false
 
     private var planners: [Planner] { PlannerService.shared.store }
-    #if DEBUG
-    private var isPro: Bool { debugIsPro }
-    #else
-    private let isPro = false
-    #endif
+    private var isPro: Bool { SubscriptionManager.shared.isPro }
 
     @State private var language = "한국어"
     @AppStorage("startWeekday") private var startWeekday = "월"
     @State private var notificationEnabled = true
     @State private var showLogoutAlert = false
     @State private var showAddPlannerSheet = false
-    @State private var showRestoreAlert = false
+    @State private var showPaywall = false
 
     #if DEBUG
     @AppStorage("debugIsPro") private var debugIsPro = false
@@ -54,10 +50,10 @@ struct SettingsView: View {
                 .presentationDragIndicator(.visible)
                 .presentationDetents([.large])
         }
-        .alert("준비 중", isPresented: $showRestoreAlert) {
-            Button("확인", role: .cancel) { }
-        } message: {
-            Text("준비 중입니다.")
+        .sheet(isPresented: $showPaywall) {
+            PaywallView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
     }
 
@@ -71,12 +67,12 @@ struct SettingsView: View {
             }
             if !isPro {
                 Button("Pro로 업그레이드") {
-                    // TODO: Paywall
+                    showPaywall = true
                 }
                 .foregroundStyle(AppTheme.shared.accent)
             }
             Button("구독 복원") {
-                showRestoreAlert = true
+                Task { try? await SubscriptionManager.shared.restorePurchases() }
             }
             .foregroundStyle(.secondary)
         }
@@ -92,13 +88,20 @@ struct SettingsView: View {
                 } label: {
                     PlannerRow(planner: planner)
                 }
+                .disabled(planner.isReadOnly)
+                .opacity(planner.isReadOnly ? 0.4 : 1.0)
             }
             Button {
-                guard isPro else { return /* TODO: Paywall */ }
+                guard isPro else { showPaywall = true; return }
                 showAddPlannerSheet = true
             } label: {
-                Label(isPro ? "플래너 추가" : "플래너 추가  🔒", systemImage: "plus.circle.fill")
-                    .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
+                HStack(spacing: 6) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
+                        Text("플래너 추가")
+                            .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
+                        ProBadge()
+                    }
             }
         }
     }
@@ -202,6 +205,9 @@ struct SettingsView: View {
         Section("개발자 도구") {
             Toggle("Pro 모드", isOn: $debugIsPro)
                 .tint(AppTheme.shared.accent)
+                .onChange(of: debugIsPro) { oldValue, _ in
+                    SubscriptionManager.shared.refreshIsProDebug(previousValue: oldValue)
+                }
             Button("SyncQueue 비우기") {
                 showClearQueueConfirm = true
             }
@@ -243,10 +249,22 @@ private struct PlannerRow: View {
                 colorHex: planner.colorHex,
                 size: 28
             )
-            Text(planner.name)
-                .lineLimit(1)
-                .truncationMode(.tail)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(planner.name)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if planner.isReadOnly {
+                    Text("Pro 구독 시 다시 활성화됩니다")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             Spacer()
+            if planner.isReadOnly {
+                Image(systemName: "lock.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             if planner.isNotionConnected {
                 NotionBadge()
             }

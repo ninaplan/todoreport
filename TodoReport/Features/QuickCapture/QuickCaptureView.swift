@@ -2,13 +2,14 @@ import SwiftUI
 
 struct QuickCaptureView: View {
     let defaultCategoryId: String?
-    @State private var viewModel = QuickCaptureViewModel()
+    @State private var viewModel: QuickCaptureViewModel
     @Environment(\.dismiss) private var dismiss
     let onSave: (String, String?, String?, Date, Date?, Int?, RecurrenceRule?, Date?, Int?) -> Void
 
-    init(defaultCategoryId: String? = nil, onSave: @escaping (String, String?, String?, Date, Date?, Int?, RecurrenceRule?, Date?, Int?) -> Void) {
+    init(defaultCategoryId: String? = nil, initialDate: Date = .now, onSave: @escaping (String, String?, String?, Date, Date?, Int?, RecurrenceRule?, Date?, Int?) -> Void) {
         self.defaultCategoryId = defaultCategoryId
         self.onSave = onSave
+        _viewModel = State(initialValue: QuickCaptureViewModel(initialDate: initialDate))
     }
 
     var body: some View {
@@ -22,12 +23,7 @@ struct QuickCaptureView: View {
                     showDatePicker: $viewModel.showDatePicker,
                     scheduledTime: $viewModel.scheduledTime,
                     alarmOffset: $viewModel.alarmOffset,
-                    recurrence: $viewModel.recurrenceRule,
-                    recurrenceEndDate: $viewModel.recurrenceEndDate,
-                    recurrenceCount: $viewModel.recurrenceCount,
-                    categories: viewModel.categories,
-                    isPro: UserDefaults.standard.bool(forKey: "debugIsPro"),
-                    onRepeatTap: { viewModel.showProAlert = true }
+                    categories: viewModel.categories
                 )
             }
             .navigationTitle("할일 추가")
@@ -57,11 +53,6 @@ struct QuickCaptureView: View {
                     .tint(viewModel.isSaveEnabled ? AppTheme.shared.accent : Color(.tertiaryLabel))
                     .fontWeight(.semibold)
                 }
-            }
-            .alert("Pro 기능", isPresented: $viewModel.showProAlert) {
-                Button("확인", role: .cancel) { }
-            } message: {
-                Text("반복 투두는 Pro 구독 기능입니다.")
             }
             .task {
                 await viewModel.fetchCategories()

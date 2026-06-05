@@ -5,7 +5,7 @@ final class QuickCaptureViewModel {
     var title: String = ""
     var memo: String = ""
     var selectedCategoryId: String? = nil
-    var selectedDate: Date = .now
+    var selectedDate: Date
     var showDatePicker: Bool = false
     var showProAlert: Bool = false
     var scheduledTime: Date? = nil
@@ -16,6 +16,10 @@ final class QuickCaptureViewModel {
     private(set) var categories: [Category] = []
 
     private let categoryService = CategoryService.shared
+
+    init(initialDate: Date = .now) {
+        self.selectedDate = initialDate
+    }
 
     var isSaveEnabled: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty

@@ -2,6 +2,7 @@ import SwiftUI
 
 private func propTypeIcon(for type: String?, label: String? = nil) -> String {
     if label == "상단고정" { return "pin.fill" }
+    if label == "지수" { return "pawprint.circle.fill" }
     switch type {
     case "checkbox":  return "checkmark.square"
     case "date":      return "calendar"

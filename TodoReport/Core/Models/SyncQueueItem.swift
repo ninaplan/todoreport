@@ -9,6 +9,7 @@ final class SyncQueueItem {
     var entityId: String
     var payload: Data
     var retryCount: Int
+    @Attribute var requeueCount: Int = 0   // create 미완료로 인한 update 재배치 횟수
     var status: String      // "pending" / "processing" / "failed"
     var createdAt: Date
     var plannerId: String?
@@ -20,6 +21,7 @@ final class SyncQueueItem {
         entityId: String,
         payload: Data,
         retryCount: Int = 0,
+        requeueCount: Int = 0,
         status: String = "pending",
         createdAt: Date = .now,
         plannerId: String? = nil
@@ -30,6 +32,7 @@ final class SyncQueueItem {
         self.entityId = entityId
         self.payload = payload
         self.retryCount = retryCount
+        self.requeueCount = requeueCount
         self.status = status
         self.createdAt = createdAt
         self.plannerId = plannerId

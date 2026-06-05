@@ -18,6 +18,8 @@ final class PlannerItem {
     // Notion 속성 매핑 (JSON 문자열)
     var todoPropsMapping: String?
     var reportPropsMapping: String?
+    // Pro 해지 후 읽기 전용 전환 여부
+    var isReadOnly: Bool = false
 
     init(
         id: String = UUID().uuidString,
@@ -31,7 +33,8 @@ final class PlannerItem {
         iconImageData: Data? = nil,
         createdAt: Date = .now,
         todoPropsMapping: String? = nil,
-        reportPropsMapping: String? = nil
+        reportPropsMapping: String? = nil,
+        isReadOnly: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -45,6 +48,7 @@ final class PlannerItem {
         self.createdAt = createdAt
         self.todoPropsMapping = todoPropsMapping
         self.reportPropsMapping = reportPropsMapping
+        self.isReadOnly = isReadOnly
     }
 
     func toPlanner() -> Planner {
@@ -58,7 +62,8 @@ final class PlannerItem {
             iconImageData: iconImageData,
             createdAt: createdAt,
             todoPropsMapping: todoPropsMapping,
-            reportPropsMapping: reportPropsMapping
+            reportPropsMapping: reportPropsMapping,
+            isReadOnly: isReadOnly
         )
     }
 
@@ -73,6 +78,7 @@ final class PlannerItem {
         iconImageData = planner.iconImageData
         todoPropsMapping = planner.todoPropsMapping
         reportPropsMapping = planner.reportPropsMapping
+        isReadOnly = planner.isReadOnly
     }
 
     static func from(_ planner: Planner) -> PlannerItem {
@@ -86,7 +92,8 @@ final class PlannerItem {
             iconImageData: planner.iconImageData,
             createdAt: planner.createdAt,
             todoPropsMapping: planner.todoPropsMapping,
-            reportPropsMapping: planner.reportPropsMapping
+            reportPropsMapping: planner.reportPropsMapping,
+            isReadOnly: planner.isReadOnly
         )
     }
 }

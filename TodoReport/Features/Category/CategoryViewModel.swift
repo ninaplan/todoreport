@@ -123,6 +123,18 @@ final class CategoryViewModel {
         (["목표", "goal", "target"], "flag.fill"),
         (["영화", "드라마", "movie", "film", "drama"], "film.fill"),
         (["tv", "티비", "television", "넷플릭스"], "tv.fill"),
+        // 집안일
+        (["세탁", "빨래", "세탁기", "laundry", "wash"], "washer"),
+        (["건조", "건조기", "dryer", "dry"], "dryer"),
+        (["침대", "잠자리", "bed", "sleep", "bedding"], "bed.double"),
+        (["쓰레기", "분리수거", "trash", "recycle", "garbage"], "trash"),
+        (["반려동물", "강아지", "고양이", "dog", "cat", "pet", "animal"], "pawprint"),
+        (["식물", "화분", "물주기", "plant", "garden", "flower"], "leaf"),
+        (["욕실", "샤워", "청소", "bathroom", "shower", "toilet"], "shower"),
+        (["집수리", "수리", "repair", "fix", "diy", "전구"], "lightbulb"),
+        (["육아", "아이", "아기", "어린이", "child", "baby", "kids", "parenting"], "figure.and.child.holdinghands"),
+        (["냉장고", "주방", "refrigerator", "fridge", "kitchen"], "refrigerator"),
+        (["장보기", "마트", "슈퍼", "grocery", "mart", "supermarket"], "cart"),
     ]
 
     // MARK: - Save

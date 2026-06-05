@@ -50,7 +50,7 @@ struct PlannerNotionSettingsView: View {
             case .todo:
                 if viewModel.selectedTodoDBId != nil { await viewModel.fetchTodoProperties() }
             case .report:
-                if viewModel.selectedReportDBId != nil { await viewModel.fetchReportProperties() }
+                if viewModel.selectedReportDBId != nil { await viewModel.fetchReportProperties(autoMap: false) }
             }
         }
         .alert("오류", isPresented: Binding(
@@ -109,13 +109,14 @@ struct PlannerNotionSettingsView: View {
                 selection: $viewModel.todoPropsMapping.isPinned,
                 onCreate: { Task { await viewModel.createPinnedProperty() } }
             )
-            SettingsOptionalPropRow(
-                label: "리포트 연결", typeIcon: "link",
-                candidates: viewModel.todoProperties.filter { $0.type == "relation" },
-                mode: $viewModel.reportRelationMode,
-                selection: $viewModel.todoPropsMapping.reportRelation,
-                hint: viewModel.todoProperties.isEmpty ? nil : "투두 DB와 리포트 DB가 노션에서 관계형으로 연결되어 있지 않습니다"
-            )
+            if viewModel.selectedReportDBId != nil {
+                SettingsOptionalPropRow(
+                    label: "리포트 연결", typeIcon: "link",
+                    candidates: viewModel.todoProperties.filter { $0.type == "relation" },
+                    mode: $viewModel.reportRelationMode,
+                    selection: $viewModel.todoPropsMapping.reportRelation
+                )
+            }
         } header: {
             Text("투두 속성 매핑")
         }
@@ -134,6 +135,8 @@ struct PlannerNotionSettingsView: View {
             )
         } header: {
             Text("데일리리포트 데이터베이스")
+        } footer: {
+            Text("연결하지 않으면 리포트는 앱 내에서만 저장됩니다.")
         }
     }
 
@@ -154,10 +157,13 @@ struct PlannerNotionSettingsView: View {
                 selection: $viewModel.reportPropsMapping.review
             )
             SettingsOptionalPropRow(
-                label: "별점", typeIcon: "star",
-                candidates: viewModel.reportProperties.filter { $0.type == "select" },
+                label: "지수", typeIcon: "pawprint.circle.fill",
+                candidates: viewModel.reportProperties.filter { $0.type == "select" || $0.type == "status" },
                 mode: $viewModel.ratingMode,
-                selection: $viewModel.reportPropsMapping.rating,
+                selection: Binding(
+                    get: { viewModel.reportPropsMapping.rating },
+                    set: { viewModel.selectRating($0) }
+                ),
                 onCreate: { Task { await viewModel.createRatingProperty() } }
             )
         }

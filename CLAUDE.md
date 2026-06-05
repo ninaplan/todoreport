@@ -270,6 +270,32 @@ SyncManager.shared.enqueue(.createTodo(todo))
 
 ---
 
+## SyncQueue 아키텍처 원칙
+
+**원칙 1: 동기화 작업은 selectedPlanner(UI 상태)에 절대 의존하지 않는다**
+
+SyncQueue는 백그라운드·포그라운드 전환, 앱 재실행 시 처리되므로 실행 시점에 selectedPlanner가 달라져 있을 수 있다.
+→ 반드시 `todo.plannerId` 기준으로 `PlannerService.shared.store`에서 해당 플래너를 직접 조회한다.
+
+```swift
+// ❌ 금지: UI 상태에서 읽기
+let token = PlannerService.shared.selectedPlanner?.resolvedNotionToken
+
+// ✅ 올바른 방법: 큐 항목의 plannerId 기준 조회
+guard let planner = PlannerService.shared.store.first(where: { $0.id == item.plannerId }),
+      let token = planner.resolvedNotionToken else { return }
+```
+
+**원칙 2: `TodoItem.update(from:)`은 사용자 편집 가능 필드만 업데이트한다**
+
+다음 필드는 각 담당 로직이 단독 관리하므로 `update(from:)`에서 절대 덮어쓰지 않는다:
+- `notionPageId` — SyncQueueProcessor.updateNotionPageId()가 세팅
+- `notionRelationLinked` — NotionRelationLinker / updateTodo(dateChanged) 관리
+- `notionCreatedAt` — Notion에서 내려온 값만 신뢰 (upsertFromNotion에서 직접 세팅)
+- `plannerId` — 생성 시 고정, 플래너 이동 기능 구현 시 별도 메서드로 처리
+
+---
+
 ## 유료 기능 게이팅 패턴
 
 ```swift
@@ -286,7 +312,7 @@ guard SubscriptionManager.shared.isPro else {
 - 주간 리포트
 - 월간 리포트
 - 멀티 플래너 (2개 이상)
-- 반복 투두
+- 반복 투두 (v2 예정)
 
 ---
 
@@ -384,6 +410,46 @@ guard let value = optional else { return }
 
 ---
 
+## 알려진 패턴 / 주의사항
+
+**SwiftUI View에서 live 데이터 읽기 — stale 스냅샷 주의**
+
+`let planner: Planner`처럼 value type을 상수로 들고 있으면 저장 후 dismiss 없이는 UI가 갱신되지 않는다.
+`@Observable` 서비스에서 매 render마다 조회하는 computed property 패턴을 사용한다.
+
+```swift
+// ❌ 금지: init 시점 스냅샷 — 노션 연결 완료 후에도 "연결하기" 버튼이 그대로 보임
+private let planner: Planner
+
+// ✅ 올바른 방법: PlannerService.shared는 @Observable, store 변경 시 자동 re-render
+private var currentPlanner: Planner {
+    PlannerService.shared.store.first(where: { $0.id == plannerId }) ?? initialPlanner
+}
+```
+
+**ModelContainer 초기화 실패 — in-memory 폴백 금지**
+
+`isStoredInMemoryOnly: true` 폴백은 데이터 소멸을 조용히 감추고, 사용자는 데이터가 사라진 줄 모른다.
+→ DEBUG: `fatalError`로 즉시 크래시, Release: `PersistenceErrorView` 표시 후 정상 플로우 차단.
+
+```swift
+// ❌ 금지: 조용한 in-memory 폴백
+} catch {
+    container = try! ModelContainer(for: schema, configurations: inMemoryConfig)
+}
+
+// ✅ 올바른 방법
+} catch {
+    #if DEBUG
+    fatalError("[Persistence] 초기화 실패: \(error)")
+    #else
+    initializationError = error  // → TodoReportApp에서 PersistenceErrorView 표시
+    #endif
+}
+```
+
+---
+
 ## 개발 우선순위 (MVP)
 
 ```
@@ -453,18 +519,38 @@ Phase 5 (출시)
 - ⚠️ App Groups capability: 두 타겟 모두 Xcode > Signing & Capabilities에서 수동 활성화 필요
   → App Group ID: group.kr.nock.TodoReport
 
-**Phase 4 🔄 진행 중**
+**Phase 4 🔄 진행 중** (2026-06-05 기준)
 - ✅ 주간/월간 리포트 (ReportView/ViewModel/Service + Charts)
 - ✅ Pro 게이팅 (월간, 날짜이동, 이전기간 조회)
 - ✅ 주간/월간 리포트 그래프 개선 (꺾은선 차트, 막대 탭 시 해당 날 투두 목록)
 - ✅ 하루 리뷰 타임라인 (DailyReportView 개선)
 - ✅ 시간 지정 + 투두 알림 (TodoNotificationManager, TodoEditFormView)
-- ✅ 반복 투두 (RecurrenceRule, RecurringTodoManager, TodoEditFormView 반복 섹션)
-- ✅ Notion relation 자동 연결 (NotionRelationLinker)
+- 🔜 반복 투두 (RecurrenceRule, RecurringTodoManager, TodoEditFormView 반복 섹션) — v2로 연기
+- ✅ Notion relation 자동 연결 개선 (NotionRelationLinker: 14일 윈도우, max 10개, 성공 후에만 linked 세팅)
+- ✅ SyncQueueProcessor: create 완료 후 자동 relation enqueue
+- ✅ TodoService: 날짜 변경 시 notionRelationLinked 리셋
+- ✅ TodoViewModel.onForeground(): SyncQueue flush 대기 후 fetch (최대 5초)
+- ✅ 포그라운드 복귀 시 linkMissing() + processIfConnected() 호출 (TodoReportApp)
 - ✅ TodoEditFormView 공통 편집 컴포넌트 (QuickCapture/TodoEdit 공유)
 - ✅ 무료 사용자 날짜 범위 ±1일 (오늘 기준 전날·내일 무료 접근)
-- ❌ 반복 설정 변경/해제 처리 (기존 시리즈 수정 플로우)
-- ❌ 언어 피커 한/영 실제 연동
+- 🔜 반복 설정 변경/해제 처리 (RecurringTodoEditHandler, detectChange/applySingleOnly/applyFromNowOn) — v2로 연기
+- ✅ 언어 설정 연동 (시스템/한국어/영어, 재시작 후 적용 방식)
+- ✅ 지수(발바닥) UI: PawRatingView, 앱 전체 '별점'→'지수' 텍스트 변경
+- ✅ NotionDBPickerView 건너뛰기 버튼: .body 폰트, .primary 색상
+- ✅ 백엔드 detectRelationProp() 로그 추가 (POST/PATCH 양쪽)
+- ✅ SyncQueue selectedPlanner 의존 제거
+  (encodedTodoPayload, enqueueTodoUpdate/Create/Delete, SyncQueueProcessor, DailyReportService, NotionRelationLinker 전체)
+- ✅ TodoItem.update(from:) sync 필드 보호
+  (notionPageId, notionRelationLinked, notionCreatedAt 덮어쓰기 방지)
+- ✅ SyncQueue pending 항목 전체 보호 (early return, 삭제 필터 보호)
+- ✅ SyncQueueItem requeueCount 추가 (무한루프 방지, 상한선 5회)
+- ✅ PersistenceController 마이그레이션 실패 시 PersistenceErrorView 표시
+- ✅ PlannerMigrationView UX 전면 개선
+  (노션 연결 전 데이터 처리 방식 선택, 취소 방지, 실패 분기 처리)
+- ✅ 퀵캡처/투두 추가 시 selectedDate 주입 (날짜 이동 후 추가 시 현재 날짜 적용)
+- ✅ 데일리 리포트 페이지 제목 버그 수정 (백엔드: date를 title로 자동 설정)
+- 🔜 노션 투두 페이지 아이콘 (템플릿 방식 검토)
+- 🔜 구독 해지 시 플래너 선택 팝업
 - ❌ StoreKit 2 구독 결제
 
 **Phase 5 ❌** 앱스토어 출시
@@ -472,6 +558,11 @@ Phase 5 (출시)
 ---
 
 ## v2 백로그
+
+### 반복 투두 (v2 재구현)
+v1 구현 시 발견된 버그: 시작일 경계 오류, 횟수 계산 오류, seriesId 생명주기 관리, Notion SyncQueue 미연결, 날짜 이동 시 동적 생성 미구현.
+v2에서 처음부터 설계 재검토 후 구현 권장.
+기존 `RecurringTodoManager`, `RecurringTodoEditHandler` 코드는 보존.
 
 ### 동적 속성 매핑
 노션 속성 타입(text / select / relation 등)에 따라 앱 UI와 저장 방식이 달라지도록 구현.

@@ -23,7 +23,7 @@ struct Category: Identifiable, Codable {
     init(
         id: String = UUID().uuidString,
         name: String,
-        colorHex: String = "#000000",
+        colorHex: String = "#FD6845",
         icon: String = "tag.fill",
         status: CategoryStatus = .active,
         plannerId: String? = nil
@@ -37,7 +37,6 @@ struct Category: Identifiable, Codable {
     }
 
     static let colorPalette: [String] = [
-        "#000000",
         "#FF3B30", "#FF9500", "#FFCC00", "#34C759",
         "#00C7BE", "#007AFF", "#5856D6", "#AF52DE",
         "#FF2D55", "#A2845E", "#8E8E93", "#FD6845"
@@ -62,7 +61,11 @@ struct Category: Identifiable, Codable {
         "tv.fill", "film.fill", "theatermasks.fill",
         // 소셜/기타
         "star.fill", "tag.fill", "gift.fill", "bell.fill", "person.2.fill",
-        "globe", "map.fill", "location.fill", "lock.fill"
+        "globe", "map.fill", "location.fill", "lock.fill",
+        // 집안일
+        "flame", "refrigerator", "cup.and.saucer", "washer", "dryer",
+        "bed.double", "trash", "arrow.3.trianglepath", "cart", "pawprint",
+        "leaf", "shower", "lightbulb", "figure.and.child.holdinghands"
     ]
 }
 

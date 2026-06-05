@@ -66,6 +66,7 @@ final class NotionAPIClient {
         if let v = m.date   { body["dateProp"] = v }
         if let v = m.review { body["reviewProp"] = v }
         if let v = m.rating { body["ratingProp"] = v }
+        if let v = m.ratingPropType { body["ratingPropType"] = v }
         let path = "/api/notion/daily-report"
         let token = planner.resolvedNotionToken
         print("[Sync] 📤 요청 - path:\(path) body:\(jsonLog(body))")

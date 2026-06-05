@@ -29,12 +29,13 @@ struct PlannerAddView: View {
                     mapTodoPropsView
                 case .selectReportDB:
                     NotionDBPickerView(
-                        subtitle: "데일리 리포트를 저장할 Notion DB를 선택하세요",
+                        subtitle: "데일리 리포트를 저장할 Notion DB를 선택하세요.\n연결하지 않으면 리포트는 앱 내에서만 저장됩니다.",
                         databases: viewModel.databases,
                         selectedId: viewModel.selectedReportDBId,
                         isLoading: viewModel.isLoading,
                         onSelect: { viewModel.selectReportDB($0) },
-                        onRefresh: { await viewModel.fetchDatabases() }
+                        onRefresh: { await viewModel.fetchDatabases() },
+                        onSkip: { Task { await viewModel.skipReportDB(); dismiss() } }
                     )
                 case .mapReportProps:
                     mapReportPropsView
@@ -52,7 +53,8 @@ struct PlannerAddView: View {
                             Task { await viewModel.fetchDatabases() }
                         }
                     }
-                } else {
+                }
+                if !isDBPickerStep {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         CloseButton { dismiss() }
                     }
@@ -247,16 +249,17 @@ struct PlannerAddView: View {
                     ),
                     onCreateTap: { Task { await viewModel.createPinnedProperty() } }
                 )
-                OptionalPropMenu(
-                    label: "리포트 연결",
-                    mode: $viewModel.reportRelationMode,
-                    props: viewModel.todoProperties.filter { $0.type == "relation" },
-                    selection: Binding(
-                        get: { viewModel.todoPropsMapping.reportRelation },
-                        set: { viewModel.todoPropsMapping.reportRelation = $0 }
-                    ),
-                    hint: "투두 DB와 리포트 DB가 노션에서 관계형으로 연결되어 있지 않습니다"
-                )
+                if !viewModel.todoProperties.filter({ $0.type == "relation" }).isEmpty {
+                    OptionalPropMenu(
+                        label: "리포트 연결",
+                        mode: $viewModel.reportRelationMode,
+                        props: viewModel.todoProperties.filter { $0.type == "relation" },
+                        selection: Binding(
+                            get: { viewModel.todoPropsMapping.reportRelation },
+                            set: { viewModel.todoPropsMapping.reportRelation = $0 }
+                        )
+                    )
+                }
             }
         )
     }
@@ -291,12 +294,12 @@ struct PlannerAddView: View {
                     )
                 )
                 OptionalPropMenu(
-                    label: "별점",
+                    label: "지수",
                     mode: $viewModel.ratingMode,
-                    props: viewModel.reportProperties.filter { $0.type == "select" },
+                    props: viewModel.reportProperties.filter { $0.type == "select" || $0.type == "status" },
                     selection: Binding(
                         get: { viewModel.reportPropsMapping.rating },
-                        set: { viewModel.reportPropsMapping.rating = $0 }
+                        set: { viewModel.selectRating($0) }
                     ),
                     onCreateTap: { Task { await viewModel.createRatingProperty() } }
                 )

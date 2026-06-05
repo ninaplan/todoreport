@@ -12,11 +12,14 @@ import SwiftData
 struct TodoReportApp: App {
     @AppStorage("onboardingCompleted") private var onboardingCompleted = false
     @Environment(\.scenePhase) private var scenePhase
+    @State private var showPlannerDowngrade: Bool = false
 
     var body: some Scene {
         WindowGroup {
             Group {
-                if onboardingCompleted {
+                if let error = PersistenceController.shared.initializationError {
+                    PersistenceErrorView(error: error)
+                } else if onboardingCompleted {
                     MainTabView()
                 } else {
                     OnboardingView {
@@ -26,8 +29,14 @@ struct TodoReportApp: App {
             }
             .onAppear {
                 TodoNotificationManager.shared.requestPermission()
+                SubscriptionManager.shared.onSubscriptionExpired = {
+                    if PlannerService.shared.store.count > 1 {
+                        showPlannerDowngrade = true
+                    }
+                }
+                Task { await SubscriptionManager.shared.updatePurchasedProducts() }
                 Task { @MainActor in
-                    RecurringTodoManager.shared.generateUpcoming()
+                    await RecurringTodoManager.shared.generateUpcoming()
                     NotionRelationLinker.shared.linkMissing()
                 }
                 UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
@@ -40,11 +49,17 @@ struct TodoReportApp: App {
                     NotionAuthManager.shared.handleCallback(url: url)
                 }
             }
+            .sheet(isPresented: $showPlannerDowngrade) {
+                PlannerDowngradeView {
+                    showPlannerDowngrade = false
+                }
+            }
         }
         .modelContainer(PersistenceController.shared.container)
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 Task { @MainActor in SyncQueueManager.shared.processIfConnected() }
+                Task { @MainActor in NotionRelationLinker.shared.linkMissing() }
             }
         }
     }

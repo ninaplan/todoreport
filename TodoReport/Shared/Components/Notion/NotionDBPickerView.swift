@@ -8,6 +8,7 @@ struct NotionDBPickerView: View {
     let onSelect: (String) -> Void
     let onRefresh: () async -> Void
     var onBack: (() -> Void)? = nil
+    var onSkip: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -100,11 +101,21 @@ struct NotionDBPickerView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            if let onBack {
-                Button("뒤로가기", action: onBack)
-                    .font(.subheadline)
-                    .foregroundStyle(.blue)
-                    .padding(.vertical, 16)
+            if onSkip != nil || onBack != nil {
+                VStack(spacing: 0) {
+                    if let onSkip {
+                        Button("건너뛰기", action: onSkip)
+                            .font(.body)
+                            .foregroundStyle(.primary)
+                            .padding(.vertical, 14)
+                    }
+                    if let onBack {
+                        Button("뒤로가기", action: onBack)
+                            .font(.subheadline)
+                            .foregroundStyle(.blue)
+                            .padding(.vertical, 14)
+                    }
+                }
             }
         }
         .task {

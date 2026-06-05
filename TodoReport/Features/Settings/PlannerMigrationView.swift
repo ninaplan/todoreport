@@ -7,8 +7,8 @@ struct PlannerMigrationView: View {
     @State private var showStatusSheet = false
     @Environment(\.dismiss) private var dismiss
 
-    init(planner: Planner) {
-        _viewModel = State(initialValue: PlannerMigrationViewModel(planner: planner))
+    init(planner: Planner, mode: PlannerMigrationViewModel.SyncMode) {
+        _viewModel = State(initialValue: PlannerMigrationViewModel(planner: planner, mode: mode))
     }
 
     private var isDBPickerStep: Bool {
@@ -17,7 +17,7 @@ struct PlannerMigrationView: View {
 
     private var effectiveDisplayStep: PlannerMigrationViewModel.Step {
         switch viewModel.step {
-        case .running, .completed, .failed: return .chooseMode
+        case .running, .completed, .failed(_): return .idle
         default: return viewModel.step
         }
     }
@@ -44,17 +44,16 @@ struct PlannerMigrationView: View {
                         mapTodoPropsView
                     case .selectReportDB:
                         NotionDBPickerView(
-                            subtitle: "데일리 리포트를 저장할 Notion DB를 선택하세요",
+                            subtitle: "데일리 리포트를 저장할 Notion DB를 선택하세요.\n연결하지 않으면 리포트는 앱 내에서만 저장됩니다.",
                             databases: viewModel.databases,
                             selectedId: viewModel.selectedReportDBId,
                             isLoading: viewModel.isLoading,
                             onSelect: { viewModel.selectReportDB($0) },
-                            onRefresh: { await viewModel.fetchDatabases() }
+                            onRefresh: { await viewModel.fetchDatabases() },
+                            onSkip: { Task { await viewModel.skipReportDB() } }
                         )
                     case .mapReportProps:
                         mapReportPropsView
-                    case .chooseMode:
-                        chooseModeScrollView
                     default:
                         EmptyView()
                     }
@@ -88,10 +87,11 @@ struct PlannerMigrationView: View {
                     .transition(.scale(scale: 0.88).combined(with: .opacity))
             }
         }
+        .interactiveDismissDisabled(viewModel.step == .running)
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: showStatusSheet)
         .onChange(of: viewModel.step) { _, step in
             switch step {
-            case .running, .failed:
+            case .running, .failed(_):
                 showStatusSheet = true
             case .completed:
                 completedScale = 0.5
@@ -124,12 +124,13 @@ struct PlannerMigrationView: View {
 
     private var navTitle: String {
         switch viewModel.step {
-        case .idle, .oauthRequired:                      return "노션 로그인"
-        case .selectTodoDB:                              return "투두 DB 선택"
-        case .mapTodoProps:                              return "투두 속성 연결"
-        case .selectReportDB:                            return "리포트 DB 선택"
-        case .mapReportProps:                            return "리포트 속성 연결"
-        case .chooseMode, .running, .completed, .failed: return "데이터 처리 방법"
+        case .idle, .oauthRequired:         return "노션 로그인"
+        case .selectTodoDB:                 return "투두 DB 선택"
+        case .mapTodoProps:                 return "투두 속성 연결"
+        case .selectReportDB:               return "리포트 DB 선택"
+        case .mapReportProps:               return "리포트 속성 연결"
+        case .running, .completed, .failed(_):
+            return viewModel.mode == .uploadToNotion ? "노션에 올리기" : "노션 가져오기"
         }
     }
 
@@ -206,16 +207,17 @@ struct PlannerMigrationView: View {
                     ),
                     onCreateTap: { Task { await viewModel.createPinnedProperty() } }
                 )
-                OptionalPropMenu(
-                    label: "리포트 연결",
-                    mode: $viewModel.reportRelationMode,
-                    props: viewModel.todoProperties.filter { $0.type == "relation" },
-                    selection: Binding(
-                        get: { viewModel.todoPropsMapping.reportRelation },
-                        set: { viewModel.todoPropsMapping.reportRelation = $0 }
-                    ),
-                    hint: "투두 DB와 리포트 DB가 노션에서 관계형으로 연결되어 있지 않습니다"
-                )
+                if !viewModel.todoProperties.filter({ $0.type == "relation" }).isEmpty {
+                    OptionalPropMenu(
+                        label: "리포트 연결",
+                        mode: $viewModel.reportRelationMode,
+                        props: viewModel.todoProperties.filter { $0.type == "relation" },
+                        selection: Binding(
+                            get: { viewModel.todoPropsMapping.reportRelation },
+                            set: { viewModel.todoPropsMapping.reportRelation = $0 }
+                        )
+                    )
+                }
             }
         )
     }
@@ -250,86 +252,17 @@ struct PlannerMigrationView: View {
                     )
                 )
                 OptionalPropMenu(
-                    label: "별점",
+                    label: "지수",
                     mode: $viewModel.ratingMode,
-                    props: viewModel.reportProperties.filter { $0.type == "select" },
+                    props: viewModel.reportProperties.filter { $0.type == "select" || $0.type == "status" },
                     selection: Binding(
                         get: { viewModel.reportPropsMapping.rating },
-                        set: { viewModel.reportPropsMapping.rating = $0 }
+                        set: { viewModel.selectRating($0) }
                     ),
                     onCreateTap: { Task { await viewModel.createRatingProperty() } }
                 )
             }
         )
-    }
-
-    // MARK: - 데이터 처리 선택 (상단 정렬, 아이콘 크게)
-
-    private var chooseModeScrollView: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                modeButton(
-                    icon: "arrow.up.to.line.circle.fill",
-                    title: "앱 데이터를 노션에 올리기",
-                    description: "이 플래너의 투두·리포트를 Notion에 업로드해요",
-                    highlight: "기존 앱 데이터는 유지됩니다.",
-                    color: .secondary
-                ) {
-                    viewModel.startMigration(mode: .uploadToNotion)
-                }
-                modeButton(
-                    icon: "arrow.down.to.line.circle.fill",
-                    title: "노션 데이터 가져오기",
-                    description: "Notion DB의 데이터를 앱으로 가져와요.",
-                    highlight: "기존 앱 데이터는 대체됩니다.",
-                    color: .secondary
-                ) {
-                    viewModel.startMigration(mode: .importFromNotion)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 24)
-        }
-    }
-
-    private func modeButton(
-        icon: String, title: String, description: String, highlight: String,
-        color: Color = .secondary,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: icon)
-                    .font(.system(size: 36))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 44)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                    Text(description)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text(highlight)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.shared.accent)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(20)
-            .background(
-                Color(.secondarySystemGroupedBackground),
-                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color(.separator), lineWidth: 0.5)
-            )
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - 상태 오버레이 카드
@@ -372,8 +305,15 @@ struct PlannerMigrationView: View {
                     }
                 }
 
-            Text("데이터를 처리하고 있습니다")
+            Text(viewModel.mode == .uploadToNotion ? "노션에 올리는 중..." : "노션 데이터 가져오는 중...")
                 .font(.headline)
+
+            if viewModel.mode == .uploadToNotion {
+                Text("이전에 노션과 연동한 적 있는 플래너는 중복 데이터가 생길 수 있습니다.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .multilineTextAlignment(.center)
+            }
 
             VStack(spacing: 10) {
                 Text("\(viewModel.completedCount) / \(viewModel.totalCount)개 완료")
@@ -391,16 +331,15 @@ struct PlannerMigrationView: View {
                 .frame(height: 6)
             }
 
-            Text("앱을 닫지 말아주세요")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-
-            Button("취소") {
-                showStatusSheet = false
-                viewModel.cancelMigration()
+            VStack(spacing: 6) {
+                Text("작업이 끝날 때까지 잠시만 기다려주세요")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Text("앱을 닫지 마세요")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
         }
     }
 
@@ -446,21 +385,31 @@ struct PlannerMigrationView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            VStack(spacing: 10) {
-                Button("다시 시도") {
-                    showStatusSheet = false
-                    viewModel.goBack()
-                }
-                .font(.subheadline.bold())
-                .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .background(Color(.label))
-                .foregroundStyle(Color(.systemBackground))
-                .clipShape(Capsule())
+            if viewModel.mode == .importFromNotion {
+                VStack(spacing: 10) {
+                    Button("다시 시도") {
+                        viewModel.retryMigration()
+                    }
+                    .font(.subheadline.bold())
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Color(.label))
+                    .foregroundStyle(Color(.systemBackground))
+                    .clipShape(Capsule())
 
-                Button("닫기") { dismiss() }
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    Button("닫기") { dismiss() }
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                // uploadToNotion 실패: SyncQueue가 자동 재시도하므로 확인만
+                Button("확인") { dismiss() }
+                    .font(.subheadline.bold())
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Color(.label))
+                    .foregroundStyle(Color(.systemBackground))
+                    .clipShape(Capsule())
             }
         }
     }
