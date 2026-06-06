@@ -58,7 +58,7 @@ struct DateNavigationRow: View {
                     .frame(width: 32, height: 32)
                     .opacity(arrowBgOpacity)
                 Image(systemName: systemName)
-                    .font(.body.weight(.medium))
+                    .font(.system(size: 13, weight: .light))
                     .foregroundStyle(enabled ? .primary : Color(.quaternaryLabel))
             }
             .frame(width: 44, height: 44)

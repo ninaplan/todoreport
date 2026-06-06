@@ -691,6 +691,13 @@ private struct PlannerCard: View {
     }
 }
 
+private var localizedCalendar: Calendar {
+    var cal = Calendar.current
+    let startWeekday = UserDefaults.standard.string(forKey: "startWeekday") ?? "월"
+    cal.firstWeekday = startWeekday == "일" ? 1 : 2
+    return cal
+}
+
 // MARK: - 날짜 피커 시트
 
 private struct DatePickerSheet: View {
@@ -702,6 +709,7 @@ private struct DatePickerSheet: View {
             DatePicker("날짜 선택", selection: $selectedDate, displayedComponents: .date)
                 .datePickerStyle(.graphical)
                 .tint(AppTheme.shared.accent)
+                .environment(\.calendar, localizedCalendar)
                 .padding(.horizontal)
                 .navigationTitle("날짜 선택")
                 .navigationBarTitleDisplayMode(.inline)
@@ -735,6 +743,7 @@ private struct TodoDateChangeSheet: View {
             DatePicker("날짜 선택", selection: $selectedDate, displayedComponents: .date)
                 .datePickerStyle(.graphical)
                 .tint(AppTheme.shared.accent)
+                .environment(\.calendar, localizedCalendar)
                 .padding(.horizontal)
                 .navigationTitle("날짜 변경")
                 .navigationBarTitleDisplayMode(.inline)

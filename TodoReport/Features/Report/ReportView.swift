@@ -665,29 +665,65 @@ private struct ReviewTimelineCard: View {
     }
 
     private func timelineRow(_ entry: ReviewTimelineEntry) -> some View {
-        NavigationLink(destination: DayTodoDetailView(date: entry.date)) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
-                        Text(Self.dateFmt.string(from: entry.date))
-                            .font(.caption.bold())
-                            .foregroundStyle(.primary)
-                        if entry.rating > 0 {
-                            PawRatingView(rating: Int(entry.rating), size: 10, spacing: 2)
-                        }
-                    }
-                    Text(entry.review)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(3)
-                        .multilineTextAlignment(.leading)
+        ReviewTimelineRow(entry: entry, dateFmt: Self.dateFmt)
+    }
+}
+
+// MARK: - 하루 리뷰 타임라인 행 (더보기/접기)
+
+private struct ReviewTimelineRow: View {
+    let entry: ReviewTimelineEntry
+    let dateFmt: DateFormatter
+
+    @State private var isExpanded = false
+    @State private var isTruncated = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text(dateFmt.string(from: entry.date))
+                    .font(.caption.bold())
+                    .foregroundStyle(.primary)
+                if entry.rating > 0 {
+                    PawRatingView(rating: Int(entry.rating), size: 10, spacing: 2)
                 }
-                Spacer()
             }
-            .padding(16)
-            .contentShape(Rectangle())
+
+            Text(entry.review)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(isExpanded ? nil : 3)
+                .multilineTextAlignment(.leading)
+                .background(
+                    // 실제 렌더링 높이와 전체 높이를 비교해 잘림 여부 감지
+                    GeometryReader { limitedProxy in
+                        Text(entry.review)
+                            .font(.subheadline)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .hidden()
+                            .background(
+                                GeometryReader { fullProxy in
+                                    Color.clear.onAppear {
+                                        isTruncated = fullProxy.size.height > limitedProxy.size.height + 1
+                                    }
+                                }
+                            )
+                    }
+                )
+
+            if isTruncated || isExpanded {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { isExpanded.toggle() }
+                } label: {
+                    Text(isExpanded ? "접기" : "더보기")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.shared.accent)
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .buttonStyle(.plain)
+        .padding(16)
     }
 }
 

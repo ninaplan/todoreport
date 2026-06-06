@@ -70,8 +70,10 @@ TodoReport/
 │   ├── Sync/
 │   │   ├── SyncQueue.swift        # 미처리 작업 대기열 (SwiftData)
 │   │   └── SyncManager.swift      # 큐 처리 / 재시도 / 상태 관리
-│   └── Cache/
-│       └── CacheManager.swift     # SwiftData + TTL 캐싱
+│   ├── Cache/
+│   │   └── CacheManager.swift     # SwiftData + TTL 캐싱
+│   └── Logging/
+│       └── AppLogger.swift        # 파일 기반 로그 (Documents/app_logs.txt, 500KB 자동 트림)
 │
 ├── Features/                      # 기능별 완전 독립 모듈
 │   ├── Todo/                      # 투두 (무료)
@@ -81,6 +83,11 @@ TodoReport/
 │   ├── MonthlyReport/             # 월간 리포트 (유료)
 │   ├── Planner/                   # 멀티 플래너 (유료)
 │   ├── RecurringTodo/             # 반복 투두 (유료)
+│   ├── Subscription/              # 구독 관련 UI
+│   │   ├── SubscriptionManager.swift     # StoreKit 2, isPro, 만료 감지
+│   │   ├── PaywallView.swift             # 구독 유도 화면
+│   │   ├── PlannerDowngradeView.swift    # 구독 만료 시 플래너 선택
+│   │   └── PlannerDowngradeViewModel.swift
 │   └── Category/                  # 카테고리 관리 (무료, 앱 전용)
 │
 ├── Widget/                        # 홈 화면 위젯 (별도 Extension Target)
@@ -308,10 +315,11 @@ guard SubscriptionManager.shared.isPro else {
 ```
 
 **유료 기능 목록:**
-- 다른 날 투두 확인 (날짜 이동)
-- 주간 리포트
-- 월간 리포트
+- 다른 날 투두 확인 (어제·오늘·내일 외 날짜)
+- 주간 리포트 이전 기간 조회 (이번 주는 무료)
+- 월간 리포트 (전체 유료)
 - 멀티 플래너 (2개 이상)
+- 홈 화면 위젯
 - 반복 투두 (v2 예정)
 
 ---
@@ -448,6 +456,31 @@ private var currentPlanner: Planner {
 }
 ```
 
+**구독 만료 감지 — wasProBefore 플래그**
+
+`updatePurchasedProducts()` 호출 시 구매 ID 목록이 비어도 "처음부터 무료"인지 "만료"인지 구별해야 한다.
+`wasProBefore = false`로 시작하여 첫 로드에서 false→false 전환은 콜백 미실행, 실제 만료(true→false)만 실행.
+
+```swift
+// SubscriptionManager.updatePurchasedProducts() 내부
+let wasPro = !purchasedProductIDs.isEmpty || wasProBefore
+purchasedProductIDs = ids
+let isNowPro = !ids.isEmpty
+if wasPro && !isNowPro { await MainActor.run { onSubscriptionExpired?() } }
+if isNowPro { wasProBefore = true }
+```
+
+DEBUG 빌드에서는 `refreshIsProDebug(previousValue:)` 호출 — `previousValue`(SwiftUI onChange의 oldValue)로 동일하게 전환 감지.
+
+**읽기 전용 플래너 — isReadOnly**
+
+구독 만료 시 Pro 전용 플래너(2번째 이상)는 `isReadOnly = true`로 전환. 데이터는 보존, 편집만 차단.
+- `PlannerItem.isReadOnly: Bool = false` (SwiftData lightweight 마이그레이션 자동 처리)
+- `PlannerService.downgradeToFree(keepPlannerId:)` — 선택 플래너 외 전체 isReadOnly = true
+- `PlannerService.restoreAllPlanners()` — 재구독 시 전체 isReadOnly = false
+- `TodoViewModel`: `addTodo()`, `deleteTodo()`, `performSaveTodoEdit()` 진입 전 isReadOnly 체크 → `showReadOnlyAlert`
+- `PlannerDetailView`: `List { ... }.disabled(currentPlanner.isReadOnly)` + 상단 잠금 배너
+
 ---
 
 ## 개발 우선순위 (MVP)
@@ -492,7 +525,7 @@ Phase 5 (출시)
 
 ---
 
-## 현재 진행 상태 (2026-06-04 기준)
+## 현재 진행 상태 (2026-06-06 기준)
 
 **Phase 1 ✅ 완료**
 - Sign in with Apple (개발용 로그인 포함)
@@ -516,10 +549,11 @@ Phase 5 (출시)
 - ✅ TodoWidgetBundle / TodoWidgetProvider (widget extension 타겟: TodoReportWidget/)
 - ✅ Small / Medium / Large 위젯 뷰 (SmallWidgetView, MediumWidgetView, LargeWidgetView)
 - ✅ TodoViewModel.updateWidget() — 투두 fetch/toggle/add/delete 후 자동 갱신
+- ✅ 위젯은 유료(Pro) 기능으로 게이팅
 - ⚠️ App Groups capability: 두 타겟 모두 Xcode > Signing & Capabilities에서 수동 활성화 필요
-  → App Group ID: group.kr.nock.TodoReport
+ → App Group ID: group.kr.nock.TodoReport
 
-**Phase 4 🔄 진행 중** (2026-06-05 기준)
+**Phase 4 🔄 진행 중** (2026-06-06 기준)
 - ✅ 주간/월간 리포트 (ReportView/ViewModel/Service + Charts)
 - ✅ Pro 게이팅 (월간, 날짜이동, 이전기간 조회)
 - ✅ 주간/월간 리포트 그래프 개선 (꺾은선 차트, 막대 탭 시 해당 날 투두 목록)
@@ -532,7 +566,7 @@ Phase 5 (출시)
 - ✅ TodoViewModel.onForeground(): SyncQueue flush 대기 후 fetch (최대 5초)
 - ✅ 포그라운드 복귀 시 linkMissing() + processIfConnected() 호출 (TodoReportApp)
 - ✅ TodoEditFormView 공통 편집 컴포넌트 (QuickCapture/TodoEdit 공유)
-- ✅ 무료 사용자 날짜 범위 ±1일 (오늘 기준 전날·내일 무료 접근)
+- ✅ 무료 사용자 날짜 범위: 어제·오늘·내일 3일 (±1일)
 - 🔜 반복 설정 변경/해제 처리 (RecurringTodoEditHandler, detectChange/applySingleOnly/applyFromNowOn) — v2로 연기
 - ✅ 언어 설정 연동 (시스템/한국어/영어, 재시작 후 적용 방식)
 - ✅ 지수(발바닥) UI: PawRatingView, 앱 전체 '별점'→'지수' 텍스트 변경
@@ -549,11 +583,14 @@ Phase 5 (출시)
   (노션 연결 전 데이터 처리 방식 선택, 취소 방지, 실패 분기 처리)
 - ✅ 퀵캡처/투두 추가 시 selectedDate 주입 (날짜 이동 후 추가 시 현재 날짜 적용)
 - ✅ 데일리 리포트 페이지 제목 버그 수정 (백엔드: date를 title로 자동 설정)
-- 🔜 노션 투두 페이지 아이콘 (템플릿 방식 검토)
-- 🔜 구독 해지 시 플래너 선택 팝업
-- ❌ StoreKit 2 구독 결제
+- ✅ 노션 투두 페이지 아이콘 (✔️ 이모지 고정, 백엔드 POST route.ts)
+- ✅ 구독 해지 시 플래너 선택 팝업 + 읽기 전용 처리 (PlannerDowngradeView, isReadOnly)
+- ✅ 앱 내 로그 수집 + 오류 신고 메일 (AppLogger, SupportMailView)
+- 🔜 StoreKit 2 구독 결제 실연동 (현재 UI만 구현됨)
 
-**Phase 5 ❌** 앱스토어 출시
+**Phase 5 🔄 진행 예정** 앱스토어 출시
+- 🔜 StoreKit 2 실연동 완료 후 심사 제출
+- 🔜 디자인 세부 수정
 
 ---
 
