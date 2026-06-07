@@ -89,6 +89,7 @@ final class ReportViewModel {
         weeklyReport = nil
         monthlyReport = nil
         periodOffset = 0
+        ReportNotificationManager.shared.rescheduleAll()
         Task { await fetchReport() }
     }
 
@@ -109,7 +110,7 @@ final class ReportViewModel {
 
     func prepareSave() {
         guard isPro else {
-            paywallMessage = "노션에 저장하기는 Pro 기능이에요"
+            paywallMessage = "노션에 리포트 저장하기는 Pro 기능이에요"
             showPaywall = true
             return
         }

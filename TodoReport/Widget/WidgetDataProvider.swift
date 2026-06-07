@@ -26,7 +26,8 @@ final class WidgetDataProvider {
     private init() {}
 
     static let appGroupId = "group.kr.nock.TodoReport"
-    private static let entryKey  = "widgetEntry"
+    private static let entryKey = "widgetEntry"
+    private static let isProKey = "widgetIsPro"
 
     func update(todos: [Todo], plannerName: String) {
         let widgetTodos = todos.prefix(10).map {
@@ -45,11 +46,23 @@ final class WidgetDataProvider {
         guard let data = try? JSONEncoder().encode(entry),
               let defaults = UserDefaults(suiteName: Self.appGroupId) else { return }
         defaults.set(data, forKey: Self.entryKey)
+        defaults.set(SubscriptionManager.shared.isPro, forKey: Self.isProKey)
         WidgetCenter.shared.reloadAllTimelines()
     }
 
     static func read() -> WidgetEntry? {
         guard let data = UserDefaults(suiteName: appGroupId)?.data(forKey: entryKey) else { return nil }
         return try? JSONDecoder().decode(WidgetEntry.self, from: data)
+    }
+
+    static func readIsPro() -> Bool {
+        UserDefaults(suiteName: appGroupId)?.bool(forKey: isProKey) ?? false
+    }
+
+    func clear() {
+        guard let defaults = UserDefaults(suiteName: Self.appGroupId) else { return }
+        defaults.removeObject(forKey: Self.entryKey)
+        defaults.removeObject(forKey: Self.isProKey)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }

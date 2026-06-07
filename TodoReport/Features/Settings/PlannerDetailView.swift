@@ -72,8 +72,7 @@ struct PlannerDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("저장") { Task { await savePlanner(); dismiss() } }
-                    .tint(AppTheme.shared.accent)
-                    .fontWeight(.semibold)
+                    .toolbarPrimaryActionStyle(isEnabled: !currentPlanner.isReadOnly)
                     .disabled(currentPlanner.isReadOnly)
             }
         }
@@ -195,7 +194,7 @@ struct PlannerDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("완료") { showIconSheet = false }
-                        .tint(AppTheme.shared.accent)
+                        .toolbarPrimaryActionStyle()
                 }
             }
         }
@@ -263,15 +262,15 @@ struct PlannerDetailView: View {
             } label: {
                 HStack {
                     Image(systemName: "arrow.up.forward.app")
-                        .foregroundStyle(AppTheme.shared.accent)
                     Text("노션 플래너와 연결하기")
-                        .foregroundStyle(.primary)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
+                .foregroundStyle(AppTheme.shared.accent)
             }
+            .buttonStyle(.plain)
         } header: {
             Text("Notion 연동")
         } footer: {

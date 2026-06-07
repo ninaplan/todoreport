@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TodoView: View {
+    @Environment(MainTabCoordinator.self) private var tabCoordinator
     @State private var viewModel = TodoViewModel()
     @State private var dailyReportViewModel = DailyReportViewModel()
     @State private var newTodoTitle: String = ""
@@ -113,6 +114,11 @@ struct TodoView: View {
                     await dailyReportViewModel.fetchReport(for: viewModel.selectedDate, completionRate: viewModel.completionRate)
                 }
                 .onAppear { Task { await viewModel.fetchTodos() } }
+                .onChange(of: tabCoordinator.pendingTodoDate) { _, date in
+                    guard let date else { return }
+                    viewModel.navigateToDate(date)
+                    tabCoordinator.clearPendingTodoDate()
+                }
                 .onChange(of: PlannerService.shared.selectedPlannerId) { _, _ in
                     dailyReportViewModel.switchReport()
                     Task {
@@ -420,11 +426,17 @@ private struct TodoRow: View {
                 .onTapGesture { onCheckboxTap?() }
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(todo.title)
-                    .font(.body)
-                    .strikethrough(todo.isCompleted)
-                    .foregroundStyle(todo.isCompleted ? .secondary : .primary)
-                    .animation(.easeInOut(duration: 0.15), value: todo.isCompleted)
+                HStack(spacing: 6) {
+                    Text(todo.title)
+                        .font(.body)
+                        .strikethrough(todo.isCompleted)
+                        .foregroundStyle(todo.isCompleted ? .secondary : .primary)
+                        .animation(.easeInOut(duration: 0.15), value: todo.isCompleted)
+
+                    if todo.isPinned {
+                        ImportantTodoTag()
+                    }
+                }
 
                 if showMemo, let memo = todo.memo, !memo.isEmpty {
                     Text(memo)
@@ -436,14 +448,6 @@ private struct TodoRow: View {
             }
 
             Spacer()
-
-            if todo.isPinned {
-                Image(systemName: "pin.fill")
-                    .font(.caption)
-                    .foregroundStyle(Color(red: 1, green: 0.584, blue: 0).opacity(0.8))
-                    .rotationEffect(.degrees(45))
-                    .padding(.top, (showMemo && todo.memo != nil) ? 2 : 0)
-            }
         }
         .animation(.easeInOut(duration: 0.2), value: showMemo)
     }
@@ -601,7 +605,7 @@ private struct PlannerSelectionSheet: View {
                                 Text("플래너 추가")
                                     .font(.subheadline)
                                     .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
-                                ProBadge()
+                                if !isPro { ProBadge() }
                             }
                             Spacer()
                         }
@@ -625,7 +629,7 @@ private struct PlannerSelectionSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("완료") { dismiss() }
-                        .tint(AppTheme.shared.accent)
+                        .toolbarPrimaryActionStyle()
                 }
             }
         }
@@ -715,8 +719,8 @@ private struct DatePickerSheet: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("완료") { dismiss() }
-                            .tint(AppTheme.shared.accent)
+                    Button("완료") { dismiss() }
+                        .toolbarPrimaryActionStyle()
                     }
                 }
         }
@@ -750,15 +754,14 @@ private struct TodoDateChangeSheet: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("취소") { dismiss() }
-                            .foregroundStyle(.secondary)
+                            .toolbarSecondaryActionStyle()
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("완료") {
                             onConfirm(selectedDate)
                             dismiss()
                         }
-                        .fontWeight(.semibold)
-                        .tint(AppTheme.shared.accent)
+                        .toolbarPrimaryActionStyle()
                     }
                 }
         }
@@ -820,7 +823,7 @@ private struct TodoEditSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("취소", role: .cancel) { dismiss() }
-                        .foregroundStyle(.secondary)
+                        .toolbarSecondaryActionStyle()
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("저장") {
@@ -832,8 +835,7 @@ private struct TodoEditSheet: View {
                         dismiss()
                     }
                     .disabled(!isSaveEnabled)
-                    .tint(isSaveEnabled ? AppTheme.shared.accent : Color(.tertiaryLabel))
-                    .fontWeight(.semibold)
+                    .toolbarPrimaryActionStyle(isEnabled: isSaveEnabled)
                 }
             }
         }

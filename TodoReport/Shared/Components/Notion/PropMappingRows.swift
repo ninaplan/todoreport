@@ -1,14 +1,32 @@
 import SwiftUI
 
-private func propTypeIcon(for type: String?, label: String? = nil) -> String {
-    if label == "상단고정" { return "pin.fill" }
-    if label == "지수" { return "pawprint.circle.fill" }
+func propTypeIcon(for type: String?, label: String? = nil) -> String {
+    if let label {
+        switch label {
+        case "완료":         return "checkmark.square"
+        case "날짜":         return "calendar"
+        case "메모", "하루 리뷰": return "text.alignleft"
+        case "상단고정":     return "pin"
+        case "리포트 연결":  return "link"
+        case "별점":         return "star"
+        default:             break
+        }
+    }
     switch type {
     case "checkbox":  return "checkmark.square"
     case "date":      return "calendar"
     case "rich_text": return "text.alignleft"
-    case "select":    return "star"
+    case "select":    return "list.bullet"
+    case "status":    return "circle.lefthalf.filled"
     case "number":    return "number"
+    case "relation":  return "link"
+    case "formula":   return "function"
+    case "rollup":    return "sum"
+    case "url":       return "globe"
+    case "email":     return "envelope"
+    case "phone":     return "phone"
+    case "files":     return "paperclip"
+    case "people":    return "person"
     default:          return "circle"
     }
 }
@@ -35,7 +53,7 @@ struct RequiredPropRow: View {
     var body: some View {
         HStack {
             Image(systemName: propTypeIcon(for: props.first?.type, label: label))
-                .foregroundStyle(AppTheme.shared.accent)
+                .foregroundStyle(.secondary)
                 .frame(width: 20)
             Text(label)
             FlowSmallTag("필수")
@@ -72,7 +90,7 @@ struct OptionalPropMenu: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Image(systemName: propTypeIcon(for: props.first?.type, label: label))
-                    .foregroundStyle(AppTheme.shared.accent)
+                    .foregroundStyle(.secondary)
                     .frame(width: 20)
                 Text(label)
                 Spacer()

@@ -6,6 +6,7 @@ import WidgetKit
 
 struct MediumWidgetView: View {
     let data: WidgetSnapshotData?
+    let isPro: Bool
 
     private var rate: Double    { data?.completionRate  ?? 0 }
     private var completed: Int  { data?.completedCount  ?? 0 }
@@ -14,6 +15,14 @@ struct MediumWidgetView: View {
     private var todos: [WidgetTodoItem] { data?.todos.prefix(4).map { $0 } ?? [] }
 
     var body: some View {
+        if isPro {
+            contentView
+        } else {
+            ProLockedWidgetView()
+        }
+    }
+
+    private var contentView: some View {
         HStack(alignment: .top, spacing: 12) {
 
             // ── 왼쪽: 통계 ──
@@ -89,3 +98,4 @@ struct MediumWidgetView: View {
 }
 
 private let nockOrange = Color(red: 0xFD / 255, green: 0x68 / 255, blue: 0x45 / 255)
+

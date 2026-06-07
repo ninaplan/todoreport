@@ -124,7 +124,7 @@ final class ReportService {
         let avgRate = elapsedCount == 0 ? 0 : dailyRates.prefix(elapsedCount).map(\.rate).reduce(0, +) / Double(elapsedCount)
         let ratedDays = dailyRatings.filter { $0.rating > 0 }
         let avgRating = ratedDays.isEmpty ? 0 : ratedDays.map(\.rating).reduce(0, +) / Double(ratedDays.count)
-        let streak = calculateStreak(reports: reports, endingAt: start, calendar: calendar)
+        let streak = calculateStreak(plannerId: plannerId, calendar: calendar)
 
         let todoEntries = todos
             .sorted { $0.date < $1.date }
@@ -193,7 +193,7 @@ final class ReportService {
         let avgRate = elapsedWeekCount == 0 ? 0 : weeklyRates.prefix(elapsedWeekCount).map(\.rate).reduce(0, +) / Double(elapsedWeekCount)
         let ratedWeeks = weeklyRatings.filter { $0.rating > 0 }
         let avgRating = ratedWeeks.isEmpty ? 0 : ratedWeeks.map(\.rating).reduce(0, +) / Double(ratedWeeks.count)
-        let streak = calculateStreak(reports: reports, endingAt: start, calendar: calendar)
+        let streak = calculateStreak(plannerId: plannerId, calendar: calendar)
 
         // 일별 별점 집계 (꺾은선 그래프용)
         let daysInMonth = calendar.range(of: .day, in: .month, for: start)?.count ?? 30
@@ -478,26 +478,27 @@ final class ReportService {
         return Double(raw.filter { $0 == "⭐" }.count)
     }
 
-    // 연속 달성: 오늘 기준으로 completionRate > 0인 연속 날 수
-    private func calculateStreak(reports: [DailyReportItem], endingAt: Date, calendar: Calendar) -> Int {
-        // 전체 기간 포함 추가 조회 (streak은 기간과 무관하게 오늘 기준)
+    // 연속 달성: 어제까지 기준, 설정된 기준에 따라 투두 데이터로 판정
+    private func calculateStreak(plannerId: String?, calendar: Calendar) -> Int {
         let today = calendar.startOfDay(for: .now)
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
+              let rangeStart = calendar.date(byAdding: .day, value: -365, to: yesterday),
+              let rangeEnd = calendar.date(byAdding: .day, value: 2, to: yesterday) else {
+            return 0
+        }
+
+        let todos = fetchTodos(in: rangeStart..<rangeEnd, plannerId: plannerId)
+        let criteria = StreakCriteria.current
         var streak = 0
-        var checkDate = today
-        let allReportDesc = FetchDescriptor<DailyReportItem>()
-        let allReports = (try? context.fetch(allReportDesc)) ?? []
-        let plannerId = PlannerService.shared.selectedPlanner?.id
+        var checkDate = yesterday
 
         for _ in 0..<365 {
             guard let nextDate = calendar.date(byAdding: .day, value: 1, to: checkDate) else { break }
-            let dayReports = allReports.filter {
-                $0.date >= checkDate && $0.date < nextDate &&
-                $0.endDate == nil &&
-                ($0.plannerId == plannerId || plannerId == nil)
-            }
-            guard let report = dayReports.first, report.completionRate == 1.0 else { break }
+            let dayTodos = todos.filter { $0.date >= checkDate && $0.date < nextDate }
+            guard criteria.isDaySatisfied(todos: dayTodos) else { break }
             streak += 1
-            checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate) ?? checkDate
+            guard let prevDate = calendar.date(byAdding: .day, value: -1, to: checkDate) else { break }
+            checkDate = prevDate
         }
         return streak
     }

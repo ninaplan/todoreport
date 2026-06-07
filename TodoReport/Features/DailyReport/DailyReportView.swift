@@ -76,7 +76,7 @@ struct DailyReportCard: View {
 
     private var ratingRow: some View {
         HStack(spacing: 0) {
-            Text("지수")
+            Text("별점")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(width: 44, alignment: .leading)

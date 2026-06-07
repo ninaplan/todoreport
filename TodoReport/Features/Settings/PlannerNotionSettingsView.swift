@@ -33,8 +33,7 @@ struct PlannerNotionSettingsView: View {
                     viewModel.save()
                     dismiss()
                 }
-                .fontWeight(.semibold)
-                .tint(AppTheme.shared.accent)
+                .toolbarPrimaryActionStyle(isEnabled: !viewModel.isLoading)
                 .disabled(viewModel.isLoading)
             }
             ToolbarItem(placement: .topBarLeading) {
@@ -84,26 +83,26 @@ struct PlannerNotionSettingsView: View {
     private var todoPropsSection: some View {
         Section {
             SettingsPropMappingRow(
-                label: "완료", isRequired: true, typeIcon: "checkmark.square",
+                label: "완료", isRequired: true,
                 candidates: viewModel.todoProperties.filter { $0.type == "checkbox" },
                 fallback: viewModel.todoProperties,
                 selection: $viewModel.todoPropsMapping.completed
             )
             SettingsPropMappingRow(
-                label: "날짜", isRequired: true, typeIcon: "calendar",
+                label: "날짜", isRequired: true,
                 candidates: viewModel.todoProperties.filter { $0.type == "date" },
                 fallback: viewModel.todoProperties,
                 selection: $viewModel.todoPropsMapping.date
             )
             SettingsOptionalPropRow(
-                label: "메모", typeIcon: "text.alignleft",
+                label: "메모",
                 candidates: viewModel.todoProperties.filter { $0.type == "rich_text" },
                 mode: $viewModel.memoMode,
                 selection: $viewModel.todoPropsMapping.memo,
                 onCreate: { Task { await viewModel.createMemoProperty() } }
             )
             SettingsOptionalPropRow(
-                label: "상단고정", typeIcon: "pin",
+                label: "상단고정",
                 candidates: viewModel.todoProperties.filter { $0.type == "checkbox" },
                 mode: $viewModel.isPinnedMode,
                 selection: $viewModel.todoPropsMapping.isPinned,
@@ -111,7 +110,7 @@ struct PlannerNotionSettingsView: View {
             )
             if viewModel.selectedReportDBId != nil {
                 SettingsOptionalPropRow(
-                    label: "리포트 연결", typeIcon: "link",
+                    label: "리포트 연결",
                     candidates: viewModel.todoProperties.filter { $0.type == "relation" },
                     mode: $viewModel.reportRelationMode,
                     selection: $viewModel.todoPropsMapping.reportRelation
@@ -145,19 +144,19 @@ struct PlannerNotionSettingsView: View {
     private var reportPropsSection: some View {
         Section("리포트 속성 매핑") {
             SettingsPropMappingRow(
-                label: "날짜", isRequired: true, typeIcon: "calendar",
+                label: "날짜", isRequired: true,
                 candidates: viewModel.reportProperties.filter { $0.type == "date" },
                 fallback: viewModel.reportProperties,
                 selection: $viewModel.reportPropsMapping.date
             )
             SettingsOptionalPropRow(
-                label: "하루 리뷰", typeIcon: "text.alignleft",
+                label: "하루 리뷰",
                 candidates: viewModel.reportProperties.filter { $0.type == "rich_text" },
                 mode: $viewModel.reviewMode,
                 selection: $viewModel.reportPropsMapping.review
             )
             SettingsOptionalPropRow(
-                label: "지수", typeIcon: "pawprint.circle.fill",
+                label: "별점",
                 candidates: viewModel.reportProperties.filter { $0.type == "select" || $0.type == "status" },
                 mode: $viewModel.ratingMode,
                 selection: Binding(
@@ -237,7 +236,6 @@ private struct SettingsDBPickerRow: View {
 private struct SettingsPropMappingRow: View {
     let label: String
     var isRequired: Bool = false
-    let typeIcon: String
     let candidates: [NotionProperty]
     let fallback: [NotionProperty]
     @Binding var selection: String?
@@ -246,10 +244,14 @@ private struct SettingsPropMappingRow: View {
         candidates.isEmpty ? fallback : candidates
     }
 
+    private var iconName: String {
+        propTypeIcon(for: candidates.first?.type ?? fallback.first?.type, label: label)
+    }
+
     var body: some View {
         HStack {
-            Image(systemName: typeIcon)
-                .foregroundStyle(AppTheme.shared.accent)
+            Image(systemName: iconName)
+                .foregroundStyle(.secondary)
                 .frame(width: 24)
             HStack(spacing: 6) {
                 Text(label)
@@ -265,7 +267,7 @@ private struct SettingsPropMappingRow: View {
                 }
             }
             .pickerStyle(.menu)
-            .tint(selection == nil ? .secondary : AppTheme.shared.accent)
+            .tint(.secondary)
         }
     }
 }
@@ -274,13 +276,16 @@ private struct SettingsPropMappingRow: View {
 
 private struct SettingsOptionalPropRow: View {
     let label: String
-    let typeIcon: String
     let candidates: [NotionProperty]
     @Binding var mode: PropMappingMode
     @Binding var selection: String?
     var isRecommended: Bool = false
     var onCreate: (() -> Void)? = nil
     var hint: String? = nil
+
+    private var iconName: String {
+        propTypeIcon(for: candidates.first?.type, label: label)
+    }
 
     private var displayLabel: String {
         switch mode {
@@ -292,8 +297,8 @@ private struct SettingsOptionalPropRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
         HStack {
-            Image(systemName: typeIcon)
-                .foregroundStyle(AppTheme.shared.accent)
+            Image(systemName: iconName)
+                .foregroundStyle(.secondary)
                 .frame(width: 24)
             HStack(spacing: 6) {
                 Text(label)
@@ -326,8 +331,9 @@ private struct SettingsOptionalPropRow: View {
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.caption2)
                 }
-                .foregroundStyle(mode == .appOnly ? .secondary : AppTheme.shared.accent)
+                .foregroundStyle(.secondary)
             }
+            .buttonStyle(.plain)
         }
         if let hint, candidates.isEmpty {
             Text(hint)

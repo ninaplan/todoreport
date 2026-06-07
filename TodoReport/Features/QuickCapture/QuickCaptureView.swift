@@ -31,7 +31,7 @@ struct QuickCaptureView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("취소", role: .cancel) { dismiss() }
-                        .foregroundStyle(.secondary)
+                        .toolbarSecondaryActionStyle()
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("저장") {
@@ -50,8 +50,7 @@ struct QuickCaptureView: View {
                         dismiss()
                     }
                     .disabled(!viewModel.isSaveEnabled)
-                    .tint(viewModel.isSaveEnabled ? AppTheme.shared.accent : Color(.tertiaryLabel))
-                    .fontWeight(.semibold)
+                    .toolbarPrimaryActionStyle(isEnabled: viewModel.isSaveEnabled)
                 }
             }
             .task {

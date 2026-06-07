@@ -7,12 +7,14 @@
 
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 @main
 struct TodoReportApp: App {
     @AppStorage("onboardingCompleted") private var onboardingCompleted = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var showPlannerDowngrade: Bool = false
+    @State private var showPaywall: Bool = false
 
     var body: some Scene {
         WindowGroup {
@@ -30,13 +32,20 @@ struct TodoReportApp: App {
             .onAppear {
                 // 앱 실행 시 로그 파일 없으면 새로 생성, 있으면 세션 구분선만 추가
                 AppLogger.shared.logNewSession()
+                UNUserNotificationCenter.current().delegate = AppNotificationDelegate.shared
                 TodoNotificationManager.shared.requestPermission()
                 SubscriptionManager.shared.onSubscriptionExpired = {
+                    ReportNotificationManager.shared.cancelAll()
                     if PlannerService.shared.store.count > 1 {
                         showPlannerDowngrade = true
                     }
                 }
-                Task { await SubscriptionManager.shared.updatePurchasedProducts() }
+                Task {
+                    async let entitlements: Void = SubscriptionManager.shared.updatePurchasedProducts()
+                    async let products: Void = SubscriptionManager.shared.loadProducts()
+                    _ = await (entitlements, products)
+                    ReportNotificationManager.shared.rescheduleAll()
+                }
                 Task { @MainActor in
                     await RecurringTodoManager.shared.generateUpcoming()
                     NotionRelationLinker.shared.linkMissing()
@@ -47,8 +56,12 @@ struct TodoReportApp: App {
                 }
             }
             .onOpenURL { url in
-                Task { @MainActor in
-                    NotionAuthManager.shared.handleCallback(url: url)
+                if url.scheme == "todoreport" && url.host == "paywall" {
+                    showPaywall = true
+                } else {
+                    Task { @MainActor in
+                        NotionAuthManager.shared.handleCallback(url: url)
+                    }
                 }
             }
             .sheet(isPresented: $showPlannerDowngrade) {
@@ -56,10 +69,15 @@ struct TodoReportApp: App {
                     showPlannerDowngrade = false
                 }
             }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView()
+            }
         }
         .modelContainer(PersistenceController.shared.container)
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
+                Task { await SubscriptionManager.shared.updatePurchasedProducts() }
+                ReportNotificationManager.shared.rescheduleAll()
                 Task { @MainActor in SyncQueueManager.shared.processIfConnected() }
                 Task { @MainActor in NotionRelationLinker.shared.linkMissing() }
             }

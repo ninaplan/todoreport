@@ -6,6 +6,7 @@ import WidgetKit
 
 struct LargeWidgetView: View {
     let data: WidgetSnapshotData?
+    let isPro: Bool
 
     private var rate: Double    { data?.completionRate  ?? 0 }
     private var completed: Int  { data?.completedCount  ?? 0 }
@@ -14,6 +15,14 @@ struct LargeWidgetView: View {
     private var todos: [WidgetTodoItem] { data?.todos.prefix(8).map { $0 } ?? [] }
 
     var body: some View {
+        if isPro {
+            contentView
+        } else {
+            ProLockedWidgetView()
+        }
+    }
+
+    private var contentView: some View {
         VStack(alignment: .leading, spacing: 10) {
 
             // ── 헤더 ──
@@ -84,9 +93,9 @@ struct LargeWidgetView: View {
 
     private func todoRow(_ todo: WidgetTodoItem) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : (todo.isPinned ? "pin.circle.fill" : "circle"))
+            Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 16))
-                .foregroundStyle(todo.isCompleted ? nockOrange : (todo.isPinned ? .orange : Color(.systemGray4)))
+                .foregroundStyle(todo.isCompleted ? nockOrange : Color(.systemGray4))
 
             Text(todo.title)
                 .font(.subheadline)

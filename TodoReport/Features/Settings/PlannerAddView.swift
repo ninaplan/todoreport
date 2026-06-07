@@ -4,7 +4,6 @@ struct PlannerAddView: View {
     @State private var viewModel = PlannerAddViewModel()
     @Environment(\.dismiss) private var dismiss
     @State private var showingPlannerDetail = false
-    @FocusState private var nameFocused: Bool
 
     private var isDBPickerStep: Bool {
         viewModel.step == .selectTodoDB || viewModel.step == .selectReportDB
@@ -99,107 +98,96 @@ struct PlannerAddView: View {
     // MARK: - 모드 선택
 
     private var chooseModeView: some View {
-        VStack(spacing: 28) {
-            Spacer()
-
-            VStack(spacing: 8) {
-                Text("노션 워크스페이스당 플래너 1개를 연결할 수 있어요.")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.center)
-                Text("여러 워크스페이스를 사용하면 플래너를 더 추가할 수 있습니다.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.horizontal, 24)
-
-            VStack(spacing: 10) {
-                Text("이름을 입력하고 저장 방식을 선택하세요")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+        GeometryReader { geo in
+            VStack(spacing: 40) {
+                Text("저장 방식을 선택하세요")
+                    .font(.title3.bold())
                     .multilineTextAlignment(.center)
 
-                TextField("플래너 이름 (선택)", text: $viewModel.plannerName)
-                    .focused($nameFocused)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
-                    .background(
-                        Color(.secondarySystemGroupedBackground),
-                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    )
-            }
-            .padding(.horizontal, 24)
+                VStack(spacing: 12) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "info.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.secondary)
+                        Text("노션 워크스페이스당 플래너 1개를 연결할 수 있어요. 여러 워크스페이스를 사용하면 플래너를 더 추가할 수 있습니다.")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .lineLimit(nil)
+                            .lineSpacing(4)
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.bottom, 8)
 
-            VStack(spacing: 12) {
-                Button {
-                    viewModel.selectNotionMode()
-                } label: {
-                    HStack(spacing: 14) {
-                        Group {
-                            if viewModel.step == .notionOAuth && viewModel.isLoading {
-                                ProgressView()
-                            } else {
-                                Image(systemName: "n.square.fill")
-                                    .font(.system(size: 22))
-                                    .foregroundStyle(AppTheme.shared.accent)
+                    Button {
+                        viewModel.selectNotionMode()
+                    } label: {
+                        HStack(spacing: 16) {
+                            Group {
+                                if viewModel.step == .notionOAuth && viewModel.isLoading {
+                                    ProgressView()
+                                        .frame(width: 48, height: 48)
+                                } else {
+                                    Image(systemName: "link")
+                                        .font(.system(size: 22, weight: .semibold))
+                                        .foregroundStyle(AppTheme.shared.accent)
+                                        .frame(width: 48)
+                                }
                             }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("노션에 저장")
+                                    .font(.body.bold())
+                                    .foregroundStyle(.primary)
+                                Text("사용자의 노션 DB와 연결해요")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.subheadline)
+                                .foregroundStyle(.tertiary)
                         }
-                        .frame(width: 28)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("노션에 저장")
-                                .font(.subheadline.bold())
-                                .foregroundStyle(.primary)
-                            Text("사용자의 노션 DB와 연결해요")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 20)
+                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(.separator), lineWidth: 0.5))
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
-                    .background(Color(.secondarySystemGroupedBackground), in: Capsule())
-                    .overlay(Capsule().strokeBorder(Color(.separator), lineWidth: 0.5))
-                }
-                .buttonStyle(.plain)
-                .disabled(viewModel.step == .notionOAuth && viewModel.isLoading)
+                    .buttonStyle(.plain)
+                    .disabled(viewModel.step == .notionOAuth && viewModel.isLoading)
 
-                Button {
-                    Task { await viewModel.selectLocalMode() }
-                } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: "iphone.circle.fill")
-                            .font(.system(size: 22))
-                            .foregroundStyle(.blue)
-                            .frame(width: 28)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("기기에 저장")
-                                .font(.subheadline.bold())
-                                .foregroundStyle(.primary)
-                            Text("노션 연결 없이 이 기기에만 저장")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                    Button {
+                        Task { await viewModel.selectLocalMode() }
+                    } label: {
+                        HStack(spacing: 16) {
+                            Image(systemName: "iphone.badge.checkmark")
+                                .font(.system(size: 26, weight: .light))
+                                .foregroundStyle(Color(.label).opacity(0.75))
+                                .frame(width: 48)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("기기에 저장")
+                                    .font(.body.bold())
+                                    .foregroundStyle(.primary)
+                                Text("노션 연결 없이 이 기기에만 저장")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.subheadline)
+                                .foregroundStyle(.tertiary)
                         }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 20)
+                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(.separator), lineWidth: 0.5))
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
-                    .background(Color(.secondarySystemGroupedBackground), in: Capsule())
-                    .overlay(Capsule().strokeBorder(Color(.separator), lineWidth: 0.5))
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 24)
             }
-            .padding(.horizontal, 24)
-
-            Spacer()
+            .frame(width: geo.size.width)
+            .position(x: geo.size.width / 2, y: geo.size.height * 0.38)
         }
-        .onAppear { nameFocused = true }
     }
 
     // MARK: - 투두 속성 매핑
@@ -294,7 +282,7 @@ struct PlannerAddView: View {
                     )
                 )
                 OptionalPropMenu(
-                    label: "지수",
+                    label: "별점",
                     mode: $viewModel.ratingMode,
                     props: viewModel.reportProperties.filter { $0.type == "select" || $0.type == "status" },
                     selection: Binding(

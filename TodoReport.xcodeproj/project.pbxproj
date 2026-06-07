@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		380874152FD5647E00771F22 /* 노션품은 투두x리포트.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 380874142FD5647E00771F22 /* 노션품은 투두x리포트.storekit */; };
+		380874162FD5647E00771F22 /* 노션품은 투두x리포트.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 380874142FD5647E00771F22 /* 노션품은 투두x리포트.storekit */; };
 		AAAA00082FC5C14100D6551F /* TodoReportWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AAAA00012FC5C14100D6551F /* TodoReportWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -35,6 +37,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		380874142FD5647E00771F22 /* 노션품은 투두x리포트.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = "노션품은 투두x리포트.storekit"; sourceTree = "<group>"; };
 		385B076D2FC5C14100D6551F /* TodoReport.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TodoReport.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAAA00012FC5C14100D6551F /* TodoReportWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TodoReportWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -91,6 +94,7 @@
 		385B07642FC5C14000D6551F = {
 			isa = PBXGroup;
 			children = (
+				380874142FD5647E00771F22 /* 노션품은 투두x리포트.storekit */,
 				385B076F2FC5C14100D6551F /* TodoReport */,
 				AAAA00022FC5C14100D6551F /* TodoReportWidget */,
 				CCCC00012FC5C14100D6551F /* Common */,
@@ -201,6 +205,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				380874162FD5647E00771F22 /* 노션품은 투두x리포트.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -208,6 +213,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				380874152FD5647E00771F22 /* 노션품은 투두x리포트.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

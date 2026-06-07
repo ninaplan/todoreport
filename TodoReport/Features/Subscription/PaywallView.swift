@@ -4,6 +4,7 @@ import StoreKit
 struct PaywallView: View {
     var message: String? = nil
     @State private var viewModel = PaywallViewModel()
+    @State private var subscriptionManager = SubscriptionManager.shared
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -57,7 +58,7 @@ struct PaywallView: View {
         VStack(spacing: 12) {
             Image(systemName: "crown.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(AppTheme.shared.accent)
+                .foregroundStyle(AppTheme.shared.accent.opacity(0.7))
 
             Text("Pro로 업그레이드")
                 .font(.title2.bold())
@@ -98,31 +99,54 @@ struct PaywallView: View {
 
     private var planCardsSection: some View {
         VStack(spacing: 10) {
-            PlanCard(
-                title: "월간",
-                subtitle: "매월 자동 갱신",
-                priceText: SubscriptionManager.shared.monthlyProduct?.displayPrice ?? (SubscriptionManager.shared.isLoadingProducts ? "로딩 중..." : "---"),
-                isSelected: viewModel.selectedProductId == SubscriptionManager.monthlyProductId,
-                savingsText: nil
-            ) {
-                viewModel.selectedProductId = SubscriptionManager.monthlyProductId
-            }
+            if subscriptionManager.isLoadFailed {
+                VStack(spacing: 8) {
+                    Text("상품 정보를 불러오지 못했어요.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    if let detail = subscriptionManager.productLoadFailureDetail {
+                        Text(detail)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .multilineTextAlignment(.center)
+                    }
+                    Button("다시 시도") {
+                        Task { await viewModel.reloadProducts() }
+                    }
+                    .font(.subheadline.bold())
+                    .foregroundStyle(AppTheme.shared.accent)
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+            } else {
+                PlanCard(
+                    title: "월간",
+                    englishTitle: "Monthly",
+                    subtitle: "매월 자동 갱신",
+                    priceText: subscriptionManager.monthlyProduct?.displayPrice ?? (subscriptionManager.isLoadingProducts ? "로딩 중..." : "---"),
+                    isSelected: viewModel.selectedProductId == SubscriptionManager.monthlyProductId,
+                    savingsText: nil
+                ) {
+                    viewModel.selectedProductId = SubscriptionManager.monthlyProductId
+                }
 
-            PlanCard(
-                title: "연간",
-                subtitle: "매년 자동 갱신",
-                priceText: SubscriptionManager.shared.yearlyProduct?.displayPrice ?? (SubscriptionManager.shared.isLoadingProducts ? "로딩 중..." : "---"),
-                isSelected: viewModel.selectedProductId == SubscriptionManager.yearlyProductId,
-                savingsText: yearlySavingsText
-            ) {
-                viewModel.selectedProductId = SubscriptionManager.yearlyProductId
+                PlanCard(
+                    title: "연간",
+                    englishTitle: "Yearly",
+                    subtitle: "매년 자동 갱신",
+                    priceText: subscriptionManager.yearlyProduct?.displayPrice ?? (subscriptionManager.isLoadingProducts ? "로딩 중..." : "---"),
+                    isSelected: viewModel.selectedProductId == SubscriptionManager.yearlyProductId,
+                    savingsText: yearlySavingsText
+                ) {
+                    viewModel.selectedProductId = SubscriptionManager.yearlyProductId
+                }
             }
         }
     }
 
     private var yearlySavingsText: String? {
-        guard let monthly = SubscriptionManager.shared.monthlyProduct,
-              let yearly  = SubscriptionManager.shared.yearlyProduct else { return nil }
+        guard let monthly = subscriptionManager.monthlyProduct,
+              let yearly  = subscriptionManager.yearlyProduct else { return nil }
         let monthlyAnnual = monthly.price * Decimal(12)
         let savings = monthlyAnnual - yearly.price
         guard savings > 0 else { return nil }
@@ -138,26 +162,26 @@ struct PaywallView: View {
                 Task { await viewModel.purchase() }
             } label: {
                 Text("구독 시작하기")
-                    .font(.subheadline.bold())
+                    .font(.system(size: 17, weight: .bold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
             }
             .buttonStyle(.borderedProminent)
             .tint(AppTheme.shared.accent)
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel.isLoading || !viewModel.canPurchase)
 
             Button {
                 Task { await viewModel.restore() }
             } label: {
                 Text("구독 복원")
                     .font(.footnote)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(AppTheme.shared.accent)
             }
             .disabled(viewModel.isLoading)
 
             Text("구독은 Apple ID에 연결되며 iTunes 계정에 청구됩니다.\n구독 관리는 기기 설정 > Apple ID > 구독에서 가능합니다.")
                 .font(.system(size: 13))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(Color(.secondaryLabel))
                 .multilineTextAlignment(.center)
         }
     }
@@ -179,6 +203,14 @@ private struct FeatureRow: View {
             Text(text)
                 .font(.subheadline)
                 .foregroundStyle(isComingSoon ? Color(.secondaryLabel) : Color(.label))
+            if isComingSoon {
+                Text("곧 출시")
+                    .font(.caption2.bold())
+                    .foregroundStyle(Color(.secondaryLabel))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            }
         }
     }
 }
@@ -187,6 +219,7 @@ private struct FeatureRow: View {
 
 private struct PlanCard: View {
     let title: String
+    let englishTitle: String
     let subtitle: String
     let priceText: String
     let isSelected: Bool
@@ -197,8 +230,11 @@ private struct PlanCard: View {
         Button(action: onTap) {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(title).font(.subheadline.bold())
+                    HStack(spacing: 6) {
+                        Text(title).font(.system(size: 17, weight: .bold))
+                        Text(englishTitle)
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundStyle(Color(.secondaryLabel))
                         if let savings = savingsText {
                             Text(savings)
                                 .font(.caption.bold())

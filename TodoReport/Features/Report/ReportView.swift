@@ -4,6 +4,8 @@ import Charts
 struct ReportView: View {
     @State private var viewModel = ReportViewModel()
     @State private var reportScrollOffset: CGFloat = 52
+    @State private var showReviewTodoRestrictedAlert = false
+    @State private var showReviewTodoProPaywall = false
     private var isPro: Bool { SubscriptionManager.shared.isPro }
 
     private var reportArrowBgOpacity: Double {
@@ -90,6 +92,7 @@ struct ReportView: View {
             .sheet(isPresented: $vm.showSaveEditor) {
                 if let period = viewModel.pendingPeriod {
                     NotionSaveEditorView(
+                        reportPeriod: viewModel.selectedPeriod,
                         periodTitle: viewModel.pendingPeriodTitle,
                         period: period,
                         completionRate: viewModel.pendingCompletionRate,
@@ -99,14 +102,13 @@ struct ReportView: View {
                         },
                         onCancel: { viewModel.cancelSave() }
                     )
-                    .presentationDetents([.medium])
+                    .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
                 }
             }
             .alert("노션에 연결하시겠습니까?", isPresented: $vm.showNotionConnectAlert) {
                 Button("취소", role: .cancel) { viewModel.cancelNotionConnect() }
                 Button("연결하기") { viewModel.confirmNotionConnect() }
-                    .tint(AppTheme.shared.accent)
             } message: {
                 Text("노션에 연결하면 리포트를 노션에 저장할 수 있습니다.")
             }
@@ -129,6 +131,17 @@ struct ReportView: View {
                 Button("확인") { viewModel.dismissSaveError() }
             } message: {
                 Text(viewModel.notionSaveError ?? "")
+            }
+            .alert("투두 화면 이동", isPresented: $showReviewTodoRestrictedAlert) {
+                Button("Pro 알아보기") { showReviewTodoProPaywall = true }
+                Button("확인", role: .cancel) {}
+            } message: {
+                Text("어제·오늘·내일만 투두 화면으로 이동할 수 있어요. 다른 날은 Pro에서 확인할 수 있습니다.")
+            }
+            .sheet(isPresented: $showReviewTodoProPaywall) {
+                PaywallView(message: "다른 날 투두 확인은 Pro 기능이에요")
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
             }
         }
     }
@@ -171,12 +184,15 @@ struct ReportView: View {
             barRanges: weekBarRanges
         )
         RatingLineChart(
-            title: "지수",
+            title: "별점",
             labels: report.dailyRatings.map(\.weekday),
             values: report.dailyRatings.map(\.rating)
         )
         CategoryStatsCard(stats: report.categoryStats)
-        ReviewTimelineCard(entries: report.reviewTimeline)
+        ReviewTimelineCard(
+            entries: report.reviewTimeline,
+            onRestrictedDateTap: { showReviewTodoRestrictedAlert = true }
+        )
         NotionSaveButton(
             isSaving: viewModel.isSavingToNotion,
             isNotionConnected: viewModel.isNotionConnected
@@ -214,12 +230,15 @@ struct ReportView: View {
             barRanges: monthBarRanges
         )
         RatingLineChart(
-            title: "지수",
+            title: "별점",
             labels: report.dailyRatings.map(\.weekday),
             values: report.dailyRatings.map(\.rating)
         )
         CategoryStatsCard(stats: report.categoryStats)
-        ReviewTimelineCard(entries: report.reviewTimeline)
+        ReviewTimelineCard(
+            entries: report.reviewTimeline,
+            onRestrictedDateTap: { showReviewTodoRestrictedAlert = true }
+        )
         NotionSaveButton(
             isSaving: viewModel.isSavingToNotion,
             isNotionConnected: viewModel.isNotionConnected
@@ -246,9 +265,9 @@ private struct SummaryCard: View {
             Divider().frame(height: 48)
             summaryItem(
                 value: String(format: "%.1f", averageRating),
-                label: "지수 평균",
-                symbolName: "pawprint.circle.fill",
-                symbolColor: Color(.label),
+                label: "별점 평균",
+                symbolName: "star.fill",
+                symbolColor: Color(.systemFill),
                 color: .primary
             )
             Divider().frame(height: 48)
@@ -479,7 +498,7 @@ private struct RatingLineChart: View {
                 .font(.subheadline.bold())
 
             if ratedPoints.isEmpty {
-                Text("지수 데이터가 없습니다.")
+                Text("별점 데이터가 없습니다.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -489,14 +508,14 @@ private struct RatingLineChart: View {
                     ForEach(Array(ratedPoints.enumerated()), id: \.offset) { _, point in
                         LineMark(
                             x: .value("인덱스", point.index),
-                            y: .value("지수", point.value)
+                            y: .value("별점", point.value)
                         )
                         .foregroundStyle(AppTheme.shared.accent)
                         .interpolationMethod(.linear)
 
                         PointMark(
                             x: .value("인덱스", point.index),
-                            y: .value("지수", point.value)
+                            y: .value("별점", point.value)
                         )
                         .foregroundStyle(AppTheme.shared.accent)
                         .symbolSize(48)
@@ -525,9 +544,9 @@ private struct RatingLineChart: View {
                                     Text("\(v)")
                                         .font(.caption2)
                                         .foregroundStyle(Color(.secondaryLabel))
-                                    Image(systemName: "pawprint.circle.fill")
+                                    Image(systemName: "star.fill")
                                         .font(.system(size: 7))
-                                        .foregroundStyle(Color(.label))
+                                        .foregroundStyle(Color(.systemFill))
                                 }
                             }
                         }
@@ -609,6 +628,7 @@ private struct CategoryStatRow: View {
 
 private struct ReviewTimelineCard: View {
     let entries: [ReviewTimelineEntry]
+    var onRestrictedDateTap: (() -> Void)?
 
     @State private var isExpanded = false
 
@@ -665,63 +685,48 @@ private struct ReviewTimelineCard: View {
     }
 
     private func timelineRow(_ entry: ReviewTimelineEntry) -> some View {
-        ReviewTimelineRow(entry: entry, dateFmt: Self.dateFmt)
+        ReviewTimelineRow(entry: entry, dateFmt: Self.dateFmt) {
+            openTodoFromReview(on: entry.date)
+        }
+    }
+
+    private func openTodoFromReview(on date: Date) {
+        if TodoDateAccess.canView(date: date, isPro: SubscriptionManager.shared.isPro) {
+            MainTabCoordinator.shared.openTodo(on: date)
+        } else {
+            onRestrictedDateTap?()
+        }
     }
 }
 
-// MARK: - 하루 리뷰 타임라인 행 (더보기/접기)
+// MARK: - 하루 리뷰 타임라인 행 (날짜 탭 → 투두)
 
 private struct ReviewTimelineRow: View {
     let entry: ReviewTimelineEntry
     let dateFmt: DateFormatter
-
-    @State private var isExpanded = false
-    @State private var isTruncated = false
+    let onOpenTodo: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Text(dateFmt.string(from: entry.date))
-                    .font(.caption.bold())
-                    .foregroundStyle(.primary)
-                if entry.rating > 0 {
-                    PawRatingView(rating: Int(entry.rating), size: 10, spacing: 2)
+            Button(action: onOpenTodo) {
+                HStack(spacing: 6) {
+                    Text(dateFmt.string(from: entry.date))
+                        .font(.caption.bold())
+                        .foregroundStyle(.primary)
+                    if entry.rating > 0 {
+                        PawRatingView(rating: Int(entry.rating), size: 10, spacing: 2)
+                    }
                 }
             }
+            .buttonStyle(.plain)
 
             Text(entry.review)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-                .lineLimit(isExpanded ? nil : 3)
                 .multilineTextAlignment(.leading)
-                .background(
-                    // 실제 렌더링 높이와 전체 높이를 비교해 잘림 여부 감지
-                    GeometryReader { limitedProxy in
-                        Text(entry.review)
-                            .font(.subheadline)
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .hidden()
-                            .background(
-                                GeometryReader { fullProxy in
-                                    Color.clear.onAppear {
-                                        isTruncated = fullProxy.size.height > limitedProxy.size.height + 1
-                                    }
-                                }
-                            )
-                    }
-                )
-
-            if isTruncated || isExpanded {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { isExpanded.toggle() }
-                } label: {
-                    Text(isExpanded ? "접기" : "더보기")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.shared.accent)
-                }
-                .buttonStyle(.plain)
-            }
+                .lineLimit(3)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(16)
     }
@@ -743,10 +748,10 @@ private struct NotionSaveButton: View {
                     ProgressView()
                         .scaleEffect(0.85)
                 } else {
-                    Image(systemName: isNotionConnected ? "arrow.up.circle" : "lock.circle")
+                    Image(systemName: isNotionConnected ? "square.and.arrow.up" : "lock.circle")
                         .font(.subheadline)
                 }
-                Text(isSaving ? "저장 중..." : "노션에 저장하기")
+                Text(isSaving ? "저장 중..." : "노션에 리포트 저장하기")
                     .font(.subheadline.bold())
             }
             .frame(maxWidth: .infinity)
@@ -778,3 +783,4 @@ private extension View {
             )
     }
 }
+

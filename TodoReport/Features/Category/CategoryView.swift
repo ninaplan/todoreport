@@ -282,13 +282,13 @@ private struct CategoryEditSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("취소") { dismiss() }
+                        .toolbarSecondaryActionStyle()
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("저장") {
                         Task { await viewModel.saveEdit() }
                     }
-                    .fontWeight(.semibold)
-                    .tint(AppTheme.shared.accent)
+                    .toolbarPrimaryActionStyle(isEnabled: !viewModel.editName.trimmingCharacters(in: .whitespaces).isEmpty)
                     .disabled(viewModel.editName.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }

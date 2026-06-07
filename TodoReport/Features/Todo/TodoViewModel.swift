@@ -415,4 +415,16 @@ final class TodoViewModel {
     func goToToday() {
         selectedDate = .now
     }
+
+    func navigateToDate(_ date: Date) {
+        let cal = Calendar.current
+        let target = cal.startOfDay(for: date)
+        guard TodoDateAccess.canView(date: target, isPro: isPro) else {
+            datePaywallMessage = "다른 날 투두 확인은 Pro 기능이에요"
+            showDatePaywall = true
+            return
+        }
+        selectedDate = target
+        Task { await fetchTodos() }
+    }
 }

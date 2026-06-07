@@ -3,12 +3,16 @@ import SwiftUI
 struct ProBadge: View {
     var body: some View {
         if !SubscriptionManager.shared.isPro {
-            Text("Pro")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(Color(hue: 0.13, saturation: 0.8, brightness: 0.45))
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color(hue: 0.13, saturation: 0.6, brightness: 0.9), in: Capsule())
+            HStack(spacing: 3) {
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 8, weight: .semibold))
+                Text("Pro")
+                    .font(.caption2.weight(.semibold))
+            }
+            .foregroundStyle(AppTheme.shared.accent)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(AppTheme.shared.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
         }
     }
 }

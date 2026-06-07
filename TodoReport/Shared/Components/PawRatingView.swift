@@ -12,19 +12,25 @@ struct PawRatingView: View {
             ForEach(1...5, id: \.self) { index in
                 if interactive, let onTap {
                     Button { onTap(index) } label: {
-                        pawIcon(index: index)
+                        starIcon(index: index)
                     }
                     .buttonStyle(.plain)
                 } else {
-                    pawIcon(index: index)
+                    starIcon(index: index)
                 }
             }
         }
     }
 
-    private func pawIcon(index: Int) -> some View {
-        Image(systemName: "pawprint.circle.fill")
-            .font(.system(size: size))
-            .foregroundStyle(index <= rating ? Color(.label) : Color(.systemFill))
+    private func starIcon(index: Int) -> some View {
+        Group {
+            if index <= rating {
+                Text("⭐")
+            } else {
+                Image(systemName: "star.fill")
+                    .foregroundStyle(Color(.systemFill))
+            }
+        }
+        .font(.system(size: size))
     }
 }

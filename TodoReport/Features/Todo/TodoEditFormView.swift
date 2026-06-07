@@ -11,6 +11,13 @@ struct TodoEditFormView: View {
     let categories: [Category]
     var autoFocus: Bool = true
 
+    private var localizedCalendar: Calendar {
+        var cal = Calendar.current
+        let startWeekday = UserDefaults.standard.string(forKey: "startWeekday") ?? "월"
+        cal.firstWeekday = startWeekday == "일" ? 1 : 2
+        return cal
+    }
+
     @State private var showTimePicker = false
     @State private var timePickerValue: Date = .now
     @State private var showCustomAlarmInput = false
@@ -70,6 +77,7 @@ struct TodoEditFormView: View {
                     .datePickerStyle(.graphical)
                     .labelsHidden()
                     .tint(AppTheme.shared.accent)
+                    .environment(\.calendar, localizedCalendar)
             }
 
             // 시간
@@ -152,6 +160,7 @@ struct TodoEditFormView: View {
                 .datePickerStyle(.wheel)
                 .labelsHidden()
                 .tint(AppTheme.shared.accent)
+                .environment(\.calendar, localizedCalendar)
             }
 
             // 알림 (시간 설정 시에만 표시)

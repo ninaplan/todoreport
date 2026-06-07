@@ -1,5 +1,6 @@
 import SwiftUI
 import MessageUI
+import UserNotifications
 
 // MARK: - 설정 뷰
 
@@ -7,15 +8,17 @@ struct SettingsView: View {
     @AppStorage("onboardingCompleted") private var onboardingCompleted = false
 
     private var planners: [Planner] { PlannerService.shared.store }
-    private var isPro: Bool { SubscriptionManager.shared.isPro }
+    @State private var subscriptionManager = SubscriptionManager.shared
+    private var isPro: Bool { subscriptionManager.isPro }
 
-    @State private var language = "한국어"
     @AppStorage("startWeekday") private var startWeekday = "월"
-    @State private var notificationEnabled = true
-    @State private var showLogoutAlert = false
+    @AppStorage(StreakCriteria.storageKey) private var streakCriteriaRaw = StreakCriteria.allCompleted.rawValue
+    @State private var notificationAuthStatus: UNAuthorizationStatus = .notDetermined
     @State private var showAddPlannerSheet = false
     @State private var showPaywall = false
-    @State private var showSupportMail: Bool = false
+    @State private var activeMailSheet: SupportMailKind? = nil
+    @State private var restoreAlertMessage: String?
+    @State private var isRestoringSubscription = false
 
     #if DEBUG
     @AppStorage("debugIsPro") private var debugIsPro = false
@@ -31,22 +34,12 @@ struct SettingsView: View {
             globalSettingsSection
             supportSection
             appInfoSection
-            accountFooterSection
 
             #if DEBUG
             debugSection
             #endif
         }
         .navigationTitle("설정")
-        .alert("로그아웃", isPresented: $showLogoutAlert) {
-            Button("로그아웃", role: .destructive) {
-                NotionAuthManager.shared.signOut()
-                onboardingCompleted = false
-            }
-            Button("취소", role: .cancel) { }
-        } message: {
-            Text("로그아웃하시겠어요?")
-        }
         .sheet(isPresented: $showAddPlannerSheet) {
             PlannerAddView()
                 .presentationDragIndicator(.visible)
@@ -57,8 +50,21 @@ struct SettingsView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $showSupportMail) {
-            SupportMailView()
+        .sheet(item: $activeMailSheet) { kind in
+            SupportMailView(kind: kind)
+        }
+        .alert("구독 복원", isPresented: Binding(
+            get: { restoreAlertMessage != nil },
+            set: { if !$0 { restoreAlertMessage = nil } }
+        )) {
+            Button("확인", role: .cancel) { restoreAlertMessage = nil }
+        } message: {
+            Text(restoreAlertMessage ?? "")
+        }
+        .task {
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            notificationAuthStatus = settings.authorizationStatus
+            await subscriptionManager.loadProducts()
         }
     }
 
@@ -67,7 +73,7 @@ struct SettingsView: View {
     private var subscriptionSection: some View {
         Section("구독") {
             LabeledContent("현재 플랜") {
-                Text(isPro ? "Pro" : "무료")
+                Text(subscriptionManager.activePlanDisplayName)
                     .foregroundStyle(.secondary)
             }
             if !isPro {
@@ -75,11 +81,35 @@ struct SettingsView: View {
                     showPaywall = true
                 }
                 .foregroundStyle(AppTheme.shared.accent)
+            } else {
+                Button("구독 관리") {
+                    Task { await subscriptionManager.showManageSubscriptions() }
+                }
+                .foregroundStyle(.secondary)
             }
             Button("구독 복원") {
-                Task { try? await SubscriptionManager.shared.restorePurchases() }
+                Task { await restoreSubscription() }
             }
             .foregroundStyle(.secondary)
+            .disabled(isRestoringSubscription)
+        }
+    }
+
+    private func restoreSubscription() async {
+        isRestoringSubscription = true
+        defer { isRestoringSubscription = false }
+        do {
+            try await subscriptionManager.restorePurchases()
+            restoreAlertMessage = subscriptionManager.isPro
+                ? "구독이 복원되었습니다."
+                : "복원할 구독이 없습니다."
+        } catch {
+            AppLogger.shared.error("SettingsView", "restorePurchases 실패: \(error)")
+            #if DEBUG
+            restoreAlertMessage = "복원 실패: \(error.localizedDescription)"
+            #else
+            restoreAlertMessage = "복원 중 오류가 발생했어요. 다시 시도해 주세요."
+            #endif
         }
     }
 
@@ -105,7 +135,7 @@ struct SettingsView: View {
                             .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
                         Text("플래너 추가")
                             .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
-                        ProBadge()
+                        if !isPro { ProBadge() }
                     }
             }
         }
@@ -114,19 +144,43 @@ struct SettingsView: View {
     // MARK: - 환경 설정
 
     private var globalSettingsSection: some View {
-        Section("환경 설정") {
-            Picker("언어", selection: $language) {
-                Text("한국어").tag("한국어")
-                Text("English").tag("English")
-            }
-            .tint(.primary)
+        Section {
             Picker("시작 요일", selection: $startWeekday) {
                 Text("일요일").tag("일")
                 Text("월요일").tag("월")
             }
-            .tint(.primary)
-            Toggle("알림", isOn: $notificationEnabled)
-                .tint(AppTheme.shared.accent)
+            .tint(.secondary)
+            .onChange(of: startWeekday) { _, _ in
+                ReportNotificationManager.shared.rescheduleAll()
+            }
+
+            Picker("연속 달성 기준", selection: $streakCriteriaRaw) {
+                ForEach(StreakCriteria.allCases, id: \.rawValue) { criteria in
+                    Text(criteria.displayName).tag(criteria.rawValue)
+                }
+            }
+            .tint(.secondary)
+
+            Button {
+                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                UIApplication.shared.open(url)
+            } label: {
+                LabeledContent("알림") {
+                    HStack(spacing: 4) {
+                        Text(notificationAuthStatus.displayText)
+                            .foregroundStyle(notificationAuthStatus == .denied ? .red : .secondary)
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+            }
+            .buttonStyle(.plain)
+        } header: {
+            Text("환경 설정")
+        } footer: {
+            Text("리포트의 연속 달성은 어제까지 기준으로 계산됩니다.")
         }
     }
 
@@ -151,7 +205,7 @@ struct SettingsView: View {
                 .foregroundStyle(.primary)
             }
             Button {
-                showSupportMail = true
+                activeMailSheet = .errorReport
             } label: {
                 LabeledContent("오류신고") {
                     Image(systemName: "arrow.up.right")
@@ -160,15 +214,19 @@ struct SettingsView: View {
                 }
                 .foregroundStyle(.primary)
             }
-            .foregroundStyle(.primary)
-            Link(destination: URL(string: "https://nock.kr/updates")!) {
-                LabeledContent("업데이트 타임라인") {
+            .buttonStyle(.plain)
+
+            Button {
+                activeMailSheet = .feedback
+            } label: {
+                LabeledContent("피드백 및 기능 제안") {
                     Image(systemName: "arrow.up.right")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 .foregroundStyle(.primary)
             }
+            .buttonStyle(.plain)
         }
         .tint(.primary)
     }
@@ -188,27 +246,11 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - 계정 푸터
-
-    private var accountFooterSection: some View {
-        Section {
-            VStack(spacing: 14) {
-                Button("로그아웃") {
-                    showLogoutAlert = true
-                }
-                .font(.subheadline)
-                .foregroundStyle(.red)
-                .frame(maxWidth: .infinity, alignment: .center)
-            }
-            .padding(.vertical, 6)
-        }
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
-    }
-
     // MARK: - 개발용
 
     #if DEBUG
+    @State private var debugResetErrorMessage: String? = nil
+
     private var debugSection: some View {
         Section("개발자 도구") {
             Toggle("Pro 모드", isOn: $debugIsPro)
@@ -226,9 +268,22 @@ struct SettingsView: View {
                 print("[DEBUG] clearLogs 완료")
             }
             Button("온보딩 초기화", role: .destructive) {
-                NotionAuthManager.shared.signOut()
-                onboardingCompleted = false
+                do {
+                    try AppResetService.resetAllLocalData()
+                    onboardingCompleted = false
+                } catch {
+                    AppLogger.shared.error("SettingsView", "온보딩 초기화 실패: \(error)")
+                    debugResetErrorMessage = "초기화 중 오류가 발생했어요."
+                }
             }
+        }
+        .alert("오류", isPresented: Binding(
+            get: { debugResetErrorMessage != nil },
+            set: { if !$0 { debugResetErrorMessage = nil } }
+        )) {
+            Button("확인", role: .cancel) { debugResetErrorMessage = nil }
+        } message: {
+            Text(debugResetErrorMessage ?? "")
         }
         .alert("SyncQueue 비우기", isPresented: $showClearQueueConfirm) {
             Button("비우기", role: .destructive) {
@@ -296,18 +351,51 @@ struct NotionBadge: View {
     }
 }
 
-// MARK: - 오류 신고 메일
+// MARK: - 고객지원 메일 종류
+
+enum SupportMailKind: Identifiable {
+    case errorReport
+    case feedback
+
+    var id: Self { self }
+
+    var subject: String {
+        switch self {
+        case .errorReport: return "투두리포트 오류 신고"
+        case .feedback:    return "피드백 및 기능 제안"
+        }
+    }
+
+    var bodyPrefix: String {
+        switch self {
+        case .errorReport:
+            return "아래에 증상이나 재현 방법을 적어 주세요:\n\n\n"
+        case .feedback:
+            return "아래에 피드백이나 기능 제안 내용을 적어 주세요:\n\n\n"
+        }
+    }
+
+    var includesLogs: Bool {
+        switch self {
+        case .errorReport: return true
+        case .feedback:    return false
+        }
+    }
+}
+
+// MARK: - 오류 신고 / 피드백 메일
 
 import UIKit
 
 struct SupportMailView: UIViewControllerRepresentable {
+    let kind: SupportMailKind
     @Environment(\.dismiss) private var dismiss
 
     func makeUIViewController(context: Context) -> MFMailComposeViewController {
         let mail = MFMailComposeViewController()
         mail.mailComposeDelegate = context.coordinator
         mail.setToRecipients(["nockcreator@gmail.com"])
-        mail.setSubject("투두리포트 오류 신고")
+        mail.setSubject(kind.subject)
 
         let version  = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         let build    = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
@@ -323,25 +411,25 @@ struct SupportMailView: UIViewControllerRepresentable {
         formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
         let timestamp = formatter.string(from: Date())
 
-        let logContent: String
-        if let url = AppLogger.shared.exportLogFileURL(),
-           let content = try? String(contentsOf: url, encoding: .utf8) {
-            logContent = content
-        } else {
-            logContent = "(로그 없음)"
-        }
-
-        let body = "아래에 증상이나 재현 방법을 적어 주세요:\n\n\n" +
+        var body = kind.bodyPrefix +
                    "---\n" +
                    "Debug info:\n" +
                    "- 앱 버전: \(version) (\(build))\n" +
                    "- 기기: \(device), iOS \(os)\n" +
                    "- 로케일: \(locale)\n" +
                    "- 시간대: \(timezone)\n" +
-                   "- 타임스탬프: \(timestamp)\n\n" +
-                   "---\n" +
-                   "로그:\n" +
-                   logContent
+                   "- 타임스탬프: \(timestamp)\n"
+
+        if kind.includesLogs {
+            let logContent: String
+            if let url = AppLogger.shared.exportLogFileURL(),
+               let content = try? String(contentsOf: url, encoding: .utf8) {
+                logContent = content
+            } else {
+                logContent = "(로그 없음)"
+            }
+            body += "\n---\n로그:\n\(logContent)"
+        }
 
         mail.setMessageBody(body, isHTML: false)
         return mail
@@ -358,6 +446,18 @@ struct SupportMailView: UIViewControllerRepresentable {
                                    didFinishWith result: MFMailComposeResult,
                                    error: Error?) {
             dismiss()
+        }
+    }
+}
+
+// MARK: - UNAuthorizationStatus 표시 텍스트
+
+private extension UNAuthorizationStatus {
+    var displayText: String {
+        switch self {
+        case .authorized, .provisional, .ephemeral: return "허용됨"
+        case .denied:                                return "거부됨"
+        default:                                     return "설정 안 됨"
         }
     }
 }

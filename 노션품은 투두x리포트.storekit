@@ -1,0 +1,133 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "12B39E37",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6777382968",
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_developerTeamID" : "CCUVYARM43",
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 802514637.29590499,
+    "_locale" : "ko",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "KOR",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "22138028",
+      "localizations" : [
+        {
+          "description" : "",
+          "displayName" : "Pro",
+          "locale" : "ko"
+        }
+      ],
+      "name" : "Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "billingPlans" : [
+            {
+              "billingPlanType" : "BILLED_UPFRONT",
+              "commitmentDisplayPrice" : "4900",
+              "displayPrice" : "4900",
+              "internalID" : "6777384423_BILLED_UPFRONT",
+              "isEnabled" : true
+            }
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4900",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6777384423",
+          "introductoryOffers" : [
+
+          ],
+          "localizations" : [
+            {
+              "description" : "투두x리포트 Pro 월간 구독",
+              "displayName" : "Pro 월간",
+              "locale" : "ko"
+            }
+          ],
+          "productID" : "kr.nock.todoreport.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Pro Monthly",
+          "subscriptionGroupID" : "22138028",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "billingPlans" : [
+            {
+              "billingPlanType" : "BILLED_UPFRONT",
+              "commitmentDisplayPrice" : "33000",
+              "displayPrice" : "33000",
+              "internalID" : "6777384901_BILLED_UPFRONT",
+              "isEnabled" : true
+            }
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "33000",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6777384901",
+          "introductoryOffers" : [
+
+          ],
+          "localizations" : [
+            {
+              "description" : "투두x리포트 Pro 연간 구독",
+              "displayName" : "Pro 연간",
+              "locale" : "ko"
+            }
+          ],
+          "productID" : "kr.nock.todoreport.pro.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Pro Yearly",
+          "subscriptionGroupID" : "22138028",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 5,
+    "minor" : 0
+  }
+}

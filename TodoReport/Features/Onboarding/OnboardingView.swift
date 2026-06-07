@@ -502,7 +502,7 @@ private struct MapReportPropsStepView: View {
                     )
                 )
                 OptionalPropMenu(
-                    label: "지수",
+                    label: "별점",
                     mode: $viewModel.ratingMode,
                     props: viewModel.reportProperties.filter { $0.type == "select" || $0.type == "status" },
                     selection: Binding(

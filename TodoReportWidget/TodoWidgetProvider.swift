@@ -7,6 +7,7 @@ import SwiftUI
 struct WidgetTimelineEntry: TimelineEntry {
     let date: Date
     let data: WidgetSnapshotData?
+    let isPro: Bool
 }
 
 struct WidgetSnapshotData: Codable {
@@ -29,10 +30,15 @@ struct WidgetTodoItem: Codable, Identifiable {
 
 private let appGroupId = "group.kr.nock.TodoReport"
 private let entryKey   = "widgetEntry"
+private let isProKey   = "widgetIsPro"
 
 private func readWidgetData() -> WidgetSnapshotData? {
     guard let data = UserDefaults(suiteName: appGroupId)?.data(forKey: entryKey) else { return nil }
     return try? JSONDecoder().decode(WidgetSnapshotData.self, from: data)
+}
+
+private func readIsPro() -> Bool {
+    UserDefaults(suiteName: appGroupId)?.bool(forKey: isProKey) ?? false
 }
 
 // MARK: - Placeholder 데이터
@@ -60,16 +66,16 @@ private func placeholderData() -> WidgetSnapshotData {
 struct TodoTimelineProvider: TimelineProvider {
 
     func placeholder(in context: Context) -> WidgetTimelineEntry {
-        WidgetTimelineEntry(date: .now, data: placeholderData())
+        WidgetTimelineEntry(date: .now, data: placeholderData(), isPro: true)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (WidgetTimelineEntry) -> Void) {
         let data = context.isPreview ? placeholderData() : readWidgetData()
-        completion(WidgetTimelineEntry(date: .now, data: data))
+        completion(WidgetTimelineEntry(date: .now, data: data, isPro: context.isPreview ? true : readIsPro()))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<WidgetTimelineEntry>) -> Void) {
-        let entry = WidgetTimelineEntry(date: .now, data: readWidgetData())
+        let entry = WidgetTimelineEntry(date: .now, data: readWidgetData(), isPro: readIsPro())
         // 앱이 직접 reloadAllTimelines()를 호출하므로 긴 간격으로 설정
         let nextRefresh = Calendar.current.date(byAdding: .minute, value: 30, to: .now) ?? .now
         completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
@@ -83,7 +89,7 @@ struct SmallTodoWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TodoTimelineProvider()) { entry in
-            SmallWidgetView(data: entry.data)
+            SmallWidgetView(data: entry.data, isPro: entry.isPro)
         }
         .configurationDisplayName("투두 완료율")
         .description("오늘의 투두 완료율을 한눈에 확인하세요.")
@@ -96,7 +102,7 @@ struct MediumTodoWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TodoTimelineProvider()) { entry in
-            MediumWidgetView(data: entry.data)
+            MediumWidgetView(data: entry.data, isPro: entry.isPro)
         }
         .configurationDisplayName("투두 목록")
         .description("오늘의 투두 목록을 확인하세요.")
@@ -109,7 +115,7 @@ struct LargeTodoWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TodoTimelineProvider()) { entry in
-            LargeWidgetView(data: entry.data)
+            LargeWidgetView(data: entry.data, isPro: entry.isPro)
         }
         .configurationDisplayName("투두 전체 목록")
         .description("오늘의 투두 전체 목록을 확인하세요.")

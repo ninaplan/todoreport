@@ -62,4 +62,8 @@ final class TodoNotificationManager {
     func cancel(for todoId: String) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [todoId])
     }
+
+    func cancelAll() {
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+    }
 }
