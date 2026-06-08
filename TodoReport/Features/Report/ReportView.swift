@@ -195,7 +195,8 @@ struct ReportView: View {
         )
         NotionSaveButton(
             isSaving: viewModel.isSavingToNotion,
-            isNotionConnected: viewModel.isNotionConnected
+            isNotionConnected: viewModel.isNotionConnected,
+            isPro: isPro
         ) {
             viewModel.prepareSave()
         }
@@ -241,7 +242,8 @@ struct ReportView: View {
         )
         NotionSaveButton(
             isSaving: viewModel.isSavingToNotion,
-            isNotionConnected: viewModel.isNotionConnected
+            isNotionConnected: viewModel.isNotionConnected,
+            isPro: isPro
         ) {
             viewModel.prepareSave()
         }
@@ -737,9 +739,10 @@ private struct ReviewTimelineRow: View {
 private struct NotionSaveButton: View {
     let isSaving: Bool
     let isNotionConnected: Bool
+    let isPro: Bool
     let action: () -> Void
 
-    private var isInactive: Bool { isSaving || !isNotionConnected }
+    private var isActive: Bool { !isSaving && isNotionConnected && isPro }
 
     var body: some View {
         Button(action: action) {
@@ -750,18 +753,22 @@ private struct NotionSaveButton: View {
                 } else {
                     Image(systemName: isNotionConnected ? "square.and.arrow.up" : "lock.circle")
                         .font(.subheadline)
+                        .foregroundStyle(isActive ? AppTheme.shared.accent : .secondary)
                 }
-                Text(isSaving ? "저장 중..." : "노션에 리포트 저장하기")
-                    .font(.subheadline.bold())
+                HStack(spacing: 6) {
+                    Text(isSaving ? "저장 중..." : "노션에 리포트 저장하기")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(isActive ? AppTheme.shared.accent : .secondary)
+                    ProBadge()
+                }
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .foregroundStyle(isInactive ? Color(.tertiaryLabel) : AppTheme.shared.accent)
             .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(isInactive ? Color(.separator) : AppTheme.shared.accent.opacity(0.4), lineWidth: 0.5)
+                    .strokeBorder(isActive ? AppTheme.shared.accent.opacity(0.4) : Color(.separator), lineWidth: 0.5)
             )
         }
         .disabled(isSaving)

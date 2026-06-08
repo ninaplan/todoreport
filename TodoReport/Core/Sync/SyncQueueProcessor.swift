@@ -84,7 +84,8 @@ final class SyncQueueProcessor {
                         updateNotionPageId(localId: item.entityId, notionPageId: pageId)
                         enqueueTodoUpdateForRelation(localId: item.entityId)
                     }
-                    if item.action == "update", item.entityType == "todo" {
+                    if item.action == "update", item.entityType == "todo",
+                       payloadRequestsDailyReportLink(item.payload) {
                         setRelationLinked(notionPageId: item.entityId)
                     }
                     context.delete(item)
@@ -147,8 +148,15 @@ final class SyncQueueProcessor {
         let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == localId })
         guard let item = try? context.fetch(descriptor).first,
               !item.notionPageId.isEmpty else { return }
-        SyncQueueManager.shared.enqueueTodoUpdate(item.toTodo())
+        SyncQueueManager.shared.enqueueTodoRelationLink(item.toTodo())
         print("[Processor] 🔗 create 완료 → relation enqueue - \(localId)")
+    }
+
+    private func payloadRequestsDailyReportLink(_ payload: Data) -> Bool {
+        guard let body = try? JSONSerialization.jsonObject(with: payload) as? [String: Any] else {
+            return false
+        }
+        return body["linkDailyReport"] as? Bool == true
     }
 
     private func setRelationLinked(notionPageId: String) {

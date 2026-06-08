@@ -19,6 +19,12 @@ struct Category: Identifiable, Codable {
     var icon: String
     var status: CategoryStatus
     var plannerId: String?
+    var notionOptionId: String?
+    var notionOptionName: String?
+
+    var isLinkedToNotion: Bool {
+        notionOptionId != nil || notionOptionName != nil
+    }
 
     init(
         id: String = UUID().uuidString,
@@ -26,7 +32,9 @@ struct Category: Identifiable, Codable {
         colorHex: String = "#FD6845",
         icon: String = "tag.fill",
         status: CategoryStatus = .active,
-        plannerId: String? = nil
+        plannerId: String? = nil,
+        notionOptionId: String? = nil,
+        notionOptionName: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -34,6 +42,8 @@ struct Category: Identifiable, Codable {
         self.icon = icon
         self.status = status
         self.plannerId = plannerId
+        self.notionOptionId = notionOptionId
+        self.notionOptionName = notionOptionName
     }
 
     static let colorPalette: [String] = [
@@ -150,14 +160,25 @@ final class CategoryService {
         }
         try context.save()
         await refreshStore()
+        let saved = cat
+        Task { await CategoryNotionSync.shared.onCategorySaved(saved) }
     }
 
     func archiveCategory(id: String) async throws {
         let descriptor = FetchDescriptor<CategoryItem>(predicate: #Predicate { $0.id == id })
         guard let item = try context.fetch(descriptor).first else { return }
         item.statusRaw = CategoryStatus.archived.rawValue
+        clearTodoCategoryLinks(categoryId: id)
         try context.save()
         await refreshStore()
+    }
+
+    private func clearTodoCategoryLinks(categoryId: String) {
+        let todoDesc = FetchDescriptor<TodoItem>()
+        guard let todos = try? context.fetch(todoDesc) else { return }
+        for todo in todos where todo.categoryId == categoryId {
+            todo.categoryId = nil
+        }
     }
 
     func restoreCategory(id: String) async throws {
@@ -171,6 +192,8 @@ final class CategoryService {
     func deleteCategory(id: String) async throws {
         let catDesc = FetchDescriptor<CategoryItem>(predicate: #Predicate { $0.id == id })
         guard let item = try context.fetch(catDesc).first else { return }
+        let category = item.toCategory()
+        await CategoryNotionSync.shared.onCategoryDeleted(category)
         context.delete(item)
 
         let todoDesc = FetchDescriptor<TodoItem>()

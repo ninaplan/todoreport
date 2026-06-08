@@ -9,6 +9,7 @@ final class PlannerItem {
     var isNotionConnected: Bool
     var notionTodoDBId: String?
     var notionReportDBId: String?
+    var notionCategoryDBId: String?  // v2 Pro: 카테고리 전용 DB
     // 플래너별 Notion 토큰 (온보딩 플래너는 nil → NotionAuthManager Keychain 사용)
     var notionAccessToken: String?
     // 아이콘: SF Symbol 이름 또는 "photo"
@@ -28,6 +29,7 @@ final class PlannerItem {
         isNotionConnected: Bool = false,
         notionTodoDBId: String? = nil,
         notionReportDBId: String? = nil,
+        notionCategoryDBId: String? = nil,
         notionAccessToken: String? = nil,
         iconType: String? = nil,
         iconImageData: Data? = nil,
@@ -42,6 +44,7 @@ final class PlannerItem {
         self.isNotionConnected = isNotionConnected
         self.notionTodoDBId = notionTodoDBId
         self.notionReportDBId = notionReportDBId
+        self.notionCategoryDBId = notionCategoryDBId
         self.notionAccessToken = notionAccessToken
         self.iconType = iconType
         self.iconImageData = iconImageData
@@ -57,6 +60,7 @@ final class PlannerItem {
             isNotionConnected: isNotionConnected,
             notionTodoDBId: notionTodoDBId,
             notionReportDBId: notionReportDBId,
+            notionCategoryDBId: notionCategoryDBId,
             notionAccessToken: notionAccessToken,
             iconType: iconType,
             iconImageData: iconImageData,
@@ -73,6 +77,7 @@ final class PlannerItem {
         isNotionConnected = planner.isNotionConnected
         notionTodoDBId = planner.notionTodoDBId
         notionReportDBId = planner.notionReportDBId
+        notionCategoryDBId = planner.notionCategoryDBId
         notionAccessToken = planner.notionAccessToken
         iconType = planner.iconType
         iconImageData = planner.iconImageData
@@ -87,6 +92,7 @@ final class PlannerItem {
             isNotionConnected: planner.isNotionConnected,
             notionTodoDBId: planner.notionTodoDBId,
             notionReportDBId: planner.notionReportDBId,
+            notionCategoryDBId: planner.notionCategoryDBId,
             notionAccessToken: planner.notionAccessToken,
             iconType: planner.iconType,
             iconImageData: planner.iconImageData,

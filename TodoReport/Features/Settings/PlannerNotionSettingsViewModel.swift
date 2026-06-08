@@ -21,6 +21,7 @@ final class PlannerNotionSettingsViewModel {
     var memoMode: PropMappingMode = .appOnly
     var isPinnedMode: PropMappingMode = .appOnly
     var reportRelationMode: PropMappingMode = .appOnly
+    var categoryMode: PropMappingMode = .appOnly
     var reviewMode: PropMappingMode = .appOnly
     var ratingMode: PropMappingMode = .appOnly
 
@@ -42,6 +43,7 @@ final class PlannerNotionSettingsViewModel {
         if todo.memo != nil           { memoMode = .existing }
         if todo.isPinned != nil       { isPinnedMode = .existing }
         if todo.reportRelation != nil { reportRelationMode = .existing }
+        if todo.category != nil { categoryMode = .existing }
 
         let report = planner.decodedReportPropsMapping
         reportPropsMapping = report
@@ -75,10 +77,10 @@ final class PlannerNotionSettingsViewModel {
 
     func selectTodoDB(_ id: String) {
         selectedTodoDBId = id
-        Task { await fetchTodoProperties() }
+        Task { await fetchTodoProperties(policy: .initialSetup) }
     }
 
-    func fetchTodoProperties() async {
+    func fetchTodoProperties(policy: TodoPropsMappingPolicy = .preserveUser) async {
         guard let dbId = selectedTodoDBId else { return }
         isLoading = true
         defer { isLoading = false }
@@ -94,26 +96,21 @@ final class PlannerNotionSettingsViewModel {
             todoProperties = decoded.properties.map {
                 NotionProperty(id: $0.id, name: $0.name, type: $0.type, options: $0.options)
             }
-            autoMapTodoProps()
+            TodoPropsMappingAutoFill.apply(
+                mapping: &todoPropsMapping,
+                properties: todoProperties,
+                policy: policy
+            )
+            TodoPropsMappingAutoFill.syncOptionalModes(
+                mapping: todoPropsMapping,
+                memoMode: &memoMode,
+                isPinnedMode: &isPinnedMode,
+                reportRelationMode: &reportRelationMode,
+                categoryMode: &categoryMode
+            )
         } catch {
             alertMessage = "투두 속성을 불러오지 못했어요"
         }
-    }
-
-    private func autoMapTodoProps() {
-        func best(type: String, default name: String) -> String? {
-            let typed = todoProperties.filter { $0.type == type }
-            return typed.first(where: { $0.name == name })?.name ?? typed.first?.name
-        }
-        todoPropsMapping.completed      = best(type: "checkbox",  default: "완료")
-        todoPropsMapping.date           = best(type: "date",      default: "날짜")
-        todoPropsMapping.memo           = best(type: "rich_text", default: "메모")
-        todoPropsMapping.isPinned       = best(type: "checkbox",  default: "중요")
-        todoPropsMapping.reportRelation = best(type: "relation",  default: "데일리 리포트")
-
-        memoMode           = todoPropsMapping.memo != nil ? .existing : .appOnly
-        isPinnedMode       = todoPropsMapping.isPinned != nil ? .existing : .appOnly
-        reportRelationMode = todoPropsMapping.reportRelation != nil ? .existing : .appOnly
     }
 
     // MARK: - 리포트 속성
@@ -193,6 +190,28 @@ final class PlannerNotionSettingsViewModel {
         isPinnedMode = .existing
     }
 
+    func createCategoryProperty() async {
+        isLoading = true
+        defer { isLoading = false }
+        guard let dbId = selectedTodoDBId,
+              let name = await addNotionProperty(dbId: dbId, name: "카테고리", type: "select", options: []) else { return }
+        todoPropsMapping.category = name
+        todoPropsMapping.categoryPropType = "select"
+        categoryMode = .existing
+    }
+
+    func selectCategory(_ name: String?) {
+        todoPropsMapping.category = name
+        if let name,
+           let prop = todoProperties.first(where: { $0.name == name && CategoryNotionProperty.supportedTypes.contains($0.type) }) {
+            todoPropsMapping.categoryPropType = prop.type
+            categoryMode = .existing
+        } else {
+            todoPropsMapping.categoryPropType = nil
+            categoryMode = .appOnly
+        }
+    }
+
     func createRatingProperty() async {
         isLoading = true
         defer { isLoading = false }
@@ -217,7 +236,7 @@ final class PlannerNotionSettingsViewModel {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         var body: [String: Any] = ["propertyName": name, "type": type]
-        if !options.isEmpty { body["options"] = options }
+        if type == "select" || !options.isEmpty { body["options"] = options }
         if let format { body["format"] = format }
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
         request.httpBody = bodyData
@@ -234,10 +253,14 @@ final class PlannerNotionSettingsViewModel {
 
     // MARK: - 저장
 
-    func save() {
-        var updated = planner
+    func save() async {
+        let previousCategoryProp = planner.decodedTodoPropsMapping.category
+        var updated = PlannerService.shared.store.first(where: { $0.id == planner.id }) ?? planner
         updated.notionTodoDBId   = selectedTodoDBId
         updated.notionReportDBId = selectedReportDBId
+        if selectedTodoDBId != nil, updated.resolvedNotionToken != nil {
+            updated.isNotionConnected = true
+        }
         if let data = try? JSONEncoder().encode(todoPropsMapping),
            let json = String(data: data, encoding: .utf8) {
             updated.todoPropsMapping = json
@@ -246,7 +269,12 @@ final class PlannerNotionSettingsViewModel {
            let json = String(data: data, encoding: .utf8) {
             updated.reportPropsMapping = json
         }
-        Task { try? await PlannerService.shared.savePlanner(updated) }
+        try? await PlannerService.shared.savePlanner(updated)
+        CategoryNotionSync.shared.onCategoryMappingEnabled(
+            plannerId: planner.id,
+            previousCategoryProp: previousCategoryProp,
+            newCategoryProp: todoPropsMapping.category
+        )
     }
 
     func clearAlert() {

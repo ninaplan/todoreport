@@ -77,9 +77,11 @@ struct PeriodReportChartData {
     struct Entry { let label: String; let rate: Double }
     struct RatingEntry { let label: String; let rating: Double }
     struct CategoryEntry { let name: String; let rate: Double; let completed: Int; let total: Int }
+    struct ReviewEntry { let date: String; let review: String; let rating: Double }
     let rates: [Entry]
     let ratings: [RatingEntry]
     let categories: [CategoryEntry]
+    let reviews: [ReviewEntry]
 }
 
 final class ReportService {
@@ -293,6 +295,11 @@ final class ReportService {
             if !data.categories.isEmpty {
                 body["chartCategories"] = data.categories.map {
                     ["name": $0.name, "rate": $0.rate, "completed": $0.completed, "total": $0.total] as [String: Any]
+                }
+            }
+            if !data.reviews.isEmpty {
+                body["chartReviews"] = data.reviews.map {
+                    ["date": $0.date, "review": $0.review, "rating": $0.rating] as [String: Any]
                 }
             }
         }

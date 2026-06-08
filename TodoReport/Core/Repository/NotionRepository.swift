@@ -141,6 +141,9 @@ private struct TodoBody: Encodable {
     let dateProp: String?
     let memoProp: String?
     let isPinnedProp: String?
+    let categoryProp: String?
+    let categoryPropType: String?
+    let categoryName: String?
 
     init(todo: Todo, dbId: String, mapping: TodoPropsMapping) {
         self.id = todo.id
@@ -157,6 +160,9 @@ private struct TodoBody: Encodable {
         self.dateProp = mapping.date
         self.memoProp = mapping.memo
         self.isPinnedProp = mapping.isPinned
+        self.categoryProp = mapping.category
+        self.categoryPropType = mapping.categoryPropType
+        self.categoryName = CategoryNotionSync.shared.notionSyncName(for: todo.categoryId) ?? ""
     }
 }
 

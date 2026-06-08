@@ -23,6 +23,8 @@ struct TodoPropsMapping: Codable {
     var memo: String? = nil
     var isPinned: String? = nil
     var reportRelation: String? = nil  // 투두DB → 데일리리포트DB relation 속성명
+    var category: String? = nil
+    var categoryPropType: String? = nil  // v1: "select" 고정
 }
 
 struct ReportPropsMapping: Codable {
@@ -75,6 +77,7 @@ final class OnboardingViewModel {
     var memoMode: PropMappingMode = .appOnly
     var isPinnedMode: PropMappingMode = .appOnly
     var reportRelationMode: PropMappingMode = .appOnly
+    var categoryMode: PropMappingMode = .appOnly
     var reviewMode: PropMappingMode = .appOnly
     var ratingMode: PropMappingMode = .appOnly
 
@@ -196,6 +199,14 @@ final class OnboardingViewModel {
             isComplete = true
             return
         }
+        if let planner = PlannerService.shared.selectedPlanner {
+            await CategoryNotionSync.shared.syncCategoriesByName(plannerId: planner.id)
+        }
+        await runInitialNotionFetch()
+    }
+
+    @MainActor
+    private func runInitialNotionFetch() async {
         isFetchingInitialData = true
         fetchProgress = 0
         let calendar = Calendar.current
@@ -238,6 +249,11 @@ final class OnboardingViewModel {
             planner.reportPropsMapping = json
         }
         try? await PlannerService.shared.savePlanner(planner)
+        CategoryNotionSync.shared.onCategoryMappingEnabled(
+            plannerId: planner.id,
+            previousCategoryProp: nil,
+            newCategoryProp: todoPropsMapping.category
+        )
         SyncQueueManager.shared.onNotionConnected()
     }
 
@@ -348,18 +364,30 @@ final class OnboardingViewModel {
     // MARK: - Auto Mapping
 
     private func autoMapTodoProps() {
-        func best(props: [NotionProperty], type: String, default name: String) -> String? {
-            let typed = props.filter { $0.type == type }
-            return typed.first(where: { $0.name == name })?.name ?? typed.first?.name
+        TodoPropsMappingAutoFill.apply(
+            mapping: &todoPropsMapping,
+            properties: todoProperties,
+            policy: .initialSetup
+        )
+        TodoPropsMappingAutoFill.syncOptionalModes(
+            mapping: todoPropsMapping,
+            memoMode: &memoMode,
+            isPinnedMode: &isPinnedMode,
+            reportRelationMode: &reportRelationMode,
+            categoryMode: &categoryMode
+        )
+    }
+
+    func selectCategory(_ name: String?) {
+        todoPropsMapping.category = name
+        if let name,
+           let prop = todoProperties.first(where: { $0.name == name && CategoryNotionProperty.supportedTypes.contains($0.type) }) {
+            todoPropsMapping.categoryPropType = prop.type
+            categoryMode = .existing
+        } else {
+            todoPropsMapping.categoryPropType = nil
+            categoryMode = .appOnly
         }
-        todoPropsMapping.completed      = best(props: todoProperties, type: "checkbox",  default: "완료")
-        todoPropsMapping.date           = best(props: todoProperties, type: "date",      default: "날짜")
-        todoPropsMapping.memo           = best(props: todoProperties, type: "rich_text", default: "메모")
-        todoPropsMapping.isPinned       = best(props: todoProperties, type: "checkbox",  default: "중요")
-        todoPropsMapping.reportRelation = best(props: todoProperties, type: "relation",  default: "데일리 리포트")
-        memoMode           = todoPropsMapping.memo != nil           ? .existing : .appOnly
-        isPinnedMode       = todoPropsMapping.isPinned != nil       ? .existing : .appOnly
-        reportRelationMode = todoPropsMapping.reportRelation != nil ? .existing : .appOnly
     }
 
     // MARK: - 속성 생성
@@ -380,6 +408,16 @@ final class OnboardingViewModel {
               let name = await addNotionProperty(dbId: dbId, name: "상단고정", type: "checkbox") else { return }
         todoPropsMapping.isPinned = name
         isPinnedMode = .existing
+    }
+
+    func createCategoryProperty() async {
+        isLoadingDBs = true
+        defer { isLoadingDBs = false }
+        guard let dbId = selectedTodoDBId,
+              let name = await addNotionProperty(dbId: dbId, name: "카테고리", type: "select", options: []) else { return }
+        todoPropsMapping.category = name
+        todoPropsMapping.categoryPropType = "select"
+        categoryMode = .existing
     }
 
     func createRatingProperty() async {
@@ -404,7 +442,7 @@ final class OnboardingViewModel {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         var body: [String: Any] = ["propertyName": name, "type": type]
-        if !options.isEmpty { body["options"] = options }
+        if type == "select" || !options.isEmpty { body["options"] = options }
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
         request.httpBody = bodyData
 

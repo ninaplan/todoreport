@@ -7,6 +7,7 @@ func propTypeIcon(for type: String?, label: String? = nil) -> String {
         case "날짜":         return "calendar"
         case "메모", "하루 리뷰": return "text.alignleft"
         case "상단고정":     return "pin"
+        case "카테고리":     return "tag"
         case "리포트 연결":  return "link"
         case "별점":         return "star"
         default:             break

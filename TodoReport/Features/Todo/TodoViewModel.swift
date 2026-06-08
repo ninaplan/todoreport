@@ -100,6 +100,7 @@ final class TodoViewModel {
         notionSyncTask = nil
         todos = []
         await categoryService.refresh()
+        await syncNotionCategoriesIfNeeded()
         await fetchTodos()
     }
 
@@ -115,6 +116,7 @@ final class TodoViewModel {
     }
 
     func fetchTodos() async {
+        await syncNotionCategoriesIfNeeded()
         isLoading = true
         todos = await service.fetchTodos(for: selectedDate)
         isLoading = false
@@ -125,12 +127,18 @@ final class TodoViewModel {
         notionSyncTask = Task {
             isNotionSyncing = true
             defer { isNotionSyncing = false }
+            await syncNotionCategoriesIfNeeded()
             await service.syncTodosFromNotion(for: date)
             guard !Task.isCancelled else { return }
             todos = await service.fetchTodos(for: date)
             validateCategoryFilter()
             updateWidget()
         }
+    }
+
+    private func syncNotionCategoriesIfNeeded() async {
+        guard let plannerId = PlannerService.shared.selectedPlanner?.id else { return }
+        await CategoryNotionSync.shared.syncCategoriesByName(plannerId: plannerId)
     }
 
     private func updateWidget() {

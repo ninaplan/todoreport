@@ -74,6 +74,9 @@ TodoReport/
 │   │   └── SyncManager.swift      # 큐 처리 / 재시도 / 상태 관리
 │   ├── Cache/
 │   │   └── CacheManager.swift     # SwiftData + TTL 캐싱
+│   ├── Notion/
+│   │   ├── CategoryNotionSync.swift   # 카테고리 select/status 옵션 동기화
+│   │   └── TodoPropsMappingAutoFill.swift
 │   └── Logging/
 │       └── AppLogger.swift        # 파일 기반 로그 (Documents/app_logs.txt, 500KB 자동 트림)
 │
@@ -90,7 +93,7 @@ TodoReport/
 │   │   ├── PaywallView.swift             # 구독 유도 화면
 │   │   ├── PlannerDowngradeView.swift    # 구독 만료 시 플래너 선택
 │   │   └── PlannerDowngradeViewModel.swift
-│   └── Category/                  # 카테고리 관리 (무료, 앱 전용)
+│   └── Category/                  # 카테고리 관리 (무료, SwiftData + 노션 옵션 동기화)
 │
 ├── Widget/                        # 홈 화면 위젯 (별도 Extension Target)
 │   ├── TodoWidgetBundle.swift     # 진입점
@@ -181,6 +184,25 @@ enum DayRating: String, CaseIterable, Codable {
 }
 ```
 
+### Category
+```swift
+struct Category: Identifiable, Codable {
+    let id: String
+    var name: String
+    var colorHex: String       // 기본 #FD6845
+    var icon: String           // 기본 tag.fill
+    var status: CategoryStatus // active / archived / completed(v2)
+    var plannerId: String?
+    var notionOptionId: String?
+    var notionOptionName: String?
+}
+```
+
+**노션 연동 플래너:** `CategoryNotionSync`가 투두 DB select/status 옵션과 동기화.
+- 이름 일치 → 병합, 노션 전용 신규 옵션 → 앱 카테고리 자동 추가
+- **삭제** → 노션 옵션도 삭제 (`remove-select-option`)
+- **보관** → 앱만 숨김, 노션 유지, 재실행 후 자동 활성화 없음
+
 ---
 
 ## 데이터 레이어 — Repository 패턴
@@ -231,12 +253,12 @@ final class RepositoryFactory {
 
 ## 계정 구조
 
-| 사용자 유형 | 로그인 | 데이터 저장 |
+| 사용자 유형 | 인증 | 데이터 저장 |
 |---|---|---|
-| 노션 사용자 | Sign in with Apple + Notion OAuth | Notion DB |
-| 로컬 사용자 | Sign in with Apple | SwiftData (기기) |
+| 노션 사용자 | Notion OAuth | Notion DB |
+| 로컬 사용자 | 없음 (앱만 사용) | SwiftData (기기) |
 
-> Sign in with Apple은 모든 사용자 필수.
+> 별도 앱 계정 로그인(Sign in with Apple 등) 없음. Notion OAuth는 노션 연결 선택 시에만 필요.
 > Apple IAP 구독이 Apple ID에 묶임 → 기기 변경 후 구독 복원 가능.
 
 ---
@@ -483,15 +505,25 @@ DEBUG 빌드에서는 `refreshIsProDebug(previousValue:)` 호출 — `previousVa
 - `TodoViewModel`: `addTodo()`, `deleteTodo()`, `performSaveTodoEdit()` 진입 전 isReadOnly 체크 → `showReadOnlyAlert`
 - `PlannerDetailView`: `List { ... }.disabled(currentPlanner.isReadOnly)` + 상단 잠금 배너
 
+**카테고리 노션 동기화 — CategoryNotionSync**
+
+- 투두 DB `category`가 select/status로 매핑된 플래너만 동작 (`isSelectSyncEnabled`)
+- `syncCategoriesByName`: 이름 일치 병합 + 노션 전용 신규 옵션 → 앱 카테고리 import
+- **삭제** = SwiftData 삭제 + `onCategoryDeleted` → `remove-select-option`
+- **보관** = `status = archived`만, 노션 옵션 유지, 보관 이름은 재병합·재import 제외
+- 동기화 호출: 카테고리 관리 `fetchCategories`, `TodoViewModel.fetchTodos`, `TodoReportApp` 포그라운드
+- 연결된 카테고리만 투두 Notion payload에 `categoryName` 포함 (`notionSyncName`)
+- 1회 설정 시트·앱 사용 토글(`isEnabledInApp`)은 **사용하지 않음** (v1.5 폐기)
+
 ---
 
 ## 개발 우선순위 (MVP)
 
 ```
 Phase 1 (핵심 기반)
-  - Sign in with Apple + Notion OAuth 연동
+  - Notion OAuth 연동
   - APIClient + Repository 패턴 구현
-  - 온보딩 플로우 (로컬/노션 선택)
+  - 온보딩 플로우 (웰컴 → 로컬/노션 선택)
 
 Phase 2 (무료 핵심 기능)
   - 투두 기록 → Notion 저장
@@ -519,7 +551,7 @@ Phase 5 (출시)
   - 심사 제출
 ```
 
-- [x] Phase 1: Notion OAuth + APIClient + 온보딩 + Sign in with Apple
+- [x] Phase 1: Notion OAuth + APIClient + 온보딩
 - [x] Phase 2: 투두 기록 + 빠른 캡처 + 데일리 리포트 + 카테고리 (무료)
 - [x] Phase 3: 홈 화면 위젯 (WidgetKit + App Group)
 - [ ] Phase 4: StoreKit 2 + 반복 투두 (유료)
@@ -527,11 +559,10 @@ Phase 5 (출시)
 
 ---
 
-## 현재 진행 상태 (2026-06-06 기준)
+## 현재 진행 상태 (2026-06-08 기준)
 
 **Phase 1 ✅ 완료**
-- Sign in with Apple (개발용 로그인 포함)
-- 온보딩 플로우 (로컬/노션 선택 → OAuth → DB선택 → 속성매핑)
+- 온보딩 플로우 (노션/로컬 선택 → OAuth → DB선택 → 속성매핑) — 웰컴 소개 페이지 🔜
 - MainTabView, Colors, APIClient 기반 세팅
 
 **Phase 2 ✅ 완료**
@@ -573,7 +604,7 @@ Phase 5 (출시)
 - ✅ 무료 사용자 날짜 범위: 어제·오늘·내일 3일 (±1일)
 - 🔜 반복 설정 변경/해제 처리 (RecurringTodoEditHandler, detectChange/applySingleOnly/applyFromNowOn) — v2로 연기
 - ✅ 언어 설정 연동 (시스템/한국어/영어, 재시작 후 적용 방식)
-- ✅ 지수(발바닥) UI: PawRatingView, 앱 전체 '별점'→'지수' 텍스트 변경
+- ✅ PawRatingView (발바닥 아이콘 별점 입력), UI 라벨 '별점' 사용
 - ✅ NotionDBPickerView 건너뛰기 버튼: .body 폰트, .primary 색상
 - ✅ 백엔드 detectRelationProp() 로그 추가 (POST/PATCH 양쪽)
 - ✅ SyncQueue selectedPlanner 의존 제거
@@ -592,6 +623,9 @@ Phase 5 (출시)
 - ✅ 노션 투두 페이지 아이콘 (✔️ 이모지 고정, 백엔드 POST route.ts)
 - ✅ 구독 해지 시 플래너 선택 팝업 + 읽기 전용 처리 (PlannerDowngradeView, isReadOnly)
 - ✅ 앱 내 로그 수집 + 오류 신고 메일 (AppLogger, SupportMailView)
+- ✅ 노션 카테고리 옵션 동기화 (CategoryNotionSync — 이름 병합, 노션 신규 옵션 import, 삭제/보관 분리)
+- ✅ 카테고리 삭제·보관 확인 팝업 (노션 연동 플래너)
+- ✅ 백엔드 `remove-select-option` / `add-select-option` (select·status, Vercel 배포)
 - 🔜 StoreKit 2 구독 결제 실연동 (현재 UI만 구현됨)
 
 **Phase 5 🔄 진행 예정** 앱스토어 출시
@@ -622,6 +656,9 @@ v2에서 처음부터 설계 재검토 후 구현 권장.
 - `Features/Onboarding/OnboardingViewModel.swift` — `TodoPropsMapping`, `ReportPropsMapping` 구조체
 - `Features/Settings/PlannerNotionSettingsView.swift` — 속성 매핑 UI
 - `Features/Settings/PlannerNotionSettingsViewModel.swift` — `autoMapTodoProps`, `autoMapReportProps`
+
+### 노션 카테고리 DB (relation) — v2
+v1.5는 투두 DB **select/status 옵션** 단위 동기화. 별도 카테고리 DB + relation 매핑은 v2 검토.
 
 ---
 

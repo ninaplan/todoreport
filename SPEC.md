@@ -1,6 +1,7 @@
 # 투두리포트 앱 개발 스펙
 
 > 작성일: 2026-05-26  
+> 최종 업데이트: 2026-06-08 (기간 리포트 노션 본문 포맷 · 카테고리 보관 alert 버그 수정)  
 > 브랜드: 노크(Nock / nock.kr)  
 > 앱명: 투두리포트  
 > 포인트 컬러: `#FD6845`
@@ -262,13 +263,29 @@ api/
 - 이전 주 조회 및 노션 저장은 유료
 
 #### 카테고리 관리
-- 앱 전용 (Notion DB 연동 없음)
-- 카테고리 추가/편집/삭제
-- 색상 선택 (12가지 컬러 팔레트)
-- 아이콘 선택 (SF Symbol 25종, 공부/운동/업무/생활/취미 등)
-- 투두 목록에서 색상 원형 + 아이콘 배지로 표시
-- 카테고리별로 보기 섹션 헤더에 색상 원형 + 아이콘 표시
-- 카테고리별 통계 → 주간/월간 리포트에 포함
+- SwiftData 저장 (플래너별 `plannerId`)
+- 카테고리 추가/편집/삭제/보관/복원/순서 변경
+- **기본값:** 색상 `#FD6845`(노크 오렌지), 아이콘 `tag.fill`
+- 색상 선택 (12가지 컬러 팔레트), 아이콘 선택 (SF Symbol 팔레트)
+- 투두 목록·카테고리별 보기·리포트 달성률에서 배지 표시
+
+**노션 연동 플래너 (투두 DB `category` 속성 매핑 시):**
+- 투두 DB의 **select / status** 옵션과 앱 카테고리 동기화 (`CategoryNotionSync`)
+- **이름이 같으면** 자동 병합 (`notionOptionId` / `notionOptionName` 연결)
+- **노션에만 있는 새 옵션** → 앱 카테고리로 자동 추가
+- **이름이 다르면** 앱·노션 각각 유지 (강제 병합·설정 시트 없음)
+- 동기화 시점: 카테고리 관리 진입, 투두 fetch, 앱 포그라운드 복귀, 온보딩/마이그레이션 후
+
+**삭제 vs 보관 (노션 연동 시 확인 팝업):**
+
+| 동작 | 앱 | 노션 |
+|---|---|---|
+| **삭제** | `CategoryItem` 영구 삭제, 연결 투두 `categoryId` 해제 | 연결된 카테고리면 select/status **옵션도 삭제** (`remove-select-option`) |
+| **보관** | `status = archived`, 활성 목록에서 숨김, 연결 투두 `categoryId` 해제 | **옵션 유지** (앱에서만 숨김) |
+
+- 보관 상태는 SwiftData에 영구 저장 — 앱 재실행 후에도 **자동 활성화되지 않음** (동기화 시 보관 이름·옵션 ID 예약)
+- 보관 복원은 사용자가 보관 목록에서 수동 탭 시에만
+- **보관 확인 alert**는 `CategoryView` 본문에 바인딩 (목록 스와이프·편집 시트 공통). 편집 시트에만 두면 스와이프 시 팝업이 뜨지 않고 `showArchiveAlert`가 true로 남아 재진입 시 오동작할 수 있음
 
 #### 오류 신고
 - 설정 탭 고객지원 섹션 → "오류 신고" 버튼
@@ -286,10 +303,14 @@ api/
 
 #### 노션에 저장하기 (주간/월간 리포트)
 - **「노션에 리포트 저장하기」** 버튼 (아이콘: `square.and.arrow.up`, 수동, 유료 전용)
-- 탭 → 저장 시트 (`NotionSaveEditorView`)
+- 탭 → 저장 시트 (`NotionSaveEditorView`, `.large`)
   - 기간 통계 (평균 완료율, 별점 평균)
   - **주간 리뷰** / **월간 리뷰** 입력 (기간 타입에 따라 라벨 분기, 구 「한마디」)
   - **저장 알림 설정** 섹션 (v1, 아래 6-2-1 참고)
+- 툴바: **취소**(회색) / **저장**(오렌지, 노션 저장 실행)
+
+> **v1 UX 한계 (v1.1 개선 예정):** 저장 시트에 알림 설정과 노션 저장이 한 화면에 있어, 알림만 바꾸려 해도 「저장」= 노션 저장으로 느껴질 수 있음. v1에서는 알림 변경이 `@AppStorage`로 **즉시 반영**되며 취소해도 알림 설정은 유지됨. v1.1에서 역할 분리 검토 (아래 12절).
+
 - 저장 전 변경사항 해시 비교
   - 변경 없으면 노션 API 호출 없이 "변경사항이 없습니다" 안내
   - 변경 있으면 기존 블록 전체 삭제 후 새 블록으로 업데이트
@@ -298,13 +319,29 @@ api/
   - notionPageId가 있으면 먼저 PATCH 시도
   - 실패하거나 없으면 → 시작 날짜로 Notion DB 검색 → 있으면 업데이트, 없으면 신규 생성
   - 앱 재설치·노션 연동 해제·재연결 후에도 중복 페이지 생성 방지
-- 리포트 본문 구성:
+- 리포트 본문 구성 (백엔드 `buildReportBlocks`, Notion 페이지 children):
+  - Notion API에 차트/프로그레스 바 블록이 없어 **텍스트 바**(`█`/`░`, 10칸)로 표현
+  - iOS → `POST /api/notion/daily-report` payload: `chartRates`, `chartRatings`, `chartCategories`, `chartReviews`
   ```
-  📊 요약 (완료 투두 / 완료율 / 연속 달성)
-  📁 카테고리별 완료 (표)
-  📅 요일별/주차별 현황
-  💬 주간·월간 리뷰 (사용자 직접 입력)
+  ── 📊 완료율
+  월  ████████░░  80%        ← 주간: 요일별 세로 / 월간: N주차별 세로
+  화  ██████░░░░  60%
+  ...
+
+  ── ⭐ 별점
+  월  ⭐⭐⭐⭐                  ← 요일·주차 라벨 + 별 아이콘 세로 (없으면 —)
+  화  —
+
+  ── 📁 카테고리별 달성률
+  업무  ████████░░  80% (4/5)  ← 카테고리명 + 바 + % + (완료/전체)
+
+  ── 📝 하루 리뷰
+  [callout] 6월 3일 (화)       ← 기간 내 데일리 리뷰, 날짜(요일) + 별점 + 본문
+             ⭐⭐⭐
+             리뷰 텍스트...
   ```
+  - **주간 리뷰 / 월간 리뷰**(사용자가 저장 시트에 입력)는 DB 속성(`reviewProp`)에 저장 — 본문 callout과 별개
+  - 기간 리뷰 callout 날짜 라벨: `formatReviewDateLabel` (`M월 d일 (요일)`)
 - 현재 보고 있는 주/월 기준으로 저장
 - 이전 기간 저장도 가능 (유료 사용자는 과거 기간 조회/저장 모두 가능)
 
@@ -321,14 +358,21 @@ api/
 | 알림 켜기 토글 | OFF 기본. ON 시 로컬 알림 스케줄 등록 |
 | footer | 기기 **설정 > 투두리포트 > 알림**이 허용되어 있어야 알림이 울립니다 |
 | 알림 시간 (토글 ON 시만 표시) | DatePicker (시·분) |
+| 주간 추가 UI | 요일 Picker (시작 요일 설정 반영) |
+| 월간 추가 UI | **1일 / 말일** Picker + 시간 |
 
 **스케줄 규칙 (v1):**
 - Pro + 노션 연결 + 알림 ON일 때만 등록
 - **주간:** 지난 주 종료 후, 사용자가 설정한 요일·시간 (시작 요일 설정 반영)
-- **월간:** 지난 달 종료 후, 사용자가 설정한 일·시간 (예: 매월 1일 20:00)
+- **월간:** 지난 달 종료 후 — **1일** 또는 **말일** + 사용자 시간
 - 알림 탭 → 앱 실행 → 사용자가 저장 시트에서 직접 저장 (기존 수동 플로우)
+- **포그라운드:** `AppNotificationDelegate`가 `report-save-reminder-*` 알림도 배너 표시
 
-**설정 저장:** `@AppStorage` (주간/월간 각각 또는 공통 — 구현 시 확정)
+**설정 저장:** `@AppStorage` (`ReportNotificationSettings`). 토글·시간 변경 시 **즉시 저장** (노션 저장 버튼과 무관).
+
+**알림 문구 (v1):**
+- 제목: `주간/월간 리포트 저장 시간`
+- 본문: `지난 주/달을 정리하고 노션에 저장해보세요.` (월간 말일: `이번 달을…`)
 
 ##### v1.2 (후속 업데이트)
 
@@ -356,6 +400,24 @@ api/
 | 알림 리마인der | ✅ | ✅ |
 | 알림에서 바로 저장 | ❌ | ✅ (리뷰 없이) |
 | 알림에서 앱 열기 | ✅ (탭 기본 동작) | ✅ (전용 액션) |
+
+#### 6-2-2. StoreKit 2 실연동 (v1)
+
+| 항목 | 값 |
+|---|---|
+| 월간 Product ID | `kr.nock.todoreport.pro.monthly` |
+| 연간 Product ID | `kr.nock.todoreport.pro.yearly` |
+| 가격 (한국, ASC) | 월 ₩4,900 / 연 ₩33,000 |
+| 구현 | `SubscriptionManager` (StoreKit 2), `PaywallView` / `PaywallViewModel` |
+| 로컬 테스트 | `TodoReport.storekit` + Scheme StoreKit Configuration |
+| Sandbox 테스트 | ASC 동기화 `.storekit` 또는 Scheme **None** + Sandbox 계정 |
+| Archive/TestFlight | Scheme StoreKit 설정 **무시** — ASC Sandbox/Production |
+
+**필수 ASC 조건:** 유료 앱 계약 Active, 구독 **제출 준비 완료**, In-App Purchase capability, Paid Applications Agreement·세금·은행.
+
+**설정 탭:** 구독 복원 결과 알림, Pro 시 **구독 관리** (`AppStore.showManageSubscriptions`).
+
+**관련 파일:** `Core/Subscription/SubscriptionManager.swift`, `TodoReport.storekit`, `Features/Subscription/PaywallView.swift`
 
 #### 멀티 플래너
 - 플래너 1개 = 투두DB 1개 + 데일리리포트DB 1개 묶음
@@ -414,7 +476,7 @@ api/
 ## 8. 온보딩 흐름
 
 ```
-① Sign in with Apple (계정 생성/로그인) ← 항상 필요
+① 웰컴 소개 (4~5페이지, 앱 소개)
           ↓
 ② 노션 연결 여부 선택
    ┌──────────────────────────────┐
@@ -430,18 +492,20 @@ api/
 ④ 완료
 ```
 
+> 별도 앱 계정 로그인(Sign in with Apple 등) 없음. Notion OAuth는 노션 연결 시에만 진행.
+
 **필수 속성 자동 추가 (노션 연결 시):**
 - 완료율_앱 (number)
 - 별점 (select, ⭐~⭐⭐⭐⭐⭐) — 없을 경우에만
 
 ## 8-1. 계정 구조
 
-| 구분 | 계정 | 데이터 저장 | 구독 관리 |
+| 구분 | 인증 | 데이터 저장 | 구독 관리 |
 |---|---|---|---|
-| 노션 사용자 | Sign in with Apple + Notion OAuth | Notion DB | Apple IAP |
-| 로컬 사용자 | Sign in with Apple | SwiftData (기기) | Apple IAP |
+| 노션 사용자 | Notion OAuth | Notion DB | Apple IAP |
+| 로컬 사용자 | 없음 (앱만 사용) | SwiftData (기기) | Apple IAP |
 
-> Sign in with Apple은 모든 사용자에게 필수.
+> 별도 앱 계정 로그인 없음. Notion OAuth는 노션 연결 선택 시에만 필요.
 > Apple IAP 구독이 Apple ID에 묶이므로 기기 변경 후에도 구독 복원 가능.
 > 로컬 사용자는 설정에서 언제든 노션 연결 가능 (연결 시 데이터 마이그레이션 안내).
 
@@ -560,30 +624,39 @@ const DAILY_REPORT_PROPERTIES = {
 ```swift
 enum CategoryStatus: String, Codable {
     case active    // 활성 (기본값)
-    case archived  // 보관됨 (소프트 삭제)
+    case archived  // 보관됨
     case completed // v2: 목표 달성 완료 (Notion 프로젝트 DB 연동 시 사용)
 }
 
 struct Category: Identifiable, Codable {
     let id: String
     var name: String
-    var colorHex: String   // 12가지 팔레트 중 선택
-    var icon: String       // SF Symbol 이름 (25종 팔레트 중 선택)
-    var status: CategoryStatus  // 기본값: .active
+    var colorHex: String        // 기본값 #FD6845
+    var icon: String            // 기본값 tag.fill
+    var status: CategoryStatus  // 기본값 .active
+    var plannerId: String?
+    var notionOptionId: String?   // 노션 select/status 옵션 ID
+    var notionOptionName: String? // 노션 옵션 표시명
 }
 ```
 
-### 카테고리 삭제 동작
+### 카테고리 삭제·보관 동작
 
-카테고리를 "삭제"하면 실제 데이터 삭제 대신 `status = .archived` 처리 (소프트 삭제).
-- 목록 화면에는 `status == .active` 카테고리만 표시
-- 아카이브된 카테고리에 연결된 투두는 카테고리 없음 상태로 표시
-- v2: 아카이브된 카테고리 복원 기능 (설정 > 카테고리 > 보관된 항목)
+**삭제 (영구):**
+- `CategoryItem` SwiftData에서 삭제
+- 연결된 투두의 `categoryId` 해제
+- 노션 연동 + `isLinkedToNotion`이면 백엔드 `remove-select-option`으로 노션 옵션 삭제
+- 확인 팝업 (노션 연동·연결된 경우): 노션 플래너 옵션도 함께 삭제된다는 안내
 
-보관 전 미완료 할일 경고:
-- 해당 카테고리의 오늘 미완료 투두 개수를 확인
-- 1개 이상이면 알림: "[카테고리명] 카테고리에 미완료 할일 N개가 있어요. 보관하면 전체 탭에서만 표시됩니다." → [취소] [보관]
-- 미완료 할일 없으면 바로 보관 처리
+**보관 (앱에서만 숨김):**
+- `status = .archived` — 재실행 후에도 유지, 동기화로 자동 활성화되지 않음
+- 활성 목록에는 `status == .active`만 표시, 보관 섹션에 별도 표시
+- 연결 투두 `categoryId` 해제, **노션 옵션은 유지**
+- 노션 연동 플래너: 보관 시 확인 팝업 — 「앱에서만 숨김, 노션에는 유지」
+- 미완료 할일이 있으면 개수 안내 문구 추가
+- 확인 alert는 `CategoryView` 루트에 바인딩 (`CategoryEditSheet` 전용 금지 — 스와이프 보관 미동작·alert 상태 잔류 버그)
+
+**복원:** 보관 목록 탭 → `status = .active` (수동만, 확인 팝업 없음)
 
 ### Notion 프로젝트/목표 DB 연동 (v2)
 
@@ -605,7 +678,32 @@ struct Category: Identifiable, Codable {
 | 생활 | house.fill, cart.fill, fork.knife, car.fill, creditcard.fill |
 | 취미/기타 | music.note, paintbrush.fill, camera.fill, star.fill, gamecontroller.fill |
 
-> 카테고리는 앱 전용 (Notion 연동 없음). 투두 목록 배지, 카테고리별 보기 헤더, 리포트 달성률에서 사용.
+> 로컬 전용 플래너: 카테고리는 SwiftData만 사용. 노션 연동 플래너: 투두 DB `category` select/status와 옵션 단위 동기화 (8-5-1).
+
+### 8-5-1. 노션 카테고리 옵션 동기화 (v1.5)
+
+**전제:** 플래너 `todoPropsMapping.category`에 select 또는 status 속성이 매핑됨.
+
+**동기화 규칙 (`CategoryNotionSync.syncCategoriesByName`):**
+1. 노션 옵션 목록 fetch (`GET .../databases/{id}/properties`)
+2. 앱 활성·미연결 카테고리 ↔ 노션 옵션 **이름 일치** 시 `notionOptionId` 연결
+3. 노션에만 있는 옵션 → 앱에 새 `CategoryItem` insert (연결 정보 포함)
+4. 보관(`archived`)된 이름·이미 연결된 `notionOptionId`는 재병합·재import 제외
+
+**투두 ↔ 노션:**
+- 쓰기: 연결된 카테고리만 `categoryName`을 SyncQueue payload에 포함
+- 읽기: `applyCategoryFromNotion` — 활성 카테고리 이름/노션옵션명으로 `categoryId` 매칭
+
+**백엔드 API (todoreport-backend):**
+| 메서드 | 경로 | 용도 |
+|---|---|---|
+| GET | `/api/notion/databases/{id}/properties` | select/status 옵션 목록 (`selectOptions`) |
+| POST | `/api/notion/databases/{id}/add-select-option` | 옵션 추가 (select·status) |
+| POST | `/api/notion/databases/{id}/remove-select-option` | 옵션 삭제 (select·status) |
+
+**iOS 관련 파일:** `Core/Notion/CategoryNotionSync.swift`, `Features/Category/CategoryService.swift`
+
+**제거된 v1.5 시도 (미사용):** 1회 연결 설정 시트, 앱 사용 토글(`isEnabledInApp`), 이름 자동 일괄 import 설정 UI
 
 ---
 
@@ -741,6 +839,8 @@ struct Category: Identifiable, Codable {
 | 왼쪽 스와이프 | 내일하기 / 날짜변경 / 삭제 |
 | 길게 누르기 | 편집 모드 (제목 수정, 카테고리 변경) |
 
+**중요 투두 표시 (v1):** `isPinned == true`일 때 제목 옆 **「중요」** 태그 (`ImportantTodoTag`) — 핀 아이콘 대신 텍스트 배지, 포인트 컬러 배경.
+
 ### 리포트 탭 — 화면 구조
 
 ```
@@ -767,8 +867,8 @@ struct Category: Identifiable, Codable {
 │  독서  ███░░░░░░░  30%  ›       │
 ├─────────────────────────────────┤
 │  [ 하루 리뷰 타임라인 ] ← 무료  │
-│  6월 5일 (금)  ⭐⭐⭐            │
-│  오늘도 열심히... [더보기]      │  ← 긴 리뷰는 3줄 제한 + 더보기/접기
+│  6월 5일 (금)  ⭐⭐⭐            │  ← 날짜 행 탭 → 투두 탭 해당 날짜
+│  오늘도 열심히...               │  ← 리뷰 본문: 최대 3줄, 시스템 … (탭 불가)
 │  6월 6일 (토)  ⭐⭐⭐⭐           │
 ├─────────────────────────────────┤
 │  [ square.and.arrow.up 노션에 리포트 저장하기 🔒 ] ← 유료  │
@@ -785,6 +885,25 @@ struct Category: Identifiable, Codable {
 | 노션에 저장하기 | ❌ | ✅ |
 | 홈 화면 위젯 | ❌ | ✅ |
 
+#### 하루 리뷰 타임라인 동작 (v1)
+
+| 요소 | 동작 |
+|---|---|
+| 리뷰 텍스트 | 최대 3줄 + 시스템 말줄임(`…`). 탭·더보기 없음 |
+| 날짜 행 탭 | `MainTabCoordinator.openTodo(on:)` → 투두 탭 해당 날짜로 이동 |
+| 무료 사용자 + 범위 밖 날짜 탭 | `ReportView`에서 알림: **Pro 알아보기** / **확인** (카드 내부 아님) |
+
+> `DayTodoDetailView`는 제거됨. 리뷰에서 투두 목록으로의 별도 드릴다운 없음.
+
+#### 연속 달성 (Streak)
+
+| 항목 | 내용 |
+|---|---|
+| 계산 기준 | **어제까지** 연속 일수 (오늘 미포함) |
+| 설정 위치 | 설정 > 환경 설정 > **연속 달성 기준** Picker |
+| 옵션 | 중요 할 일 모두 완료 / 전체 할 일 완료(기본) / 할 일 1개 이상 완료 |
+| 저장 | `@AppStorage("streakCriteria")` — `StreakCriteria` |
+
 ### 주간 기준 정의
 
 | 설정 | 주간 범위 | Notion 저장 기간 |
@@ -798,36 +917,29 @@ struct Category: Identifiable, Codable {
 
 ```
 ┌─────────────────────────────────┐
-│  [ 내 플래너 ]                  │
-│  플래너 이름    수능 공부  ›    │
-│  투두DB         할일 목록  ›    │
-│  데일리리포트DB 데일리리포트 ›  │
-│  + 플래너 추가 (유료)           │
-├─────────────────────────────────┤
-│  [ 앱 설정 ]                    │
-│  언어           한국어     ›    │
-│  시작 요일      월요일     ›    │
-│  주간 리포트 알림  일 밤 10시 › │
-├─────────────────────────────────┤
-│  [ 카테고리 관리 ]          ›   │
-├─────────────────────────────────┤
 │  [ 구독 ]                       │
 │  현재 플랜      무료 / Pro      │
-│  구독 관리               ›     │
+│  구독 관리 (Pro)         ›     │
 │  구매 복원               ›     │
 ├─────────────────────────────────┤
-│  [ 계정 ]                       │
-│  Apple ID  user@icloud.com  ›   │
-│  노션 연결  연결됨 / 미연결  ›  │
-│  ⚠️ 로컬모드: 기기에만 저장됨  │
-│  로그아웃                       │
+│  [ 플래너 ]                     │
+│  플래너 목록 · 추가 (유료)  ›   │
 ├─────────────────────────────────┤
-│  [ 정보 ]                       │
-│  버전           1.0.0           │
-│  개인정보처리방침          ›    │
-│  이용약관                  ›    │
+│  [ 환경 설정 ]                  │
+│  시작 요일      월요일     ›    │
+│  연속 달성 기준  전체 완료  ›   │
+│  알림           허용됨  ↗     │  ← 시스템 설정 앱으로 이동
+├─────────────────────────────────┤
+│  [ 고객지원 ]                   │
+│  개인정보처리방침 / 이용약관 ›  │
+│  오류신고 / 피드백       ›     │
+├─────────────────────────────────┤
+│  [ 앱 정보 ]                    │
+│  버전 / 빌드                    │
 └─────────────────────────────────┘
 ```
+
+> **v1 변경:** 앱 내 **언어 선택** 항목 제거 (시스템/앱 언어는 별도 설정). 주간 리포트 알림은 저장 시트(`NotionSaveEditorView`)에서 설정 — 설정 탭에는 시스템 알림 권한 링크만 표시.
 
 ### 완료율 계산 원칙
 
@@ -850,6 +962,7 @@ struct Category: Identifiable, Codable {
 | 결제 방식 | Apple IAP (StoreKit 2) |
 | 수수료 | 수익의 30% Apple 지급 (연간 구독 갱신 시 15%) |
 | 구독 형태 | 월간 구독 + 연간 구독 (동시 출시) |
+| Product ID | `kr.nock.todoreport.pro.monthly`, `kr.nock.todoreport.pro.yearly` (상세: 6-2-2절) |
 | 연간 할인 | 월간 대비 약 20~30% 할인 표시 권장 |
 | 무료 기능 제한 | 플래너 1개, 어제·오늘·내일 3일, 이번 주 주간 리포트만 |
 | 유료 기능 | 이전 기간 주간·월간 리포트, 멀티 플래너, 반복 투두, 3일 외 날짜 조회, 홈 화면 위젯 |
@@ -878,6 +991,17 @@ struct Category: Identifiable, Codable {
 | `listRow` | 20pt | 목록 행 아이콘 |
 | `badge` | 16pt | 배지 내부 아이콘 |
 
+### 탭 바·알림 버튼 색 (v1)
+
+| 규칙 | 내용 |
+|---|---|
+| Tab bar 선택 색 | `TabBarAppearance.applyNockAccent()` — UIKit `UITabBarAppearance` |
+| 금지 | `MainTabView` 루트 `.tint(accent)` — alert **취소** 버튼까지 오렌지로 오염됨 |
+| 시트 툴바 | 취소 `.foregroundStyle(.secondary)`, 저장 `.foregroundStyle(AppTheme.shared.accent)` |
+| Alert | 시스템 기본 색 유지 (`.tint` 오염 방지) |
+
+**관련 파일:** `App/TabBarAppearance.swift`, `App/MainTabView.swift`, `TodoReportApp.onAppear`
+
 ---
 
 ## 12. 보류 / 향후 검토 기능
@@ -894,6 +1018,7 @@ struct Category: Identifiable, Codable {
 | 로컬 ↔ 노션 데이터 마이그레이션 | v2 유료 | 로컬 → 노션 전환 시 기존 데이터 이전 |
 | Apple Reminders 연동 | v2 | 사용자 피드백 후 결정 |
 | 리포트 알림 원탭 저장 (알림 액션) | v1.2 | v1은 리마인더만. v1.2에서 「앱으로 가기」「바로 저장하기」액션 추가 |
+| 노션 저장 시트 UX (알림·저장 분리) | v1.1 | v1: 툴바 저장=노션 저장, 알림은 `@AppStorage` 즉시 반영. v1.1: 취소=알림 되돌리기, 확인=알림만 저장, 「노션에 저장하기」를 리뷰 카드 하단으로 이동 검토 |
 | 리포트 자동 저장 (BGTask) | v2 | iOS 백그라운드 제약. v1.2 알림 액션 저장으로 1차 해결 후 검토 |
 | 연간 리포트 진입 위치 | 미결정 | A: 리포트 탭 하단 버튼 / B: 설정 탭 / C: 네비게이션 바 메뉴 |
 
@@ -913,14 +1038,16 @@ Phase 2 (무료 기능)
   - 카테고리 관리
 
 Phase 3 (유료 기능)
-  - Apple IAP StoreKit 2 연동
-  - 주간/월간 리포트 자동 생성
-  - 멀티 플래너
-  - 반복 투두
+  - Apple IAP StoreKit 2 연동 ✅ (Sandbox 검증, 6-2-2절)
+  - 주간/월간 리포트 ✅
+  - 멀티 플래너 ✅
+  - 반복 투두 (v2 연기)
+  - 다른 날 투두 확인 ✅
+  - 홈 화면 위젯 ✅
 
-Phase 4 (출시)
+Phase 4 (출시, 진행 중)
   - App Store Connect 설정
-  - Privacy Policy / Terms of Service
+  - Privacy Policy / Terms of Service ✅ (nock.kr)
   - 심사 제출
 ```
 
@@ -980,8 +1107,24 @@ enum RecurrenceRule: Codable {
 | — | 시간표 | relation | v2, 앱에서 건드리지 않음 |
 | — | 알림 | formula | v2, 앱에서 건드리지 않음 |
 | createdAt | — | — | 로컬 전용, Notion에 저장 안 함 |
-| categoryId | — | — | 앱 전용, Notion에 저장 안 함 |
+| categoryId | 카테고리 (매핑 시) | select / status | 앱 SwiftData ID. 노션에는 **연결된 카테고리의 옵션명**으로 저장 (`categoryName` payload) |
 | isPinned | 중요 | checkbox | 없는 사용자는 NotionSchemaManager 자동 추가 |
+
+#### 속성 자동 매핑 규칙 (v1, `TodoPropsMappingAutoFill`)
+
+온보딩·DB 변경·설정 재진입 시 속성 목록을 가져온 뒤 매핑을 채운다. **모드에 따라 동작이 다름.**
+
+| 모드 | 사용처 | 동작 |
+|---|---|---|
+| `initialSetup` | 온보딩, DB 변경, 플래너 추가/마이그레이션 | 빈 필드만 자동 채움 |
+| `preserveUser` | 플래너 노션 설정 재진입 (`PlannerNotionSettingsView`) | **사용자가 저장한 값 유지** — fetch만으로 덮어쓰지 않음 |
+
+**`reportRelation`(데일리 리포트 relation) 특별 규칙:**
+- 속성명 **`데일리 리포트`** 와 **정확히 일치**할 때만 자동 매핑
+- relation 속성이 1개뿐이어도 **`first` 폴백 금지** — 다른 relation(시간표 등)과 혼동 방지
+- 앱 전용 데일리 리포트·리포트 DB 미연결 사용자 보호
+
+**관련 파일:** `Core/Notion/TodoPropsMappingAutoFill.swift`, `PlannerNotionSettingsViewModel`, `OnboardingViewModel`
 
 ---
 
@@ -1019,7 +1162,8 @@ protocol DataRepository {
 DataRepository (protocol)
   ├── NotionRepository    ← 노션 연결 사용자
   │     투두/리포트: SyncQueue 통해 Notion 동기화
-  │     카테고리: v1은 SwiftData, v2에서 Notion 프로젝트DB 연동 예정
+  │     카테고리: SwiftData + 투두 DB select/status 옵션 동기화 (CategoryNotionSync)
+  │     v2: 별도 카테고리 DB(relation) 연동 검토
   └── LocalRepository     ← 로컬 모드 사용자
         투두/리포트/카테고리: SwiftData 직접 읽기/쓰기
         SyncQueue 없음
@@ -1028,7 +1172,7 @@ DataRepository (protocol)
 
 ### 카테고리 v2 확장 경로
 
-카테고리는 v1에서 앱 전용(SwiftData)이지만, v2에서 Notion 프로젝트DB / 목표DB 연동 예정.
+v1.5에서 투두 DB select/status 옵션 동기화를 지원한다. v2에서는 Notion **별도 카테고리 DB**(relation) 연동을 검토.
 DataRepository 프로토콜로 추상화되어 있으므로 **ViewModel / View 코드 변경 없이**
 NotionRepository 내부 구현만 교체하면 된다.
 
@@ -1185,7 +1329,7 @@ SyncQueue에 createTodo 추가
                    ↓
          리포트 DB 선택 (건너뛰기 가능)
                    ↓
-         리포트 속성 매핑 (날짜 필수, 하루 리뷰·지수 선택)
+         리포트 속성 매핑 (날짜 필수, 하루 리뷰·별점 선택)
                    ↓
          자동 실행 (프로그레스 오버레이)
 ```
@@ -1231,17 +1375,31 @@ SyncQueue에 createTodo 추가
 - 목표: 단일 키로 통일, AppConstants에 상수로 관리
 - 관련 파일: OnboardingViewModel.swift, SyncQueueManager.swift
 
-### 리포트 저장 알림 액션 (v1.2)
-- v1: 저장 시트 내 알림 토글 + 시간 설정, 로컬 리마인더만
+### 카테고리 보관 alert 바인딩 (v1 ✅)
+- 문제: 보관 확인 alert가 `CategoryEditSheet`에만 있어 목록 스와이프 보관이 동작하지 않고 `showArchiveAlert`가 true로 남음 → 재진입·편집 시트 오픈 시 팝업 즉시 표시
+- 해결: alert를 `CategoryView` 본문으로 이동, `cancelArchive()` / `confirmArchive()`에서 `showArchiveAlert = false` 명시
+- 관련 파일: `CategoryView.swift`, `CategoryViewModel.swift`
+
+### 기간 리포트 노션 본문 포맷 (v1 ✅)
+- 백엔드 `buildReportBlocks`: 완료율·카테고리 = 텍스트 바 세로 목록, 별점 = 라벨+⭐ 세로, 하루 리뷰 = callout (`formatReviewDateLabel`)
+- iOS `PeriodReportChartData.reviews` → `chartReviews` payload
+- 관련 파일: `todoreport-backend/app/api/notion/daily-report/route.ts`, `ReportService.swift`, `ReportViewModel.swift`
+
+### 리포트 저장 알림 (v1 ✅)
+- v1: 저장 시트 내 알림 토글 + 시간·요일·월간(1일/말일) 설정, `ReportNotificationManager` 로컬 리마인더
+- 포그라운드 배너: `AppNotificationDelegate`
 - v1.2: `UNNotificationAction` — 「앱으로 가기」「바로 저장하기」(리뷰 빈 문자열)
-- 선행: v1 `ReportNotificationManager` 스케줄링 + `UNUserNotificationCenterDelegate`
-- 관련 파일 (예정): `Core/Notifications/ReportNotificationManager.swift`, `TodoReportApp.swift`
+- 관련 파일: `Core/Notifications/ReportNotificationManager.swift`, `ReportNotificationSettings.swift`, `AppNotificationDelegate.swift`
+
+### 속성 자동 매핑 버그 수정 (v1 ✅)
+- 문제: 설정 재진입 시 `autoMapTodoProps()`가 `reportRelation` 등 저장값을 덮어씀
+- 해결: `TodoPropsMappingAutoFill` + `preserveUser` 모드 (7절 참고)
 
 ### 영어 로컬라이제이션 (v2)
 - 현재: 앱 전체 한국어 하드코딩, `Localizable.strings` 없음
 - 목표: Xcode String Catalog(`.xcstrings`) 도입, 한국어/영어 지원
 - 작업 범위: 전체 View의 `Text("한국어")` → `String(localized:)` 교체 + 영어 번역
-- 설정 탭 언어 선택 항목도 이때 함께 추가 (한국어 / 시스템 설정 따르기)
+- v1: 설정 탭 언어 선택 **미노출** (시스템 언어 따름). v2에서 설정 항목 추가 검토
 - 타겟 사용자 반응 확인 후 v2에서 진행
 
 ### 별점/기분 속성 옵션 매핑

@@ -18,7 +18,7 @@ final class SyncQueueManager {
     // MARK: - Enqueue
 
     func enqueueTodoCreate(_ todo: Todo) {
-        guard let payload = encodedTodoPayload(todo) else { return }
+        guard let payload = encodedTodoCreatePayload(todo) else { return }
         print("[SyncQueue] ➕ enqueue create - \(todo.title)")
         enqueue(action: "create", entityType: "todo", entityId: todo.id,
                 payload: payload, plannerId: todo.plannerId)
@@ -38,7 +38,7 @@ final class SyncQueueManager {
                 }
             )
             if let existing = try? context.fetch(pendingCreateDesc).first {
-                guard let payload = encodedTodoPayload(todo) else { return }
+                guard let payload = encodedTodoCreatePayload(todo) else { return }
                 existing.payload = payload
                 existing.createdAt = .now
                 try? context.save()
@@ -50,7 +50,7 @@ final class SyncQueueManager {
             let todoItemDesc = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == lid })
             if let current = try? context.fetch(todoItemDesc).first,
                !current.notionPageId.isEmpty {
-                guard let payload = encodedTodoPayload(todo) else { return }
+                guard let payload = encodedTodoUpdatePayload(todo) else { return }
                 enqueue(action: "update", entityType: "todo", entityId: current.notionPageId,
                         payload: payload, plannerId: todo.plannerId)
                 print("[SyncQueue] ➕ update enqueue (resolved) - \(lid) → \(current.notionPageId)")
@@ -58,16 +58,43 @@ final class SyncQueueManager {
             }
 
             // 3) notionPageId 미확정 → localId로 enqueue, 처리 시점에 Processor가 해소
-            guard let payload = encodedTodoPayload(todo) else { return }
+            guard let payload = encodedTodoUpdatePayload(todo) else { return }
             enqueue(action: "update", entityType: "todo", entityId: lid,
                     payload: payload, plannerId: todo.plannerId)
             print("[SyncQueue] ➕ update enqueue (localId 임시) - \(lid)")
             return
         }
-        guard let payload = encodedTodoPayload(todo) else { return }
+        guard let payload = encodedTodoUpdatePayload(todo) else { return }
         enqueue(action: "update", entityType: "todo", entityId: todo.notionPageId,
                 payload: payload, plannerId: todo.plannerId)
         print("[SyncQueue] ➕ update enqueue (notionPageId) - \(todo.notionPageId)")
+    }
+
+    /// 데일리 리포트 relation 전용 연결 (일반 update와 분리 — 완료 체크 등이 relation을 덮어쓰지 않음)
+    func enqueueTodoRelationLink(_ todo: Todo) {
+        guard !todo.notionRelationLinked else {
+            print("[SyncQueue] 🚫 relation link 스킵 - 이미 연결됨 \(todo.notionPageId)")
+            return
+        }
+        guard let payload = encodedTodoRelationLinkPayload(todo) else { return }
+
+        let entityId: String
+        if !todo.notionPageId.isEmpty {
+            entityId = todo.notionPageId
+        } else {
+            let lid = todo.id
+            let todoItemDesc = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == lid })
+            if let current = try? context.fetch(todoItemDesc).first,
+               !current.notionPageId.isEmpty {
+                entityId = current.notionPageId
+            } else {
+                entityId = lid
+            }
+        }
+
+        print("[SyncQueue] 🔗 enqueue relation link - \(entityId)")
+        enqueue(action: "update", entityType: "todo", entityId: entityId,
+                payload: payload, plannerId: todo.plannerId)
     }
 
     func enqueueTodoDelete(notionPageId: String, plannerId: String?) {
@@ -100,7 +127,7 @@ final class SyncQueueManager {
                 }
             )
             if let existing = try? context.fetch(descriptor).first {
-                existing.payload = payload
+                existing.payload = mergeUpdatePayload(existing: existing.payload, incoming: payload) ?? payload
                 existing.createdAt = .now
                 try? context.save()
                 processIfConnected()
@@ -211,27 +238,71 @@ final class SyncQueueManager {
 
     // MARK: - Todo Payload
 
-    private func encodedTodoPayload(_ todo: Todo) -> Data? {
-        guard let planner = PlannerService.shared.store.first(where: { $0.id == todo.plannerId }) else {
-            print("[SyncQueue] ❌ encodedTodoPayload: planner not found - todoId:\(todo.id) plannerId:\(todo.plannerId ?? "nil")")
-            return nil
-        }
-        let mapping = planner.decodedTodoPropsMapping
-        let reportMapping = planner.decodedReportPropsMapping
+    private struct TodoPayloadContext {
+        let planner: Planner
+        let mapping: TodoPropsMapping
+        let reportMapping: ReportPropsMapping
+        let legacyTodo: TodoPropsMapping?
+        let legacyReport: ReportPropsMapping?
+        let legacyTodoDBId: String?
+        let legacyReportDBId: String?
 
-        // 마이그레이션 전 항목 대비 UserDefaults 레거시 폴백
-        let prefix = "kr.nock.TodoReport."
-        let pid = planner.id
-        let defaults = UserDefaults.standard
-        func legacyString(_ key: String) -> String? {
-            defaults.string(forKey: "\(prefix)\(pid).\(key)") ?? defaults.string(forKey: "\(prefix)\(key)")
+        init?(todo: Todo) {
+            guard let planner = PlannerService.shared.store.first(where: { $0.id == todo.plannerId }) else {
+                print("[SyncQueue] ❌ payload: planner not found - todoId:\(todo.id) plannerId:\(todo.plannerId ?? "nil")")
+                return nil
+            }
+            self.planner = planner
+            self.mapping = planner.decodedTodoPropsMapping
+            self.reportMapping = planner.decodedReportPropsMapping
+
+            let prefix = "kr.nock.TodoReport."
+            let pid = planner.id
+            let defaults = UserDefaults.standard
+            func legacyString(_ key: String) -> String? {
+                defaults.string(forKey: "\(prefix)\(pid).\(key)") ?? defaults.string(forKey: "\(prefix)\(key)")
+            }
+            func legacyMapping<T: Decodable>(_ key: String, as type: T.Type) -> T? {
+                let data = defaults.data(forKey: "\(prefix)\(pid).\(key)") ?? defaults.data(forKey: "\(prefix)\(key)")
+                return data.flatMap { try? JSONDecoder().decode(type, from: $0) }
+            }
+            self.legacyTodo = legacyMapping("todoPropsMapping", as: TodoPropsMapping.self)
+            self.legacyReport = legacyMapping("reportPropsMapping", as: ReportPropsMapping.self)
+            self.legacyTodoDBId = legacyString("todoDBId")
+            self.legacyReportDBId = legacyString("reportDBId")
         }
-        func legacyMapping<T: Decodable>(_ key: String, as type: T.Type) -> T? {
-            let data = defaults.data(forKey: "\(prefix)\(pid).\(key)") ?? defaults.data(forKey: "\(prefix)\(key)")
-            return data.flatMap { try? JSONDecoder().decode(type, from: $0) }
-        }
-        let legacyTodo   = legacyMapping("todoPropsMapping",   as: TodoPropsMapping.self)
-        let legacyReport = legacyMapping("reportPropsMapping", as: ReportPropsMapping.self)
+    }
+
+    private func encodedTodoCreatePayload(_ todo: Todo) -> Data? {
+        guard let body = encodedTodoBaseBody(todo: todo, includeReportFields: true) else { return nil }
+        print("[Payload:create] plannerId:\(todo.plannerId ?? "nil") date:\(body["date"] ?? "")")
+        return try? JSONSerialization.data(withJSONObject: body)
+    }
+
+    private func encodedTodoUpdatePayload(_ todo: Todo) -> Data? {
+        guard let body = encodedTodoBaseBody(todo: todo, includeReportFields: false) else { return nil }
+        print("[Payload:update] plannerId:\(todo.plannerId ?? "nil") date:\(body["date"] ?? "")")
+        return try? JSONSerialization.data(withJSONObject: body)
+    }
+
+    private func encodedTodoRelationLinkPayload(_ todo: Todo) -> Data? {
+        guard let ctx = TodoPayloadContext(todo: todo) else { return nil }
+        var body: [String: Any] = [
+            "linkDailyReport": true,
+            "date": seoulDateString(from: todo.date),
+        ]
+        if let v = ctx.planner.notionTodoDBId ?? ctx.legacyTodoDBId { body["dbId"] = v }
+        if let v = ctx.planner.notionReportDBId ?? ctx.legacyReportDBId { body["reportDBId"] = v }
+        if let v = ctx.mapping.reportRelation ?? ctx.legacyTodo?.reportRelation { body["reportRelationProp"] = v }
+        if let v = ctx.reportMapping.date ?? ctx.legacyReport?.date { body["reportDateProp"] = v }
+        print("[Payload:relation] plannerId:\(ctx.planner.id) date:\(body["date"] ?? "")")
+        return try? JSONSerialization.data(withJSONObject: body)
+    }
+
+    private func encodedTodoBaseBody(todo: Todo, includeReportFields: Bool) -> [String: Any]? {
+        guard let ctx = TodoPayloadContext(todo: todo) else { return nil }
+        let planner = ctx.planner
+        let mapping = ctx.mapping
 
         var body: [String: Any] = [
             "title": todo.title,
@@ -245,20 +316,50 @@ final class SyncQueueManager {
             fmt.timeZone = TimeZone(identifier: "Asia/Seoul")
             body["scheduledTime"] = fmt.string(from: st)
         }
-        if let ao = todo.alarmOffset                                               { body["alarmOffset"] = ao }
-        if let memo = todo.memo                                                    { body["memo"] = memo }
-        if let v = planner.notionTodoDBId   ?? legacyString("todoDBId")            { body["dbId"] = v }
-        if let v = mapping.completed        ?? legacyTodo?.completed               { body["completedProp"] = v }
-        if let v = mapping.date             ?? legacyTodo?.date                    { body["dateProp"] = v }
-        if let v = mapping.memo             ?? legacyTodo?.memo                    { body["memoProp"] = v }
-        if let v = mapping.isPinned         ?? legacyTodo?.isPinned                { body["isPinnedProp"] = v }
-        if let v = planner.notionReportDBId ?? legacyString("reportDBId")          { body["reportDBId"] = v }
-        if let v = mapping.reportRelation   ?? legacyTodo?.reportRelation          { body["reportRelationProp"] = v }
-        if let v = reportMapping.date       ?? legacyReport?.date                  { body["reportDateProp"] = v }
+        if let ao = todo.alarmOffset { body["alarmOffset"] = ao }
+        if let memo = todo.memo { body["memo"] = memo }
+        if let v = planner.notionTodoDBId ?? ctx.legacyTodoDBId { body["dbId"] = v }
+        if let v = mapping.completed ?? ctx.legacyTodo?.completed { body["completedProp"] = v }
+        if let v = mapping.date ?? ctx.legacyTodo?.date { body["dateProp"] = v }
+        if let v = mapping.memo ?? ctx.legacyTodo?.memo { body["memoProp"] = v }
+        if let v = mapping.isPinned ?? ctx.legacyTodo?.isPinned { body["isPinnedProp"] = v }
+        if includeReportFields {
+            if let v = planner.notionReportDBId ?? ctx.legacyReportDBId { body["reportDBId"] = v }
+            if let v = mapping.reportRelation ?? ctx.legacyTodo?.reportRelation { body["reportRelationProp"] = v }
+            if let v = ctx.reportMapping.date ?? ctx.legacyReport?.date { body["reportDateProp"] = v }
+        }
+        CategoryNotionSync.shared.appendToPayload(&body, todo: todo, planner: planner)
+        return body
+    }
 
-        print("[Payload] plannerId:\(pid) todoDBId:\(planner.notionTodoDBId ?? "nil") reportDBId:\(planner.notionReportDBId ?? "nil") reportRelation:\(mapping.reportRelation ?? "nil")")
+    private static let reportPayloadKeys: Set<String> = [
+        "linkDailyReport", "reportDBId", "reportRelationProp", "reportDateProp"
+    ]
 
-        return try? JSONSerialization.data(withJSONObject: body)
+    private func mergeUpdatePayload(existing: Data, incoming: Data) -> Data? {
+        guard var merged = decodePayloadDict(existing),
+              let incomingDict = decodePayloadDict(incoming) else { return nil }
+
+        let incomingWantsLink = incomingDict["linkDailyReport"] as? Bool == true
+        let existingWantsLink = merged["linkDailyReport"] as? Bool == true
+
+        for (key, value) in incomingDict where !Self.reportPayloadKeys.contains(key) {
+            merged[key] = value
+        }
+
+        if incomingWantsLink {
+            for key in Self.reportPayloadKeys {
+                if let value = incomingDict[key] { merged[key] = value }
+            }
+        } else if !existingWantsLink {
+            for key in Self.reportPayloadKeys { merged.removeValue(forKey: key) }
+        }
+
+        return try? JSONSerialization.data(withJSONObject: merged)
+    }
+
+    private func decodePayloadDict(_ data: Data) -> [String: Any]? {
+        try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
 
     private func seoulDateString(from date: Date) -> String {

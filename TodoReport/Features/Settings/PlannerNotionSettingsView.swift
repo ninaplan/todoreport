@@ -30,8 +30,10 @@ struct PlannerNotionSettingsView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("저장") {
-                    viewModel.save()
-                    dismiss()
+                    Task {
+                        await viewModel.save()
+                        dismiss()
+                    }
                 }
                 .toolbarPrimaryActionStyle(isEnabled: !viewModel.isLoading)
                 .disabled(viewModel.isLoading)
@@ -107,6 +109,16 @@ struct PlannerNotionSettingsView: View {
                 mode: $viewModel.isPinnedMode,
                 selection: $viewModel.todoPropsMapping.isPinned,
                 onCreate: { Task { await viewModel.createPinnedProperty() } }
+            )
+            SettingsOptionalPropRow(
+                label: "카테고리",
+                candidates: CategoryNotionProperty.candidates(from: viewModel.todoProperties),
+                mode: $viewModel.categoryMode,
+                selection: Binding(
+                    get: { viewModel.todoPropsMapping.category },
+                    set: { viewModel.selectCategory($0) }
+                ),
+                onCreate: { Task { await viewModel.createCategoryProperty() } }
             )
             if viewModel.selectedReportDBId != nil {
                 SettingsOptionalPropRow(

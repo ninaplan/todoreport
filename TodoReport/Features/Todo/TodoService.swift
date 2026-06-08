@@ -122,22 +122,18 @@ final class TodoService {
         item.update(from: todo)
         if dateChanged {
             item.notionRelationLinked = false
-            removeFromLinkedIds(notionPageId: item.notionPageId)
         }
         try context.save()
         ensureDailyReport(for: todo.date)
         print("[TodoService] ✏️ updateTodo - id:\(todo.id) scheduledTime:\(String(describing: todo.scheduledTime)) alarmOffset:\(String(describing: todo.alarmOffset))")
         TodoNotificationManager.shared.schedule(for: todo)
         let captured = item.toTodo()
-        Task { @MainActor in SyncQueueManager.shared.enqueueTodoUpdate(captured) }
-    }
-
-    private func removeFromLinkedIds(notionPageId: String) {
-        guard !notionPageId.isEmpty else { return }
-        let key = "reportLinkedNotionIds"
-        var ids = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
-        ids.remove(notionPageId)
-        UserDefaults.standard.set(Array(ids), forKey: key)
+        Task { @MainActor in
+            SyncQueueManager.shared.enqueueTodoUpdate(captured)
+            if dateChanged, !captured.notionPageId.isEmpty {
+                SyncQueueManager.shared.enqueueTodoRelationLink(captured)
+            }
+        }
     }
 
     func deleteTodo(id: String) async throws {
@@ -187,6 +183,9 @@ final class TodoService {
         if let v = mapping.completed { params["completedProp"] = v }
         if let v = mapping.date      { params["dateProp"] = v }
         if let v = mapping.isPinned  { params["isPinnedProp"] = v }
+        if let planner {
+            params.merge(CategoryNotionSync.shared.todoFetchParams(from: planner)) { _, new in new }
+        }
 
         do {
             let notionTodos: [NotionTodoResponse] = try await APIClient.shared.get(
@@ -228,6 +227,9 @@ final class TodoService {
                 if let nc = parsedNotionCreatedAt { existing.notionCreatedAt = nc }
                 existing.isCompleted = nt.isCompleted
                 existing.isPinned = nt.isPinned
+                existing.categoryId = CategoryNotionSync.shared.applyCategoryFromNotion(
+                    name: nt.categoryName, plannerId: plannerId
+                )
                 continue
             }
 
@@ -250,11 +252,17 @@ final class TodoService {
                     if let nc = parsedNotionCreatedAt { existing.notionCreatedAt = nc }
                     existing.isCompleted = nt.isCompleted
                     existing.isPinned = nt.isPinned
+                    existing.categoryId = CategoryNotionSync.shared.applyCategoryFromNotion(
+                        name: nt.categoryName, plannerId: plannerId
+                    )
                 }
                 continue
             }
 
             // 신규 insert
+            let categoryId = CategoryNotionSync.shared.applyCategoryFromNotion(
+                name: nt.categoryName, plannerId: plannerId
+            )
             let todo = Todo(
                 title: nt.title,
                 memo: nt.memo,
@@ -262,6 +270,7 @@ final class TodoService {
                 isPinned: nt.isPinned,
                 date: startOfDay,
                 notionCreatedAt: parsedNotionCreatedAt,
+                categoryId: categoryId,
                 notionPageId: nt.notionPageId,
                 plannerId: plannerId
             )
@@ -290,29 +299,21 @@ final class TodoService {
 
         try? context.save()
 
-        // relation 미연결 항목 update 시도
-        // UserDefaults로 "이미 연결됨" 추적 → 한 번 연결 후 재시도 안 함
-        let linkedKey = "reportLinkedNotionIds"
-        let linkedIds = Set(UserDefaults.standard.stringArray(forKey: linkedKey) ?? [])
-        let unlinked = notionTodos.filter { !linkedIds.contains($0.notionPageId) }
-        guard !unlinked.isEmpty else { return }
-
-        let itemsToLink: [Todo] = unlinked.compactMap { nt in
+        // relation 미연결 항목 → relation 전용 enqueue (일반 update와 분리)
+        let itemsToLink: [Todo] = notionTodos.compactMap { nt in
             let pid = nt.notionPageId
             let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.notionPageId == pid })
-            guard let item = try? context.fetch(descriptor).first else { return nil }
+            guard let item = try? context.fetch(descriptor).first,
+                  !item.notionRelationLinked else { return nil }
             return item.toTodo()
         }
 
         guard !itemsToLink.isEmpty else { return }
-        var newLinkedIds = linkedIds
-        for nt in unlinked { newLinkedIds.insert(nt.notionPageId) }
         Task { @MainActor in
             for todo in itemsToLink {
-                SyncQueueManager.shared.enqueueTodoUpdate(todo)
+                SyncQueueManager.shared.enqueueTodoRelationLink(todo)
             }
             print("[TodoService] 🔗 relation 연결 enqueue \(itemsToLink.count)개")
-            UserDefaults.standard.set(Array(newLinkedIds), forKey: linkedKey)
         }
     }
 
@@ -350,6 +351,7 @@ private struct NotionTodoResponse: Decodable {
     let date: String
     let memo: String?
     let isPinned: Bool
+    let categoryName: String?
     let notionPageId: String
     let createdAt: String?
 }

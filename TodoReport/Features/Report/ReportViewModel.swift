@@ -129,8 +129,9 @@ final class ReportViewModel {
             pendingCompletionRate = report.completionRate
             pendingChartData = PeriodReportChartData(
                 rates: report.dailyCompletionRates.map { .init(label: $0.weekday, rate: $0.rate) },
-                ratings: report.dailyRatings.filter { $0.rating > 0 }.map { .init(label: $0.weekday, rating: $0.rating) },
-                categories: report.categoryStats.map { .init(name: $0.name, rate: $0.rate, completed: $0.completed, total: $0.total) }
+                ratings: report.dailyRatings.map { .init(label: $0.weekday, rating: $0.rating) },
+                categories: report.categoryStats.map { .init(name: $0.name, rate: $0.rate, completed: $0.completed, total: $0.total) },
+                reviews: reviewEntries(from: report.reviewTimeline)
             )
         case .monthly:
             guard let report = monthlyReport else { return }
@@ -141,8 +142,9 @@ final class ReportViewModel {
             pendingCompletionRate = report.completionRate
             pendingChartData = PeriodReportChartData(
                 rates: report.weeklyCompletionRates.map { .init(label: $0.label, rate: $0.rate) },
-                ratings: report.weeklyRatings.filter { $0.rating > 0 }.map { .init(label: $0.label, rating: $0.rating) },
-                categories: report.categoryStats.map { .init(name: $0.name, rate: $0.rate, completed: $0.completed, total: $0.total) }
+                ratings: report.weeklyRatings.map { .init(label: $0.label, rating: $0.rating) },
+                categories: report.categoryStats.map { .init(name: $0.name, rate: $0.rate, completed: $0.completed, total: $0.total) },
+                reviews: reviewEntries(from: report.reviewTimeline)
             )
         }
         showSaveEditor = true
@@ -293,6 +295,15 @@ final class ReportViewModel {
     private func formatMonthlyPeriod(_ interval: DateInterval) -> String {
         let comps = calendar.dateComponents([.year, .month], from: interval.start)
         return "\(comps.year ?? 2026)년 \(comps.month ?? 1)월"
+    }
+
+    private func reviewEntries(from timeline: [ReviewTimelineEntry]) -> [PeriodReportChartData.ReviewEntry] {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        fmt.timeZone = TimeZone(identifier: "Asia/Seoul")
+        return timeline.map {
+            .init(date: fmt.string(from: $0.date), review: $0.review, rating: $0.rating)
+        }
     }
 
     private func notionTitle(for period: DateInterval, type: ReportPeriod) -> String {

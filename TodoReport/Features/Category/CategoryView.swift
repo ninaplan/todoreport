@@ -87,7 +87,19 @@ struct CategoryView: View {
             }
         } message: {
             if let category = viewModel.deletingCategory {
-                Text("'\(category.name)' 카테고리를 삭제할까요?\n이 카테고리를 사용하는 투두는 카테고리 없음으로 변경됩니다.")
+                Text(viewModel.deleteAlertMessage(for: category))
+            }
+        }
+        .alert("보관하시겠어요?", isPresented: $viewModel.showArchiveAlert) {
+            Button("취소", role: .cancel) { viewModel.cancelArchive() }
+            Button("보관", role: .destructive) {
+                if let category = viewModel.archivingCategory {
+                    Task { await viewModel.confirmArchive(category) }
+                }
+            }
+        } message: {
+            if let category = viewModel.archivingCategory {
+                Text(viewModel.archiveAlertMessage(for: category))
             }
         }
     }
@@ -304,19 +316,7 @@ private struct CategoryEditSheet: View {
                 }
             } message: {
                 if let category = viewModel.deletingCategory {
-                    Text("'\(category.name)' 카테고리를 삭제할까요?\n이 카테고리를 사용하는 투두는 카테고리 없음으로 변경됩니다.")
-                }
-            }
-            .alert("보관하시겠어요?", isPresented: $viewModel.showArchiveAlert) {
-                Button("취소", role: .cancel) { viewModel.cancelArchive() }
-                Button("보관", role: .destructive) {
-                    if let category = viewModel.archivingCategory {
-                        Task { await viewModel.confirmArchive(category) }
-                    }
-                }
-            } message: {
-                if let category = viewModel.archivingCategory {
-                    Text("\(category.name) 카테고리에 미완료 할일 \(viewModel.pendingArchiveCount)개가 있어요.\n보관하면 전체 탭에서만 표시됩니다.")
+                    Text(viewModel.deleteAlertMessage(for: category))
                 }
             }
         }

@@ -33,7 +33,7 @@ final class NotionRelationLinker {
 
         for item in pending {
             Task { @MainActor in
-                SyncQueueManager.shared.enqueueTodoUpdate(item.toTodo())
+                SyncQueueManager.shared.enqueueTodoRelationLink(item.toTodo())
             }
         }
         // notionRelationLinked = true 는 SyncQueueProcessor 성공 후에만 세팅

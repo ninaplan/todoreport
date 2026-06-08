@@ -237,6 +237,16 @@ struct PlannerAddView: View {
                     ),
                     onCreateTap: { Task { await viewModel.createPinnedProperty() } }
                 )
+                OptionalPropMenu(
+                    label: "카테고리",
+                    mode: $viewModel.categoryMode,
+                    props: CategoryNotionProperty.candidates(from: viewModel.todoProperties),
+                    selection: Binding(
+                        get: { viewModel.todoPropsMapping.category },
+                        set: { viewModel.selectCategory($0) }
+                    ),
+                    onCreateTap: { Task { await viewModel.createCategoryProperty() } }
+                )
                 if !viewModel.todoProperties.filter({ $0.type == "relation" }).isEmpty {
                     OptionalPropMenu(
                         label: "리포트 연결",

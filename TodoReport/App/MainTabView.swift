@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 struct MainTabView: View {
     @State private var tabCoordinator = MainTabCoordinator.shared
@@ -20,14 +19,6 @@ struct MainTabView: View {
                 .background(Color(.systemGroupedBackground))
             }
         }
-        .tint(AppTheme.shared.accent)
         .environment(tabCoordinator)
-        .onAppear { Self.applyTabBarAccent() }
-    }
-
-    /// iOS 26 Tab bar는 SwiftUI `.tint` 우선. UIKit appearance는 구형 tab bar 폴백.
-    private static func applyTabBarAccent() {
-        let color = UIColor(red: 0xFD / 255, green: 0x68 / 255, blue: 0x45 / 255, alpha: 1)
-        UITabBar.appearance().tintColor = color
     }
 }

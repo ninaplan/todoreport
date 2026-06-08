@@ -1,10 +1,3 @@
-//
-//  TodoReportApp.swift
-//  TodoReport
-//
-//  Created by Nina Kim on 5/26/26.
-//
-
 import SwiftUI
 import SwiftData
 import UserNotifications
@@ -15,7 +8,6 @@ struct TodoReportApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showPlannerDowngrade: Bool = false
     @State private var showPaywall: Bool = false
-
     var body: some Scene {
         WindowGroup {
             Group {
@@ -30,6 +22,7 @@ struct TodoReportApp: App {
                 }
             }
             .onAppear {
+                TabBarAppearance.applyNockAccent()
                 // 앱 실행 시 로그 파일 없으면 새로 생성, 있으면 세션 구분선만 추가
                 AppLogger.shared.logNewSession()
                 UNUserNotificationCenter.current().delegate = AppNotificationDelegate.shared
@@ -80,6 +73,11 @@ struct TodoReportApp: App {
                 ReportNotificationManager.shared.rescheduleAll()
                 Task { @MainActor in SyncQueueManager.shared.processIfConnected() }
                 Task { @MainActor in NotionRelationLinker.shared.linkMissing() }
+                Task {
+                    if let plannerId = PlannerService.shared.selectedPlanner?.id {
+                        await CategoryNotionSync.shared.syncCategoriesByName(plannerId: plannerId)
+                    }
+                }
             }
         }
     }

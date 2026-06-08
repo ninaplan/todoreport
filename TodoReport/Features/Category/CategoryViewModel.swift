@@ -9,8 +9,8 @@ final class CategoryViewModel {
 
     var isSheetPresented: Bool = false
     var editName: String = ""
-    var editColorHex: String = "#000000"
-    var editIcon: String = Category.iconPalette.first ?? "tag.fill"
+    var editColorHex: String = "#FD6845"
+    var editIcon: String = "tag.fill"
     private var userDidSelectIcon: Bool = false
 
     var showArchiveAlert: Bool = false
@@ -33,6 +33,35 @@ final class CategoryViewModel {
 
     var isEditing: Bool { editingId != nil }
 
+    /// 노션 투두 DB 카테고리(select) 동기화가 켜진 플래너인지
+    var isNotionCategorySyncEnabled: Bool {
+        let pid = plannerId ?? PlannerService.shared.selectedPlanner?.id
+        guard let pid,
+              let planner = PlannerService.shared.store.first(where: { $0.id == pid }) else { return false }
+        return CategoryNotionSync.shared.isSelectSyncEnabled(for: planner)
+    }
+
+    func deleteAlertMessage(for category: Category) -> String {
+        let base = "'\(category.name)' 카테고리를 삭제할까요?\n이 카테고리를 사용하는 투두는 카테고리 없음으로 변경됩니다."
+        if isNotionCategorySyncEnabled && category.isLinkedToNotion {
+            return "'\(category.name)' 카테고리를 삭제할까요?\n노션 플래너의 카테고리 옵션도 함께 삭제됩니다.\n이 카테고리를 사용하는 투두는 카테고리 없음으로 변경됩니다."
+        }
+        return base
+    }
+
+    func archiveAlertMessage(for category: Category) -> String {
+        var lines: [String] = []
+        if pendingArchiveCount > 0 {
+            lines.append("\(category.name) 카테고리에 미완료 할일 \(pendingArchiveCount)개가 있어요.")
+        }
+        if isNotionCategorySyncEnabled {
+            lines.append("보관하면 앱에서만 카테고리가 숨겨집니다. 노션 플래너에는 그대로 유지돼요.")
+        } else {
+            lines.append("보관하면 앱에서만 카테고리가 숨겨집니다.")
+        }
+        return lines.joined(separator: "\n")
+    }
+
     var editingCategory: Category? {
         guard let id = editingId else { return nil }
         return categories.first { $0.id == id }
@@ -42,13 +71,15 @@ final class CategoryViewModel {
 
     func fetchCategories() async {
         isLoading = true
-        if let pid = plannerId {
-            async let active   = service.fetchCategories(for: pid)
+        let pid = plannerId ?? PlannerService.shared.selectedPlanner?.id
+        if let pid {
+            await CategoryNotionSync.shared.syncCategoriesByName(plannerId: pid)
+            async let active = service.fetchCategories(for: pid)
             async let archived = service.fetchArchivedCategories(for: pid)
             categories = await active
             archivedCategories = await archived
         } else {
-            async let active   = service.fetchCategories()
+            async let active = service.fetchCategories()
             async let archived = service.fetchArchivedCategories()
             categories = await active
             archivedCategories = await archived
@@ -66,8 +97,8 @@ final class CategoryViewModel {
     func openAddSheet() {
         editingId = nil
         editName = ""
-        editColorHex = "#000000"
-        editIcon = Category.iconPalette.first ?? "tag.fill"
+        editColorHex = "#FD6845"
+        editIcon = "tag.fill"
         userDidSelectIcon = false
         isSheetPresented = true
     }
@@ -164,9 +195,9 @@ final class CategoryViewModel {
 
     func requestArchive(_ category: Category) async {
         let count = await todoService.incompleteTodoCount(for: category.id)
-        if count > 0 {
-            archivingCategory = category
-            pendingArchiveCount = count
+        archivingCategory = category
+        pendingArchiveCount = count
+        if count > 0 || isNotionCategorySyncEnabled {
             showArchiveAlert = true
         } else {
             await confirmArchive(category)
@@ -186,12 +217,14 @@ final class CategoryViewModel {
         try? await service.archiveCategory(id: category.id)
         archivingCategory = nil
         pendingArchiveCount = 0
+        showArchiveAlert = false
         isSheetPresented = false
     }
 
     func cancelArchive() {
         archivingCategory = nil
         pendingArchiveCount = 0
+        showArchiveAlert = false
     }
 
     // MARK: - Delete

@@ -39,6 +39,7 @@ final class PlannerMigrationViewModel {
     var memoMode: PropMappingMode = .appOnly
     var isPinnedMode: PropMappingMode = .appOnly
     var reportRelationMode: PropMappingMode = .appOnly
+    var categoryMode: PropMappingMode = .appOnly
     var reviewMode: PropMappingMode = .appOnly
     var ratingMode: PropMappingMode = .appOnly
 
@@ -111,12 +112,12 @@ final class PlannerMigrationViewModel {
         selectedReportDBId = nil
         reportPropsMapping = ReportPropsMapping()
         await saveConnectionSettings()
-        startMigration()
+        beginMigrationIfReady()
     }
 
     func proceedFromMapReportProps() async {
         await saveConnectionSettings()
-        startMigration()
+        beginMigrationIfReady()
     }
 
     // MARK: - 마이그레이션 제어
@@ -125,6 +126,7 @@ final class PlannerMigrationViewModel {
         step = .running
         completedCount = 0
         migrationTask = Task {
+            await CategoryNotionSync.shared.syncCategoriesByName(plannerId: planner.id)
             switch mode {
             case .uploadToNotion:   await uploadToNotion()
             case .importFromNotion: await importFromNotion()
@@ -169,6 +171,7 @@ final class PlannerMigrationViewModel {
     // MARK: - 연결 설정 저장
 
     private func saveConnectionSettings() async {
+        let previousCategoryProp = planner.decodedTodoPropsMapping.category
         var updated = planner
         updated.notionAccessToken = capturedAccessToken
         updated.notionTodoDBId    = selectedTodoDBId
@@ -184,6 +187,15 @@ final class PlannerMigrationViewModel {
         }
         try? await PlannerService.shared.savePlanner(updated)
         PlannerService.shared.selectPlanner(updated)
+        CategoryNotionSync.shared.onCategoryMappingEnabled(
+            plannerId: updated.id,
+            previousCategoryProp: previousCategoryProp,
+            newCategoryProp: todoPropsMapping.category
+        )
+    }
+
+    private func beginMigrationIfReady() {
+        startMigration()
     }
 
     // MARK: - API
@@ -265,6 +277,27 @@ final class PlannerMigrationViewModel {
         isPinnedMode = .existing
     }
 
+    func createCategoryProperty() async {
+        let token = capturedAccessToken ?? ""
+        guard let dbId = selectedTodoDBId,
+              let name = await addNotionProperty(dbId: dbId, name: "카테고리", type: "select", options: [], token: token) else { return }
+        todoPropsMapping.category = name
+        todoPropsMapping.categoryPropType = "select"
+        categoryMode = .existing
+    }
+
+    func selectCategory(_ name: String?) {
+        todoPropsMapping.category = name
+        if let name,
+           let prop = todoProperties.first(where: { $0.name == name && CategoryNotionProperty.supportedTypes.contains($0.type) }) {
+            todoPropsMapping.categoryPropType = prop.type
+            categoryMode = .existing
+        } else {
+            todoPropsMapping.categoryPropType = nil
+            categoryMode = .appOnly
+        }
+    }
+
     func createRatingProperty() async {
         let token = capturedAccessToken ?? ""
         let options = DayRating.allCases.map { $0.rawValue }
@@ -283,7 +316,7 @@ final class PlannerMigrationViewModel {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         var body: [String: Any] = ["propertyName": name, "type": type]
-        if !options.isEmpty { body["options"] = options }
+        if type == "select" || !options.isEmpty { body["options"] = options }
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
         request.httpBody = bodyData
         do {
@@ -299,18 +332,18 @@ final class PlannerMigrationViewModel {
     // MARK: - Auto Mapping
 
     private func autoMapTodoProps() {
-        func best(type: String, default name: String) -> String? {
-            let typed = todoProperties.filter { $0.type == type }
-            return typed.first(where: { $0.name == name })?.name ?? typed.first?.name
-        }
-        todoPropsMapping.completed      = best(type: "checkbox",  default: "완료")
-        todoPropsMapping.date           = best(type: "date",      default: "날짜")
-        todoPropsMapping.memo           = best(type: "rich_text", default: "메모")
-        todoPropsMapping.isPinned       = best(type: "checkbox",  default: "중요")
-        todoPropsMapping.reportRelation = best(type: "relation",  default: "데일리 리포트")
-        memoMode           = todoPropsMapping.memo != nil           ? .existing : .appOnly
-        isPinnedMode       = todoPropsMapping.isPinned != nil       ? .existing : .appOnly
-        reportRelationMode = todoPropsMapping.reportRelation != nil ? .existing : .appOnly
+        TodoPropsMappingAutoFill.apply(
+            mapping: &todoPropsMapping,
+            properties: todoProperties,
+            policy: .initialSetup
+        )
+        TodoPropsMappingAutoFill.syncOptionalModes(
+            mapping: todoPropsMapping,
+            memoMode: &memoMode,
+            isPinnedMode: &isPinnedMode,
+            reportRelationMode: &reportRelationMode,
+            categoryMode: &categoryMode
+        )
     }
 
     private func autoMapReportProps() {
@@ -411,15 +444,19 @@ final class PlannerMigrationViewModel {
 
         guard !Task.isCancelled else { return }
 
-        // 2. 검증 통과 후 로컬 데이터 삭제
+        // 2. 검증 통과 후 로컬 데이터 삭제 (투두·리포트·카테고리)
         let plannerId = planner.id
-        let allTodos   = (try? context.fetch(FetchDescriptor<TodoItem>()))   ?? []
-        let allReports = (try? context.fetch(FetchDescriptor<DailyReportItem>())) ?? []
-        allTodos.filter   { $0.plannerId == plannerId || $0.plannerId == nil }
-                .forEach  { context.delete($0) }
+        let allTodos      = (try? context.fetch(FetchDescriptor<TodoItem>())) ?? []
+        let allReports    = (try? context.fetch(FetchDescriptor<DailyReportItem>())) ?? []
+        let allCategories = (try? context.fetch(FetchDescriptor<CategoryItem>())) ?? []
+        allTodos.filter { $0.plannerId == plannerId || $0.plannerId == nil }
+            .forEach { context.delete($0) }
         allReports.filter { ($0.plannerId == plannerId || $0.plannerId == nil) && $0.endDate == nil }
-                  .forEach { context.delete($0) }
+            .forEach { context.delete($0) }
+        allCategories.filter { $0.plannerId == plannerId || $0.plannerId == nil }
+            .forEach { context.delete($0) }
         try? context.save()
+        await CategoryService.shared.refresh()
 
         // 3. 날짜 범위 계산 (최근 7일)
         let calendar = Calendar.current

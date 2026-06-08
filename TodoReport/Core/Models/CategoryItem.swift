@@ -10,6 +10,9 @@ final class CategoryItem {
     var statusRaw: String
     var sortOrder: Int
     var plannerId: String?
+    var notionPageId: String? = nil  // v2 Pro: 카테고리 DB 페이지 ID
+    var notionOptionId: String? = nil
+    var notionOptionName: String? = nil
 
     init(
         id: String = UUID().uuidString,
@@ -18,7 +21,9 @@ final class CategoryItem {
         icon: String,
         status: CategoryStatus = .active,
         sortOrder: Int = 0,
-        plannerId: String? = nil
+        plannerId: String? = nil,
+        notionOptionId: String? = nil,
+        notionOptionName: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -27,14 +32,24 @@ final class CategoryItem {
         self.statusRaw = status.rawValue
         self.sortOrder = sortOrder
         self.plannerId = plannerId
+        self.notionOptionId = notionOptionId
+        self.notionOptionName = notionOptionName
     }
 
     var status: CategoryStatus {
         CategoryStatus(rawValue: statusRaw) ?? .active
     }
 
+    var isLinkedToNotion: Bool {
+        notionOptionId != nil || notionOptionName != nil
+    }
+
     func toCategory() -> Category {
-        Category(id: id, name: name, colorHex: colorHex, icon: icon, status: status, plannerId: plannerId)
+        Category(
+            id: id, name: name, colorHex: colorHex, icon: icon,
+            status: status, plannerId: plannerId,
+            notionOptionId: notionOptionId, notionOptionName: notionOptionName
+        )
     }
 
     func update(from category: Category) {
@@ -42,7 +57,8 @@ final class CategoryItem {
         colorHex = category.colorHex
         icon = category.icon
         statusRaw = category.status.rawValue
-        // plannerId 고정
+        notionOptionId = category.notionOptionId
+        notionOptionName = category.notionOptionName
     }
 
     static func from(_ category: Category, sortOrder: Int = 0) -> CategoryItem {
@@ -50,7 +66,9 @@ final class CategoryItem {
             id: category.id, name: category.name,
             colorHex: category.colorHex, icon: category.icon,
             status: category.status, sortOrder: sortOrder,
-            plannerId: category.plannerId
+            plannerId: category.plannerId,
+            notionOptionId: category.notionOptionId,
+            notionOptionName: category.notionOptionName
         )
     }
 }

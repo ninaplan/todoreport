@@ -11,6 +11,7 @@ struct Planner: Identifiable, Hashable, Codable {
     var isNotionConnected: Bool
     var notionTodoDBId: String?
     var notionReportDBId: String?
+    var notionCategoryDBId: String?  // v2 Pro: 카테고리 전용 DB
     // 플래너별 Notion 토큰 (nil이면 NotionAuthManager Keychain 토큰 fallback)
     var notionAccessToken: String?
     // 아이콘: SF Symbol 이름 또는 "photo"
@@ -30,6 +31,7 @@ struct Planner: Identifiable, Hashable, Codable {
         isNotionConnected: Bool = false,
         notionTodoDBId: String? = nil,
         notionReportDBId: String? = nil,
+        notionCategoryDBId: String? = nil,
         notionAccessToken: String? = nil,
         iconType: String? = nil,
         iconImageData: Data? = nil,
@@ -44,6 +46,7 @@ struct Planner: Identifiable, Hashable, Codable {
         self.isNotionConnected = isNotionConnected
         self.notionTodoDBId = notionTodoDBId
         self.notionReportDBId = notionReportDBId
+        self.notionCategoryDBId = notionCategoryDBId
         self.notionAccessToken = notionAccessToken
         self.iconType = iconType
         self.iconImageData = iconImageData
