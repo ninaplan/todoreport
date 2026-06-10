@@ -20,7 +20,7 @@ struct PlannerAddView: View {
                         subtitle: "할일을 저장할 Notion DB를 선택하세요",
                         databases: viewModel.databases,
                         selectedId: viewModel.selectedTodoDBId,
-                        isLoading: viewModel.isLoading,
+                        isLoading: viewModel.isLoadingDatabases,
                         onSelect: { viewModel.selectTodoDB($0) },
                         onRefresh: { await viewModel.fetchDatabases() }
                     )
@@ -31,7 +31,7 @@ struct PlannerAddView: View {
                         subtitle: "데일리 리포트를 저장할 Notion DB를 선택하세요.\n연결하지 않으면 리포트는 앱 내에서만 저장됩니다.",
                         databases: viewModel.databases,
                         selectedId: viewModel.selectedReportDBId,
-                        isLoading: viewModel.isLoading,
+                        isLoading: viewModel.isLoadingDatabases,
                         onSelect: { viewModel.selectReportDB($0) },
                         onRefresh: { await viewModel.fetchDatabases() },
                         onSkip: { Task { await viewModel.skipReportDB(); dismiss() } }
@@ -48,7 +48,7 @@ struct PlannerAddView: View {
                 }
                 if isDBPickerStep {
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        RefreshButton(isLoading: viewModel.isLoading) {
+                        RefreshButton(isLoading: viewModel.isLoadingDatabases) {
                             Task { await viewModel.fetchDatabases() }
                         }
                     }

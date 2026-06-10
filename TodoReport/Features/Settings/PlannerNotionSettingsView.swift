@@ -72,7 +72,7 @@ struct PlannerNotionSettingsView: View {
                 label: "투두 DB",
                 databases: viewModel.databases,
                 selectedId: viewModel.selectedTodoDBId,
-                isLoading: viewModel.isLoading && viewModel.databases.isEmpty,
+                isLoading: viewModel.isLoadingDatabases && viewModel.databases.isEmpty,
                 onSelect: { viewModel.selectTodoDB($0) }
             )
         } header: {
@@ -80,7 +80,7 @@ struct PlannerNotionSettingsView: View {
         }
     }
 
-    // MARK: - 투두 속성 매핑
+    // MARK: - 투두 속성 연결
 
     private var todoPropsSection: some View {
         Section {
@@ -88,7 +88,15 @@ struct PlannerNotionSettingsView: View {
                 label: "완료", isRequired: true,
                 candidates: viewModel.todoProperties.filter { $0.type == "checkbox" },
                 fallback: viewModel.todoProperties,
-                selection: $viewModel.todoPropsMapping.completed
+                selection: Binding(
+                    get: { viewModel.todoPropsMapping.completed },
+                    set: { newName in
+                        let prop = viewModel.todoProperties.first(where: {
+                            $0.name == newName && $0.type == "checkbox"
+                        })
+                        viewModel.selectCompletedProperty(id: prop?.id, name: newName)
+                    }
+                )
             )
             SettingsPropMappingRow(
                 label: "날짜", isRequired: true,
@@ -108,6 +116,9 @@ struct PlannerNotionSettingsView: View {
                 candidates: viewModel.todoProperties.filter { $0.type == "checkbox" },
                 mode: $viewModel.isPinnedMode,
                 selection: $viewModel.todoPropsMapping.isPinned,
+                onPropertySelect: { prop in
+                    viewModel.selectIsPinnedProperty(id: prop?.id, name: prop?.name)
+                },
                 onCreate: { Task { await viewModel.createPinnedProperty() } }
             )
             SettingsOptionalPropRow(
@@ -129,7 +140,7 @@ struct PlannerNotionSettingsView: View {
                 )
             }
         } header: {
-            Text("투두 속성 매핑")
+            Text("투두 속성 연결")
         }
     }
 
@@ -141,7 +152,7 @@ struct PlannerNotionSettingsView: View {
                 label: "리포트 DB",
                 databases: viewModel.databases,
                 selectedId: viewModel.selectedReportDBId,
-                isLoading: viewModel.isLoading && viewModel.databases.isEmpty,
+                isLoading: viewModel.isLoadingDatabases && viewModel.databases.isEmpty,
                 onSelect: { viewModel.selectReportDB($0) }
             )
         } header: {
@@ -151,10 +162,10 @@ struct PlannerNotionSettingsView: View {
         }
     }
 
-    // MARK: - 리포트 속성 매핑
+    // MARK: - 리포트 속성 연결
 
     private var reportPropsSection: some View {
-        Section("리포트 속성 매핑") {
+        Section("리포트 속성 연결") {
             SettingsPropMappingRow(
                 label: "날짜", isRequired: true,
                 candidates: viewModel.reportProperties.filter { $0.type == "date" },
@@ -291,6 +302,7 @@ private struct SettingsOptionalPropRow: View {
     let candidates: [NotionProperty]
     @Binding var mode: PropMappingMode
     @Binding var selection: String?
+    var onPropertySelect: ((NotionProperty?) -> Void)? = nil
     var isRecommended: Bool = false
     var onCreate: (() -> Void)? = nil
     var hint: String? = nil
@@ -321,8 +333,12 @@ private struct SettingsOptionalPropRow: View {
             Spacer()
             Menu {
                 Button("앱에만 저장") {
-                    mode = .appOnly
-                    selection = nil
+                    if let onPropertySelect {
+                        onPropertySelect(nil)
+                    } else {
+                        mode = .appOnly
+                        selection = nil
+                    }
                 }
                 if let onCreate {
                     Button("생성하기") { onCreate() }
@@ -331,8 +347,12 @@ private struct SettingsOptionalPropRow: View {
                     Divider()
                     ForEach(candidates, id: \.name) { prop in
                         Button(prop.name) {
-                            mode = .existing
-                            selection = prop.name
+                            if let onPropertySelect {
+                                onPropertySelect(prop)
+                            } else {
+                                mode = .existing
+                                selection = prop.name
+                            }
                         }
                     }
                 }

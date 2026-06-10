@@ -5,9 +5,8 @@ struct NotionSyncingOverlay: View {
         ZStack {
             Color.black.opacity(0.25)
                 .ignoresSafeArea()
-            VStack(spacing: 14) {
-                ProgressView()
-                    .scaleEffect(1.3)
+            VStack(spacing: 16) {
+                NotionConnectionGraphic(iconSize: 48, laneWidth: 54, spacing: 10)
                 Text("노션에서 자료를 읽어오고 있습니다.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

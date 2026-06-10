@@ -20,16 +20,10 @@ struct OnboardingView: View {
     var body: some View {
         ZStack {
             switch viewModel.step {
-            case .signIn:
-                SignInStepView(viewModel: viewModel)
+            case .welcome:
+                OnboardingWelcomeView(viewModel: viewModel)
                     .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
-            case .connectionChoice:
-                ConnectionChoiceStepView(viewModel: viewModel)
-                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
-            case .localModeInfo:
-                LocalModeStepView(viewModel: viewModel)
-                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
-            case .notionOAuth, .plannerName, .selectTodoDB, .mapTodoProps, .selectReportDB, .mapReportProps:
+            case .plannerName, .selectTodoDB, .mapTodoProps, .selectReportDB, .mapReportProps:
                 NotionFlowContainer(title: notionNavTitle, titleDisplayMode: .inline) {
                     notionFlowContent
                         .toolbar {
@@ -40,7 +34,7 @@ struct OnboardingView: View {
                             }
                             if isNotionDBPickerStep {
                                 ToolbarItem(placement: .navigationBarTrailing) {
-                                    RefreshButton(isLoading: viewModel.isLoadingDBs) {
+                                    RefreshButton(isLoading: viewModel.isLoadingDatabases) {
                                         Task { await viewModel.fetchDatabases() }
                                     }
                                 }
@@ -72,7 +66,6 @@ struct OnboardingView: View {
 
     private var notionNavTitle: String {
         switch viewModel.step {
-        case .notionOAuth:    return ""
         case .plannerName:    return ""
         case .selectTodoDB:   return "투두 DB 선택"
         case .mapTodoProps:   return "투두 속성 연결"
@@ -85,8 +78,6 @@ struct OnboardingView: View {
     @ViewBuilder
     private var notionFlowContent: some View {
         switch viewModel.step {
-        case .notionOAuth:
-            NotionOAuthStepView(viewModel: viewModel)
         case .plannerName:
             PlannerNameStepView(viewModel: viewModel)
         case .selectTodoDB:
@@ -94,7 +85,7 @@ struct OnboardingView: View {
                 subtitle: "투두를 저장할 노션 데이터베이스를 선택해주세요",
                 databases: viewModel.databases,
                 selectedId: viewModel.selectedTodoDBId,
-                isLoading: viewModel.isLoadingDBs,
+                isLoading: viewModel.isLoadingDatabases,
                 onSelect: { viewModel.selectTodoDB($0) },
                 onRefresh: { await viewModel.fetchDatabases() }
             )
@@ -103,7 +94,7 @@ struct OnboardingView: View {
                 subtitle: "데일리리포트를 저장할 노션 DB를 선택해주세요.\n연결하지 않으면 리포트는 앱 내에서만 저장됩니다.",
                 databases: viewModel.databases,
                 selectedId: viewModel.selectedReportDBId,
-                isLoading: viewModel.isLoadingDBs,
+                isLoading: viewModel.isLoadingDatabases,
                 onSelect: { viewModel.selectReportDB($0) },
                 onRefresh: { await viewModel.fetchDatabases() },
                 onSkip: { viewModel.skipReportDB() }
@@ -114,229 +105,6 @@ struct OnboardingView: View {
             MapReportPropsStepView(viewModel: viewModel)
         default:
             EmptyView()
-        }
-    }
-}
-
-// MARK: - Step 1: Sign In
-
-private struct SignInStepView: View {
-    let viewModel: OnboardingViewModel
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            VStack(spacing: 16) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 80))
-                    .foregroundStyle(AppTheme.shared.accent)
-
-                Text("투두리포트")
-                    .font(.largeTitle.bold())
-
-                Text("앱에서 기록하고, 노션에 쌓아가세요")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
-            Spacer()
-
-            Button {
-                viewModel.devLogin()
-            } label: {
-                Text("시작하기")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(AppTheme.shared.accent)
-                    .foregroundStyle(.white)
-                    .clipShape(Capsule())
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 52)
-        }
-    }
-}
-
-// MARK: - Step 2: Connection Choice
-
-private struct ConnectionChoiceStepView: View {
-    let viewModel: OnboardingViewModel
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            VStack(spacing: 12) {
-                Text("데이터를 어디에 저장할까요?")
-                    .font(.title2.bold())
-                    .multilineTextAlignment(.center)
-
-                Text("설정에서 언제든 변경할 수 있어요")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 24)
-
-            Spacer()
-
-            VStack(spacing: 12) {
-                Button {
-                    viewModel.selectNotionConnection()
-                } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: "link.circle.fill")
-                            .font(.title2)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("노션 연결하기")
-                                .font(.headline)
-                            Text("노션에 자동 저장")
-                                .font(.caption)
-                                .opacity(0.85)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption.bold())
-                    }
-                    .padding(20)
-                    .frame(maxWidth: .infinity)
-                    .background(AppTheme.shared.accent)
-                    .foregroundStyle(.white)
-                    .clipShape(Capsule())
-                }
-
-                Button {
-                    viewModel.selectLocalMode()
-                } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: "iphone.circle.fill")
-                            .font(.title2)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("나중에 하기")
-                                .font(.headline)
-                            Text("이 기기에만 저장")
-                                .font(.caption)
-                                .opacity(0.7)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption.bold())
-                    }
-                    .padding(20)
-                    .frame(maxWidth: .infinity)
-                    .background(Color(.systemGray6))
-                    .foregroundStyle(.primary)
-                    .clipShape(Capsule())
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 52)
-        }
-    }
-}
-
-// MARK: - Notion Step: OAuth
-
-private struct NotionOAuthStepView: View {
-    let viewModel: OnboardingViewModel
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            VStack(spacing: 16) {
-                Text("노션 연결")
-                    .font(.title2.bold())
-
-                Image(systemName: "globe.badge.chevron.backward")
-                    .font(.system(size: 64))
-                    .foregroundStyle(AppTheme.shared.accent)
-
-                Text("노션 계정을 연결하면 투두와 리포트가\n노션 데이터베이스에 자동으로 저장돼요")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-            }
-
-            Spacer()
-
-            VStack(spacing: 12) {
-                Button {
-                    Task { await viewModel.startNotionOAuth() }
-                } label: {
-                    Group {
-                        if viewModel.isLoading {
-                            ProgressView().tint(Color(.systemBackground))
-                        } else {
-                            Text("노션으로 계속하기").font(.headline)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(Color(.label))
-                    .foregroundStyle(Color(.systemBackground))
-                    .clipShape(Capsule())
-                }
-                .disabled(viewModel.isLoading)
-                .padding(.horizontal, 24)
-
-                Button("뒤로가기") { viewModel.goBack() }
-                    .font(.subheadline)
-                    .foregroundStyle(.blue)
-            }
-            .padding(.bottom, 52)
-        }
-    }
-}
-
-// MARK: - Step 4 (Local): Local Mode Info
-
-private struct LocalModeStepView: View {
-    let viewModel: OnboardingViewModel
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            VStack(spacing: 16) {
-                Image(systemName: "iphone.circle.fill")
-                    .font(.system(size: 64))
-                    .foregroundStyle(.secondary)
-
-                Text("기기 저장 모드")
-                    .font(.title2.bold())
-
-                VStack(spacing: 8) {
-                    Text("데이터가 이 기기에만 저장됩니다.")
-                        .font(.subheadline)
-                        .foregroundStyle(.primary)
-
-                    Text("기기를 변경하면 데이터를 불러올 수 없어요.\n설정에서 언제든 노션을 연결할 수 있어요.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.horizontal, 32)
-            }
-
-            Spacer()
-
-            Button {
-                viewModel.completeWithLocalMode()
-            } label: {
-                Text("시작하기")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(AppTheme.shared.accent)
-                    .foregroundStyle(.white)
-                    .clipShape(Capsule())
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 52)
         }
     }
 }
@@ -361,21 +129,31 @@ private struct PlannerNameStepView: View {
                     .font(.system(size: 64))
                     .foregroundStyle(AppTheme.shared.accent)
 
-                Text("투두를 기록할 플래너 이름을 입력해주세요")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+                VStack(spacing: 16) {
+                    Text("투두를 기록할 플래너 이름을 입력해주세요")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    TextField("예: 나의 투두", text: $viewModel.plannerName)
+                        .font(.title3)
+                        .focused($focused)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 18)
+                        .frame(maxWidth: .infinity)
+                        .background(Color(.secondarySystemGroupedBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .strokeBorder(Color(.separator), lineWidth: 0.5)
+                        )
+                }
+                .padding(.horizontal, 24)
             }
 
             Spacer()
 
             VStack(spacing: 12) {
-                TextField("예: 나의 투두", text: $viewModel.plannerName)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($focused)
-                    .padding(.horizontal, 24)
-
                 Button {
                     viewModel.proceedFromPlannerName()
                 } label: {
@@ -537,8 +315,7 @@ private struct InitialFetchLoadingView: View {
             VStack(spacing: 28) {
                 Spacer()
                 VStack(spacing: 20) {
-                    ProgressView()
-                        .scaleEffect(1.4)
+                    NotionConnectionGraphic(iconSize: 64, laneWidth: 66, spacing: 14)
                     VStack(spacing: 8) {
                         Text("노션에서 자료를 가져오고 있습니다...")
                             .font(.headline)

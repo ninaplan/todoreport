@@ -14,6 +14,7 @@ final class PlannerAddViewModel {
 
     private(set) var step: Step = .chooseMode
     private(set) var isLoading: Bool = false
+    private(set) var isLoadingDatabases: Bool = false
     var alertMessage: String?
 
     var plannerName: String = ""
@@ -41,6 +42,8 @@ final class PlannerAddViewModel {
 
     private(set) var capturedAccessToken: String?
     private(set) var createdLocalPlanner: Planner?
+
+    @ObservationIgnored private var databasesFetchTask: Task<Void, Never>?
 
     private let backendBase = "https://todoreport-backend.vercel.app"
 
@@ -160,23 +163,30 @@ final class PlannerAddViewModel {
     // MARK: - API
 
     func fetchDatabases() async {
-        guard databases.isEmpty else { return }
-        isLoading = true
-        defer { isLoading = false }
-        let token = capturedAccessToken ?? ""
-        guard let url = URL(string: "\(backendBase)/api/notion/databases") else { return }
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        do {
-            let (data, _) = try await URLSession.shared.data(for: request)
-            let decoded = try JSONDecoder().decode(DatabasesResponse.self, from: data)
-            databases = decoded.databases.map {
-                NotionDatabase(id: $0.id, title: $0.title, icon: $0.icon?.emoji)
-            }
-            step = .selectTodoDB
-        } catch {
-            alertMessage = "DB 목록을 불러오지 못했어요"
+        if let existing = databasesFetchTask {
+            await existing.value
+            return
         }
+        let task = Task { @MainActor in
+            defer { databasesFetchTask = nil }
+            isLoadingDatabases = true
+            defer { isLoadingDatabases = false }
+
+            let outcome = await NotionDatabasesFetcher.fetch(
+                token: capturedAccessToken ?? "",
+                mergeWith: databases,
+                retryIfEmpty: databases.isEmpty
+            )
+            switch outcome {
+            case .success(let list):
+                databases = list
+                if step == .notionOAuth { step = .selectTodoDB }
+            case .failure(let message):
+                alertMessage = message
+            }
+        }
+        databasesFetchTask = task
+        await task.value
     }
 
     func fetchTodoProperties() async {

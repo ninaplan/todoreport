@@ -2,7 +2,6 @@ import SwiftUI
 
 struct PlannerMigrationView: View {
     @State private var viewModel: PlannerMigrationViewModel
-    @State private var rotationDegrees: Double = 0
     @State private var completedScale: CGFloat = 0.5
     @State private var showStatusSheet = false
     @Environment(\.dismiss) private var dismiss
@@ -36,7 +35,7 @@ struct PlannerMigrationView: View {
                             subtitle: "할일을 저장할 Notion DB를 선택하세요",
                             databases: viewModel.databases,
                             selectedId: viewModel.selectedTodoDBId,
-                            isLoading: viewModel.isLoading,
+                            isLoading: viewModel.isLoadingDatabases,
                             onSelect: { viewModel.selectTodoDB($0) },
                             onRefresh: { await viewModel.fetchDatabases() }
                         )
@@ -47,7 +46,7 @@ struct PlannerMigrationView: View {
                             subtitle: "데일리 리포트를 저장할 Notion DB를 선택하세요.\n연결하지 않으면 리포트는 앱 내에서만 저장됩니다.",
                             databases: viewModel.databases,
                             selectedId: viewModel.selectedReportDBId,
-                            isLoading: viewModel.isLoading,
+                            isLoading: viewModel.isLoadingDatabases,
                             onSelect: { viewModel.selectReportDB($0) },
                             onRefresh: { await viewModel.fetchDatabases() },
                             onSkip: { Task { await viewModel.skipReportDB() } }
@@ -66,7 +65,7 @@ struct PlannerMigrationView: View {
                     }
                     if isDBPickerStep {
                         ToolbarItem(placement: .navigationBarTrailing) {
-                            RefreshButton(isLoading: viewModel.isLoading) {
+                            RefreshButton(isLoading: viewModel.isLoadingDatabases) {
                                 Task { await viewModel.fetchDatabases() }
                             }
                         }
@@ -305,15 +304,7 @@ struct PlannerMigrationView: View {
 
     private var runningContent: some View {
         VStack(spacing: 24) {
-            Image(systemName: "arrow.2.circlepath")
-                .font(.system(size: 48, weight: .medium))
-                .foregroundStyle(AppTheme.shared.accent)
-                .rotationEffect(.degrees(rotationDegrees))
-                .onAppear {
-                    withAnimation(.linear(duration: 2).repeatForever(autoreverses: false)) {
-                        rotationDegrees = 360
-                    }
-                }
+            NotionConnectionGraphic(iconSize: 56, laneWidth: 60, spacing: 12)
 
             Text(viewModel.mode == .uploadToNotion ? "노션에 올리는 중..." : "노션 데이터 가져오는 중...")
                 .font(.headline)

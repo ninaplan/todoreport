@@ -1,5 +1,4 @@
 import Foundation
-import AuthenticationServices
 import Combine
 
 // MARK: - Models
@@ -19,19 +18,29 @@ struct NotionProperty: Identifiable {
 
 struct TodoPropsMapping: Codable {
     var completed: String? = nil
+    var completedPropId: String? = nil
     var date: String? = nil
+    var datePropId: String? = nil
     var memo: String? = nil
+    var memoPropId: String? = nil
     var isPinned: String? = nil
+    var isPinnedPropId: String? = nil
     var reportRelation: String? = nil  // 투두DB → 데일리리포트DB relation 속성명
+    var reportRelationPropId: String? = nil
     var category: String? = nil
+    var categoryPropId: String? = nil
     var categoryPropType: String? = nil  // v1: "select" 고정
 }
 
 struct ReportPropsMapping: Codable {
     var date: String? = nil
+    var datePropId: String? = nil
     var review: String? = nil
+    var reviewPropId: String? = nil
     var rating: String? = nil
+    var ratingPropId: String? = nil
     var periodCompletionRate: String? = nil
+    var periodCompletionRatePropId: String? = nil
     var dayRatingOptions: [String] = []
     var ratingPropType: String? = nil
 }
@@ -47,10 +56,7 @@ enum PropMappingMode: Equatable {
 final class OnboardingViewModel {
 
     enum Step: Equatable {
-        case signIn
-        case connectionChoice
-        case notionOAuth
-        case localModeInfo
+        case welcome
         case plannerName
         case selectTodoDB
         case mapTodoProps
@@ -58,7 +64,8 @@ final class OnboardingViewModel {
         case mapReportProps
     }
 
-    private(set) var step: Step = .signIn
+    private(set) var step: Step = .welcome
+    private(set) var welcomePageIndex: Int = 0
     private(set) var isLoading: Bool = false
     private(set) var isComplete: Bool = false
     private(set) var alertMessage: String?
@@ -71,6 +78,7 @@ final class OnboardingViewModel {
     private(set) var reportProperties: [NotionProperty] = []
     var todoPropsMapping = TodoPropsMapping()
     var reportPropsMapping = ReportPropsMapping()
+    private(set) var isLoadingDatabases: Bool = false
     private(set) var isLoadingDBs: Bool = false
 
     // 선택 속성 매핑 모드
@@ -94,6 +102,7 @@ final class OnboardingViewModel {
     }
 
     @ObservationIgnored private var cancellables = Set<AnyCancellable>()
+    @ObservationIgnored private var databasesFetchTask: Task<Void, Never>?
     @ObservationIgnored private(set) var capturedToken: String?
 
     private let backendBase = "https://todoreport-backend.vercel.app"
@@ -109,31 +118,30 @@ final class OnboardingViewModel {
             .store(in: &cancellables)
     }
 
-    // MARK: - Step 1: Sign in with Apple
+    // MARK: - Welcome
 
-    func handleSignInResult(_ result: Result<ASAuthorization, Error>) {
-        switch result {
-        case .success:
-            step = .connectionChoice
-        case .failure(let error):
-            guard (error as? ASAuthorizationError)?.code != .canceled else { return }
-            alertMessage = error.localizedDescription
-        }
+    func advanceWelcomePage() {
+        let lastIndex = OnboardingWelcomePage.allCases.count - 1
+        guard welcomePageIndex < lastIndex else { return }
+        welcomePageIndex += 1
     }
 
-    // MARK: - Step 2: Connection Choice
+    func goToWelcomePage(_ index: Int) {
+        let lastIndex = OnboardingWelcomePage.allCases.count - 1
+        welcomePageIndex = min(max(index, 0), lastIndex)
+    }
 
     func selectNotionConnection() {
-        step = .notionOAuth
+        Task { await startNotionOAuth() }
     }
 
     func selectLocalMode() {
-        step = .localModeInfo
+        completeWithLocalMode()
     }
 
-    // MARK: - Step 3: Notion OAuth
+    // MARK: - Notion OAuth
 
-    func startNotionOAuth() async {
+    private func startNotionOAuth() async {
         isLoading = true
         NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token in
             Task { @MainActor [weak self] in
@@ -147,7 +155,6 @@ final class OnboardingViewModel {
 
     func proceedFromNotionOAuth() {
         step = .plannerName
-        Task { await fetchDatabases() }
     }
 
     // MARK: - Step 4: Planner Name
@@ -240,6 +247,8 @@ final class OnboardingViewModel {
         planner.notionReportDBId = selectedReportDBId
         planner.notionAccessToken = capturedToken
         planner.isNotionConnected = true
+        TodoPropsMappingAutoFill.backfillIds(mapping: &todoPropsMapping, properties: todoProperties)
+        ReportPropsMappingAutoFill.backfillIds(mapping: &reportPropsMapping, properties: reportProperties)
         if let data = try? JSONEncoder().encode(todoPropsMapping),
            let json = String(data: data, encoding: .utf8) {
             planner.todoPropsMapping = json
@@ -262,7 +271,8 @@ final class OnboardingViewModel {
     func goBack() {
         switch step {
         case .plannerName:
-            step = .connectionChoice
+            step = .welcome
+            welcomePageIndex = OnboardingWelcomePage.allCases.count - 1
         case .selectTodoDB:
             selectedTodoDBId = nil
             step = .plannerName
@@ -295,30 +305,32 @@ final class OnboardingViewModel {
         NotionAuthManager.shared.errorMessage = nil
     }
 
-    // TODO: 배포 전 제거 — 개발 테스트용
-    func devLogin() {
-        step = .connectionChoice
-    }
-
     // MARK: - API
 
     func fetchDatabases() async {
-        isLoadingDBs = true
-        defer { isLoadingDBs = false }
-
-        guard let url = URL(string: "\(backendBase)/api/notion/databases") else { return }
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(capturedToken ?? "")", forHTTPHeaderField: "Authorization")
-
-        do {
-            let (data, _) = try await URLSession.shared.data(for: request)
-            let decoded = try JSONDecoder().decode(DatabasesResponse.self, from: data)
-            databases = decoded.databases.map {
-                NotionDatabase(id: $0.id, title: $0.title, icon: $0.icon?.emoji)
-            }
-        } catch {
-            alertMessage = "DB 목록을 불러오지 못했어요"
+        if let existing = databasesFetchTask {
+            await existing.value
+            return
         }
+        let task = Task { @MainActor in
+            defer { databasesFetchTask = nil }
+            isLoadingDatabases = true
+            defer { isLoadingDatabases = false }
+
+            let outcome = await NotionDatabasesFetcher.fetch(
+                token: capturedToken ?? "",
+                mergeWith: databases,
+                retryIfEmpty: databases.isEmpty
+            )
+            switch outcome {
+            case .success(let list):
+                databases = list
+            case .failure(let message):
+                alertMessage = message
+            }
+        }
+        databasesFetchTask = task
+        await task.value
     }
 
     func fetchTodoProperties() async {
@@ -379,15 +391,12 @@ final class OnboardingViewModel {
     }
 
     func selectCategory(_ name: String?) {
-        todoPropsMapping.category = name
-        if let name,
-           let prop = todoProperties.first(where: { $0.name == name && CategoryNotionProperty.supportedTypes.contains($0.type) }) {
-            todoPropsMapping.categoryPropType = prop.type
-            categoryMode = .existing
-        } else {
-            todoPropsMapping.categoryPropType = nil
-            categoryMode = .appOnly
-        }
+        TodoPropsMappingAutoFill.applyCategorySelection(
+            mapping: &todoPropsMapping,
+            name: name,
+            properties: todoProperties,
+            categoryMode: &categoryMode
+        )
     }
 
     // MARK: - 속성 생성
@@ -399,6 +408,8 @@ final class OnboardingViewModel {
               let name = await addNotionProperty(dbId: dbId, name: "메모", type: "rich_text") else { return }
         todoPropsMapping.memo = name
         memoMode = .existing
+        await refreshTodoPropertiesList()
+        TodoPropsMappingAutoFill.backfillIds(mapping: &todoPropsMapping, properties: todoProperties)
     }
 
     func createPinnedProperty() async {
@@ -408,6 +419,8 @@ final class OnboardingViewModel {
               let name = await addNotionProperty(dbId: dbId, name: "상단고정", type: "checkbox") else { return }
         todoPropsMapping.isPinned = name
         isPinnedMode = .existing
+        await refreshTodoPropertiesList()
+        TodoPropsMappingAutoFill.backfillIds(mapping: &todoPropsMapping, properties: todoProperties)
     }
 
     func createCategoryProperty() async {
@@ -418,6 +431,8 @@ final class OnboardingViewModel {
         todoPropsMapping.category = name
         todoPropsMapping.categoryPropType = "select"
         categoryMode = .existing
+        await refreshTodoPropertiesList()
+        TodoPropsMappingAutoFill.backfillIds(mapping: &todoPropsMapping, properties: todoProperties)
     }
 
     func createRatingProperty() async {
@@ -430,6 +445,8 @@ final class OnboardingViewModel {
         reportPropsMapping.ratingPropType = "select"
         reportPropsMapping.rating = name
         ratingMode = .existing
+        await refreshReportPropertiesList()
+        ReportPropsMappingAutoFill.backfillIds(mapping: &reportPropsMapping, properties: reportProperties)
     }
 
     private func addNotionProperty(dbId: String, name: String, type: String, options: [String] = []) async -> String? {
@@ -457,30 +474,44 @@ final class OnboardingViewModel {
     }
 
     private func autoMapReportProps() {
-        func best(props: [NotionProperty], type: String, default name: String) -> NotionProperty? {
-            let typed = props.filter { $0.type == type }
-            return typed.first(where: { $0.name == name }) ?? typed.first
-        }
-        reportPropsMapping.date = best(props: reportProperties, type: "date", default: "날짜")?.name
-        if let reviewProp = best(props: reportProperties, type: "rich_text", default: "하루 리뷰") {
-            reportPropsMapping.review = reviewProp.name
-            reviewMode = .existing
-        }
-        if let ratingProp = best(props: reportProperties, type: "select", default: "별점") ?? best(props: reportProperties, type: "status", default: "별점") {
-            selectRating(ratingProp.name)
-        }
+        ReportPropsMappingAutoFill.applyInitialSetup(
+            mapping: &reportPropsMapping,
+            properties: reportProperties,
+            reviewMode: &reviewMode,
+            ratingMode: &ratingMode
+        )
     }
 
     func selectRating(_ name: String?) {
-        reportPropsMapping.rating = name
-        if let name, let prop = reportProperties.first(where: { $0.name == name }) {
-            reportPropsMapping.dayRatingOptions = prop.options ?? []
-            reportPropsMapping.ratingPropType = prop.type
-            ratingMode = .existing
-        } else {
-            reportPropsMapping.dayRatingOptions = []
-            reportPropsMapping.ratingPropType = nil
-            ratingMode = .appOnly
+        ReportPropsMappingAutoFill.applyRatingSelection(
+            mapping: &reportPropsMapping,
+            name: name,
+            properties: reportProperties,
+            ratingMode: &ratingMode
+        )
+    }
+
+    private func refreshTodoPropertiesList() async {
+        guard let dbId = selectedTodoDBId,
+              let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else { return }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(capturedToken ?? "")", forHTTPHeaderField: "Authorization")
+        guard let (data, _) = try? await URLSession.shared.data(for: request),
+              let decoded = try? JSONDecoder().decode(PropertiesResponse.self, from: data) else { return }
+        todoProperties = decoded.properties.map {
+            NotionProperty(id: $0.id, name: $0.name, type: $0.type, options: $0.options)
+        }
+    }
+
+    private func refreshReportPropertiesList() async {
+        guard let dbId = selectedReportDBId,
+              let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else { return }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(capturedToken ?? "")", forHTTPHeaderField: "Authorization")
+        guard let (data, _) = try? await URLSession.shared.data(for: request),
+              let decoded = try? JSONDecoder().decode(PropertiesResponse.self, from: data) else { return }
+        reportProperties = decoded.properties.map {
+            NotionProperty(id: $0.id, name: $0.name, type: $0.type, options: $0.options)
         }
     }
 }

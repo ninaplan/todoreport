@@ -8,6 +8,7 @@ import Foundation
 final class PlannerNotionSettingsViewModel {
 
     private(set) var isLoading: Bool = false
+    private(set) var isLoadingDatabases: Bool = false
     private(set) var alertMessage: String?
 
     private(set) var databases: [NotionDatabase] = []
@@ -27,6 +28,7 @@ final class PlannerNotionSettingsViewModel {
 
     private let planner: Planner
     private let backendBase = "https://todoreport-backend.vercel.app"
+    @ObservationIgnored private var databasesFetchTask: Task<Void, Never>?
 
     init(planner: Planner) {
         self.planner = planner
@@ -40,10 +42,10 @@ final class PlannerNotionSettingsViewModel {
     private func loadPlannerMappings(plannerId: String) {
         let todo = planner.decodedTodoPropsMapping
         todoPropsMapping = todo
-        if todo.memo != nil           { memoMode = .existing }
-        if todo.isPinned != nil       { isPinnedMode = .existing }
-        if todo.reportRelation != nil { reportRelationMode = .existing }
-        if todo.category != nil { categoryMode = .existing }
+        if todo.memo != nil || todo.memoPropId != nil           { memoMode = .existing }
+        if todo.isPinned != nil || todo.isPinnedPropId != nil   { isPinnedMode = .existing }
+        if todo.reportRelation != nil || todo.reportRelationPropId != nil { reportRelationMode = .existing }
+        if todo.category != nil || todo.categoryPropId != nil { categoryMode = .existing }
 
         let report = planner.decodedReportPropsMapping
         reportPropsMapping = report
@@ -54,23 +56,33 @@ final class PlannerNotionSettingsViewModel {
     // MARK: - DB 목록
 
     func fetchDatabases() async {
-        isLoading = true
-        defer { isLoading = false }
-
-        guard let token = planner.resolvedNotionToken,
-              let url = URL(string: "\(backendBase)/api/notion/databases") else { return }
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        do {
-            let (data, _) = try await URLSession.shared.data(for: request)
-            let decoded = try JSONDecoder().decode(DatabasesResponse.self, from: data)
-            databases = decoded.databases.map {
-                NotionDatabase(id: $0.id, title: $0.title, icon: $0.icon?.emoji)
-            }
-        } catch {
-            alertMessage = "DB 목록을 불러오지 못했어요"
+        if let existing = databasesFetchTask {
+            await existing.value
+            return
         }
+        let task = Task { @MainActor in
+            defer { databasesFetchTask = nil }
+            isLoadingDatabases = true
+            defer { isLoadingDatabases = false }
+
+            guard let token = planner.resolvedNotionToken else {
+                alertMessage = "노션 인증 정보가 없어요. 다시 로그인해주세요."
+                return
+            }
+            let outcome = await NotionDatabasesFetcher.fetch(
+                token: token,
+                mergeWith: databases,
+                retryIfEmpty: databases.isEmpty
+            )
+            switch outcome {
+            case .success(let list):
+                databases = list
+            case .failure(let message):
+                alertMessage = message
+            }
+        }
+        databasesFetchTask = task
+        await task.value
     }
 
     // MARK: - 투두 속성
@@ -101,6 +113,7 @@ final class PlannerNotionSettingsViewModel {
                 properties: todoProperties,
                 policy: policy
             )
+            TodoPropsMappingAutoFill.backfillIds(mapping: &todoPropsMapping, properties: todoProperties)
             TodoPropsMappingAutoFill.syncOptionalModes(
                 mapping: todoPropsMapping,
                 memoMode: &memoMode,
@@ -136,38 +149,37 @@ final class PlannerNotionSettingsViewModel {
             reportProperties = decoded.properties.map {
                 NotionProperty(id: $0.id, name: $0.name, type: $0.type, options: $0.options)
             }
-            if autoMap { autoMapReportProps() }
+            if autoMap {
+                autoMapReportProps()
+            } else {
+                ReportPropsMappingAutoFill.syncFromProperties(
+                    mapping: &reportPropsMapping,
+                    properties: reportProperties
+                )
+                if reportPropsMapping.review != nil { reviewMode = .existing }
+                if reportPropsMapping.rating != nil { ratingMode = .existing }
+            }
         } catch {
             alertMessage = "리포트 속성을 불러오지 못했어요"
         }
     }
 
     private func autoMapReportProps() {
-        func best(type: String, default name: String) -> NotionProperty? {
-            let typed = reportProperties.filter { $0.type == type }
-            return typed.first(where: { $0.name == name }) ?? typed.first
-        }
-        reportPropsMapping.date = best(type: "date", default: "날짜")?.name
-        if let reviewProp = best(type: "rich_text", default: "하루 리뷰") {
-            reportPropsMapping.review = reviewProp.name
-            reviewMode = .existing
-        }
-        if let ratingProp = best(type: "select", default: "별점") ?? best(type: "status", default: "별점") {
-            selectRating(ratingProp.name)
-        }
+        ReportPropsMappingAutoFill.applyInitialSetup(
+            mapping: &reportPropsMapping,
+            properties: reportProperties,
+            reviewMode: &reviewMode,
+            ratingMode: &ratingMode
+        )
     }
 
     func selectRating(_ name: String?) {
-        reportPropsMapping.rating = name
-        if let name, let prop = reportProperties.first(where: { $0.name == name }) {
-            reportPropsMapping.dayRatingOptions = prop.options ?? []
-            reportPropsMapping.ratingPropType = prop.type
-            ratingMode = .existing
-        } else {
-            reportPropsMapping.dayRatingOptions = []
-            reportPropsMapping.ratingPropType = nil
-            ratingMode = .appOnly
-        }
+        ReportPropsMappingAutoFill.applyRatingSelection(
+            mapping: &reportPropsMapping,
+            name: name,
+            properties: reportProperties,
+            ratingMode: &ratingMode
+        )
     }
 
     // MARK: - 속성 생성
@@ -179,6 +191,7 @@ final class PlannerNotionSettingsViewModel {
               let name = await addNotionProperty(dbId: dbId, name: "메모", type: "rich_text") else { return }
         todoPropsMapping.memo = name
         memoMode = .existing
+        await fetchTodoProperties(policy: .preserveUser)
     }
 
     func createPinnedProperty() async {
@@ -188,6 +201,7 @@ final class PlannerNotionSettingsViewModel {
               let name = await addNotionProperty(dbId: dbId, name: "상단고정", type: "checkbox") else { return }
         todoPropsMapping.isPinned = name
         isPinnedMode = .existing
+        await fetchTodoProperties(policy: .preserveUser)
     }
 
     func createCategoryProperty() async {
@@ -198,18 +212,35 @@ final class PlannerNotionSettingsViewModel {
         todoPropsMapping.category = name
         todoPropsMapping.categoryPropType = "select"
         categoryMode = .existing
+        await fetchTodoProperties(policy: .preserveUser)
     }
 
     func selectCategory(_ name: String?) {
-        todoPropsMapping.category = name
-        if let name,
-           let prop = todoProperties.first(where: { $0.name == name && CategoryNotionProperty.supportedTypes.contains($0.type) }) {
-            todoPropsMapping.categoryPropType = prop.type
-            categoryMode = .existing
-        } else {
-            todoPropsMapping.categoryPropType = nil
-            categoryMode = .appOnly
-        }
+        TodoPropsMappingAutoFill.applyCategorySelection(
+            mapping: &todoPropsMapping,
+            name: name,
+            properties: todoProperties,
+            categoryMode: &categoryMode
+        )
+    }
+
+    func selectCompletedProperty(id: String?, name: String?) {
+        TodoPropsMappingAutoFill.applyCompletedSelection(
+            mapping: &todoPropsMapping,
+            propertyId: id,
+            name: name,
+            properties: todoProperties
+        )
+    }
+
+    func selectIsPinnedProperty(id: String?, name: String?) {
+        TodoPropsMappingAutoFill.applyIsPinnedSelection(
+            mapping: &todoPropsMapping,
+            propertyId: id,
+            name: name,
+            properties: todoProperties,
+            isPinnedMode: &isPinnedMode
+        )
     }
 
     func createRatingProperty() async {
@@ -222,6 +253,8 @@ final class PlannerNotionSettingsViewModel {
         reportPropsMapping.ratingPropType = "select"
         reportPropsMapping.rating = name
         ratingMode = .existing
+        await fetchReportProperties(autoMap: false)
+        selectRating(name)
     }
 
     private func addNotionProperty(
@@ -254,6 +287,8 @@ final class PlannerNotionSettingsViewModel {
     // MARK: - 저장
 
     func save() async {
+        TodoPropsMappingAutoFill.backfillIds(mapping: &todoPropsMapping, properties: todoProperties)
+        ReportPropsMappingAutoFill.backfillIds(mapping: &reportPropsMapping, properties: reportProperties)
         let previousCategoryProp = planner.decodedTodoPropsMapping.category
         var updated = PlannerService.shared.store.first(where: { $0.id == planner.id }) ?? planner
         updated.notionTodoDBId   = selectedTodoDBId

@@ -1,9 +1,10 @@
 # 투두리포트 앱 개발 스펙
 
 > 작성일: 2026-05-26  
-> 최종 업데이트: 2026-06-08 (기간 리포트 노션 본문 포맷 · 카테고리 보관 alert 버그 수정)  
+> 최종 업데이트: 2026-06-10 (checkbox 속성 ID 기반 매핑 · 설정 Picker 즉시 ID 저장)  
 > 브랜드: 노크(Nock / nock.kr)  
-> 앱명: 투두리포트  
+> 앱명 (홈 화면): 투두리포트  
+> App Store 이름: 노션품은 투두x리포트  
 > 포인트 컬러: `#FD6845`
 
 ---
@@ -135,12 +136,15 @@ TodoReport/
 │       ├── CategoryViewModel.swift
 │       └── CategoryService.swift
 │
-├── Widget/                        # 홈 화면 위젯 (별도 Extension Target)
-│   ├── TodoWidgetBundle.swift     # 위젯 진입점
-│   ├── SmallWidget.swift          # 2×2: 완료율 + ＋ 버튼
-│   ├── MediumWidget.swift         # 4×2: 투두 목록 + 체크박스
-│   ├── LargeWidget.swift          # 4×4: 전체 목록
-│   └── WidgetDataProvider.swift   # 앱과 데이터 공유 (App Group)
+├── Widget/                        # 메인 앱 — 위젯 데이터 쓰기
+│   └── WidgetDataProvider.swift   # App Group · refreshTodayFromStore
+│
+│   (Widget Extension 타겟: TodoReportWidget/)
+│   ├── TodoWidgetBundle.swift / *WidgetView.swift
+│   ├── TodoWidgetProvider.swift
+│   └── TodoReportWidget.entitlements
+│
+│   (App Groups: TodoReport.entitlements + TodoReportWidget.entitlements)
 │
 ├── Shared/                        # 공통 UI 컴포넌트
 │   ├── Components/
@@ -153,7 +157,10 @@ TodoReport/
 │       └── Typography.swift       # Nanum Square Round
 │
 └── App/
-    └── TodoReportApp.swift        # 앱 진입점
+    ├── TodoReportApp.swift        # 앱 진입점 · onOpenURL (todoreport://todo|paywall)
+    ├── MainTabView.swift          # 설정 탭 NavigationStack path
+    ├── MainTabCoordinator.swift   # 탭 전환 · 위젯 딥링크
+    └── TabBarAppearance.swift
 ```
 
 ### MVVM 역할 분리
@@ -210,6 +217,8 @@ api/
   - [알림] 토글 ON → 알림 시간 선택 (정시/5분 전/10분 전/30분 전/1시간 전/1일 전)
 - 노션 날짜 속성에 시간 포함 저장 ("2026-06-03T07:00:00+09:00")
 - 시간 없는 기존 투두는 날짜만 유지 (하위 호환)
+- **v1:** 편집/캡처 시트에서만 시간 설정·표시. 투두 탭 목록에는 시간 미표시
+- **v1.1:** `scheduledTime`이 있는 할일 — 투두 탭 `TodoRow`에 시간 표시 (아래 12절 백로그)
 
 #### 투두 알림
 - UNUserNotificationCenter 사용
@@ -236,16 +245,47 @@ api/
 3. 앱 닫혀도 큐는 SwiftData에 유지 → 재실행 시 자동 처리
 4. 해당 날짜 데일리리포트 relation 자동 연결 (백그라운드)
 
-- 홈 화면 위젯 ＋ 버튼 → 앱 열리며 캡처 시트 자동 오픈
 - v2: 잠금화면 위젯 / Dynamic Island (타임블로킹 기능과 함께)
 
-#### 홈 화면 위젯 🔒 유료
-- Small (2×2): 오늘 완료율 + ＋ 버튼
-- Medium (4×2): 오늘 투두 목록 + 체크박스 + ＋ 버튼
-- Large (4×4): 오늘 투두 전체 목록 + 완료율 + ＋ 버튼
-- 위젯에서 체크박스 탭 → 즉시 완료 처리 (WidgetKit Interactive, iOS 17+)
-- Notion 백그라운드 동기화
-- Pro 구독 사용자만 위젯 사용 가능 (미구독 시 위젯에 구독 유도 안내 표시)
+#### 홈 화면 위젯
+
+| 기능 | 무료 | Pro |
+|---|---|---|
+| Small — 오늘 완료율 보기 | ✅ | ✅ |
+| Small — 탭하여 앱 열기 (투두 탭) | ✅ | ✅ |
+| Medium — 투두 목록 보기 (읽기) | ❌ | ✅ |
+| Large — 전체 목록 보기 (읽기) | ❌ | ✅ |
+| 위젯에서 체크박스 탭 → 완료 처리 | ❌ | 🔜 |
+| 위젯 ＋ 버튼 → 퀵캡처 시트 | ❌ | 🔜 |
+
+**Small (2×2, 무료)**
+- 오늘 완료율 %, 완료/전체 개수, 진행 바, 플래너명, 날짜 (`M월 d일`)
+- 탭 → `todoreport://todo` → 투두 탭·오늘 날짜
+
+**Medium (4×2, Pro) · Large (4×4, Pro)**
+- Medium: 왼쪽 통계(완료율 32pt, 날짜 `subheadline`·`M월 d일`) + 오른쪽 투두 목록 (최대 4개, `subheadline`)
+- Large: 헤더(완료율·날짜) + 진행 바 + 투두 전체 목록 (최대 8개, 중요 항목 우선)
+- 미구독 시 Paywall 안내 표시, 탭 시 `todoreport://paywall`
+- Pro 위젯 탭 → `todoreport://todo` → 투두 탭·오늘 날짜
+
+**v1 탭 동작 (읽기 전용)**
+- StaticConfiguration 위젯은 **영역 어디를 탭해도 앱이 열림** (할일 행 단독 체크 불가 — iOS 제약)
+- `widgetURL` 미지정 시 iOS가 **마지막 화면 그대로 복원** → v1에서 Small/Medium/Large 모두 `todoreport://todo` 지정
+- `MainTabCoordinator.openTodoTabFromWidget()`: 투두 탭 전환 + `pendingTodoDate` 오늘 + 설정 `NavigationStack` 초기화
+
+**데이터 동기화 (`WidgetDataProvider`)**
+- App Group ID: `group.kr.nock.TodoReport` — **TodoReport·TodoReportWidget 양쪽** entitlements + Xcode **+ Capability → App Groups** 필수
+- entitlements 파일: `TodoReport/TodoReport.entitlements`, `TodoReportWidget/TodoReportWidget.entitlements`
+- 갱신 시점: 투두 fetch/추가/체크/삭제, 앱 실행·포그라운드 복귀 (`refreshTodayFromStore()`), 구독·DEBUG Pro 토글 (`syncProStatus` / `refreshTodayFromStore`)
+- 완료율: 오늘 **전체 투두** 기준 (앱 `hideCompleted`와 무관). 목록 표시는 `hideCompleted` 반영
+- Pro 상태: `SubscriptionManager.isPro` → App Group `widgetIsPro`. DEBUG 빌드 `debugIsPro` 토글 지원
+- 실패 시 `AppLogger` `[WidgetDataProvider]` 로그 (App Group 접근 실패·인코딩 실패)
+
+**Pro 전용 인터랙션 (v1 후속, 🔜)**
+- 위젯 체크박스 탭 → 즉시 완료 처리 (WidgetKit Interactive / AppIntent) + Notion 백그라운드 동기화
+- 위젯 ＋ 버튼 → 앱 열리며 퀵캡처 시트 자동 오픈
+
+**관련 파일:** `Widget/WidgetDataProvider.swift`, `TodoReportWidget/*WidgetView.swift`, `App/MainTabCoordinator.swift`, `TodoReportApp.onOpenURL`
 
 #### 데일리 리포트
 - 오늘의 한마디(하루 리뷰) 작성
@@ -303,9 +343,10 @@ api/
 
 #### 노션에 저장하기 (주간/월간 리포트)
 - **「노션에 리포트 저장하기」** 버튼 (아이콘: `square.and.arrow.up`, 수동, 유료 전용)
-- 탭 → 저장 시트 (`NotionSaveEditorView`, `.large`)
+- 탭 → `ReportViewModel.prepareSave()` — 노션·로컬에서 기존 리뷰 비동기 로드 (`isPreparingSave`) 후 저장 시트 표시
+- 저장 시트 (`NotionSaveEditorView`, `.large`)
   - 기간 통계 (평균 완료율, 별점 평균)
-  - **주간 리뷰** / **월간 리뷰** 입력 (기간 타입에 따라 라벨 분기, 구 「한마디」)
+  - **주간 리뷰** / **월간 리뷰** 입력 (기간 타입에 따라 라벨 분기, 구 「한마디」) — `initialComment`로 노션에 저장된 기존 리뷰 표시
   - **저장 알림 설정** 섹션 (v1, 아래 6-2-1 참고)
 - 툴바: **취소**(회색) / **저장**(오렌지, 노션 저장 실행)
 
@@ -315,10 +356,13 @@ api/
   - 변경 없으면 노션 API 호출 없이 "변경사항이 없습니다" 안내
   - 변경 있으면 기존 블록 전체 삭제 후 새 블록으로 업데이트
   - 노션 페이지 없으면 새로 생성
-- **기간 리포트 페이지 식별 기준: 날짜 범위 (시작일 기준 DB 검색)**
-  - notionPageId가 있으면 먼저 PATCH 시도
-  - 실패하거나 없으면 → 시작 날짜로 Notion DB 검색 → 있으면 업데이트, 없으면 신규 생성
-  - 앱 재설치·노션 연동 해제·재연결 후에도 중복 페이지 생성 방지
+- **기간 리포트 페이지 식별 기준: 날짜 범위 (시작일 + 종료일)**
+  - **조회:** `GET /api/notion/daily-report?date=시작일&endDate=종료일(포함)` → 기간 리포트만 반환 (`date.end != null`). `endDate` 없으면 데일리 리포트 조회
+  - **저장:** `POST` body `date`(시작일) + `endDate`(종료일, 주간·월간 마지막 날 inclusive)
+  - upsert 우선순위: ① `notionPageId` PATCH → ② 시작일+종료일로 Notion DB 검색 후 PATCH → ③ 신규 생성
+  - iOS `findPeriodReport`: SwiftData `endDate`는 `DateInterval.end`(exclusive) 저장, inclusive 종료일 레거시도 매칭
+  - 데일리 `notionPageId`가 기간 리포트에 잘못 연결된 경우 PATCH에 사용하지 않음 (`resolvedNotionPageId`)
+  - 앱 재설치·노션 연동 해제·재연결·이전 주 조회 후에도 중복 페이지 생성 방지
 - 리포트 본문 구성 (백엔드 `buildReportBlocks`, Notion 페이지 children):
   - Notion API에 차트/프로그레스 바 블록이 없어 **텍스트 바**(`█`/`░`, 10칸)로 표현
   - iOS → `POST /api/notion/daily-report` payload: `chartRates`, `chartRatings`, `chartCategories`, `chartReviews`
@@ -476,23 +520,35 @@ api/
 ## 8. 온보딩 흐름
 
 ```
-① 웰컴 소개 (4~5페이지, 앱 소개)
+① 웰컴 소개 (5페이지 TabView)
+   · 1~4페이지: AppLogoSticker 또는 SF Symbol 라인 아이콘 (.primary, 다크모드 대응)
+   · 5페이지(마지막): AppLogoSticker + link + NotionLogo 정적 연결 아이콘 (애니메이션 없음)
           ↓
-② 노션 연결 여부 선택
-   ┌──────────────────────────────┐
-   │  노션 연결하기    나중에 하기 │
-   └──────────────────────────────┘
+② 노션 연결 여부 선택 (마지막 웰컴 페이지)
+   · 주 버튼: 노션 연결하기 (검정 캡슐) / 보조: 나중에 연결하기 (텍스트)
+   · 모든 페이지 동일한 주 버튼 Y 위치 (보조 행 placeholder 44pt)
           ↓                    ↓
-③-A 노션 OAuth 진행      ③-B 로컬 모드 안내
+③-A 노션 OAuth 진행      ③-B 로컬 모드 (SwiftData)
    플래너 이름 입력          "데이터가 이 기기에만
    투두DB 선택               저장됩니다. 기기 변경 시
    데일리리포트DB 선택        데이터를 불러올 수 없어요."
    필수 속성 자동 추가              ↓
           ↓               LocalRepository 사용
-④ 완료
+④ 초기 데이터 fetch (노션 연결 시, 최근 7일) — `NotionConnectionGraphic` 오버레이
+⑤ 완료
 ```
 
 > 별도 앱 계정 로그인(Sign in with Apple 등) 없음. Notion OAuth는 노션 연결 시에만 진행.
+
+**노션 DB 목록 조회 (`NotionDatabasesFetcher`):**
+- 공통 모듈 — 온보딩·플래너 추가·마이그레이션·노션 설정
+- HTTP 상태 확인, 빈 목록 시 자동 재시도(2·3·5초), 새로고침 시 ID 병합
+- OAuth 직후 선행 fetch 없음 — DB 선택 화면에서만 fetch
+- `isLoadingDatabases` / 속성 로딩 상태 분리 (우상단 새로고침·`PlannerAddViewModel` 재조회 보장)
+
+**노션 연동 로딩 UI (`NotionConnectionGraphic`):**
+- 투두리포트(`AppLogoSticker`) ↔ 노션(`NotionLogo`) + 점 펄스 애니메이션 (좌→우·우→좌 교대, 활성 점 `Color.primary`)
+- 사용처: 온보딩 초기 fetch, 플래너 마이그레이션 진행 중 (`NotionSyncingOverlay` 컴포넌트 갱신, 투두 탭 미연결)
 
 **필수 속성 자동 추가 (노션 연결 시):**
 - 완료율_앱 (number)
@@ -717,6 +773,17 @@ struct Category: Identifiable, Codable {
 | 리포트 | 차트 | 이번 주/이번 달 데이터 (완료율·별점·카테고리 달성률), 이전 기간 조회(유료), 노션 저장(유료) |
 | 설정 | 기어 | 플래너 관리, 앱 설정, 카테고리, 구독, 계정 |
 
+### 탭·딥링크 동작 (v1)
+
+| 상황 | 동작 |
+|---|---|
+| 위젯 탭 (`todoreport://todo`) | 투두 탭 + 오늘 날짜. 설정 하위 화면(플래너 상세 등) 스택 초기화 |
+| 위젯 Paywall (`todoreport://paywall`) | Paywall 시트 |
+| 다른 탭 → **설정 탭** 재진입 | `NavigationStack` **루트(설정 목록)** 로 초기화 — 플래너 상세 등 이전 화면 유지 안 함 |
+| 리포트 날짜 행 탭 | `MainTabCoordinator.openTodo(on:)` → 투두 탭 해당 날짜 (설정 스택 초기화 없음) |
+
+> 설정 탭만 `MainTabView`에서 `NavigationStack(path:)` 관리. `settingsStackResetToken`으로 위젯 진입 시에도 스택 리셋.
+
 ### 투두 탭 — 네비게이션 바
 
 ```
@@ -768,6 +835,12 @@ struct Category: Identifiable, Codable {
 
 > 메모가 없는 투두는 켜짐 상태에서도 추가 줄이 표시되지 않음.
 
+> **v1.1 예정 — 할일 시간 표시 (목록)**
+> - `scheduledTime != nil`일 때만 표시. **할일 메모 보기 토글과 무관** (시간은 항상 표시)
+> - 위치: 제목 아래 · 메모 위 (`.caption` + `.secondary`, `hour().minute()` 포맷)
+> - 예: `○ 아침 달리기` → 다음 줄 `07:00` / 메모 켜짐 시 `07:00` → `속성 매핑`
+> - v1에서는 목록에 시간 없음 (편집 시트에서만 확인)
+
 정렬 옵션 › 탭 시:
 
 ```
@@ -816,6 +889,11 @@ struct Category: Identifiable, Codable {
 > - 좌우 margin 16pt (리스트 행 insets), 리스트 배경 `Color(.systemGroupedBackground)`
 
 > 카테고리 필터 선택 상태에서 인라인 "+ 투두 추가" 또는 플로팅 + 버튼으로 투두 추가 시, 선택된 카테고리가 자동 지정된다.
+
+> **[확정] 인라인 투두 입력 폰트**
+> - 입력 중: `AutoFocusTextField(textStyle: .body)` — 투두 행 `Text(.body)`와 동일, Dynamic Type 연동
+> - 한글 IME 자모음 분리 방지를 위해 UIKit `UITextField` 사용 (SwiftUI `TextField` 대체 불가)
+> - 행 높이: `frame(minHeight: 36)` — 접근성 글자 크기 확대 시 잘림 방지
 
 ### 날짜 이동 규칙
 
@@ -883,7 +961,8 @@ struct Category: Identifiable, Codable {
 | 이전 주 조회 | ❌ | ✅ |
 | 월간 리포트 전체 | ❌ | ✅ |
 | 노션에 저장하기 | ❌ | ✅ |
-| 홈 화면 위젯 | ❌ | ✅ |
+| Small 위젯 (완료율) | ✅ | — |
+| Medium·Large 위젯 (목록) | ❌ | ✅ |
 
 #### 하루 리뷰 타임라인 동작 (v1)
 
@@ -947,9 +1026,9 @@ struct Category: Identifiable, Codable {
 
 ### i18n (다국어) 처리 원칙
 
-- 지원 언어: 한국어(기본) / English
-- 영향 범위: UI 전체 텍스트, 자동 생성 리포트 문구, 알림 문구
-- 추가 언어는 v2에서 확장
+- 지원 언어: 한국어(기본) / English — **앱 UI 영어는 v2** (String Catalog, 20절·리팩토링 TODO 참고)
+- **App Store 메타:** 한국어 확정 (20절). English (U.S.) 로컬은 스토어 등록용 문구만 v1 출시 시 등록 가능 (앱 UI와 별개)
+- v2 영어 UI 영향 범위: UI 전체 텍스트, 자동 생성 리포트 문구, 알림 문구
 - Notion 속성명은 언어 설정과 무관하게 한국어 고정
   (속성명을 바꾸면 기존 사용자 데이터 연결이 끊어지기 때문)
 
@@ -964,8 +1043,8 @@ struct Category: Identifiable, Codable {
 | 구독 형태 | 월간 구독 + 연간 구독 (동시 출시) |
 | Product ID | `kr.nock.todoreport.pro.monthly`, `kr.nock.todoreport.pro.yearly` (상세: 6-2-2절) |
 | 연간 할인 | 월간 대비 약 20~30% 할인 표시 권장 |
-| 무료 기능 제한 | 플래너 1개, 어제·오늘·내일 3일, 이번 주 주간 리포트만 |
-| 유료 기능 | 이전 기간 주간·월간 리포트, 멀티 플래너, 반복 투두, 3일 외 날짜 조회, 홈 화면 위젯 |
+| 무료 기능 제한 | 플래너 1개, 어제·오늘·내일 3일, 이번 주 주간 리포트만, Small 위젯(완료율) |
+| 유료 기능 | 이전 기간 주간·월간 리포트, 멀티 플래너, 반복 투두, 3일 외 날짜 조회, Medium·Large 위젯, 위젯 인터랙션(체크·＋) |
 | 구매 복원 | Restore Purchases 필수 구현 |
 
 > ⚠️ **앱스토어 필수 요건:** Privacy Policy + Terms of Service 페이지 필요
@@ -1019,6 +1098,7 @@ struct Category: Identifiable, Codable {
 | Apple Reminders 연동 | v2 | 사용자 피드백 후 결정 |
 | 리포트 알림 원탭 저장 (알림 액션) | v1.2 | v1은 리마인더만. v1.2에서 「앱으로 가기」「바로 저장하기」액션 추가 |
 | 노션 저장 시트 UX (알림·저장 분리) | v1.1 | v1: 툴바 저장=노션 저장, 알림은 `@AppStorage` 즉시 반영. v1.1: 취소=알림 되돌리기, 확인=알림만 저장, 「노션에 저장하기」를 리뷰 카드 하단으로 이동 검토 |
+| 투두 탭 할일 시간 표시 | v1.1 | v1: 목록 미표시. v1.1: `TodoRow` 제목 아래 `scheduledTime` (`caption`/`secondary`, 메모 토글 독립). 선택: `alarmOffset` 있을 때 `bell` 아이콘 |
 | 리포트 자동 저장 (BGTask) | v2 | iOS 백그라운드 제약. v1.2 알림 액션 저장으로 1차 해결 후 검토 |
 | 연간 리포트 진입 위치 | 미결정 | A: 리포트 탭 하단 버튼 / B: 설정 탭 / C: 네비게이션 바 메뉴 |
 
@@ -1043,12 +1123,14 @@ Phase 3 (유료 기능)
   - 멀티 플래너 ✅
   - 반복 투두 (v2 연기)
   - 다른 날 투두 확인 ✅
-  - 홈 화면 위젯 ✅
+  - 홈 화면 위젯 ✅ (Small 무료 · Medium/Large Pro, App Group, 딥링크, Medium UI)
 
 Phase 4 (출시, 진행 중)
-  - App Store Connect 설정
+  - App Store 메타데이터 확정 ✅ (20절)
+  - 앱 아이콘 제작 🔜
+  - App Store 스크린샷 촬영 🔜
+  - App Store Connect 등록 · 심사 제출 🔜
   - Privacy Policy / Terms of Service ✅ (nock.kr)
-  - 심사 제출
 ```
 
 ---
@@ -1110,6 +1192,22 @@ enum RecurrenceRule: Codable {
 | categoryId | 카테고리 (매핑 시) | select / status | 앱 SwiftData ID. 노션에는 **연결된 카테고리의 옵션명**으로 저장 (`categoryName` payload) |
 | isPinned | 중요 | checkbox | 없는 사용자는 NotionSchemaManager 자동 추가 |
 
+#### TodoPropsMapping 저장 형식
+
+플래너별 `todoPropsMapping` JSON에 **속성명 + Notion property ID**를 함께 저장한다.
+
+| 앱 필드 | 저장 키 (이름) | 저장 키 (ID) |
+|---|---|---|
+| 완료 | `completed` | `completedPropId` |
+| 날짜 | `date` | `datePropId` |
+| 메모 | `memo` | `memoPropId` |
+| 상단고정 | `isPinned` | `isPinnedPropId` |
+| 리포트 연결 | `reportRelation` | `reportRelationPropId` |
+| 카테고리 | `category` | `categoryPropId` (+ `categoryPropType`) |
+
+- Notion API 호출 시에는 **속성명**을 payload에 사용 (백엔드·Notion SDK 관례)
+- 앱 내부 복원·구분에는 **property ID를 우선** — 동일 DB에 checkbox 등 같은 유형 속성이 여러 개일 때 이름·유형만으로는 구분 불가
+
 #### 속성 자동 매핑 규칙 (v1, `TodoPropsMappingAutoFill`)
 
 온보딩·DB 변경·설정 재진입 시 속성 목록을 가져온 뒤 매핑을 채운다. **모드에 따라 동작이 다름.**
@@ -1119,12 +1217,38 @@ enum RecurrenceRule: Codable {
 | `initialSetup` | 온보딩, DB 변경, 플래너 추가/마이그레이션 | 빈 필드만 자동 채움 |
 | `preserveUser` | 플래너 노션 설정 재진입 (`PlannerNotionSettingsView`) | **사용자가 저장한 값 유지** — fetch만으로 덮어쓰지 않음 |
 
+**공통 resolve 우선순위 (`resolveStandard`):**
+1. 저장된 **property ID**로 속성 조회 → 이름 동기화
+2. 저장된 **속성명**으로 조회 → ID 보강
+3. `preserveUser` + 기존 값 있음 → **휴리스틱·폴백 스킵**, 기존값 유지
+4. `initialSetup`만: 기본명 일치(`완료`, `날짜` 등) 또는 단일 후보 `first` 폴백
+
+**checkbox 전용 규칙 (`resolveCheckbox` — 완료·상단고정):**
+
+| 규칙 | 내용 |
+|---|---|
+| 식별 기준 | **property ID 우선** — `completedPropId`, `isPinnedPropId` |
+| 동일 유형 다수 | checkbox가 여러 개여도 **`first` 폴백 금지** — `완료`/`isCompleted`와 `중요`/`isPinned`가 같은 첫 checkbox로 붙는 버그 방지 |
+| 자동 매핑 허용 | 기본명 **정확 일치**만 (`완료`, `중요`) — 유형만 같다고 첫 번째를 고르지 않음 |
+| `preserveUser` | **저장된 property ID가 있으면 절대 덮어쓰지 않음** — Notion에서 속성명이 바뀌었을 때만 이름 동기화 |
+
 **`reportRelation`(데일리 리포트 relation) 특별 규칙:**
 - 속성명 **`데일리 리포트`** 와 **정확히 일치**할 때만 자동 매핑
 - relation 속성이 1개뿐이어도 **`first` 폴백 금지** — 다른 relation(시간표 등)과 혼동 방지
 - 앱 전용 데일리 리포트·리포트 DB 미연결 사용자 보호
 
-**관련 파일:** `Core/Notion/TodoPropsMappingAutoFill.swift`, `PlannerNotionSettingsViewModel`, `OnboardingViewModel`
+**설정 화면 수동 선택 (`PlannerNotionSettingsView`):**
+
+| UI | ViewModel | 동작 |
+|---|---|---|
+| 완료 Picker | `selectCompletedProperty(id:name:)` | 선택 즉시 `completed` + `completedPropId` 동시 갱신 |
+| 상단고정 Menu | `selectIsPinnedProperty(id:name:)` | 선택·「앱에만 저장」 즉시 `isPinned` + `isPinnedPropId` + `isPinnedMode` 갱신 |
+
+- Picker는 표시용으로 **속성명**을 tag로 사용하지만, setter/`onPropertySelect`에서 **ID를 즉시 기록** — `backfillIds`만 믿지 않음 (저장·refresh 전 타이밍 공백 방지)
+- `fetchTodoProperties` 후에도 `backfillIds`로 ID↔이름 일관성 보강
+- `save()` 직전 `backfillIds` 1회 더 호출 (레거시 이름-only 매핑 마이그레이션)
+
+**관련 파일:** `Core/Notion/TodoPropsMappingAutoFill.swift`, `Features/Settings/PlannerNotionSettingsViewModel.swift`, `Features/Settings/PlannerNotionSettingsView.swift`, `OnboardingViewModel.swift`
 
 ---
 
@@ -1331,7 +1455,7 @@ SyncQueue에 createTodo 추가
                    ↓
          리포트 속성 매핑 (날짜 필수, 하루 리뷰·별점 선택)
                    ↓
-         자동 실행 (프로그레스 오버레이)
+         자동 실행 (`NotionConnectionGraphic` + 프로그레스 오버레이)
 ```
 
 ### 19-2. 데이터 처리 옵션
@@ -1355,6 +1479,119 @@ SyncQueue에 createTodo 추가
 | 루프 중 네트워크 끊김 (importFromNotion) | `.failed` 표시, "다시 시도" 허용 |
 | uploadToNotion 리포트 전체 실패 | `.failed` 표시, "확인"만 (투두는 SyncQueue 자동 재시도) |
 | 실행 중 | 취소 불가 (`.interactiveDismissDisabled`) |
+
+---
+
+## 20. App Store 출시 메타데이터 (확정, 2026-06-09)
+
+### 20-1. 이름 체계
+
+| 구분 | 문구 | 비고 |
+|---|---|---|
+| **App Store 이름** | 노션품은 투두x리포트 | 30자 이내, `x`는 한글 가독성용 (투두 / 리포트 구분) |
+| **App Store 부제** | 앱에서 기록하고, 노션에 쌓아가세요 | 제품 슬로건과 동일. 검색어 나열 금지 |
+| **홈 화면 표시 이름** | 투두리포트 | `CFBundleDisplayName` (Xcode) |
+| **번들 ID** | `kr.nock.TodoReport` | 변경 없음 |
+| **마케팅 버전** | 1.0 | |
+
+> **이름 설계 원칙:** App Store 이름 앞에 「노션 연동」을 두지 않음 — 로컬 모드 단독 사용 가능한 앱이므로 연동 필수처럼 보이면 안 됨. 노션 관련 검색(`연동`, `자동저장`)은 **키워드 필드**에서 처리.
+
+### 20-1-1. 아이콘 에셋 (3종, 디자이너 원본 그대로)
+
+| 에셋 | 경로 | 원본 | 사용처 |
+|---|---|---|---|
+| **App Icon** | `AppIcon.appiconset/AppIcon.png` | 흰 배경 1024×1024 | 홈 화면, App Store, 설정, Spotlight, 알림 |
+| **App Logo Sticker** | `AppLogoSticker.imageset/AppLogoSticker.png` | 스티커 테두리 1024×1024 (투명) | 온보딩 웰컴 1페이지 |
+| **App Logo Plain** | `AppLogoPlain.imageset/AppLogoPlain.png` | 테두리 없음 1024×1024 (투명) | 앱 내 UI (필요 시) |
+| **Notion Logo** | `NotionLogo.imageset/NotionLogo.png` | 노션 공식 마크 | 연동 로딩 UI, 온보딩 마지막 페이지 |
+
+> **1024×1024 원본을 리사이즈·가공 없이** 각 imageset에 배치. 스티커 테두리는 코드 후처리하지 않음.
+
+### 20-2. 키워드 (100자, App Store Connect)
+
+이름·부제에 없는 검색어 위주. **`데일리리포트` 필수 포함.**
+
+```
+데일리리포트,할일,플래너,데일리,주간,월간,위젯,완료율,자동저장,연동,동기화,notion,todo,daily,report,planner,widget,sync
+```
+
+*(99자 — 쉼표 구분, 공백 없음)*
+
+| 키워드 | 검색 의도 |
+|---|---|
+| 데일리리포트, 데일리 | `노션 데일리리포트` 등 |
+| 할일, 플래너 | 투두 대체 검색 |
+| 주간, 월간 | 기간 리포트 |
+| 자동저장, 연동, 동기화 | 노션 연동 의도 (이름·부제엔 없음) |
+| notion, todo, daily, report… | 영문 검색 |
+
+### 20-3. App Store 설명 (한국어)
+
+```
+노션품은 투두x리포트는 할 일을 기록하고, 데일리·주간·월간 리포트로 하루와 한 주·한 달을 돌아볼 수 있는 투두 & 리포트 앱입니다.
+
+앱만으로도 모든 기능을 사용할 수 있어요. 원하시면 노션을 연결해 투두와 리포트를 노션에 자동 저장할 수도 있습니다.
+
+■ 이렇게 사용해요
+· 투두 · 할일 — 오늘 할 일을 빠르게 기록
+· 데일리 리포트 — 완료율, 별점, 하루 리뷰
+· 주간 · 월간 리포트 — 기간별 돌아보기 (Pro)
+· 노션 저장 — 연결하면 투두·리포트가 노션 DB에 자동 동기화
+· 카테고리 · 플래너 — 용도별로 구분 (Pro)
+· 홈 화면 위젯 — 완료율·투두 목록 (Pro)
+· 빠른 캡처 — 떠오른 할 일 즉시 기록
+
+■ 이런 분께 추천해요
+· 할일 앱과 데일리리포트를 하나로 쓰고 싶은 분
+· 앱은 가볍게 쓰고, 기록은 노션에 쌓고 싶은 분
+· 노션 투두·데일리 리포트를 자동으로 정리하고 싶은 분
+
+■ 안내
+· 노션 연동은 Notion OAuth를 통해 이루어집니다.
+· Notion 공식 앱이 아닌, 노크(Nock)의 서드파티 연동 앱입니다.
+· 일부 기능(주간·월간 리포트, 멀티 플래너, Medium·Large 위젯 등)은 Pro 구독이 필요합니다.
+```
+
+**홍보용 문구 (Promotional Text, 검색 무관·수시 수정 가능):**
+
+```
+v1 출시 — 노션에 자동 저장되는 투두 & 데일리 리포트. 지금 다운로드하고 오늘 할 일부터 노션에 쌓아 보세요.
+```
+
+### 20-4. English (U.S.) 로컬라이제이션 (App Store)
+
+> 앱 UI 영어는 **v2** (String Catalog). App Store 메타는 출시 시점에 미리 등록 가능.  
+> 영어 이름에는 `x` 미사용 (`&`, `for Notion` 패턴).
+
+| 필드 | 문구 |
+|---|---|
+| **이름** | Todo & Report for Notion |
+| **부제** | Record in the app, save to Notion |
+| **키워드** | `dailyreport,daily,notion,todo,report,planner,widget,sync,journal,review,weekly,monthly,task,habit,checklist` |
+
+### 20-5. 스크린샷 캡션 (App Store Connect용)
+
+| # | 캡션 |
+|---|---|
+| 1 | 할일 기록부터 데일리리포트까지 |
+| 2 | 완료율 · 별점 · 하루 리뷰 |
+| 3 | 주간 · 월간 리포트로 돌아보기 |
+| 4 | 원하면 노션에 자동 저장 |
+| 5 | 홈 화면 위젯으로 확인 |
+
+### 20-6. 출시 전 체크리스트 (미완)
+
+| 항목 | 상태 |
+|---|---|
+| App Store 메타데이터 (이름·부제·키워드·설명) | ✅ 확정 |
+| 앱 아이콘 1024×1024 (+ Dark / Tinted) | ✅ `AppIcon.appiconset` — 흰 배경 원본 |
+| 온보딩 로고 (스티커) | ✅ `AppLogoSticker.imageset` |
+| 앱 로고 (테두리 없음) | ✅ `AppLogoPlain.imageset` |
+| `CFBundleDisplayName` = 투두리포트 (Xcode) | ✅ |
+| App Store 스크린샷 (6.7" 필수) | 🔜 |
+| App Store Connect 앱 레코드 생성 | 🔜 |
+| Privacy Policy / Terms URL | ✅ nock.kr |
+| StoreKit 실연동 · Sandbox 검증 | ✅ (6-2-2절) |
 
 ---
 
@@ -1391,9 +1628,31 @@ SyncQueue에 createTodo 추가
 - v1.2: `UNNotificationAction` — 「앱으로 가기」「바로 저장하기」(리뷰 빈 문자열)
 - 관련 파일: `Core/Notifications/ReportNotificationManager.swift`, `ReportNotificationSettings.swift`, `AppNotificationDelegate.swift`
 
+### 기간 리포트 노션 저장 시트 · 조회/upsert (✅ 2026-06-08)
+- 문제: 저장 시트가 빈 리뷰로 시작, 다른 주 노션 리뷰 미표시, 수정 저장 시 노션에 중복 페이지 생성
+- 원인: 백엔드 GET이 `endDate` 무시·데일리만 반환, 로컬 `endDate` 불일치로 기존 기간 항목 미매칭
+- 해결:
+  - iOS `fetchSavedPeriodReview` / `syncPeriodReportFromNotion` — 노션 연결 시 GET 동기화 후 시트에 표시
+  - 백엔드 GET·`findPeriodReportInNotion` — `endDate`로 기간 리포트 매칭
+  - iOS `findPeriodReport` 유연 매칭, `resolvedNotionPageId`, 데일리 리뷰 오염 방지
+- 관련: `ReportService.swift`, `ReportViewModel.swift`, `NotionSaveEditorView`, `todoreport-backend/.../daily-report/route.ts`
+
+### 홈 화면 위젯 v1 (✅ 2026-06-08)
+- 무료/Pro: Small 무료, Medium·Large Pro (`isPro` → App Group `widgetIsPro`)
+- App Group entitlements + `refreshTodayFromStore()` (앱 실행·포그라운드 시 투두 탭 미진입 갱신)
+- 완료율 전체 투두 기준, `todoreport://todo` 딥링크, 설정 탭 NavigationStack 재진입 시 루트 초기화
+- Medium UI: 폰트·날짜(`M월 d일`) 가독성 개선
+- 🔜 인터랙티브 체크·＋ 버튼
+- 관련: `WidgetDataProvider.swift`, `TodoReportWidget/`, `MainTabCoordinator.swift`, `MainTabView.swift`
+
 ### 속성 자동 매핑 버그 수정 (v1 ✅)
-- 문제: 설정 재진입 시 `autoMapTodoProps()`가 `reportRelation` 등 저장값을 덮어씀
-- 해결: `TodoPropsMappingAutoFill` + `preserveUser` 모드 (7절 참고)
+- **문제 1:** 설정 재진입 시 `autoMapTodoProps()`가 `reportRelation` 등 저장값을 덮어씀
+- **해결 1:** `TodoPropsMappingAutoFill` + `preserveUser` 모드 (14절 참고)
+- **문제 2:** 투두 DB에 checkbox 속성이 여러 개(완료·중요·기타)일 때 `allowFirstFallback`으로 **첫 번째 checkbox**에 `completed`와 `isPinned`가 동시 매핑됨
+- **해결 2:** `resolveCheckbox` 도입 — checkbox는 property ID 우선, 동일 유형 `first` 폴백 금지, `preserveUser`에서 저장된 ID 절대 덮어쓰기 금지
+- **문제 3:** 설정 Picker가 속성명만 갱신하고 ID는 `save()`/`backfillIds` 시점까지 비어 있어 refresh 타이밍에 잘못 복원될 수 있음
+- **해결 3:** `PlannerNotionSettingsView` 완료 Picker·상단고정 Menu → `selectCompletedProperty(id:name:)` / `selectIsPinnedProperty(id:name:)` 즉시 호출
+- 관련: `TodoPropsMappingAutoFill.swift`, `PlannerNotionSettingsViewModel.swift`, `PlannerNotionSettingsView.swift`
 
 ### 영어 로컬라이제이션 (v2)
 - 현재: 앱 전체 한국어 하드코딩, `Localizable.strings` 없음
