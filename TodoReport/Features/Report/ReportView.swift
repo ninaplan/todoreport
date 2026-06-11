@@ -97,6 +97,8 @@ struct ReportView: View {
                         period: period,
                         completionRate: viewModel.pendingCompletionRate,
                         avgRating: viewModel.pendingAvgRating,
+                        comment: $vm.pendingInitialReview,
+                        isLoadingInitialReview: viewModel.isPreparingSave,
                         onConfirm: { comment in
                             Task { await viewModel.confirmSave(comment: comment) }
                         },
@@ -194,7 +196,7 @@ struct ReportView: View {
             onRestrictedDateTap: { showReviewTodoRestrictedAlert = true }
         )
         NotionSaveButton(
-            isSaving: viewModel.isSavingToNotion,
+            isSavingToNotion: viewModel.isSavingToNotion,
             isNotionConnected: viewModel.isNotionConnected,
             isPro: isPro
         ) {
@@ -241,7 +243,7 @@ struct ReportView: View {
             onRestrictedDateTap: { showReviewTodoRestrictedAlert = true }
         )
         NotionSaveButton(
-            isSaving: viewModel.isSavingToNotion,
+            isSavingToNotion: viewModel.isSavingToNotion,
             isNotionConnected: viewModel.isNotionConnected,
             isPro: isPro
         ) {
@@ -737,17 +739,22 @@ private struct ReviewTimelineRow: View {
 // MARK: - 노션에 저장하기 버튼
 
 private struct NotionSaveButton: View {
-    let isSaving: Bool
+    let isSavingToNotion: Bool
     let isNotionConnected: Bool
     let isPro: Bool
     let action: () -> Void
 
-    private var isActive: Bool { !isSaving && isNotionConnected && isPro }
+    private var isActive: Bool { !isSavingToNotion && isNotionConnected && isPro }
+
+    private var buttonLabel: String {
+        if isSavingToNotion { return "저장 중..." }
+        return "노션에 리포트 저장하기"
+    }
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                if isSaving {
+                if isSavingToNotion {
                     ProgressView()
                         .scaleEffect(0.85)
                 } else {
@@ -756,7 +763,7 @@ private struct NotionSaveButton: View {
                         .foregroundStyle(isActive ? AppTheme.shared.accent : .secondary)
                 }
                 HStack(spacing: 6) {
-                    Text(isSaving ? "저장 중..." : "노션에 리포트 저장하기")
+                    Text(buttonLabel)
                         .font(.subheadline.bold())
                         .foregroundStyle(isActive ? AppTheme.shared.accent : .secondary)
                     ProBadge()
@@ -771,7 +778,7 @@ private struct NotionSaveButton: View {
                     .strokeBorder(isActive ? AppTheme.shared.accent.opacity(0.4) : Color(.separator), lineWidth: 0.5)
             )
         }
-        .disabled(isSaving)
+        .disabled(isSavingToNotion)
     }
 }
 

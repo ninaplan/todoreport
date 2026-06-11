@@ -49,10 +49,7 @@ final class SubscriptionManager {
     // MARK: - isPro
 
     var isPro: Bool {
-        #if DEBUG
-        if UserDefaults.standard.bool(forKey: "debugIsPro") { return true }
-        #endif
-        return !purchasedProductIDs.isEmpty
+        !purchasedProductIDs.isEmpty
     }
 
     var activePlanDisplayName: String {
@@ -174,23 +171,6 @@ final class SubscriptionManager {
             AppLogger.shared.error("SubscriptionManager", "showManageSubscriptions 실패: \(error)")
         }
     }
-
-    // MARK: - Debug Pro 토글 만료 시뮬레이션
-
-    #if DEBUG
-    func refreshIsProDebug(previousValue: Bool) {
-        let wasPro = previousValue || wasProBefore
-        let debugOn = UserDefaults.standard.bool(forKey: "debugIsPro")
-        if !debugOn && wasPro && purchasedProductIDs.isEmpty {
-            wasProBefore = false
-            onSubscriptionExpired?()
-        }
-        if debugOn {
-            wasProBefore = true
-            PlannerService.shared.restoreAllPlanners()
-        }
-    }
-    #endif
 
     // MARK: - Entitlement Refresh
 

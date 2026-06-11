@@ -5,8 +5,6 @@ import UserNotifications
 // MARK: - 설정 뷰
 
 struct SettingsView: View {
-    @AppStorage("onboardingCompleted") private var onboardingCompleted = false
-
     private var planners: [Planner] { PlannerService.shared.store }
     @State private var subscriptionManager = SubscriptionManager.shared
     private var isPro: Bool { subscriptionManager.isPro }
@@ -20,13 +18,6 @@ struct SettingsView: View {
     @State private var restoreAlertMessage: String?
     @State private var isRestoringSubscription = false
 
-    #if DEBUG
-    @AppStorage("debugIsPro") private var debugIsPro = false
-    @State private var showClearQueueConfirm = false
-    @State private var clearQueueResultMessage = ""
-    @State private var showClearQueueResult = false
-    #endif
-
     var body: some View {
         List {
             subscriptionSection
@@ -34,10 +25,6 @@ struct SettingsView: View {
             globalSettingsSection
             supportSection
             appInfoSection
-
-            #if DEBUG
-            debugSection
-            #endif
         }
         .navigationTitle("설정")
         .sheet(isPresented: $showAddPlannerSheet) {
@@ -245,63 +232,6 @@ struct SettingsView: View {
             }
         }
     }
-
-    // MARK: - 개발용
-
-    #if DEBUG
-    @State private var debugResetErrorMessage: String? = nil
-
-    private var debugSection: some View {
-        Section("개발자 도구") {
-            Toggle("Pro 모드", isOn: $debugIsPro)
-                .tint(AppTheme.shared.accent)
-                .onChange(of: debugIsPro) { oldValue, _ in
-                    SubscriptionManager.shared.refreshIsProDebug(previousValue: oldValue)
-                }
-            Button("SyncQueue 비우기") {
-                showClearQueueConfirm = true
-            }
-            .foregroundStyle(.red)
-            Button("로그 파일 초기화", role: .destructive) {
-                print("[DEBUG] clearLogs 호출")
-                AppLogger.shared.resetWithHeader()
-                print("[DEBUG] clearLogs 완료")
-            }
-            Button("온보딩 초기화", role: .destructive) {
-                do {
-                    try AppResetService.resetAllLocalData()
-                    onboardingCompleted = false
-                } catch {
-                    AppLogger.shared.error("SettingsView", "온보딩 초기화 실패: \(error)")
-                    debugResetErrorMessage = "초기화 중 오류가 발생했어요."
-                }
-            }
-        }
-        .alert("오류", isPresented: Binding(
-            get: { debugResetErrorMessage != nil },
-            set: { if !$0 { debugResetErrorMessage = nil } }
-        )) {
-            Button("확인", role: .cancel) { debugResetErrorMessage = nil }
-        } message: {
-            Text(debugResetErrorMessage ?? "")
-        }
-        .alert("SyncQueue 비우기", isPresented: $showClearQueueConfirm) {
-            Button("비우기", role: .destructive) {
-                let count = SyncQueueManager.shared.clearAllReturningCount()
-                clearQueueResultMessage = count > 0 ? "\(count)개 항목이 삭제됐습니다." : "삭제할 항목이 없습니다."
-                showClearQueueResult = true
-            }
-            Button("취소", role: .cancel) { }
-        } message: {
-            Text("대기 중인 Notion 동기화 작업을 모두 삭제합니다.")
-        }
-        .alert("완료", isPresented: $showClearQueueResult) {
-            Button("확인", role: .cancel) { }
-        } message: {
-            Text(clearQueueResultMessage)
-        }
-    }
-    #endif
 }
 
 // MARK: - 플래너 행

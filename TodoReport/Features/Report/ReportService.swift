@@ -258,7 +258,7 @@ final class ReportService {
 
         let rating = dayRatingFromAverage(avgRating)
         let start = calendar.startOfDay(for: period.start)
-        let existing = findPeriodReport(startDate: start, plannerId: planner.id)
+        let existing = findPeriodReport(startDate: start, endDate: period.end, plannerId: planner.id)
 
         // 로컬 먼저 (offline-first)
         let localItem = saveLocalPeriodReport(
@@ -278,7 +278,8 @@ final class ReportService {
             "completionRate": completionRate,
             "review": comment,
         ]
-        if !localItem.notionPageId.isEmpty { body["notionPageId"] = localItem.notionPageId }
+        let notionPageIdForSave = resolvedNotionPageId(for: localItem)
+        if !notionPageIdForSave.isEmpty { body["notionPageId"] = notionPageIdForSave }
         if let v = mapping.date   { body["dateProp"] = v }
         if let v = mapping.review { body["reviewProp"] = v }
         if let v = mapping.rating { body["ratingProp"] = v }
@@ -351,16 +352,198 @@ final class ReportService {
         }
     }
 
+    // MARK: - 기간 리포트 리뷰 조회 (저장 시트용)
+
+    /// 노션·로컬에 저장된 주간/월간 리뷰를 불러온다. 노션 연결 시 Notion을 우선 동기화한다.
+    func fetchSavedPeriodReview(for period: DateInterval) async -> String {
+        guard let planner = PlannerService.shared.selectedPlanner else { return "" }
+        let plannerId = planner.id
+        let start = calendar.startOfDay(for: period.start)
+
+        if planner.isNotionConnected, planner.notionReportDBId != nil {
+            await syncPeriodReportFromNotion(for: period)
+        }
+
+        return findPeriodReport(startDate: start, endDate: period.end, plannerId: plannerId)?.review ?? ""
+    }
+
+    private func syncPeriodReportFromNotion(for period: DateInterval) async {
+        guard let planner = PlannerService.shared.selectedPlanner,
+              planner.isNotionConnected,
+              let dbId = planner.notionReportDBId else { return }
+
+        let mapping = planner.decodedReportPropsMapping
+        let token = planner.resolvedNotionToken
+        let start = calendar.startOfDay(for: period.start)
+        let endInclusive = calendar.date(byAdding: .day, value: -1, to: period.end) ?? period.end
+
+        var params: [String: String] = [
+            "date": seoulDateString(from: start),
+            "endDate": seoulDateString(from: endInclusive),
+            "dbId": dbId,
+        ]
+        if let v = mapping.date   { params["dateProp"] = v }
+        if let v = mapping.review { params["reviewProp"] = v }
+        if let v = mapping.rating { params["ratingProp"] = v }
+        if let v = mapping.ratingPropType { params["ratingPropType"] = v }
+
+        do {
+            let response: PeriodNotionReportResponse? = try await APIClient.shared.get(
+                "/api/notion/daily-report", params: params, token: token
+            )
+            guard let response else { return }
+            if !response.notionPageId.isEmpty, isDailyReportPage(notionPageId: response.notionPageId) {
+                AppLogger.shared.warn("ReportService", "기간 리포트 조회가 데일리 페이지와 충돌 — 무시 pageId=\(response.notionPageId)")
+                return
+            }
+            upsertPeriodFromNotion(
+                response,
+                start: start,
+                end: period.end,
+                plannerId: planner.id
+            )
+        } catch {
+            AppLogger.shared.warn("ReportService", "기간 리포트 Notion 조회 실패 - \(error.localizedDescription)")
+        }
+    }
+
+    private func upsertPeriodFromNotion(
+        _ response: PeriodNotionReportResponse,
+        start: Date,
+        end: Date,
+        plannerId: String
+    ) {
+        let pageId = response.notionPageId
+        let reviewText = response.review ?? ""
+
+        if !pageId.isEmpty {
+            let byPageId = FetchDescriptor<DailyReportItem>(
+                predicate: #Predicate { $0.notionPageId == pageId }
+            )
+            if let existing = try? context.fetch(byPageId).first, existing.endDate != nil {
+                existing.review = reviewText
+                existing.notionPageId = pageId
+                existing.endDate = end
+                existing.date = start
+                existing.plannerId = plannerId
+                if response.completionRate > 0 {
+                    existing.completionRate = response.completionRate
+                    existing.periodCompletionRate = response.completionRate
+                }
+                try? context.save()
+                return
+            }
+        }
+
+        if let existing = findPeriodReport(startDate: start, endDate: end, plannerId: plannerId) {
+            if shouldRejectDailyReviewCollision(
+                reviewText: reviewText, start: start, plannerId: plannerId, existingPeriodReview: existing.review
+            ) {
+                return
+            }
+            existing.review = reviewText
+            if !pageId.isEmpty { existing.notionPageId = pageId }
+            try? context.save()
+            return
+        }
+
+        guard !pageId.isEmpty || !reviewText.isEmpty else { return }
+
+        if shouldRejectDailyReviewCollision(
+            reviewText: reviewText, start: start, plannerId: plannerId, existingPeriodReview: nil
+        ) {
+            return
+        }
+
+        let item = DailyReportItem(
+            date: start,
+            review: reviewText,
+            completionRate: response.completionRate,
+            notionPageId: pageId,
+            plannerId: plannerId,
+            endDate: end,
+            periodCompletionRate: response.completionRate > 0 ? response.completionRate : nil
+        )
+        context.insert(item)
+        try? context.save()
+    }
+
     // MARK: - 기간 리포트 로컬 헬퍼
 
-    private func findPeriodReport(startDate: Date, plannerId: String) -> DailyReportItem? {
-        let descriptor = FetchDescriptor<DailyReportItem>()
-        let all = (try? context.fetch(descriptor)) ?? []
-        return all.first {
-            calendar.isDate($0.date, inSameDayAs: startDate) &&
-            $0.plannerId == plannerId &&
-            $0.endDate != nil
+    private func findPeriodReport(startDate: Date, endDate: Date, plannerId: String) -> DailyReportItem? {
+        let normalizedStart = calendar.startOfDay(for: startDate)
+        let normalizedEnd = calendar.startOfDay(for: endDate)
+        let inclusiveEnd = calendar.date(byAdding: .day, value: -1, to: normalizedEnd) ?? normalizedEnd
+        let all = (try? context.fetch(FetchDescriptor<DailyReportItem>())) ?? []
+
+        let periodItems = all.filter { item in
+            item.plannerId == plannerId &&
+            item.endDate != nil &&
+            calendar.isDate(item.date, inSameDayAs: normalizedStart)
         }
+
+        if let exact = periodItems.first(where: { item in
+            guard let itemEnd = item.endDate else { return false }
+            let itemEndDay = calendar.startOfDay(for: itemEnd)
+            return calendar.isDate(itemEndDay, inSameDayAs: normalizedEnd) ||
+                calendar.isDate(itemEndDay, inSameDayAs: inclusiveEnd)
+        }) {
+            return exact
+        }
+
+        // endDate 저장 형식이 달라진 레거시 데이터 — 동일 시작일 기간 리포트 1건으로 폴백
+        return periodItems.first
+    }
+
+    /// Notion PATCH 시 데일리 pageId를 기간 리포트로 오용하지 않도록 필터
+    private func resolvedNotionPageId(for item: DailyReportItem) -> String {
+        let pageId = item.notionPageId
+        guard !pageId.isEmpty, !isDailyReportPage(notionPageId: pageId) else { return "" }
+        return pageId
+    }
+
+    /// 노션 pageId가 데일리 리포트(단일 날짜)에만 연결돼 있으면 true
+    private func isDailyReportPage(notionPageId: String) -> Bool {
+        let descriptor = FetchDescriptor<DailyReportItem>(
+            predicate: #Predicate { $0.notionPageId == notionPageId }
+        )
+        let items = (try? context.fetch(descriptor)) ?? []
+        if items.contains(where: { $0.endDate != nil }) { return false }
+        return items.contains(where: { $0.endDate == nil })
+    }
+
+    private func findDailyReport(startDate: Date, plannerId: String) -> DailyReportItem? {
+        let normalizedStart = calendar.startOfDay(for: startDate)
+        let all = (try? context.fetch(FetchDescriptor<DailyReportItem>())) ?? []
+        return all.first { item in
+            item.plannerId == plannerId &&
+            item.endDate == nil &&
+            calendar.isDate(item.date, inSameDayAs: normalizedStart)
+        }
+    }
+
+    /// 노션 GET이 데일리 리포트를 반환한 경우 기간 리뷰 필드 오염 방지
+    private func shouldRejectDailyReviewCollision(
+        reviewText: String,
+        start: Date,
+        plannerId: String,
+        existingPeriodReview: String?
+    ) -> Bool {
+        guard !reviewText.isEmpty,
+              let daily = findDailyReport(startDate: start, plannerId: plannerId),
+              daily.review == reviewText else { return false }
+
+        if let existingPeriodReview, existingPeriodReview != reviewText, !existingPeriodReview.isEmpty {
+            AppLogger.shared.warn("ReportService", "데일리 리뷰로 기간 리뷰 덮어쓰기 방지")
+            return true
+        }
+
+        if existingPeriodReview == nil {
+            AppLogger.shared.warn("ReportService", "데일리 리뷰를 기간 리포트로 오인 — 무시")
+            return true
+        }
+
+        return false
     }
 
     private func saveLocalPeriodReport(
@@ -533,6 +716,31 @@ final class ReportService {
 
 private struct NotionSaveResponse: Decodable {
     let id: String
+}
+
+private struct PeriodNotionReportResponse: Decodable {
+    let id: String?
+    let date: String?
+    let review: String?
+    let rating: String?
+    let completionRate: Double
+    let notionPageId: String
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id)
+        date = try container.decodeIfPresent(String.self, forKey: .date)
+        review = try container.decodeIfPresent(String.self, forKey: .review)
+        rating = try container.decodeIfPresent(String.self, forKey: .rating)
+        completionRate = try container.decodeIfPresent(Double.self, forKey: .completionRate) ?? 0
+        notionPageId = try container.decodeIfPresent(String.self, forKey: .notionPageId)
+            ?? id
+            ?? ""
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, date, review, rating, completionRate, notionPageId
+    }
 }
 
 private struct AnyEncodableDict: Encodable {

@@ -18,36 +18,38 @@ struct MediumWidgetView: View {
         if isPro {
             contentView
         } else {
-            ProLockedWidgetView()
+            ProLockedWidgetView(message: "투두 목록 위젯은 Pro 기능이에요")
         }
     }
 
     private var contentView: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 14) {
 
             // ── 왼쪽: 통계 ──
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(planner)
-                    .font(.caption2.weight(.semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
-                Spacer()
+                Spacer(minLength: 0)
 
                 Text("\(Int(rate * 100))%")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundStyle(nockOrange)
 
-                Text("\(completed)/\(total)")
-                    .font(.caption2)
+                Text("\(completed)/\(total)개")
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
 
                 Text(todayString)
-                    .font(.caption2)
-                    .foregroundStyle(Color(.tertiaryLabel))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
                     .padding(.top, 2)
             }
-            .frame(width: 70)
+            .frame(width: 88)
 
             // 구분선
             Rectangle()
@@ -56,33 +58,34 @@ struct MediumWidgetView: View {
                 .padding(.vertical, 2)
 
             // ── 오른쪽: 투두 목록 ──
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 if todos.isEmpty {
                     Spacer()
                     Text("투두를 추가해보세요")
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundStyle(.tertiary)
                     Spacer()
                 } else {
                     ForEach(todos) { todo in
                         todoRow(todo)
                     }
-                    Spacer()
+                    Spacer(minLength: 0)
                 }
             }
         }
         .padding(14)
+        .widgetURL(URL(string: "todoreport://todo"))
         .containerBackground(.background, for: .widget)
     }
 
     private func todoRow(_ todo: WidgetTodoItem) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 13))
+                .font(.system(size: 16))
                 .foregroundStyle(todo.isCompleted ? nockOrange : Color(.systemGray4))
 
             Text(todo.title)
-                .font(.caption)
+                .font(.subheadline)
                 .foregroundStyle(todo.isCompleted ? Color(.secondaryLabel) : .primary)
                 .strikethrough(todo.isCompleted, color: Color(.secondaryLabel))
                 .lineLimit(1)
@@ -91,7 +94,7 @@ struct MediumWidgetView: View {
 
     private var todayString: String {
         let fmt = DateFormatter()
-        fmt.dateFormat = "M/d"
+        fmt.dateFormat = "M월 d일"
         fmt.locale = Locale(identifier: "ko_KR")
         return fmt.string(from: .now)
     }

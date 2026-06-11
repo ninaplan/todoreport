@@ -26,6 +26,7 @@ final class ReportViewModel {
 
     private(set) var isSyncing: Bool = false
     private(set) var isSavingToNotion: Bool = false
+    private(set) var isPreparingSave: Bool = false
     var notionSaveSuccess: Bool = false
 
     // Save editor
@@ -36,6 +37,7 @@ final class ReportViewModel {
     private(set) var pendingAvgRating: Double = 0
     private(set) var pendingCompletionRate: Double = 0
     private var pendingChartData: PeriodReportChartData?
+    var pendingInitialReview: String = ""
     var notionSaveError: String?
 
     private var isPro: Bool { SubscriptionManager.shared.isPro }
@@ -119,15 +121,19 @@ final class ReportViewModel {
             return
         }
 
+        let period: DateInterval
+        let notionTitleText: String
+        let chartData: PeriodReportChartData
+
         switch selectedPeriod {
         case .weekly:
             guard let report = weeklyReport else { return }
-            pendingPeriod = report.period
+            period = report.period
             pendingPeriodTitle = periodTitle
-            pendingNotionTitle = notionTitle(for: report.period, type: .weekly)
+            notionTitleText = notionTitle(for: report.period, type: .weekly)
             pendingAvgRating = report.averageRating
             pendingCompletionRate = report.completionRate
-            pendingChartData = PeriodReportChartData(
+            chartData = PeriodReportChartData(
                 rates: report.dailyCompletionRates.map { .init(label: $0.weekday, rate: $0.rate) },
                 ratings: report.dailyRatings.map { .init(label: $0.weekday, rating: $0.rating) },
                 categories: report.categoryStats.map { .init(name: $0.name, rate: $0.rate, completed: $0.completed, total: $0.total) },
@@ -135,19 +141,29 @@ final class ReportViewModel {
             )
         case .monthly:
             guard let report = monthlyReport else { return }
-            pendingPeriod = report.period
+            period = report.period
             pendingPeriodTitle = periodTitle
-            pendingNotionTitle = notionTitle(for: report.period, type: .monthly)
+            notionTitleText = notionTitle(for: report.period, type: .monthly)
             pendingAvgRating = report.averageRating
             pendingCompletionRate = report.completionRate
-            pendingChartData = PeriodReportChartData(
+            chartData = PeriodReportChartData(
                 rates: report.weeklyCompletionRates.map { .init(label: $0.label, rate: $0.rate) },
                 ratings: report.weeklyRatings.map { .init(label: $0.label, rating: $0.rating) },
                 categories: report.categoryStats.map { .init(name: $0.name, rate: $0.rate, completed: $0.completed, total: $0.total) },
                 reviews: reviewEntries(from: report.reviewTimeline)
             )
         }
+
+        pendingPeriod = period
+        pendingNotionTitle = notionTitleText
+        pendingChartData = chartData
+        pendingInitialReview = ""
         showSaveEditor = true
+        isPreparingSave = true
+        Task {
+            defer { isPreparingSave = false }
+            pendingInitialReview = await service.fetchSavedPeriodReview(for: period)
+        }
     }
 
     func confirmSave(comment: String) async {
@@ -171,6 +187,7 @@ final class ReportViewModel {
         }
         pendingPeriod = nil
         pendingChartData = nil
+        pendingInitialReview = ""
     }
 
     func dismissSaveError() {
@@ -179,8 +196,10 @@ final class ReportViewModel {
 
     func cancelSave() {
         showSaveEditor = false
+        isPreparingSave = false
         pendingPeriod = nil
         pendingChartData = nil
+        pendingInitialReview = ""
     }
 
     func dismissNotionSaveSuccess() {

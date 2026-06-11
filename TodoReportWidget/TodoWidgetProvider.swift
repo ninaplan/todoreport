@@ -89,7 +89,7 @@ struct SmallTodoWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TodoTimelineProvider()) { entry in
-            SmallWidgetView(data: entry.data, isPro: entry.isPro)
+            SmallWidgetView(data: entry.data)
         }
         .configurationDisplayName("투두 완료율")
         .description("오늘의 투두 완료율을 한눈에 확인하세요.")

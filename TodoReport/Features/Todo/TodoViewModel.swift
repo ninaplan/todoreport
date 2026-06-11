@@ -143,7 +143,11 @@ final class TodoViewModel {
 
     private func updateWidget() {
         guard Calendar.current.isDateInToday(selectedDate) else { return }
-        WidgetDataProvider.shared.update(todos: displayedTodos, plannerName: plannerName)
+        WidgetDataProvider.shared.update(
+            allTodos: todos,
+            listTodos: displayedTodos,
+            plannerName: plannerName
+        )
     }
 
     private func validateCategoryFilter() {
@@ -163,6 +167,7 @@ final class TodoViewModel {
         notionSyncTask?.cancel()
         notionSyncTask = nil
         Task { try? await service.updateTodo(updated) }
+        updateWidget()
     }
 
     func pinTodo(_ todo: Todo) {
@@ -173,6 +178,7 @@ final class TodoViewModel {
             todos[index].isPinned.toggle()
             let updated = todos[index]
             try? await service.updateTodo(updated)
+            updateWidget()
         }
     }
 
@@ -193,6 +199,7 @@ final class TodoViewModel {
             recurrenceCount: recurrenceCount
         )
         todos.append(todo)
+        updateWidget()
         Task { try? await service.saveTodo(todo) }
         if recurrenceRule != nil {
             Task { await RecurringTodoManager.shared.generateUpcoming() }
@@ -202,6 +209,7 @@ final class TodoViewModel {
     func deleteTodo(_ todo: Todo) {
         guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
         todos.removeAll { $0.id == todo.id }
+        updateWidget()
         Task { try? await service.deleteTodo(id: todo.id) }
     }
 

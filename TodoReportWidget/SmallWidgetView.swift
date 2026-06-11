@@ -6,7 +6,6 @@ import WidgetKit
 
 struct SmallWidgetView: View {
     let data: WidgetSnapshotData?
-    let isPro: Bool
 
     private var rate: Double    { data?.completionRate  ?? 0 }
     private var completed: Int  { data?.completedCount  ?? 0 }
@@ -14,11 +13,7 @@ struct SmallWidgetView: View {
     private var planner: String { data?.plannerName     ?? "투두리포트" }
 
     var body: some View {
-        if isPro {
-            contentView
-        } else {
-            ProLockedWidgetView()
-        }
+        contentView
     }
 
     private var contentView: some View {
@@ -65,6 +60,7 @@ struct SmallWidgetView: View {
                 .padding(.top, 6)
         }
         .padding(14)
+        .widgetURL(URL(string: "todoreport://todo"))
         .containerBackground(.background, for: .widget)
     }
 
@@ -79,23 +75,33 @@ struct SmallWidgetView: View {
 // MARK: - Pro 잠금 안내
 
 struct ProLockedWidgetView: View {
+    var message: String
+
     var body: some View {
-        Link(destination: URL(string: "todoreport://paywall")!) {
-            VStack(spacing: 8) {
-                Image(systemName: "crown.fill")
-                    .font(.system(size: 22))
-                    .foregroundStyle(nockOrange)
-                Text("Pro 기능")
-                    .font(.caption.bold())
-                Text("구독하면 위젯을 사용할 수 있어요")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+        if let paywallURL = URL(string: "todoreport://paywall") {
+            Link(destination: paywallURL) {
+                lockedContent
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .containerBackground(.background, for: .widget)
+        } else {
+            lockedContent
         }
+    }
+
+    private var lockedContent: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "crown.fill")
+                .font(.system(size: 22))
+                .foregroundStyle(nockOrange)
+            Text("Pro 기능")
+                .font(.caption.bold())
+            Text(message)
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .containerBackground(.background, for: .widget)
     }
 }
 

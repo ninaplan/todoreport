@@ -7,10 +7,10 @@ struct NotionSaveEditorView: View {
     let period: DateInterval
     let completionRate: Double
     let avgRating: Double
+    @Binding var comment: String
+    let isLoadingInitialReview: Bool
     let onConfirm: (String) -> Void
     let onCancel: () -> Void
-
-    @State private var comment: String = ""
     @State private var notificationTime: Date = Self.defaultNotificationTime()
     @State private var notificationAuthStatus: UNAuthorizationStatus = .notDetermined
     @State private var showNotificationDeniedAlert = false
@@ -29,6 +29,28 @@ struct NotionSaveEditorView: View {
     private var monthlyNotificationTimingRaw = MonthlyReportNotificationTiming.firstDay.rawValue
 
     @Environment(\.dismiss) private var dismiss
+
+    init(
+        reportPeriod: ReportPeriod,
+        periodTitle: String,
+        period: DateInterval,
+        completionRate: Double,
+        avgRating: Double,
+        comment: Binding<String>,
+        isLoadingInitialReview: Bool,
+        onConfirm: @escaping (String) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.reportPeriod = reportPeriod
+        self.periodTitle = periodTitle
+        self.period = period
+        self.completionRate = completionRate
+        self.avgRating = avgRating
+        self._comment = comment
+        self.isLoadingInitialReview = isLoadingInitialReview
+        self.onConfirm = onConfirm
+        self.onCancel = onCancel
+    }
 
     private var reviewSectionTitle: String {
         reportPeriod == .weekly ? "주간 리뷰" : "월간 리뷰"
@@ -76,6 +98,7 @@ struct NotionSaveEditorView: View {
                         dismiss()
                     }
                     .toolbarPrimaryActionStyle()
+                    .disabled(isLoadingInitialReview)
                 }
             }
             .task {
@@ -179,14 +202,23 @@ struct NotionSaveEditorView: View {
                 TextEditor(text: $comment)
                     .frame(minHeight: 100)
                     .scrollContentBackground(.hidden)
+                    .disabled(isLoadingInitialReview)
+                    .opacity(isLoadingInitialReview ? 0.35 : 1)
 
-                if comment.isEmpty {
+                if comment.isEmpty, !isLoadingInitialReview {
                     Text(reviewPlaceholder)
                         .font(.subheadline)
                         .foregroundStyle(Color(.placeholderText))
                         .padding(.top, 8)
                         .padding(.leading, 4)
                         .allowsHitTesting(false)
+                }
+
+                if isLoadingInitialReview {
+                    ProgressView()
+                        .scaleEffect(0.95)
+                        .tint(.secondary.opacity(0.4))
+                        .frame(maxWidth: .infinity, minHeight: 100)
                 }
             }
             .padding(12)

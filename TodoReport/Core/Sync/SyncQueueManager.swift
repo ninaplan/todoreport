@@ -223,19 +223,6 @@ final class SyncQueueManager {
         print("[SyncQueue] 🗑️ 오래된 항목 \(items.count)개 삭제 (7일 초과)")
     }
 
-    #if DEBUG
-    @discardableResult
-    func clearAllReturningCount() -> Int {
-        let descriptor = FetchDescriptor<SyncQueueItem>()
-        let items = (try? context.fetch(descriptor)) ?? []
-        guard !items.isEmpty else { return 0 }
-        items.forEach { context.delete($0) }
-        try? context.save()
-        print("[SyncQueue] 🗑️ 전체 큐 초기화 (\(items.count)개)")
-        return items.count
-    }
-    #endif
-
     // MARK: - Todo Payload
 
     private struct TodoPayloadContext {

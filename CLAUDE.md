@@ -343,7 +343,7 @@ guard SubscriptionManager.shared.isPro else {
 - 주간 리포트 이전 기간 조회 (이번 주는 무료)
 - 월간 리포트 (전체 유료)
 - 멀티 플래너 (2개 이상)
-- 홈 화면 위젯
+- 홈 화면 위젯 Medium·Large (Small 완료율은 무료)
 - 반복 투두 (v2 예정)
 
 ---
@@ -443,6 +443,21 @@ guard let value = optional else { return }
 ---
 
 ## 알려진 패턴 / 주의사항
+
+**AutoFocusTextField — Dynamic Type + 한글 IME**
+
+투두 인라인 입력 등 한글 조합이 필요한 곳은 SwiftUI `TextField` 대신 `AutoFocusTextField`(UIKit)를 쓴다.
+고정 `UIFont.systemFont(ofSize:)`를 쓰면 인접 SwiftUI `Text(.body)`보다 작아 보이므로, 본문 입력은 `textStyle: .body`로 맞춘다.
+
+```swift
+// ❌ 고정 pt — 시스템 글자 크기 변경 시 투두 행과 불일치
+AutoFocusTextField(text: $title, placeholder: "새 투두", font: .systemFont(ofSize: 17))
+
+// ✅ SwiftUI .body와 동일 스케일 (Dynamic Type 연동)
+AutoFocusTextField(text: $title, placeholder: "새 투두", textStyle: .body)
+```
+
+편집 시트 제목 등 본문보다 큰 필드는 `textStyle: .title3` 등으로 지정한다 (`TodoEditFormView` 제목).
 
 **SwiftUI View에서 live 데이터 읽기 — stale 스냅샷 주의**
 
@@ -559,7 +574,7 @@ Phase 5 (출시)
 
 ---
 
-## 현재 진행 상태 (2026-06-08 기준)
+## 현재 진행 상태 (2026-06-08 기준, 오늘 마무리)
 
 **Phase 1 ✅ 완료**
 - 온보딩 플로우 (노션/로컬 선택 → OAuth → DB선택 → 속성매핑) — 웰컴 소개 페이지 🔜
@@ -582,7 +597,9 @@ Phase 5 (출시)
 - ✅ TodoWidgetBundle / TodoWidgetProvider (widget extension 타겟: TodoReportWidget/)
 - ✅ Small / Medium / Large 위젯 뷰 (SmallWidgetView, MediumWidgetView, LargeWidgetView)
 - ✅ TodoViewModel.updateWidget() — 투두 fetch/toggle/add/delete 후 자동 갱신
-- ✅ 위젯은 유료(Pro) 기능으로 게이팅
+- ✅ Small 완료율 무료, Medium·Large 목록 Pro 게이팅 (`widgetIsPro` App Group 동기화)
+- ✅ `todoreport://todo` 딥링크, 설정 탭 NavigationStack 재진입 시 루트 초기화
+- ✅ `refreshTodayFromStore()` — 앱 실행·포그라운드 시 위젯 갱신
 - ⚠️ App Groups capability: 두 타겟 모두 Xcode > Signing & Capabilities에서 수동 활성화 필요
  → App Group ID: group.kr.nock.TodoReport
 
@@ -594,6 +611,7 @@ Phase 5 (출시)
 - ✅ 리포트 탭 하루 리뷰 더보기/접기 (ReviewTimelineRow: GeometryReader 높이 비교로 잘림 감지)
 - ✅ 하루 리뷰 탭 시 투두 목록(DayTodoDetailView) 이동 제거 (더보기와 충돌)
 - ✅ 시간 지정 + 투두 알림 (TodoNotificationManager, TodoEditFormView)
+- 🔜 투두 탭 목록 시간 표시 (`TodoRow`, `scheduledTime`) — v1.1 (v1: 편집 시트만)
 - 🔜 반복 투두 (RecurrenceRule, RecurringTodoManager, TodoEditFormView 반복 섹션) — v2로 연기
 - ✅ Notion relation 자동 연결 개선 (NotionRelationLinker: 14일 윈도우, max 10개, 성공 후에만 linked 세팅)
 - ✅ SyncQueueProcessor: create 완료 후 자동 relation enqueue
@@ -620,6 +638,9 @@ Phase 5 (출시)
 - ✅ 데일리 리포트 페이지 제목 포맷 변경 (백엔드: `M월 d일 (요일) 리포트` — lib/format-title.ts)
 - ✅ DateNavigationRow 화살표 축소 (.system size 13, weight light)
 - ✅ 기간 리포트 upsert 로직 수정 (백엔드: notionPageId → 날짜 범위 기반 검색으로 중복 생성·400 오류 해결)
+- ✅ 기간 리포트 저장 시트 — 노션·로컬 기존 리뷰 로드 (`fetchSavedPeriodReview`, `prepareSave`, `NotionSaveEditorView.initialComment`)
+- ✅ 기간 리포트 GET `endDate` 매칭 (백엔드 Vercel 배포) — 다른 주 리뷰 표시·수정 시 중복 페이지 생성 방지
+- ✅ `ReportService.findPeriodReport` endDate 유연 매칭, `resolvedNotionPageId` (데일리 pageId 오용 방지)
 - ✅ 노션 투두 페이지 아이콘 (✔️ 이모지 고정, 백엔드 POST route.ts)
 - ✅ 구독 해지 시 플래너 선택 팝업 + 읽기 전용 처리 (PlannerDowngradeView, isReadOnly)
 - ✅ 앱 내 로그 수집 + 오류 신고 메일 (AppLogger, SupportMailView)
@@ -631,6 +652,14 @@ Phase 5 (출시)
 **Phase 5 🔄 진행 예정** 앱스토어 출시
 - 🔜 StoreKit 2 실연동 완료 후 심사 제출
 - 🔜 디자인 세부 수정
+
+---
+
+## v1.1 백로그
+
+### 투두 탭 할일 시간 표시
+v1에서는 `scheduledTime` 설정·알림만 동작, **목록(`TodoRow`)에는 미표시**.
+v1.1에서 제목 아래·메모 위에 `.caption` + `.secondary`로 `hour().minute()` 표시. 메모 보기 토글과 독립.
 
 ---
 

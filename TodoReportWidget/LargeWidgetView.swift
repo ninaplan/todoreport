@@ -18,7 +18,7 @@ struct LargeWidgetView: View {
         if isPro {
             contentView
         } else {
-            ProLockedWidgetView()
+            ProLockedWidgetView(message: "전체 목록 위젯은 Pro 기능이에요")
         }
     }
 
@@ -88,6 +88,7 @@ struct LargeWidgetView: View {
             }
         }
         .padding(14)
+        .widgetURL(URL(string: "todoreport://todo"))
         .containerBackground(.background, for: .widget)
     }
 

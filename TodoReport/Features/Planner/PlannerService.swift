@@ -296,6 +296,9 @@ final class PlannerService {
         let categoryDesc = FetchDescriptor<CategoryItem>(predicate: #Predicate { $0.plannerId == id })
         for item in (try? context.fetch(categoryDesc)) ?? [] { context.delete(item) }
 
+        let queueDesc = FetchDescriptor<SyncQueueItem>(predicate: #Predicate { $0.plannerId == id })
+        for item in (try? context.fetch(queueDesc)) ?? [] { context.delete(item) }
+
         let plannerDesc = FetchDescriptor<PlannerItem>(predicate: #Predicate { $0.id == id })
         guard let plannerItem = try context.fetch(plannerDesc).first else { return }
         context.delete(plannerItem)
@@ -305,16 +308,5 @@ final class PlannerService {
         if selectedPlannerId == planner.id {
             selectedPlannerId = store.first?.id ?? ""
         }
-    }
-
-    /// AppResetService 전용 — SwiftData 삭제 후 온보딩 진입을 위한 초기 플래너 1개 생성
-    func prepareForFreshOnboarding() {
-        store = []
-        selectedPlannerId = ""
-        let item = PlannerItem.from(Planner(name: generateDefaultName()))
-        context.insert(item)
-        try? context.save()
-        refreshStore()
-        selectedPlannerId = store.first?.id ?? ""
     }
 }
