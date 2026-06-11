@@ -47,7 +47,7 @@ struct OnboardingWelcomeView: View {
             Spacer()
 
             if page.usesConnectionIcon {
-                NotionConnectionStaticGraphic(iconSize: 56)
+                NotionConnectionStaticGraphic(iconSize: 62, outerSize: 132)
             } else {
                 OnboardingWelcomeStickerIcon(page: page)
             }

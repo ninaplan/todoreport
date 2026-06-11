@@ -6,8 +6,12 @@ struct OnboardingWelcomeStickerIcon: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private let outerSize: CGFloat = 120
+    private let defaultOuterSize: CGFloat = 120
     private let symbolPointSize: CGFloat = 52
+
+    private var outerSize: CGFloat {
+        page.usesBrandLogoAsset ? defaultOuterSize * 0.8 : defaultOuterSize
+    }
 
     var body: some View {
         Group {
