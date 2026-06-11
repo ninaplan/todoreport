@@ -25,6 +25,7 @@ final class TodoViewModel {
 
     private let service = TodoService.shared
     private let categoryService = CategoryService.shared
+    @ObservationIgnored private var fetchTodosTask: Task<Void, Never>?
     private var notionSyncTask: Task<Void, Never>?
 
     private var isPro: Bool { SubscriptionManager.shared.isPro }
@@ -45,6 +46,10 @@ final class TodoViewModel {
 
     var showRecurringEditAlert: Bool = false
     private(set) var pendingRecurringEdit: RecurringEditPendingInfo? = nil
+
+    var showsTodoListLoading: Bool {
+        filteredTodos.isEmpty && (isLoading || isNotionSyncing)
+    }
 
     // MARK: - Computed
 
@@ -116,17 +121,43 @@ final class TodoViewModel {
     }
 
     func fetchTodos() async {
-        await syncNotionCategoriesIfNeeded()
+        if let existing = fetchTodosTask {
+            await existing.value
+            return
+        }
+        let task = Task { @MainActor in
+            defer { fetchTodosTask = nil }
+            await performFetchTodos()
+        }
+        fetchTodosTask = task
+        await task.value
+    }
+
+    @MainActor
+    private func performFetchTodos() async {
         isLoading = true
+        await syncNotionCategoriesIfNeeded()
         todos = await service.fetchTodos(for: selectedDate)
-        isLoading = false
         validateCategoryFilter()
         updateWidget()
+
         notionSyncTask?.cancel()
+        notionSyncTask = nil
+
+        guard PlannerService.shared.selectedPlanner?.isNotionConnected == true else {
+            isLoading = false
+            return
+        }
+
         let date = selectedDate
-        notionSyncTask = Task {
-            isNotionSyncing = true
-            defer { isNotionSyncing = false }
+        isNotionSyncing = true
+        isLoading = false
+
+        notionSyncTask = Task { @MainActor in
+            defer {
+                isNotionSyncing = false
+                notionSyncTask = nil
+            }
             await syncNotionCategoriesIfNeeded()
             await service.syncTodosFromNotion(for: date)
             guard !Task.isCancelled else { return }
@@ -134,6 +165,7 @@ final class TodoViewModel {
             validateCategoryFilter()
             updateWidget()
         }
+        await notionSyncTask?.value
     }
 
     private func syncNotionCategoriesIfNeeded() async {

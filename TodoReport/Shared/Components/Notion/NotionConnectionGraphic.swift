@@ -6,6 +6,10 @@ struct NotionConnectionGraphic: View {
     var laneWidth: CGFloat = 60
     var spacing: CGFloat = 12
 
+    static var compact: Self {
+        Self(iconSize: 34, laneWidth: 46, spacing: 8)
+    }
+
     var body: some View {
         HStack(spacing: spacing) {
             connectionIcon(named: "AppLogoSticker")

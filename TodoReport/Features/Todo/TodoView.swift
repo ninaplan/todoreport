@@ -86,9 +86,13 @@ struct TodoView: View {
 
                     // 투두 목록
                     Section {
-                        todoRows(for: viewModel.filteredTodos)
-                        addTodoRow
-                            .id("addTodoRow")
+                        if viewModel.showsTodoListLoading {
+                            TodoListLoadingView()
+                        } else {
+                            todoRows(for: viewModel.filteredTodos)
+                            addTodoRow
+                                .id("addTodoRow")
+                        }
                     }
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
