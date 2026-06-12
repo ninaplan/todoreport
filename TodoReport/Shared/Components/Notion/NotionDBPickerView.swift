@@ -17,9 +17,15 @@ struct NotionDBPickerView: View {
                     VStack(spacing: 12) {
                         Spacer()
                         ProgressView()
-                        Text("데이터베이스를 불러오는 중이에요...")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        VStack(spacing: 6) {
+                            Text("데이터베이스를 불러오는 중입니다.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Text("처음 연결할 때는 시간이 걸릴 수 있습니다.")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .multilineTextAlignment(.center)
+                        }
                         Spacer()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -30,17 +36,17 @@ struct NotionDBPickerView: View {
                             .font(.system(size: 40))
                             .foregroundStyle(.secondary)
                         VStack(spacing: 6) {
-                            Text("데이터베이스를 찾을 수 없어요")
+                            Text("데이터베이스를 찾을 수 없습니다.")
                                 .foregroundStyle(.secondary)
-                            Text("새로고침하면 불러올 수 있습니다\n(처음엔 시간이 걸릴 수 있어요)")
-                                .font(.caption)
+                            Text("처음 불러올 때는 1분 정도 걸릴 수 있습니다. 잠시 후 다시 시도해 주세요.")
+                                .font(.footnote)
                                 .foregroundStyle(.tertiary)
                                 .multilineTextAlignment(.center)
                         }
                         Button {
                             Task { await onRefresh() }
                         } label: {
-                            Label("다시 불러오기", systemImage: "arrow.clockwise")
+                            Label("다시 시도", systemImage: "arrow.clockwise")
                         }
                         .buttonStyle(.bordered)
                         .tint(AppTheme.shared.accent)

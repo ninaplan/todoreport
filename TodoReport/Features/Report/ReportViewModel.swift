@@ -336,7 +336,7 @@ final class ReportViewModel {
             let sd = startComps.day   ?? 0
             let em = endComps.month   ?? 0
             let ed = endComps.day     ?? 0
-            return "주간 리포트 (\(y)년 \(sm)월 \(sd)일 - \(em)월 \(ed)일)"
+            return "주간 리포트 (\(sm)월 \(sd)일 - \(em)월 \(ed)일)"
         case .monthly:
             let comps = calendar.dateComponents([.year, .month], from: period.start)
             return "월간 리포트 (\(comps.year ?? 2026)년 \(comps.month ?? 1)월)"

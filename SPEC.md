@@ -1,7 +1,7 @@
 # 투두리포트 앱 개발 스펙
 
 > 작성일: 2026-05-26  
-> 최종 업데이트: 2026-06-10 (checkbox 속성 ID 기반 매핑 · 설정 Picker 즉시 ID 저장)  
+> 최종 업데이트: 2026-06-12 (Notion OAuth iOS 26 대응 · Safari 취소 시 isLoading 고착 수정)  
 > 브랜드: 노크(Nock / nock.kr)  
 > 앱명 (홈 화면): 투두리포트  
 > App Store 이름: 노션품은 투두x리포트  
@@ -44,7 +44,7 @@
 | 로컬 캐시 | SwiftData + 이벤트 기반 캐시 (16절 참고) |
 | 네트워크 | URLSession (자체 APIClient 래퍼) |
 | 결제 | StoreKit 2 (Apple IAP) |
-| 인증 | Notion OAuth (ASWebAuthenticationSession) |
+| 인증 | Notion OAuth (SFSafariViewController) |
 
 #### 백엔드
 | 항목 | 결정 |
@@ -99,7 +99,7 @@ TodoReport/
 │   ├── Network/
 │   │   └── APIClient.swift        # 백엔드 호출 단일 창구
 │   ├── Auth/
-│   │   └── NotionAuth.swift       # OAuth (ASWebAuthenticationSession)
+│   │   └── NotionAuth.swift       # OAuth (SFSafariViewController)
 │   └── Cache/
 │       └── CacheManager.swift     # 로컬 캐싱 (SwiftData + TTL)
 │
@@ -182,8 +182,8 @@ View                ViewModel              Service
 ```
 api/
 ├── auth/
-│   ├── notion/          # Notion OAuth 처리
-│   └── callback/        # OAuth 콜백
+│   └── notion/          # Notion OAuth 시작 + callback (302 → todoreport://)
+├── ios-auth/            # 레거시 중간 페이지 (OAuth 플로우 미사용, 파일 유지)
 ├── notion/
 │   ├── todo/            # 투두 CRUD
 │   ├── daily-report/    # 데일리리포트 CRUD
@@ -539,6 +539,27 @@ api/
 ```
 
 > 별도 앱 계정 로그인(Sign in with Apple 등) 없음. Notion OAuth는 노션 연결 시에만 진행.
+
+**Notion OAuth 플로우 (`NotionAuthManager`, ✅ 2026-06-12):**
+
+```
+앱 startOAuth()
+  → SFSafariViewController: GET /api/auth/notion?state=...
+  → Notion 로그인·승인
+  → Notion → GET /api/auth/notion/callback?code=...
+  → 백엔드 HTTP 302 직접 리다이렉트:
+       성공: todoreport://auth/callback?access_token=...&workspace_id=...
+       실패: todoreport://auth/error?reason=...
+  → delegate initialLoadDidRedirectTo (todoreport:// 감지)
+       → Safari dismiss → handleCallback → secondaryOAuthCompletion(token)
+```
+
+- **iOS 26 대응:** SFSafariViewController에서 JavaScript로 커스텀 URL 스킴을 열 수 없어, 백엔드가 `/ios-auth` 중간 페이지를 거치지 않고 `todoreport://`로 **직접 302**한다 (`app/api/auth/notion/callback/route.ts`).
+- **`/ios-auth` 페이지:** OAuth 경로에서는 더 이상 사용하지 않음. 파일(`app/ios-auth/page.tsx`)은 삭제하지 않고 유지.
+- **Safari 사용자 취소:** `safariViewControllerDidFinish`에서 `NotionAuthManager.isLoading = false`, `oAuthCancelledCompletion?()` 호출.
+- **온보딩:** `OnboardingViewModel.startNotionOAuth()`가 `secondaryOAuthCompletion`과 함께 `oAuthCancelledCompletion`을 등록해 Safari 중간 종료 시 `isLoading` 고착 방지.
+
+**관련 파일:** `Core/Auth/NotionAuth.swift`, `Features/Onboarding/OnboardingViewModel.swift`, `todoreport-backend/app/api/auth/notion/callback/route.ts`
 
 **노션 DB 목록 조회 (`NotionDatabasesFetcher`):**
 - 공통 모듈 — 온보딩·플래너 추가·마이그레이션·노션 설정
@@ -1600,6 +1621,13 @@ v1 출시 — 노션에 자동 저장되는 투두 & 데일리 리포트. 지금
 ---
 
 ## 리팩토링 TODO
+
+### Notion OAuth iOS 26 · Safari 취소 (✅ 2026-06-12)
+- **문제 1:** iOS 26 `SFSafariViewController`에서 JavaScript `window.location = todoreport://...`가 동작하지 않아 OAuth 완료 후 앱 복귀 실패
+- **해결 1:** 백엔드 callback이 `/ios-auth` 중간 페이지 대신 `todoreport://auth/callback` / `todoreport://auth/error`로 **HTTP 302 직접 리다이렉트**
+- **문제 2:** 사용자가 OAuth 중 Safari 시트를 닫으면 `NotionAuthManager.isLoading`·온보딩 `isLoading`이 `true`로 고착
+- **해결 2:** `safariViewControllerDidFinish` + `oAuthCancelledCompletion` — 온보딩 `startNotionOAuth()`에서 취소 콜백 등록
+- 관련: `NotionAuth.swift`, `OnboardingViewModel.swift`, `todoreport-backend/app/api/auth/notion/callback/route.ts`
 
 ### TodoService → DataRepository 패턴 통합 (v1 후반 또는 v2)
 - 현재: TodoService가 SwiftData + SyncQueue를 직접 사용

@@ -420,18 +420,22 @@ final class ReportService {
             let byPageId = FetchDescriptor<DailyReportItem>(
                 predicate: #Predicate { $0.notionPageId == pageId }
             )
-            if let existing = try? context.fetch(byPageId).first, existing.endDate != nil {
-                existing.review = reviewText
-                existing.notionPageId = pageId
-                existing.endDate = end
-                existing.date = start
-                existing.plannerId = plannerId
-                if response.completionRate > 0 {
-                    existing.completionRate = response.completionRate
-                    existing.periodCompletionRate = response.completionRate
+            if let existing = try? context.fetch(byPageId).first, let existingEnd = existing.endDate {
+                let existingEndDay = calendar.startOfDay(for: existingEnd)
+                let targetEndDay = calendar.startOfDay(for: end)
+                if calendar.isDate(existingEndDay, inSameDayAs: targetEndDay) {
+                    existing.review = reviewText
+                    existing.notionPageId = pageId
+                    existing.endDate = end
+                    existing.date = start
+                    existing.plannerId = plannerId
+                    if response.completionRate > 0 {
+                        existing.completionRate = response.completionRate
+                        existing.periodCompletionRate = response.completionRate
+                    }
+                    try? context.save()
+                    return
                 }
-                try? context.save()
-                return
             }
         }
 
@@ -491,8 +495,7 @@ final class ReportService {
             return exact
         }
 
-        // endDate 저장 형식이 달라진 레거시 데이터 — 동일 시작일 기간 리포트 1건으로 폴백
-        return periodItems.first
+        return nil
     }
 
     /// Notion PATCH 시 데일리 pageId를 기간 리포트로 오용하지 않도록 필터

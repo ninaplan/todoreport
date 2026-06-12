@@ -15,6 +15,7 @@ final class NotionAuthManager: NSObject, ObservableObject, SFSafariViewControlle
 
     // 항상 이 콜백을 통해 토큰 전달 (플래너 모델에 직접 저장)
     var secondaryOAuthCompletion: ((String) -> Void)?
+    var oAuthCancelledCompletion: (() -> Void)?
 
     private var pendingState: String?
     private var safariVC: SFSafariViewController?
@@ -54,6 +55,14 @@ final class NotionAuthManager: NSObject, ObservableObject, SFSafariViewControlle
             self.safariVC?.dismiss(animated: true)
             self.safariVC = nil
             self.handleCallback(url: url)
+        }
+    }
+
+    nonisolated func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
+        Task { @MainActor in
+            self.isLoading = false
+            self.safariVC = nil
+            self.oAuthCancelledCompletion?()
         }
     }
 

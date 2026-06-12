@@ -150,6 +150,11 @@ final class OnboardingViewModel {
                 self?.proceedFromNotionOAuth()
             }
         }
+        NotionAuthManager.shared.oAuthCancelledCompletion = { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.isLoading = false
+            }
+        }
         NotionAuthManager.shared.startOAuth()
     }
 
