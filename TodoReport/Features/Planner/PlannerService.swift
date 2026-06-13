@@ -186,6 +186,11 @@ final class PlannerService {
         store = (try? context.fetch(descriptor))?.map { $0.toPlanner() } ?? []
     }
 
+    /// SwiftData 최신 상태를 store에 반영 (설정 저장 직후 등)
+    func reloadFromStore() {
+        refreshStore()
+    }
+
     // 기존 데이터(plannerId가 nil 또는 빈 문자열)를 기본 플래너 ID로 설정
     private func backfillPlannerId(_ defaultId: String) {
         guard !defaultId.isEmpty else { return }

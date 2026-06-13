@@ -6,6 +6,7 @@ final class CategoryViewModel {
     var categories: [Category] = []
     var archivedCategories: [Category] = []
     private(set) var isLoading: Bool = false
+    private(set) var isNotionCategorySyncEnabled: Bool = false
 
     var isSheetPresented: Bool = false
     var editName: String = ""
@@ -29,16 +30,21 @@ final class CategoryViewModel {
 
     init(plannerId: String? = nil) {
         self.plannerId = plannerId
+        updateNotionSyncVisibility()
     }
 
     var isEditing: Bool { editingId != nil }
 
-    /// 노션 투두 DB 카테고리(select) 동기화가 켜진 플래너인지
-    var isNotionCategorySyncEnabled: Bool {
+    private func currentPlanner() -> Planner? {
         let pid = plannerId ?? PlannerService.shared.selectedPlanner?.id
-        guard let pid,
-              let planner = PlannerService.shared.store.first(where: { $0.id == pid }) else { return false }
-        return CategoryNotionSync.shared.isSelectSyncEnabled(for: planner)
+        guard let pid else { return nil }
+        return PlannerService.shared.store.first(where: { $0.id == pid })
+    }
+
+    private func updateNotionSyncVisibility() {
+        PlannerService.shared.reloadFromStore()
+        let planner = currentPlanner()
+        isNotionCategorySyncEnabled = planner.map { CategoryNotionSync.shared.isSelectSyncEnabled(for: $0) } ?? false
     }
 
     func deleteAlertMessage(for category: Category) -> String {
@@ -70,6 +76,7 @@ final class CategoryViewModel {
     // MARK: - Data
 
     func fetchCategories() async {
+        updateNotionSyncVisibility()
         isLoading = true
         let pid = plannerId ?? PlannerService.shared.selectedPlanner?.id
         if let pid {

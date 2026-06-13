@@ -77,6 +77,8 @@ struct PlannerNotionSettingsView: View {
             )
         } header: {
             Text("투두 데이터베이스")
+        } footer: {
+            Text(NotionDBPickerHint.missingDatabaseRefresh)
         }
     }
 
@@ -158,7 +160,10 @@ struct PlannerNotionSettingsView: View {
         } header: {
             Text("데일리리포트 데이터베이스")
         } footer: {
-            Text("연결하지 않으면 리포트는 앱 내에서만 저장됩니다.")
+            VStack(alignment: .leading, spacing: 6) {
+                Text("연결하지 않으면 리포트는 앱 내에서만 저장됩니다.")
+                Text(NotionDBPickerHint.missingDatabaseRefresh)
+            }
         }
     }
 

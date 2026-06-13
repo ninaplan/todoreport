@@ -1,5 +1,31 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
+## 현재 상황 (2026-06-13 기준)
+
+### 앱 상태
+- v1.0.0 App Store 심사 제출 중
+- v1.0.1 수정 완료 (심사 통과 후 제출 예정)
+
+### v1.0.1 수정 내용
+- 날짜 변경 후 오늘 화면에 잠깐 표시되는 버그 수정
+- 날짜 이동 시 Notion 재조회 제거 → fetchLocalTodos / syncFromNotion 분리
+- Notion에서 날짜 변경 시 앱에 미반영 문제 수정 (applyNotionDate)
+- A일 새로고침 시 날짜 변경된 항목 즉시 삭제 (5분 유예 제거)
+- SyncQueue 무한 루프 수정 (로컬 플래너 enqueue 차단, retry 상한)
+
+### 다음 할 일
+- 심사 통과 후 v1.0.1 빌드 제출
+- 앱 사용 가이드 페이지 제작 (설정 탭 링크 연결)
+- V2 기능 개발 시작 (V2-IDEAS.md 참고)
+
+### 주요 파일
+- SPEC.md — 앱 전체 스펙
+- CLAUDE.md — 개발 원칙 및 진행 상태
+- CHANGELOG.md — 버전별 수정 내역
+- V2-IDEAS.md — v2 백로그
+
+---
+
 ## 프로젝트 개요
 - **브랜드:** 노크(Nock / nock.kr)
 - **앱명:** 투두리포트

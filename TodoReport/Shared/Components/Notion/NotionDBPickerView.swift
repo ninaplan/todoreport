@@ -1,5 +1,10 @@
 import SwiftUI
 
+enum NotionDBPickerHint {
+    static let missingDatabaseRefresh =
+        "찾는 데이터베이스가 목록에 없으면 우상단 새로고침 버튼을 눌러 다시 불러오세요."
+}
+
 struct NotionDBPickerView: View {
     let subtitle: String
     let databases: [NotionDatabase]
@@ -64,6 +69,14 @@ struct NotionDBPickerView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.horizontal, 24)
                                 .padding(.top, 8)
+
+                            Text(NotionDBPickerHint.missingDatabaseRefresh)
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, 24)
+                                .padding(.top, 4)
 
                             VStack(spacing: 0) {
                                 ForEach(databases) { db in

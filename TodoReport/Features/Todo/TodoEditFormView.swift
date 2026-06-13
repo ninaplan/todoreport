@@ -33,9 +33,9 @@ struct TodoEditFormView: View {
                 text: $title,
                 placeholder: "할일",
                 textStyle: .title3,
-                autoFocus: autoFocus
+                autoFocus: autoFocus,
+                axis: .vertical
             )
-            .frame(minHeight: 44)
 
             TextField("메모", text: $memo, axis: .vertical)
                 .lineLimit(3...6)

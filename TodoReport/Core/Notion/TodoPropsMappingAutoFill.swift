@@ -13,6 +13,9 @@ enum TodoPropsMappingAutoFill {
     /// 리포트 relation 자동 매핑에만 사용하는 정확한 속성명 (first fallback 금지)
     private static let reportRelationExactNames = ["데일리 리포트"]
 
+    /// isPinned checkbox 자동 매핑 alias (순서대로 exact match, 영문은 대소문자 무시)
+    private static let isPinnedAliasNames = ["중요", "상단고정", "고정", "pin", "pinned"]
+
     static func apply(
         mapping: inout TodoPropsMapping,
         properties: [NotionProperty],
@@ -126,7 +129,7 @@ enum TodoPropsMappingAutoFill {
         resolveCheckbox(
             name: &mapping.completed,
             id: &mapping.completedPropId,
-            defaultName: "완료",
+            defaultNames: ["완료"],
             properties: properties,
             preserveIfMissing: false
         )
@@ -151,9 +154,10 @@ enum TodoPropsMappingAutoFill {
         resolveCheckbox(
             name: &mapping.isPinned,
             id: &mapping.isPinnedPropId,
-            defaultName: "중요",
+            defaultNames: isPinnedAliasNames,
             properties: properties,
-            preserveIfMissing: false
+            preserveIfMissing: false,
+            excludePropertyIds: excludedCompletedPropertyIds(from: mapping)
         )
         resolveReportRelation(
             name: &mapping.reportRelation,
@@ -171,7 +175,7 @@ enum TodoPropsMappingAutoFill {
         resolveCheckbox(
             name: &mapping.completed,
             id: &mapping.completedPropId,
-            defaultName: "완료",
+            defaultNames: ["완료"],
             properties: properties,
             preserveIfMissing: true
         )
@@ -196,9 +200,10 @@ enum TodoPropsMappingAutoFill {
         resolveCheckbox(
             name: &mapping.isPinned,
             id: &mapping.isPinnedPropId,
-            defaultName: "중요",
+            defaultNames: isPinnedAliasNames,
             properties: properties,
-            preserveIfMissing: true
+            preserveIfMissing: true,
+            excludePropertyIds: excludedCompletedPropertyIds(from: mapping)
         )
         resolveReportRelation(
             name: &mapping.reportRelation,
@@ -251,24 +256,67 @@ enum TodoPropsMappingAutoFill {
         }
     }
 
-    /// checkbox 전용: ID 우선 → 이름 → 기본명 일치만. 동일 유형이 여러 개여도 첫 번째로 폴백하지 않음.
+    /// checkbox 전용: ID 우선 → 이름 → alias exact match. 동일 유형이 여러 개여도 첫 번째로 폴백하지 않음.
     @discardableResult
     private static func resolveCheckbox(
         name: inout String?,
         id: inout String?,
-        defaultName: String,
+        defaultNames: [String],
         properties: [NotionProperty],
-        preserveIfMissing: Bool
+        preserveIfMissing: Bool,
+        excludePropertyIds: Set<String> = []
     ) -> Bool {
-        resolveStandard(
-            name: &name,
-            id: &id,
-            type: "checkbox",
-            defaultName: defaultName,
-            properties: properties,
-            allowFirstFallback: false,
-            preserveIfMissing: preserveIfMissing
-        )
+        let allCheckbox = properties.filter { $0.type == "checkbox" }
+        let candidateCheckbox = excludePropertyIds.isEmpty
+            ? allCheckbox
+            : allCheckbox.filter { !excludePropertyIds.contains($0.id) }
+        let hadValue = name != nil || id != nil
+
+        if preserveIfMissing, let savedId = id {
+            if let prop = allCheckbox.first(where: { $0.id == savedId }) {
+                name = prop.name
+            }
+            return true
+        }
+
+        if let currentId = id, let prop = allCheckbox.first(where: { $0.id == currentId }) {
+            name = prop.name
+            id = prop.id
+            return true
+        }
+        if let currentName = name, let prop = allCheckbox.first(where: { $0.name == currentName }) {
+            name = prop.name
+            id = prop.id
+            return true
+        }
+
+        if preserveIfMissing, hadValue {
+            return false
+        }
+
+        for alias in defaultNames {
+            if let match = candidateCheckbox.first(where: { propertyNameMatchesAlias($0.name, alias: alias) }) {
+                name = match.name
+                id = match.id
+                return true
+            }
+        }
+
+        name = nil
+        id = nil
+        return false
+    }
+
+    private static func excludedCompletedPropertyIds(from mapping: TodoPropsMapping) -> Set<String> {
+        guard let completedPropId = mapping.completedPropId else { return [] }
+        return [completedPropId]
+    }
+
+    private static func propertyNameMatchesAlias(_ propertyName: String, alias: String) -> Bool {
+        if alias.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) {
+            return propertyName.caseInsensitiveCompare(alias) == .orderedSame
+        }
+        return propertyName == alias
     }
 
     private static func applyCheckboxSelection(

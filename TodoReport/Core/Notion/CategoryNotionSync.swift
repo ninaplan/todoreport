@@ -29,12 +29,13 @@ final class CategoryNotionSync {
 
     private var context: ModelContext { PersistenceController.shared.context }
     private let backendBase = "https://todoreport-backend.vercel.app"
+    @ObservationIgnored private var cachedNotionOptionsByPlannerId: [String: [NotionCategoryOption]] = [:]
 
     // MARK: - Mode
 
     func resolvedMode(for planner: Planner) -> CategoryNotionMode {
         if planner.notionCategoryDBId != nil { return .database }
-        guard planner.decodedTodoPropsMapping.category != nil else { return .appOnly }
+        guard hasCategoryPropertyMapping(planner.decodedTodoPropsMapping) else { return .appOnly }
         let linkedToNotion = planner.isNotionConnected
             || (planner.notionTodoDBId != nil && planner.resolvedNotionToken != nil)
         return linkedToNotion ? .select : .appOnly
@@ -49,7 +50,7 @@ final class CategoryNotionSync {
     func fetchNotionOptions(planner: Planner) async -> [NotionCategoryOption] {
         guard let dbId = planner.notionTodoDBId,
               let token = planner.resolvedNotionToken,
-              let propName = planner.decodedTodoPropsMapping.category,
+              hasCategoryPropertyMapping(planner.decodedTodoPropsMapping),
               let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else {
             AppLogger.shared.warn("CategoryNotionSync", "노션 옵션 조회 스킵 - DB/토큰/속성명 없음")
             return []
@@ -73,27 +74,32 @@ final class CategoryNotionSync {
                 return []
             }
             let decoded = try JSONDecoder().decode(CategoryPropertiesResponse.self, from: data)
-            // 이름으로만 매칭 (select/status 둘 다 허용 — 매핑에 저장된 propType과 노션 실제 type이 어긋나도 안전)
-            guard let prop = decoded.properties.first(where: {
-                $0.name == propName && CategoryNotionProperty.supportedTypes.contains($0.type)
-            }) else {
+            guard let prop = resolveCategoryProperty(
+                mapping: planner.decodedTodoPropsMapping,
+                properties: decoded.properties
+            ) else {
                 let available = decoded.properties
                     .filter { CategoryNotionProperty.supportedTypes.contains($0.type) }
                     .map { "\($0.name)(\($0.type))" }
                     .joined(separator: ", ")
                 AppLogger.shared.warn(
                     "CategoryNotionSync",
-                    "카테고리 속성 '\(propName)' 없음. 후보: [\(available)]"
+                    "카테고리 속성 매핑을 찾을 수 없음. 후보: [\(available)]"
                 )
                 return []
             }
+            await reconcileCategoryPropertyMapping(for: planner, resolvedProperty: prop)
             await reconcileCategoryPropType(for: planner, resolvedType: prop.type)
+            let options: [NotionCategoryOption]
             if let details = prop.selectOptions, !details.isEmpty {
-                return details.map { NotionCategoryOption(id: $0.id, name: $0.name) }
+                options = details.map { NotionCategoryOption(id: $0.id, name: $0.name) }
+            } else {
+                options = (prop.options ?? []).enumerated().map {
+                    NotionCategoryOption(id: "name:\($0.element)", name: $0.element)
+                }
             }
-            return (prop.options ?? []).enumerated().map {
-                NotionCategoryOption(id: "name:\($0.element)", name: $0.element)
-            }
+            cacheNotionOptions(plannerId: planner.id, options: options)
+            return options
         } catch {
             AppLogger.shared.warn("CategoryNotionSync", "노션 옵션 조회 실패 - \(error.localizedDescription)")
             return []
@@ -113,18 +119,84 @@ final class CategoryNotionSync {
         }
     }
 
+    /// 속성명·property ID가 어긋난 매핑을 노션 DB 기준으로 보정
+    private func reconcileCategoryPropertyMapping(
+        for planner: Planner,
+        resolvedProperty: CategoryPropertiesResponse.PropItem
+    ) async {
+        var mapping = planner.decodedTodoPropsMapping
+        let needsUpdate = mapping.category != resolvedProperty.name
+            || mapping.categoryPropId != resolvedProperty.id
+        guard needsUpdate else { return }
+        mapping.category = resolvedProperty.name
+        mapping.categoryPropId = resolvedProperty.id
+        var updated = planner
+        if let data = try? JSONEncoder().encode(mapping),
+           let json = String(data: data, encoding: .utf8) {
+            updated.todoPropsMapping = json
+            try? await PlannerService.shared.savePlanner(updated)
+        }
+    }
+
+    private func hasCategoryPropertyMapping(_ mapping: TodoPropsMapping) -> Bool {
+        mapping.category != nil || mapping.categoryPropId != nil
+    }
+
+    private func resolveCategoryProperty(
+        mapping: TodoPropsMapping,
+        properties: [CategoryPropertiesResponse.PropItem]
+    ) -> CategoryPropertiesResponse.PropItem? {
+        let typed = properties.filter { CategoryNotionProperty.supportedTypes.contains($0.type) }
+        if let name = mapping.category,
+           let prop = typed.first(where: { $0.name == name }) {
+            return prop
+        }
+        if let propId = mapping.categoryPropId,
+           let prop = typed.first(where: { $0.id == propId }) {
+            return prop
+        }
+        return nil
+    }
+
     // MARK: - 이름 일치 병합
 
     /// 이름 일치 병합 + 노션에만 있는 새 옵션을 앱 카테고리로 가져오기
     func syncCategoriesByName(plannerId: String) async {
+        PlannerService.shared.reloadFromStore()
         guard let planner = PlannerService.shared.store.first(where: { $0.id == plannerId }),
               isSelectSyncEnabled(for: planner) else { return }
 
         let notionOptions = await fetchNotionOptions(planner: planner)
-        guard !notionOptions.isEmpty else { return }
+        let notionOptionIds = Set(notionOptions.map(\.id))
 
         let all = (try? context.fetch(FetchDescriptor<CategoryItem>())) ?? []
         let plannerItems = all.filter { $0.plannerId == plannerId }
+
+        var archivedOrphanCount = 0
+        for item in plannerItems {
+            guard item.statusRaw == CategoryStatus.active.rawValue,
+                  item.isLinkedToNotion,
+                  let optionId = item.notionOptionId,
+                  !notionOptionIds.contains(optionId) else { continue }
+            item.statusRaw = CategoryStatus.archived.rawValue
+            archivedOrphanCount += 1
+        }
+
+        guard !notionOptions.isEmpty else {
+            guard archivedOrphanCount > 0 else { return }
+            try? context.save()
+            await CategoryService.shared.refresh()
+            AppLogger.shared.info(
+                "CategoryNotionSync",
+                "카테고리 동기화 - 노션 옵션 없음, 보관 \(archivedOrphanCount)개 planner=\(plannerId)"
+            )
+            return
+        }
+
+        let renamedCount = reconcileLinkedCategoryNames(
+            notionOptions: notionOptions,
+            plannerItems: plannerItems
+        )
         let archivedNames = Set(
             plannerItems
                 .filter { $0.statusRaw == CategoryStatus.archived.rawValue }
@@ -169,12 +241,12 @@ final class CategoryNotionSync {
             usedOptionIds.insert(option.id)
         }
 
-        guard linkedCount > 0 || !toImport.isEmpty else { return }
+        guard linkedCount > 0 || renamedCount > 0 || !toImport.isEmpty || archivedOrphanCount > 0 else { return }
         try? context.save()
         await CategoryService.shared.refresh()
         AppLogger.shared.info(
             "CategoryNotionSync",
-            "카테고리 동기화 - 병합 \(linkedCount)개, 노션 신규 \(toImport.count)개 planner=\(plannerId)"
+            "카테고리 동기화 - rename \(renamedCount)개, 병합 \(linkedCount)개, 노션 신규 \(toImport.count)개, 보관 \(archivedOrphanCount)개 planner=\(plannerId)"
         )
     }
 
@@ -209,6 +281,19 @@ final class CategoryNotionSync {
               let plannerId else { return nil }
 
         let all = (try? context.fetch(FetchDescriptor<CategoryItem>())) ?? []
+
+        if let option = cachedNotionOptions(for: plannerId).first(where: {
+            $0.name.trimmingCharacters(in: .whitespaces) == trimmed
+        }),
+           !option.id.hasPrefix("name:"),
+           let idMatch = all.first(where: { item in
+               item.plannerId == plannerId
+                   && item.statusRaw == CategoryStatus.active.rawValue
+                   && item.notionOptionId == option.id
+           }) {
+            return idMatch.id
+        }
+
         let match = all.first(where: { item in
             guard item.plannerId == plannerId,
                   item.statusRaw == CategoryStatus.active.rawValue else { return false }
@@ -278,6 +363,41 @@ final class CategoryNotionSync {
     }
 
     // MARK: - Private
+
+    private func cacheNotionOptions(plannerId: String, options: [NotionCategoryOption]) {
+        cachedNotionOptionsByPlannerId[plannerId] = options
+    }
+
+    private func cachedNotionOptions(for plannerId: String) -> [NotionCategoryOption] {
+        cachedNotionOptionsByPlannerId[plannerId] ?? []
+    }
+
+    /// notionOptionId로 노션 옵션명 변경을 앱 카테고리 name/notionOptionName에 반영
+    private func reconcileLinkedCategoryNames(
+        notionOptions: [NotionCategoryOption],
+        plannerItems: [CategoryItem]
+    ) -> Int {
+        let optionsById = Dictionary(uniqueKeysWithValues: notionOptions.map { ($0.id, $0) })
+        var renamedCount = 0
+
+        for item in plannerItems {
+            guard item.statusRaw == CategoryStatus.active.rawValue,
+                  item.isLinkedToNotion,
+                  let optionId = item.notionOptionId,
+                  !optionId.hasPrefix("name:"),
+                  let option = optionsById[optionId] else { continue }
+
+            let notionName = option.name.trimmingCharacters(in: .whitespaces)
+            let storedNotionName = item.notionOptionName?.trimmingCharacters(in: .whitespaces)
+            guard storedNotionName != notionName else { continue }
+
+            item.notionOptionName = option.name
+            item.name = option.name
+            renamedCount += 1
+        }
+
+        return renamedCount
+    }
 
     private func notionOptionsToImport(
         plannerItems: [CategoryItem],

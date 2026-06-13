@@ -53,6 +53,7 @@ struct CategoryView: View {
                     }
                 }
             }
+
         }
         .navigationTitle("카테고리 관리")
         .navigationBarTitleDisplayMode(.inline)

@@ -435,6 +435,8 @@ private struct TodoRow: View {
                         .font(.body)
                         .strikethrough(todo.isCompleted)
                         .foregroundStyle(todo.isCompleted ? .secondary : .primary)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
                         .animation(.easeInOut(duration: 0.15), value: todo.isCompleted)
 
                     if todo.isPinned {
