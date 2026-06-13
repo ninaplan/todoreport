@@ -26,9 +26,16 @@ final class SyncQueueProcessor {
 
             for item in items {
                 // 아이템에 저장된 plannerId로만 플래너 조회 (selectedPlanner fallback 없음)
-                guard let planner = PlannerService.shared.store.first(where: { $0.id == item.plannerId }),
-                      planner.isNotionConnected else {
-                    print("[Processor] ⚠️ 플래너 없음 또는 미연결 - 스킵 \(item.entityId) plannerId:\(item.plannerId ?? "nil")")
+                guard SyncQueueManager.shared.isPlannerNotionConnected(item.plannerId),
+                      let planner = PlannerService.shared.store.first(where: { $0.id == item.plannerId }) else {
+                    item.retryCount += 1
+                    if item.retryCount >= 3 {
+                        context.delete(item)
+                        print("[Processor] ❌ 플래너 스킵 한도 초과 → 삭제 \(item.entityId) plannerId:\(item.plannerId ?? "nil")")
+                    } else {
+                        print("[Processor] ⚠️ 플래너 없음 또는 미연결 - 스킵 \(item.entityId) plannerId:\(item.plannerId ?? "nil") retryCount:\(item.retryCount)")
+                    }
+                    try? context.save()
                     continue
                 }
 

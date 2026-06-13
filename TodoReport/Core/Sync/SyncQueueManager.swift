@@ -5,6 +5,7 @@ import SwiftData
 final class SyncQueueManager {
     static let shared = SyncQueueManager()
     private init() {
+        clearUnprocessableQueueItems()
         clearFailedItems()
         clearOldItems()
     }
@@ -38,6 +39,12 @@ final class SyncQueueManager {
                 }
             )
             if let existing = try? context.fetch(pendingCreateDesc).first {
+                guard isPlannerNotionConnected(todo.plannerId) else {
+                    context.delete(existing)
+                    try? context.save()
+                    print("[SyncQueue] 🗑️ pending create 삭제 - Notion 미연결 plannerId:\(todo.plannerId ?? "nil")")
+                    return
+                }
                 guard let payload = encodedTodoCreatePayload(todo) else { return }
                 existing.payload = payload
                 existing.createdAt = .now
@@ -115,7 +122,20 @@ final class SyncQueueManager {
 
     // MARK: - Private
 
+    func isPlannerNotionConnected(_ plannerId: String?) -> Bool {
+        guard let plannerId else { return false }
+        guard let planner = PlannerService.shared.store.first(where: { $0.id == plannerId }) else {
+            return false
+        }
+        return planner.isNotionConnected
+    }
+
     private func enqueue(action: String, entityType: String, entityId: String, payload: Data, plannerId: String?) {
+        guard isPlannerNotionConnected(plannerId) else {
+            print("[SyncQueue] 🚫 enqueue 스킵 - Notion 미연결 plannerId:\(plannerId ?? "nil")")
+            return
+        }
+
         // update 중복 방지: 동일 entityId의 pending update 항목이 있으면 payload를 최신으로 교체
         if action == "update" {
             let eid = entityId
@@ -127,6 +147,12 @@ final class SyncQueueManager {
                 }
             )
             if let existing = try? context.fetch(descriptor).first {
+                guard isPlannerNotionConnected(existing.plannerId) else {
+                    context.delete(existing)
+                    try? context.save()
+                    print("[SyncQueue] 🗑️ pending update 삭제 - Notion 미연결 plannerId:\(existing.plannerId ?? "nil")")
+                    return
+                }
                 existing.payload = mergeUpdatePayload(existing: existing.payload, incoming: payload) ?? payload
                 existing.createdAt = .now
                 try? context.save()
@@ -201,6 +227,21 @@ final class SyncQueueManager {
     }
 
     // MARK: - Cleanup
+
+    /// Notion 미연동·플래너 없음 pending/processing 항목 정리 (기존 orphan queue 포함)
+    private func clearUnprocessableQueueItems() {
+        let descriptor = FetchDescriptor<SyncQueueItem>(
+            predicate: #Predicate<SyncQueueItem> {
+                $0.status == "pending" || $0.status == "processing"
+            }
+        )
+        guard let items = try? context.fetch(descriptor), !items.isEmpty else { return }
+        let toDelete = items.filter { !isPlannerNotionConnected($0.plannerId) }
+        guard !toDelete.isEmpty else { return }
+        toDelete.forEach { context.delete($0) }
+        try? context.save()
+        print("[SyncQueue] 🗑️ 처리 불가 항목 \(toDelete.count)개 삭제 (미연동 플래너)")
+    }
 
     private func clearFailedItems() {
         let descriptor = FetchDescriptor<SyncQueueItem>(

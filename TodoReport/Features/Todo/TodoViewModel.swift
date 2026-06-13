@@ -18,15 +18,17 @@ final class TodoViewModel {
 
     var selectedDate: Date = .now {
         didSet {
-            Task { await fetchTodos() }
+            Task { await fetchLocalTodos() }
+            triggerFirstLaunchSyncIfNeeded()
             Task { @MainActor in await RecurringTodoManager.shared.generateUpcoming() }
         }
     }
 
     private let service = TodoService.shared
     private let categoryService = CategoryService.shared
-    @ObservationIgnored private var fetchTodosTask: Task<Void, Never>?
-    private var notionSyncTask: Task<Void, Never>?
+    @ObservationIgnored private var localFetchTask: Task<Void, Never>?
+    @ObservationIgnored private var notionSyncTask: Task<Void, Never>?
+    @ObservationIgnored private var isFirstLaunch: Bool = true
 
     private var isPro: Bool { SubscriptionManager.shared.isPro }
 
@@ -56,22 +58,29 @@ final class TodoViewModel {
     var activeCategories: [Category] { categoryService.activeCategories }
 
     var completionRate: Double {
-        guard !todos.isEmpty else { return 0 }
-        return Double(todos.filter(\.isCompleted).count) / Double(todos.count)
+        let dated = todosForSelectedDate
+        guard !dated.isEmpty else { return 0 }
+        return Double(dated.filter(\.isCompleted).count) / Double(dated.count)
     }
 
     private var todosForRate: [Todo] {
-        guard let filterId = selectedCategoryFilter else { return todos }
-        return todos.filter { $0.categoryId == filterId }
+        let dated = todosForSelectedDate
+        guard let filterId = selectedCategoryFilter else { return dated }
+        return dated.filter { $0.categoryId == filterId }
+    }
+
+    private var todosForSelectedDate: [Todo] {
+        todos.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
     }
 
     var displayedTodos: [Todo] {
-        let pinned   = todos.filter {  $0.isPinned && !$0.isCompleted }
+        let dated = todosForSelectedDate
+        let pinned   = dated.filter {  $0.isPinned && !$0.isCompleted }
                             .sorted { sortDate($0) < sortDate($1) }
-        let normal   = todos.filter { !$0.isPinned && !$0.isCompleted }
+        let normal   = dated.filter { !$0.isPinned && !$0.isCompleted }
                             .sorted { sortDate($0) < sortDate($1) }
         let completed = hideCompleted ? [] :
-                        todos.filter { $0.isCompleted }
+                        dated.filter { $0.isCompleted }
                              .sorted { ($0.completedAt ?? $0.createdAt) > ($1.completedAt ?? $1.createdAt) }
         return pinned + normal + completed
     }
@@ -100,13 +109,16 @@ final class TodoViewModel {
 
     // MARK: - Data
 
+    func onAppear() async {
+        await fetchLocalTodos()
+        triggerFirstLaunchSyncIfNeeded()
+    }
+
     func switchPlanner() async {
-        notionSyncTask?.cancel()
-        notionSyncTask = nil
+        cancelInFlightFetches()
         todos = []
         await categoryService.refresh()
-        await syncNotionCategoriesIfNeeded()
-        await fetchTodos()
+        await syncFromNotion()
     }
 
     func onForeground() async {
@@ -117,55 +129,66 @@ final class TodoViewModel {
                 && Date.now < timeout {
             try? await Task.sleep(for: .milliseconds(200))
         }
-        await fetchTodos()
+        await syncFromNotion()
     }
 
-    func fetchTodos() async {
-        if let existing = fetchTodosTask {
-            await existing.value
-            return
-        }
+    func fetchLocalTodos(for date: Date? = nil) async {
+        localFetchTask?.cancel()
+        let targetDate = date ?? selectedDate
         let task = Task { @MainActor in
-            defer { fetchTodosTask = nil }
-            await performFetchTodos()
+            defer { localFetchTask = nil }
+            await performFetchLocalTodos(for: targetDate)
         }
-        fetchTodosTask = task
+        localFetchTask = task
         await task.value
     }
 
-    @MainActor
-    private func performFetchTodos() async {
-        isLoading = true
-        await syncNotionCategoriesIfNeeded()
-        todos = await service.fetchTodos(for: selectedDate)
-        validateCategoryFilter()
-        updateWidget()
+    func syncFromNotion(for date: Date? = nil) async {
+        let targetDate = date ?? selectedDate
+        await fetchLocalTodos(for: targetDate)
+
+        guard PlannerService.shared.selectedPlanner?.isNotionConnected == true else { return }
 
         notionSyncTask?.cancel()
         notionSyncTask = nil
 
-        guard PlannerService.shared.selectedPlanner?.isNotionConnected == true else {
-            isLoading = false
-            return
-        }
-
-        let date = selectedDate
-        isNotionSyncing = true
-        isLoading = false
-
-        notionSyncTask = Task { @MainActor in
+        let task = Task { @MainActor in
             defer {
                 isNotionSyncing = false
                 notionSyncTask = nil
             }
+            isNotionSyncing = true
             await syncNotionCategoriesIfNeeded()
-            await service.syncTodosFromNotion(for: date)
+            await service.syncTodosFromNotion(for: targetDate)
             guard !Task.isCancelled else { return }
-            todos = await service.fetchTodos(for: date)
+            guard Calendar.current.isDate(selectedDate, inSameDayAs: targetDate) else { return }
+            todos = await service.fetchTodos(for: targetDate)
             validateCategoryFilter()
             updateWidget()
         }
-        await notionSyncTask?.value
+        notionSyncTask = task
+        await task.value
+    }
+
+    @MainActor
+    private func performFetchLocalTodos(for date: Date) async {
+        let shouldShowLoading = todosForSelectedDate.isEmpty
+            && Calendar.current.isDate(date, inSameDayAs: selectedDate)
+        if shouldShowLoading { isLoading = true }
+        defer { isLoading = false }
+
+        let fetched = await service.fetchTodos(for: date)
+        guard !Task.isCancelled else { return }
+        guard Calendar.current.isDate(selectedDate, inSameDayAs: date) else { return }
+        todos = fetched
+        validateCategoryFilter()
+        updateWidget()
+    }
+
+    private func triggerFirstLaunchSyncIfNeeded() {
+        guard isFirstLaunch else { return }
+        isFirstLaunch = false
+        Task { await syncFromNotion() }
     }
 
     private func syncNotionCategoriesIfNeeded() async {
@@ -336,12 +359,30 @@ final class TodoViewModel {
         }
     }
 
+    private func cancelInFlightFetches() {
+        localFetchTask?.cancel()
+        localFetchTask = nil
+        notionSyncTask?.cancel()
+        notionSyncTask = nil
+    }
+
+    @MainActor
+    private func replaceTodosFromStore() async {
+        todos = await service.fetchTodos(for: selectedDate)
+        validateCategoryFilter()
+        updateWidget()
+    }
+
     func moveToTomorrow(_ todo: Todo) {
         guard let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) else { return }
         var moved = todo
         moved.date = nextDay
         todos.removeAll { $0.id == todo.id }
-        Task { try? await service.updateTodo(moved) }
+        cancelInFlightFetches()
+        Task {
+            try? await service.updateTodo(moved)
+            await replaceTodosFromStore()
+        }
     }
 
     func changeTodoDate(_ todo: Todo, to newDate: Date) {
@@ -354,7 +395,11 @@ final class TodoViewModel {
         } else {
             todos.removeAll { $0.id == todo.id }
         }
-        Task { try? await service.updateTodo(updated) }
+        cancelInFlightFetches()
+        Task {
+            try? await service.updateTodo(updated)
+            await replaceTodosFromStore()
+        }
     }
 
     func saveTodoEdit(_ updated: Todo) {
@@ -397,7 +442,11 @@ final class TodoViewModel {
         if updated.scheduledTime == nil {
             TodoNotificationManager.shared.cancel(for: updated.id)
         }
-        Task { try? await service.updateTodo(updated) }
+        cancelInFlightFetches()
+        Task {
+            try? await service.updateTodo(updated)
+            await replaceTodosFromStore()
+        }
     }
 
     func selectPlanner(_ planner: Planner) {
@@ -473,6 +522,5 @@ final class TodoViewModel {
             return
         }
         selectedDate = target
-        Task { await fetchTodos() }
     }
 }

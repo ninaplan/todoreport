@@ -114,10 +114,10 @@ struct TodoView: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .refreshable {
-                    await viewModel.fetchTodos()
+                    await viewModel.syncFromNotion()
                     await dailyReportViewModel.fetchReport(for: viewModel.selectedDate, completionRate: viewModel.completionRate)
                 }
-                .onAppear { Task { await viewModel.fetchTodos() } }
+                .onAppear { Task { await viewModel.onAppear() } }
                 .onChange(of: tabCoordinator.pendingTodoDate) { _, date in
                     guard let date else { return }
                     viewModel.navigateToDate(date)
@@ -835,6 +835,7 @@ private struct TodoEditSheet: View {
                         guard !trimmed.isEmpty else { return }
                         var saved = draft
                         saved.title = trimmed
+                        saved.date = Calendar.current.startOfDay(for: draft.date)
                         onSave(saved)
                         dismiss()
                     }

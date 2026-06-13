@@ -230,6 +230,7 @@ final class TodoService {
                 existing.categoryId = CategoryNotionSync.shared.applyCategoryFromNotion(
                     name: nt.categoryName, plannerId: plannerId
                 )
+                applyNotionDate(to: existing, from: nt.date)
                 continue
             }
 
@@ -263,12 +264,13 @@ final class TodoService {
             let categoryId = CategoryNotionSync.shared.applyCategoryFromNotion(
                 name: nt.categoryName, plannerId: plannerId
             )
+            let insertDate = parseNotionTodoDate(nt.date, fallback: startOfDay)
             let todo = Todo(
                 title: nt.title,
                 memo: nt.memo,
                 isCompleted: nt.isCompleted,
                 isPinned: nt.isPinned,
-                date: startOfDay,
+                date: insertDate,
                 notionCreatedAt: parsedNotionCreatedAt,
                 categoryId: categoryId,
                 notionPageId: nt.notionPageId,
@@ -277,7 +279,7 @@ final class TodoService {
             context.insert(TodoItem.from(todo))
         }
 
-        // Notion 응답에 없는 항목 삭제 (notionPageId 있는 항목만 — pending 항목은 제외)
+        // Notion 응답에 없는 항목 삭제 (notionPageId 연동 완료 항목만 — pending 항목은 제외)
         let notionPageIds = Set(notionTodos.map { $0.notionPageId })
         let allDescriptor = FetchDescriptor<TodoItem>(
             predicate: #Predicate {
@@ -285,10 +287,8 @@ final class TodoService {
             }
         )
         if let allItems = try? context.fetch(allDescriptor) {
-            let gracePeriodCutoff = Date().addingTimeInterval(-300)  // Notion 전파 지연 대비 5분 유예
             let toDelete = allItems.filter {
                 !notionPageIds.contains($0.notionPageId) &&
-                $0.createdAt < gracePeriodCutoff &&
                 !SyncQueueManager.shared.hasPendingOperation(for: $0.notionPageId)
             }
             toDelete.forEach { context.delete($0) }
@@ -322,6 +322,45 @@ final class TodoService {
         fmt.dateFormat = "yyyy-MM-dd"
         fmt.timeZone = TimeZone(identifier: "Asia/Seoul")
         return fmt.string(from: date)
+    }
+
+    /// Notion date 문자열(ISO8601 또는 yyyy-MM-dd) → startOfDay. 실패 시 fallback.
+    private func parseNotionTodoDate(_ dateString: String, fallback: Date) -> Date {
+        let cal = Calendar.current
+        let fallbackDay = cal.startOfDay(for: fallback)
+        let trimmed = dateString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return fallbackDay }
+
+        let seoul = TimeZone(identifier: "Asia/Seoul")
+
+        let iso = ISO8601DateFormatter()
+        iso.timeZone = seoul
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let parsed = iso.date(from: trimmed) { return cal.startOfDay(for: parsed) }
+        iso.formatOptions = [.withInternetDateTime]
+        if let parsed = iso.date(from: trimmed) { return cal.startOfDay(for: parsed) }
+
+        let dayOnly = DateFormatter()
+        dayOnly.dateFormat = "yyyy-MM-dd"
+        dayOnly.locale = Locale(identifier: "en_US_POSIX")
+        dayOnly.timeZone = seoul
+        if let parsed = dayOnly.date(from: trimmed) { return cal.startOfDay(for: parsed) }
+        if trimmed.count >= 10, let parsed = dayOnly.date(from: String(trimmed.prefix(10))) {
+            return cal.startOfDay(for: parsed)
+        }
+
+        return fallbackDay
+    }
+
+    /// pageId 매칭 기존 항목 — Notion date 반영 및 날짜 변경 연쇄 처리 (scheduledTime은 유지)
+    private func applyNotionDate(to existing: TodoItem, from notionDateString: String) {
+        let newDate = parseNotionTodoDate(notionDateString, fallback: existing.date)
+        guard !Calendar.current.isDate(existing.date, inSameDayAs: newDate) else { return }
+        existing.date = newDate
+        existing.notionRelationLinked = false
+        if existing.scheduledTime != nil {
+            TodoNotificationManager.shared.schedule(for: existing.toTodo())
+        }
     }
 
     // MARK: - Private
