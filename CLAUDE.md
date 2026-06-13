@@ -325,6 +325,49 @@ guard let planner = PlannerService.shared.store.first(where: { $0.id == item.pla
 - `notionCreatedAt` — Notion에서 내려온 값만 신뢰 (upsertFromNotion에서 직접 세팅)
 - `plannerId` — 생성 시 고정, 플래너 이동 기능 구현 시 별도 메서드로 처리
 
+**원칙 3: 로컬(Notion 미연결) 플래너 할일은 SyncQueue에 enqueue하지 않는다**
+
+- `SyncQueueManager.isPlannerNotionConnected(_:)` — `plannerId` nil / store 미존재 / `!isNotionConnected` → false
+- `private enqueue()` 진입 시 미연동이면 **enqueue 스킵** (로컬 전용 플래너는 Notion push 불필요)
+- Processor 플래너 스킵 시 `retryCount` 상한(3회) 후 queue item 삭제 — 무한 루프 방지
+- init 시 `clearUnprocessableQueueItems()` — 미연동 플래너 orphan pending 정리
+
+---
+
+## Notion sync 원칙 (투두 탭)
+
+**날짜 이동 (`selectedDate` 변경):** 로컬 SwiftData만 조회 — **Notion sync 없음**
+→ `TodoViewModel.fetchLocalTodos(for:)`
+
+**Notion → 앱 pull 실행 시점 (이 4가지만):**
+- 콜드 스타트 (`onAppear` 최초 1회 `isFirstLaunch`)
+- 포그라운드 복귀 (`onForeground`)
+- pull-to-refresh
+- 플래너 전환 (`switchPlanner`)
+
+→ `TodoViewModel.syncFromNotion(for:)` → `TodoService.syncTodosFromNotion(for:)`
+
+**앱 → Notion push:** 기존과 동일 — 쓰기 즉시 SwiftData 저장 후 SyncQueue 백그라운드 전송
+
+**Notion 날짜 변경 반영:**
+- `upsertFromNotion` — pageId 매칭 시 `applyNotionDate`로 로컬 date 갱신
+- A일 화면 refresh 시 Notion 응답에 없는 연동 항목 → 로컬 즉시 삭제 (5분 유예 제거)
+- B일 화면에서 refresh 시 해당 항목 pull·반영
+
+---
+
+## TodoViewModel fetch 구조
+
+| API | 용도 |
+|---|---|
+| `fetchLocalTodos(for:)` | 로컬 DB만 조회 — **날짜 이동** 시 사용 |
+| `syncFromNotion(for:)` | local fetch + Notion pull — **4가지 sync 시점**에만 |
+
+~~`performFetchTodos` / `fetchTodos`~~ — **제거됨** (v1.0.1)
+
+- `localFetchTask` — 날짜 연타 시 cancel 후 재시작
+- `notionSyncTask` — sync 중 cancel·stale date guard (`selectedDate` 일치 확인)
+
 ---
 
 ## 유료 기능 게이팅 패턴
@@ -526,7 +569,7 @@ DEBUG 빌드에서는 `refreshIsProDebug(previousValue:)` 호출 — `previousVa
 - `syncCategoriesByName`: 이름 일치 병합 + 노션 전용 신규 옵션 → 앱 카테고리 import
 - **삭제** = SwiftData 삭제 + `onCategoryDeleted` → `remove-select-option`
 - **보관** = `status = archived`만, 노션 옵션 유지, 보관 이름은 재병합·재import 제외
-- 동기화 호출: 카테고리 관리 `fetchCategories`, `TodoViewModel.fetchTodos`, `TodoReportApp` 포그라운드
+- 동기화 호출: 카테고리 관리 `fetchCategories`, 투두 `syncFromNotion` / 포그라운드·refresh, `TodoReportApp` 포그라운드
 - 연결된 카테고리만 투두 Notion payload에 `categoryName` 포함 (`notionSyncName`)
 - 1회 설정 시트·앱 사용 토글(`isEnabledInApp`)은 **사용하지 않음** (v1.5 폐기)
 
@@ -574,7 +617,7 @@ Phase 5 (출시)
 
 ---
 
-## 현재 진행 상태 (2026-06-08 기준, 오늘 마무리)
+## 현재 진행 상태 (2026-06-13 기준)
 
 **Phase 1 ✅ 완료**
 - 온보딩 플로우 (노션/로컬 선택 → OAuth → DB선택 → 속성매핑) — 웰컴 소개 페이지 🔜
@@ -616,7 +659,9 @@ Phase 5 (출시)
 - ✅ Notion relation 자동 연결 개선 (NotionRelationLinker: 14일 윈도우, max 10개, 성공 후에만 linked 세팅)
 - ✅ SyncQueueProcessor: create 완료 후 자동 relation enqueue
 - ✅ TodoService: 날짜 변경 시 notionRelationLinked 리셋
-- ✅ TodoViewModel.onForeground(): SyncQueue flush 대기 후 fetch (최대 5초)
+- ✅ TodoViewModel.onForeground(): SyncQueue flush 대기 후 `syncFromNotion` (최대 5초)
+- ✅ v1.0.1: 날짜 이동 local-only fetch (`fetchLocalTodos`), Notion pull 4시점 분리
+- ✅ v1.0.1: Notion 날짜 변경 `applyNotionDate`, A일 refresh 즉시 삭제, SyncQueue 미연동 enqueue 차단
 - ✅ 포그라운드 복귀 시 linkMissing() + processIfConnected() 호출 (TodoReportApp)
 - ✅ TodoEditFormView 공통 편집 컴포넌트 (QuickCapture/TodoEdit 공유)
 - ✅ 무료 사용자 날짜 범위: 어제·오늘·내일 3일 (±1일)
@@ -688,6 +733,9 @@ v2에서 처음부터 설계 재검토 후 구현 권장.
 
 ### 노션 카테고리 DB (relation) — v2
 v1.5는 투두 DB **select/status 옵션** 단위 동기화. 별도 카테고리 DB + relation 매핑은 v2 검토.
+
+### 할일 보관 (인박스) — v2
+v1 **미구현**. Notion/앱에서 완료하지 않고 날짜에서 치우는 "보관" UX는 **V2 인박스**와 함께 구현 예정. (카테고리 보관과 별개) → `V2-IDEAS.md`
 
 ---
 

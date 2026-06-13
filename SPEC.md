@@ -1,7 +1,7 @@
 # 투두리포트 앱 개발 스펙
 
 > 작성일: 2026-05-26  
-> 최종 업데이트: 2026-06-12 (Notion OAuth iOS 26 대응 · Safari 취소 시 isLoading 고착 수정)  
+> 최종 업데이트: 2026-06-13 (Notion sync 시점 분리 · SyncQueue 미연동 enqueue 차단 · Notion 날짜 pull)  
 > 브랜드: 노크(Nock / nock.kr)  
 > 앱명 (홈 화면): 투두리포트  
 > App Store 이름: 노션품은 투두x리포트  
@@ -209,6 +209,19 @@ api/
 - 카테고리 태그 (앱 전용)
 - 날짜별 투두 조회
 - **투두 메모** — 투두별 상세 내용 추가 (Notion 페이지 텍스트 블록으로 저장)
+- **할일 보관** — 🔜 **v1 미구현**. V2 인박스와 함께 구현 예정 (카테고리 보관과 별개)
+
+**Notion 동기화 (투두):**
+
+| 방향 | 시점 |
+|---|---|
+| **앱 → Notion** | 쓰기 즉시 — SwiftData 저장 후 SyncQueue 백그라운드 push |
+| **Notion → 앱** | 콜드 스타트(최초 1회) / 포그라운드 복귀 / pull-to-refresh / 플래너 전환 **만** |
+
+- **날짜 이동** (`selectedDate` 변경): 로컬 DB만 조회 — Notion API 호출 **없음** (`fetchLocalTodos`)
+- **Notion pull** (`syncFromNotion`): 위 4시점 + `TodoService.syncTodosFromNotion(for: selectedDate)` — **현재 화면 날짜 1일**만 조회
+- **Notion에서 날짜 변경** (A→B): B일 화면에서 refresh 시 `applyNotionDate`로 로컬 반영; A일 refresh 시 해당 항목 로컬 즉시 제거
+- **로컬 전용 플래너**: SyncQueue enqueue **하지 않음** (`isPlannerNotionConnected` 체크)
 
 #### 시간 지정
 - 투두 추가/편집 화면 날짜 하단에 토글 방식으로 추가
@@ -241,7 +254,7 @@ api/
 
 **저장 동작 (Offline-First):**
 1. SwiftData에 즉시 저장 → 화면 바로 업데이트 (Notion 응답 기다리지 않음)
-2. SyncQueue에 추가 → 백그라운드에서 Notion 전송
+2. Notion 연결 플래너만 SyncQueue에 추가 → 백그라운드에서 Notion 전송 (`isPlannerNotionConnected`)
 3. 앱 닫혀도 큐는 SwiftData에 유지 → 재실행 시 자동 처리
 4. 해당 날짜 데일리리포트 relation 자동 연결 (백그라운드)
 
@@ -314,7 +327,7 @@ api/
 - **이름이 같으면** 자동 병합 (`notionOptionId` / `notionOptionName` 연결)
 - **노션에만 있는 새 옵션** → 앱 카테고리로 자동 추가
 - **이름이 다르면** 앱·노션 각각 유지 (강제 병합·설정 시트 없음)
-- 동기화 시점: 카테고리 관리 진입, 투두 fetch, 앱 포그라운드 복귀, 온보딩/마이그레이션 후
+- 동기화 시점: 카테고리 관리 진입, 투두 `syncFromNotion` / 포그라운드·refresh, 온보딩/마이그레이션 후
 
 **삭제 vs 보관 (노션 연동 시 확인 팝업):**
 
@@ -617,7 +630,16 @@ SyncQueue에 작업 추가
 - 3회 실패 시 사용자에게 알림 "동기화 실패한 항목이 있어요"
 - 수동 재시도 버튼 제공
 
-> 로컬 사용자는 SyncQueue 없이 SwiftData만 사용.
+**로컬(Notion 미연결) 플래너:**
+- SwiftData 저장·UI 갱신은 동일
+- SyncQueue **enqueue하지 않음** (`isPlannerNotionConnected`)
+- init 시 미연동 orphan queue 정리 (`clearUnprocessableQueueItems`)
+
+**Notion → 앱 pull (투두):**
+- 날짜 이동 시 pull **없음** — `fetchLocalTodos` only
+- pull 시점: 콜드 스타트(1회) / 포그라운드 / pull-to-refresh / 플래너 전환 → `syncFromNotion`
+
+> ~~로컬 사용자는 SyncQueue 없이 SwiftData만 사용.~~ → 로컬 **플래너**는 enqueue만 생략, SwiftData는 공통.
 
 > DataRepository 프로토콜 상세 → 15절 참고.
 
@@ -1117,6 +1139,7 @@ struct Category: Identifiable, Codable {
 | iCloud 백업 / 기기 이동 | v2 유료 | 로컬 사용자 데이터 보호. Repository 패턴으로 구조 대비 완료 |
 | 로컬 ↔ 노션 데이터 마이그레이션 | v2 유료 | 로컬 → 노션 전환 시 기존 데이터 이전 |
 | Apple Reminders 연동 | v2 | 사용자 피드백 후 결정 |
+| **할일 보관 (인박스)** | v2 | v1 미구현. 인박스 UX와 함께 구현 (카테고리 보관과 별개). → `V2-IDEAS.md` |
 | 리포트 알림 원탭 저장 (알림 액션) | v1.2 | v1은 리마인더만. v1.2에서 「앱으로 가기」「바로 저장하기」액션 추가 |
 | 노션 저장 시트 UX (알림·저장 분리) | v1.1 | v1: 툴바 저장=노션 저장, 알림은 `@AppStorage` 즉시 반영. v1.1: 취소=알림 되돌리기, 확인=알림만 저장, 「노션에 저장하기」를 리뷰 카드 하단으로 이동 검토 |
 | 투두 탭 할일 시간 표시 | v1.1 | v1: 목록 미표시. v1.1: `TodoRow` 제목 아래 `scheduledTime` (`caption`/`secondary`, 메모 토글 독립). 선택: `alarmOffset` 있을 때 `bell` 아이콘 |
