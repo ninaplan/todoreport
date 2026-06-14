@@ -328,10 +328,9 @@ final class ReportViewModel {
     private func notionTitle(for period: DateInterval, type: ReportPeriod) -> String {
         switch type {
         case .weekly:
-            let startComps = calendar.dateComponents([.year, .month, .day], from: period.start)
+            let startComps = calendar.dateComponents([.month, .day], from: period.start)
             let lastDay    = calendar.date(byAdding: .day, value: -1, to: period.end) ?? period.end
             let endComps   = calendar.dateComponents([.month, .day], from: lastDay)
-            let y  = startComps.year  ?? 0
             let sm = startComps.month ?? 0
             let sd = startComps.day   ?? 0
             let em = endComps.month   ?? 0

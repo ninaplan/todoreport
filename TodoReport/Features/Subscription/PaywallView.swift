@@ -7,6 +7,9 @@ struct PaywallView: View {
     @State private var subscriptionManager = SubscriptionManager.shared
     @Environment(\.dismiss) private var dismiss
 
+    private static let privacyPolicyURL = URL(string: "https://nock.kr/privacy")
+    private static let eulaURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -183,7 +186,22 @@ struct PaywallView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(Color(.secondaryLabel))
                 .multilineTextAlignment(.center)
+
+            legalLinksRow
         }
+    }
+
+    private var legalLinksRow: some View {
+        HStack(spacing: 20) {
+            if let privacyPolicyURL = Self.privacyPolicyURL {
+                Link("개인정보처리방침", destination: privacyPolicyURL)
+            }
+            if let eulaURL = Self.eulaURL {
+                Link("이용약관(EULA)", destination: eulaURL)
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(AppTheme.shared.accent)
     }
 }
 
