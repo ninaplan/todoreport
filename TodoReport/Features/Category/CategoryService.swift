@@ -21,6 +21,7 @@ struct Category: Identifiable, Codable {
     var plannerId: String?
     var notionOptionId: String?
     var notionOptionName: String?
+    var isHidden: Bool
 
     var isLinkedToNotion: Bool {
         notionOptionId != nil || notionOptionName != nil
@@ -34,7 +35,8 @@ struct Category: Identifiable, Codable {
         status: CategoryStatus = .active,
         plannerId: String? = nil,
         notionOptionId: String? = nil,
-        notionOptionName: String? = nil
+        notionOptionName: String? = nil,
+        isHidden: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -44,6 +46,7 @@ struct Category: Identifiable, Codable {
         self.plannerId = plannerId
         self.notionOptionId = notionOptionId
         self.notionOptionName = notionOptionName
+        self.isHidden = isHidden
     }
 
     static let colorPalette: [String] = [
@@ -96,7 +99,7 @@ final class CategoryService {
 
     var activeCategories: [Category] {
         let pid = PlannerService.shared.selectedPlanner?.id
-        let active = store.filter { $0.status == .active }
+        let active = store.filter { $0.status == .active && !$0.isHidden }
         guard let pid else { return active }
         return active.filter { $0.plannerId == pid }
     }
@@ -112,7 +115,7 @@ final class CategoryService {
 
     func fetchCategories() async -> [Category] {
         await refreshStore()
-        return activeCategories
+        return store.filter { $0.status == .active }
     }
 
     func fetchArchivedCategories() async -> [Category] {
@@ -168,7 +171,6 @@ final class CategoryService {
         let descriptor = FetchDescriptor<CategoryItem>(predicate: #Predicate { $0.id == id })
         guard let item = try context.fetch(descriptor).first else { return }
         item.statusRaw = CategoryStatus.archived.rawValue
-        clearTodoCategoryLinks(categoryId: id)
         try context.save()
         await refreshStore()
     }
@@ -199,10 +201,19 @@ final class CategoryService {
         let todoDesc = FetchDescriptor<TodoItem>()
         if let todos = try? context.fetch(todoDesc) {
             for todo in todos where todo.categoryId == id {
+                todo.categoryName = category.name
                 todo.categoryId = nil
             }
         }
 
+        try context.save()
+        await refreshStore()
+    }
+
+    func toggleHidden(id: String) async throws {
+        let descriptor = FetchDescriptor<CategoryItem>(predicate: #Predicate { $0.id == id })
+        guard let item = try context.fetch(descriptor).first else { return }
+        item.isHidden.toggle()
         try context.save()
         await refreshStore()
     }

@@ -641,7 +641,7 @@ final class ReportService {
         let descriptor = FetchDescriptor<CategoryItem>()
         let all = (try? context.fetch(descriptor)) ?? []
         let pid = plannerId
-        return all.filter { $0.statusRaw != "archived" && ($0.plannerId == pid || $0.plannerId == nil) }
+        return all.filter { $0.statusRaw != "archived" && !$0.isHidden && ($0.plannerId == pid || $0.plannerId == nil) }
     }
 
     // MARK: - 집계 헬퍼

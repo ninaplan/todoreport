@@ -4,7 +4,6 @@ import SwiftUI
 @Observable
 final class CategoryViewModel {
     var categories: [Category] = []
-    var archivedCategories: [Category] = []
     private(set) var isLoading: Bool = false
     private(set) var isNotionCategorySyncEnabled: Bool = false
 
@@ -14,18 +13,11 @@ final class CategoryViewModel {
     var editIcon: String = "tag.fill"
     private var userDidSelectIcon: Bool = false
 
-    var showArchiveAlert: Bool = false
-    private(set) var archivingCategory: Category? = nil
-    private(set) var pendingArchiveCount: Int = 0
-
-    // showRestoreAlert, restoringCategory 제거 — 복원은 팝업 없이 즉시 실행
-
     var showDeleteAlert: Bool = false
     private(set) var deletingCategory: Category? = nil
 
     private var editingId: String? = nil
     private let service = CategoryService.shared
-    private let todoService = TodoService.shared
     private let plannerId: String?
 
     init(plannerId: String? = nil) {
@@ -55,19 +47,6 @@ final class CategoryViewModel {
         return base
     }
 
-    func archiveAlertMessage(for category: Category) -> String {
-        var lines: [String] = []
-        if pendingArchiveCount > 0 {
-            lines.append("\(category.name) 카테고리에 미완료 할일 \(pendingArchiveCount)개가 있어요.")
-        }
-        if isNotionCategorySyncEnabled {
-            lines.append("보관하면 앱에서만 카테고리가 숨겨집니다. 노션 플래너에는 그대로 유지돼요.")
-        } else {
-            lines.append("보관하면 앱에서만 카테고리가 숨겨집니다.")
-        }
-        return lines.joined(separator: "\n")
-    }
-
     var editingCategory: Category? {
         guard let id = editingId else { return nil }
         return categories.first { $0.id == id }
@@ -81,15 +60,9 @@ final class CategoryViewModel {
         let pid = plannerId ?? PlannerService.shared.selectedPlanner?.id
         if let pid {
             await CategoryNotionSync.shared.syncCategoriesByName(plannerId: pid)
-            async let active = service.fetchCategories(for: pid)
-            async let archived = service.fetchArchivedCategories(for: pid)
-            categories = await active
-            archivedCategories = await archived
+            categories = await service.fetchCategories(for: pid)
         } else {
-            async let active = service.fetchCategories()
-            async let archived = service.fetchArchivedCategories()
-            categories = await active
-            archivedCategories = await archived
+            categories = await service.fetchCategories()
         }
         isLoading = false
     }
@@ -97,6 +70,12 @@ final class CategoryViewModel {
     func moveCategory(from source: IndexSet, to destination: Int) {
         categories.move(fromOffsets: source, toOffset: destination)
         service.reorderActiveCategories(categories)
+    }
+
+    func toggleHidden(_ category: Category) {
+        guard let index = categories.firstIndex(where: { $0.id == category.id }) else { return }
+        categories[index].isHidden.toggle()
+        Task { try? await service.toggleHidden(id: category.id) }
     }
 
     // MARK: - Sheet
@@ -161,7 +140,6 @@ final class CategoryViewModel {
         (["목표", "goal", "target"], "flag.fill"),
         (["영화", "드라마", "movie", "film", "drama"], "film.fill"),
         (["tv", "티비", "television", "넷플릭스"], "tv.fill"),
-        // 집안일
         (["세탁", "빨래", "세탁기", "laundry", "wash"], "washer"),
         (["건조", "건조기", "dryer", "dry"], "dryer"),
         (["침대", "잠자리", "bed", "sleep", "bedding"], "bed.double"),
@@ -198,42 +176,6 @@ final class CategoryViewModel {
         isSheetPresented = false
     }
 
-    // MARK: - Archive
-
-    func requestArchive(_ category: Category) async {
-        let count = await todoService.incompleteTodoCount(for: category.id)
-        archivingCategory = category
-        pendingArchiveCount = count
-        if count > 0 || isNotionCategorySyncEnabled {
-            showArchiveAlert = true
-        } else {
-            await confirmArchive(category)
-        }
-    }
-
-    func confirmArchive(_ category: Category) async {
-        withAnimation(.easeOut(duration: 0.25)) {
-            categories.removeAll { $0.id == category.id }
-        }
-        try? await Task.sleep(nanoseconds: 280_000_000)
-        withAnimation(.easeOut(duration: 0.25)) {
-            var archived = category
-            archived.status = .archived
-            archivedCategories.append(archived)
-        }
-        try? await service.archiveCategory(id: category.id)
-        archivingCategory = nil
-        pendingArchiveCount = 0
-        showArchiveAlert = false
-        isSheetPresented = false
-    }
-
-    func cancelArchive() {
-        archivingCategory = nil
-        pendingArchiveCount = 0
-        showArchiveAlert = false
-    }
-
     // MARK: - Delete
 
     func requestDelete(_ category: Category) {
@@ -250,25 +192,9 @@ final class CategoryViewModel {
         guard let category = deletingCategory else { return }
         withAnimation(.default) {
             categories.removeAll { $0.id == category.id }
-            archivedCategories.removeAll { $0.id == category.id }
         }
         try? await service.deleteCategory(id: category.id)
         deletingCategory = nil
         isSheetPresented = false
-    }
-
-    // MARK: - Restore
-
-    func confirmRestore(_ category: Category) async {
-        withAnimation(.easeOut(duration: 0.25)) {
-            archivedCategories.removeAll { $0.id == category.id }
-        }
-        try? await Task.sleep(nanoseconds: 280_000_000)
-        withAnimation(.easeOut(duration: 0.25)) {
-            var restored = category
-            restored.status = .active
-            categories.append(restored)
-        }
-        try? await service.restoreCategory(id: category.id)
     }
 }

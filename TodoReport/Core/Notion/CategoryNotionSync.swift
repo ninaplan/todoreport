@@ -167,31 +167,11 @@ final class CategoryNotionSync {
               isSelectSyncEnabled(for: planner) else { return }
 
         let notionOptions = await fetchNotionOptions(planner: planner)
-        let notionOptionIds = Set(notionOptions.map(\.id))
 
         let all = (try? context.fetch(FetchDescriptor<CategoryItem>())) ?? []
         let plannerItems = all.filter { $0.plannerId == plannerId }
 
-        var archivedOrphanCount = 0
-        for item in plannerItems {
-            guard item.statusRaw == CategoryStatus.active.rawValue,
-                  item.isLinkedToNotion,
-                  let optionId = item.notionOptionId,
-                  !notionOptionIds.contains(optionId) else { continue }
-            item.statusRaw = CategoryStatus.archived.rawValue
-            archivedOrphanCount += 1
-        }
-
-        guard !notionOptions.isEmpty else {
-            guard archivedOrphanCount > 0 else { return }
-            try? context.save()
-            await CategoryService.shared.refresh()
-            AppLogger.shared.info(
-                "CategoryNotionSync",
-                "카테고리 동기화 - 노션 옵션 없음, 보관 \(archivedOrphanCount)개 planner=\(plannerId)"
-            )
-            return
-        }
+        guard !notionOptions.isEmpty else { return }
 
         let renamedCount = reconcileLinkedCategoryNames(
             notionOptions: notionOptions,
@@ -241,12 +221,12 @@ final class CategoryNotionSync {
             usedOptionIds.insert(option.id)
         }
 
-        guard linkedCount > 0 || renamedCount > 0 || !toImport.isEmpty || archivedOrphanCount > 0 else { return }
+        guard linkedCount > 0 || renamedCount > 0 || !toImport.isEmpty else { return }
         try? context.save()
         await CategoryService.shared.refresh()
         AppLogger.shared.info(
             "CategoryNotionSync",
-            "카테고리 동기화 - rename \(renamedCount)개, 병합 \(linkedCount)개, 노션 신규 \(toImport.count)개, 보관 \(archivedOrphanCount)개 planner=\(plannerId)"
+            "카테고리 동기화 - rename \(renamedCount)개, 병합 \(linkedCount)개, 노션 신규 \(toImport.count)개 planner=\(plannerId)"
         )
     }
 

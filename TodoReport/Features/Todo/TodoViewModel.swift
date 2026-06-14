@@ -163,6 +163,7 @@ final class TodoViewModel {
             guard !Task.isCancelled else { return }
             guard Calendar.current.isDate(selectedDate, inSameDayAs: targetDate) else { return }
             todos = await service.fetchTodos(for: targetDate)
+            filterHiddenCategoryTodos()
             validateCategoryFilter()
             updateWidget()
         }
@@ -181,8 +182,19 @@ final class TodoViewModel {
         guard !Task.isCancelled else { return }
         guard Calendar.current.isDate(selectedDate, inSameDayAs: date) else { return }
         todos = fetched
+        filterHiddenCategoryTodos()
         validateCategoryFilter()
         updateWidget()
+    }
+
+    private func filterHiddenCategoryTodos() {
+        let hiddenCategoryIds = CategoryService.shared.store
+            .filter { $0.isHidden }
+            .map(\.id)
+        todos = todos.filter { todo in
+            guard let categoryId = todo.categoryId else { return true }
+            return !hiddenCategoryIds.contains(categoryId)
+        }
     }
 
     private func triggerFirstLaunchSyncIfNeeded() {

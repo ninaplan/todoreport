@@ -9,7 +9,6 @@ struct CategoryView: View {
 
     var body: some View {
         List {
-            // 활성 카테고리
             ForEach(viewModel.categories) { category in
                 CategoryRow(category: category)
                     .contentShape(Rectangle())
@@ -20,40 +19,24 @@ struct CategoryView: View {
                         } label: {
                             Label("삭제", systemImage: "trash")
                         }
-                        Button {
-                            Task { await viewModel.requestArchive(category) }
-                        } label: {
-                            Label("보관", systemImage: "archivebox")
+                        if category.isHidden {
+                            Button {
+                                viewModel.toggleHidden(category)
+                            } label: {
+                                Label("활성화", systemImage: "eye")
+                            }
+                            .tint(.blue)
+                        } else {
+                            Button {
+                                viewModel.toggleHidden(category)
+                            } label: {
+                                Label("숨기기", systemImage: "eye.slash")
+                            }
+                            .tint(.gray)
                         }
-                        .tint(.orange)
                     }
             }
             .onMove { viewModel.moveCategory(from: $0, to: $1) }
-
-            // 보관된 카테고리
-            if !viewModel.archivedCategories.isEmpty {
-                Section("보관된 카테고리") {
-                    ForEach(viewModel.archivedCategories) { category in
-                        ArchivedCategoryRow(category: category)
-                            .contentShape(Rectangle())
-                            .onTapGesture { Task { await viewModel.confirmRestore(category) } }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button(role: .destructive) {
-                                    viewModel.requestDelete(category)
-                                } label: {
-                                    Label("삭제", systemImage: "trash")
-                                }
-                                Button {
-                                    Task { await viewModel.confirmRestore(category) }
-                                } label: {
-                                    Label("복원", systemImage: "arrow.counterclockwise")
-                                }
-                                .tint(.blue)
-                            }
-                    }
-                }
-            }
-
         }
         .navigationTitle("카테고리 관리")
         .navigationBarTitleDisplayMode(.inline)
@@ -73,7 +56,7 @@ struct CategoryView: View {
         }
         .task { await viewModel.fetchCategories() }
         .overlay {
-            if viewModel.categories.isEmpty && viewModel.archivedCategories.isEmpty && !viewModel.isLoading {
+            if viewModel.categories.isEmpty && !viewModel.isLoading {
                 ContentUnavailableView(
                     "카테고리 없음",
                     systemImage: "tag.slash",
@@ -89,18 +72,6 @@ struct CategoryView: View {
         } message: {
             if let category = viewModel.deletingCategory {
                 Text(viewModel.deleteAlertMessage(for: category))
-            }
-        }
-        .alert("보관하시겠어요?", isPresented: $viewModel.showArchiveAlert) {
-            Button("취소", role: .cancel) { viewModel.cancelArchive() }
-            Button("보관", role: .destructive) {
-                if let category = viewModel.archivingCategory {
-                    Task { await viewModel.confirmArchive(category) }
-                }
-            }
-        } message: {
-            if let category = viewModel.archivingCategory {
-                Text(viewModel.archiveAlertMessage(for: category))
             }
         }
     }
@@ -132,38 +103,15 @@ private struct CategoryRow: View {
     var body: some View {
         HStack(spacing: 12) {
             CategoryBadge(category: category, size: 32)
+                .grayscale(category.isHidden ? 1.0 : 0)
+                .opacity(category.isHidden ? 0.4 : 1.0)
             Text(category.name)
                 .font(.body)
-                .foregroundStyle(.primary)
+                .foregroundStyle(category.isHidden ? .secondary : .primary)
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.caption.bold())
                 .foregroundStyle(.tertiary)
-        }
-        .padding(.vertical, 2)
-    }
-}
-
-// MARK: - 보관된 카테고리 행
-
-private struct ArchivedCategoryRow: View {
-    let category: Category
-
-    var body: some View {
-        HStack(spacing: 12) {
-            CategoryBadge(category: category, size: 32)
-                .grayscale(1.0)
-                .opacity(0.5)
-            Text(category.name)
-                .font(.body)
-                .foregroundStyle(.secondary)
-            Spacer()
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.counterclockwise")
-                Text("복원")
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)
     }
@@ -182,7 +130,6 @@ private struct CategoryEditSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                // 미리보기 + 이름 인라인 입력
                 Section {
                     HStack(spacing: 12) {
                         CategoryBadge(
@@ -200,7 +147,6 @@ private struct CategoryEditSheet: View {
                     .padding(.vertical, 4)
                 }
 
-                // 색상
                 Section("색상") {
                     LazyVGrid(columns: colorColumns, spacing: 14) {
                         ForEach(Category.colorPalette, id: \.self) { hex in
@@ -224,7 +170,6 @@ private struct CategoryEditSheet: View {
                     .padding(.vertical, 4)
                 }
 
-                // 아이콘
                 Section("아이콘") {
                     LazyVGrid(columns: iconColumns, spacing: 12) {
                         ForEach(Category.iconPalette, id: \.self) { symbol in
@@ -255,37 +200,21 @@ private struct CategoryEditSheet: View {
                     .padding(.vertical, 4)
                 }
 
-                // 보관/삭제 버튼 (편집 시에만 표시)
                 if viewModel.isEditing {
                     Section {
-                        HStack(spacing: 12) {
-                            Button {
-                                if let category = viewModel.editingCategory {
-                                    Task { await viewModel.requestArchive(category) }
-                                }
-                            } label: {
-                                Label("보관", systemImage: "archivebox")
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                                    .background(Color.orange, in: Capsule())
+                        Button {
+                            if let category = viewModel.editingCategory {
+                                viewModel.requestDelete(category)
                             }
-                            .buttonStyle(.plain)
-                            Button {
-                                if let category = viewModel.editingCategory {
-                                    viewModel.requestDelete(category)
-                                }
-                            } label: {
-                                Label("영구 삭제", systemImage: "trash")
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                                    .background(Color.red, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
+                        } label: {
+                            Label("영구 삭제", systemImage: "trash")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Color.red, in: Capsule())
                         }
+                        .buttonStyle(.plain)
                         .listRowBackground(Color.clear)
                     }
                 }
@@ -309,7 +238,6 @@ private struct CategoryEditSheet: View {
             .onChange(of: viewModel.editName) { _, name in viewModel.autoMatchIcon(for: name) }
             .sensoryFeedback(.selection, trigger: viewModel.editColorHex)
             .sensoryFeedback(.selection, trigger: viewModel.editIcon)
-            .sensoryFeedback(.warning, trigger: viewModel.showArchiveAlert)
             .alert("카테고리 삭제", isPresented: $viewModel.showDeleteAlert) {
                 Button("취소", role: .cancel) { viewModel.cancelDelete() }
                 Button("삭제", role: .destructive) {

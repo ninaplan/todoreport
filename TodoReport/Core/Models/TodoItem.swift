@@ -13,6 +13,7 @@ final class TodoItem {
     var completedAt: Date?
     var notionCreatedAt: Date?
     var categoryId: String?
+    var categoryName: String?
     var notionPageId: String
     var plannerId: String?
     var scheduledTime: Date?
