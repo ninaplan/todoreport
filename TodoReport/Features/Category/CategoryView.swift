@@ -143,6 +143,16 @@ private struct CategoryEditSheet: View {
                         TextField("카테고리 이름", text: $viewModel.editName)
                             .font(.body)
                             .focused($isNameFocused)
+                            .disabled(viewModel.isNotionCategorySyncEnabled && viewModel.isEditing)
+                            .overlay {
+                                if viewModel.isNotionCategorySyncEnabled && viewModel.isEditing {
+                                    Color.clear
+                                        .contentShape(Rectangle())
+                                        .onTapGesture {
+                                            viewModel.requestNotionNameChangeAlert()
+                                        }
+                                }
+                            }
                     }
                     .padding(.vertical, 4)
                 }
@@ -247,6 +257,11 @@ private struct CategoryEditSheet: View {
                 if let category = viewModel.deletingCategory {
                     Text(viewModel.deleteAlertMessage(for: category))
                 }
+            }
+            .alert("이름은 노션에서 변경해주세요", isPresented: $viewModel.showNotionNameChangeAlert) {
+                Button("확인") { viewModel.confirmNotionNameChange() }
+            } message: {
+                Text("노션에서 이름을 변경한 후 카테고리 관리 화면에 다시 들어오면 자동 반영돼요.")
             }
         }
     }

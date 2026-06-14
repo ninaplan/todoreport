@@ -16,6 +16,8 @@ final class CategoryViewModel {
     var showDeleteAlert: Bool = false
     private(set) var deletingCategory: Category? = nil
 
+    var showNotionNameChangeAlert: Bool = false
+
     private var editingId: String? = nil
     private let service = CategoryService.shared
     private let plannerId: String?
@@ -155,9 +157,28 @@ final class CategoryViewModel {
 
     // MARK: - Save
 
+    func requestNotionNameChangeAlert() {
+        showNotionNameChangeAlert = true
+    }
+
+    func cancelNotionNameChange() {
+        showNotionNameChangeAlert = false
+    }
+
+    func confirmNotionNameChange() {
+        showNotionNameChangeAlert = false
+    }
+
     func saveEdit() async {
         let trimmed = editName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
+
+        if isEditing,
+           isNotionCategorySyncEnabled,
+           trimmed != editingCategory?.name {
+            showNotionNameChangeAlert = true
+            return
+        }
 
         let updated: Category
         if let id = editingId,
