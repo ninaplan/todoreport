@@ -15,6 +15,8 @@ struct PlannerAddView: View {
                 switch viewModel.step {
                 case .chooseMode, .notionOAuth:
                     chooseModeView
+                case .loadingDatabases:
+                    loadingDatabasesView
                 case .selectTodoDB:
                     NotionDBPickerView(
                         subtitle: "할일을 저장할 Notion DB를 선택하세요",
@@ -22,7 +24,8 @@ struct PlannerAddView: View {
                         selectedId: viewModel.selectedTodoDBId,
                         isLoading: viewModel.isLoadingDatabases,
                         onSelect: { viewModel.selectTodoDB($0) },
-                        onRefresh: { await viewModel.fetchDatabases() }
+                        onRefresh: { await viewModel.fetchDatabases() },
+                        onForceRefresh: { await viewModel.refreshDatabases() }
                     )
                 case .mapTodoProps:
                     mapTodoPropsView
@@ -34,6 +37,7 @@ struct PlannerAddView: View {
                         isLoading: viewModel.isLoadingDatabases,
                         onSelect: { viewModel.selectReportDB($0) },
                         onRefresh: { await viewModel.fetchDatabases() },
+                        onForceRefresh: { await viewModel.refreshDatabases() },
                         onSkip: { Task { await viewModel.skipReportDB(); dismiss() } }
                     )
                 case .mapReportProps:
@@ -49,7 +53,7 @@ struct PlannerAddView: View {
                 if isDBPickerStep {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         RefreshButton(isLoading: viewModel.isLoadingDatabases) {
-                            Task { await viewModel.fetchDatabases() }
+                            Task { await viewModel.refreshDatabases() }
                         }
                     }
                 }
@@ -87,7 +91,7 @@ struct PlannerAddView: View {
 
     private var navTitle: String {
         switch viewModel.step {
-        case .chooseMode, .notionOAuth: return "플래너 추가"
+        case .chooseMode, .notionOAuth, .loadingDatabases: return "플래너 추가"
         case .selectTodoDB:             return "투두 DB 선택"
         case .mapTodoProps:             return "투두 속성 연결"
         case .selectReportDB:           return "리포트 DB 선택"
@@ -188,6 +192,25 @@ struct PlannerAddView: View {
             .frame(width: geo.size.width)
             .position(x: geo.size.width / 2, y: geo.size.height * 0.38)
         }
+    }
+
+    // MARK: - DB 로딩
+
+    private var loadingDatabasesView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            ProgressView().scaleEffect(1.4)
+            Text("데이터베이스 불러오는 중...")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Text("처음 연결할 때는 시간이 걸릴 수 있습니다.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+            Spacer()
+        }
+        .padding(.horizontal, 32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - 투두 속성 매핑

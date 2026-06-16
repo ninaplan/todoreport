@@ -55,15 +55,19 @@ final class PlannerNotionSettingsViewModel {
 
     // MARK: - DB 목록
 
-    func fetchDatabases() async {
-        if let existing = databasesFetchTask {
-            await existing.value
+    func fetchDatabases(forceRefresh: Bool = false) async {
+        if await NotionDatabasesFetchTaskRunner.prepareForFetch(
+            existingTask: databasesFetchTask,
+            forceRefresh: forceRefresh
+        ) == .skip {
             return
         }
         let task = Task { @MainActor in
             defer { databasesFetchTask = nil }
             isLoadingDatabases = true
             defer { isLoadingDatabases = false }
+
+            guard !Task.isCancelled else { return }
 
             guard let token = planner.resolvedNotionToken else {
                 alertMessage = "노션 인증 정보가 없어요. 다시 로그인해주세요."
@@ -74,6 +78,8 @@ final class PlannerNotionSettingsViewModel {
                 mergeWith: databases,
                 retryIfEmpty: databases.isEmpty
             )
+            guard !Task.isCancelled else { return }
+
             switch outcome {
             case .success(let list):
                 databases = list
@@ -83,6 +89,10 @@ final class PlannerNotionSettingsViewModel {
         }
         databasesFetchTask = task
         await task.value
+    }
+
+    func refreshDatabases() async {
+        await fetchDatabases(forceRefresh: true)
     }
 
     // MARK: - 투두 속성

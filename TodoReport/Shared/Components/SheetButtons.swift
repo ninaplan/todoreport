@@ -38,7 +38,6 @@ struct RefreshButton: View {
             }
         }
         .toolbarSecondaryActionStyle()
-        .disabled(isLoading)
     }
 }
 

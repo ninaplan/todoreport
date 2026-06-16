@@ -288,7 +288,7 @@ final class PlannerService {
         refreshStore()
 
         if shouldClearGlobalSession {
-            await clearNotionGlobalSession()
+            clearNotionGlobalSession()
         }
 
         print("[PlannerService] 🔄 연동 초기화 완료 - plannerId:\(id)")
@@ -351,7 +351,7 @@ final class PlannerService {
         }
 
         if shouldClearGlobalSession {
-            await clearNotionGlobalSession()
+            clearNotionGlobalSession()
         }
     }
 

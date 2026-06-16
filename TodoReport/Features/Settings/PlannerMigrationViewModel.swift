@@ -202,9 +202,11 @@ final class PlannerMigrationViewModel {
 
     // MARK: - API
 
-    func fetchDatabases() async {
-        if let existing = databasesFetchTask {
-            await existing.value
+    func fetchDatabases(forceRefresh: Bool = false) async {
+        if await NotionDatabasesFetchTaskRunner.prepareForFetch(
+            existingTask: databasesFetchTask,
+            forceRefresh: forceRefresh
+        ) == .skip {
             return
         }
         let task = Task { @MainActor in
@@ -212,11 +214,15 @@ final class PlannerMigrationViewModel {
             isLoadingDatabases = true
             defer { isLoadingDatabases = false }
 
+            guard !Task.isCancelled else { return }
+
             let outcome = await NotionDatabasesFetcher.fetch(
                 token: capturedAccessToken ?? "",
                 mergeWith: databases,
                 retryIfEmpty: databases.isEmpty
             )
+            guard !Task.isCancelled else { return }
+
             switch outcome {
             case .success(let list):
                 databases = list
@@ -227,6 +233,10 @@ final class PlannerMigrationViewModel {
         }
         databasesFetchTask = task
         await task.value
+    }
+
+    func refreshDatabases() async {
+        await fetchDatabases(forceRefresh: true)
     }
 
     func fetchTodoProperties() async {

@@ -12,6 +12,7 @@ struct NotionDBPickerView: View {
     let isLoading: Bool
     let onSelect: (String) -> Void
     let onRefresh: () async -> Void
+    var onForceRefresh: (() async -> Void)? = nil
     var onBack: (() -> Void)? = nil
     var onSkip: (() -> Void)? = nil
 
@@ -49,13 +50,12 @@ struct NotionDBPickerView: View {
                                 .multilineTextAlignment(.center)
                         }
                         Button {
-                            Task { await onRefresh() }
+                            Task { await (onForceRefresh ?? onRefresh)() }
                         } label: {
                             Label("다시 시도", systemImage: "arrow.clockwise")
                         }
                         .buttonStyle(.bordered)
                         .tint(AppTheme.shared.accent)
-                        .disabled(isLoading)
                         Spacer()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

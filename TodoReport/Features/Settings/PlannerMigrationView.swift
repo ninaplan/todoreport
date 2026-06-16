@@ -37,7 +37,8 @@ struct PlannerMigrationView: View {
                             selectedId: viewModel.selectedTodoDBId,
                             isLoading: viewModel.isLoadingDatabases,
                             onSelect: { viewModel.selectTodoDB($0) },
-                            onRefresh: { await viewModel.fetchDatabases() }
+                            onRefresh: { await viewModel.fetchDatabases() },
+                            onForceRefresh: { await viewModel.refreshDatabases() }
                         )
                     case .mapTodoProps:
                         mapTodoPropsView
@@ -49,6 +50,7 @@ struct PlannerMigrationView: View {
                             isLoading: viewModel.isLoadingDatabases,
                             onSelect: { viewModel.selectReportDB($0) },
                             onRefresh: { await viewModel.fetchDatabases() },
+                            onForceRefresh: { await viewModel.refreshDatabases() },
                             onSkip: { Task { await viewModel.skipReportDB() } }
                         )
                     case .mapReportProps:
@@ -66,7 +68,7 @@ struct PlannerMigrationView: View {
                     if isDBPickerStep {
                         ToolbarItem(placement: .navigationBarTrailing) {
                             RefreshButton(isLoading: viewModel.isLoadingDatabases) {
-                                Task { await viewModel.fetchDatabases() }
+                                Task { await viewModel.refreshDatabases() }
                             }
                         }
                     } else if !showStatusSheet {

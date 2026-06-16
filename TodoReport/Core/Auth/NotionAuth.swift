@@ -91,13 +91,28 @@ final class NotionAuthManager: NSObject, ObservableObject, ASWebAuthenticationPr
     }
 
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        keyWindow() ?? ASPresentationAnchor()
+        if let window = keyWindow() {
+            return window
+        }
+        if let scene = activeWindowScene()
+            ?? UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
+            return UIWindow(windowScene: scene)
+        }
+        AppLogger.shared.error("NotionAuth", "presentationAnchor: UIWindowScene 없음")
+        #if DEBUG
+        fatalError("UIWindowScene required for OAuth presentation")
+        #else
+        return UIWindow(windowScene: UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first!)
+        #endif
+    }
+
+    private func activeWindowScene() -> UIWindowScene? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
     }
 
     private func keyWindow() -> UIWindow? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let activeScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
-        guard let activeScene else { return nil }
+        guard let activeScene = activeWindowScene() else { return nil }
         return activeScene.windows.first(where: { $0.isKeyWindow }) ?? activeScene.windows.first
     }
 

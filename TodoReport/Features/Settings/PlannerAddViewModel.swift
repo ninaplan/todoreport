@@ -6,6 +6,7 @@ final class PlannerAddViewModel {
     enum Step: Equatable {
         case chooseMode
         case notionOAuth        // OAuth 진행 중 (Notion 카드에 로딩 표시)
+        case loadingDatabases   // OAuth 완료 후 DB 목록 fetch 중
         case selectTodoDB
         case mapTodoProps
         case selectReportDB
@@ -73,6 +74,7 @@ final class PlannerAddViewModel {
             guard let self else { return }
             self.capturedAccessToken = token
             self.isLoading = false
+            self.step = .loadingDatabases
             Task { await self.fetchDatabases() }
         }
         NotionAuthManager.shared.startOAuth()
@@ -138,6 +140,13 @@ final class PlannerAddViewModel {
             NotionAuthManager.shared.secondaryOAuthCompletion = nil
             isLoading = false
             step = .chooseMode
+        case .loadingDatabases:
+            databasesFetchTask?.cancel()
+            databasesFetchTask = nil
+            databases = []
+            capturedAccessToken = nil
+            isLoadingDatabases = false
+            step = .chooseMode
         case .selectTodoDB:
             databases = []
             capturedAccessToken = nil
@@ -162,9 +171,11 @@ final class PlannerAddViewModel {
 
     // MARK: - API
 
-    func fetchDatabases() async {
-        if let existing = databasesFetchTask {
-            await existing.value
+    func fetchDatabases(forceRefresh: Bool = false) async {
+        if await NotionDatabasesFetchTaskRunner.prepareForFetch(
+            existingTask: databasesFetchTask,
+            forceRefresh: forceRefresh
+        ) == .skip {
             return
         }
         let task = Task { @MainActor in
@@ -172,21 +183,29 @@ final class PlannerAddViewModel {
             isLoadingDatabases = true
             defer { isLoadingDatabases = false }
 
+            guard !Task.isCancelled else { return }
+
             let outcome = await NotionDatabasesFetcher.fetch(
                 token: capturedAccessToken ?? "",
                 mergeWith: databases,
                 retryIfEmpty: databases.isEmpty
             )
+            guard !Task.isCancelled else { return }
+
             switch outcome {
             case .success(let list):
                 databases = list
-                if step == .notionOAuth { step = .selectTodoDB }
+                if step == .loadingDatabases { step = .selectTodoDB }
             case .failure(let message):
                 alertMessage = message
             }
         }
         databasesFetchTask = task
         await task.value
+    }
+
+    func refreshDatabases() async {
+        await fetchDatabases(forceRefresh: true)
     }
 
     func fetchTodoProperties() async {

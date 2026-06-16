@@ -35,7 +35,7 @@ struct OnboardingView: View {
                             if isNotionDBPickerStep {
                                 ToolbarItem(placement: .navigationBarTrailing) {
                                     RefreshButton(isLoading: viewModel.isLoadingDatabases) {
-                                        Task { await viewModel.fetchDatabases() }
+                                        Task { await viewModel.refreshDatabases() }
                                     }
                                 }
                             }
@@ -87,7 +87,8 @@ struct OnboardingView: View {
                 selectedId: viewModel.selectedTodoDBId,
                 isLoading: viewModel.isLoadingDatabases,
                 onSelect: { viewModel.selectTodoDB($0) },
-                onRefresh: { await viewModel.fetchDatabases() }
+                onRefresh: { await viewModel.fetchDatabases() },
+                onForceRefresh: { await viewModel.refreshDatabases() }
             )
         case .selectReportDB:
             NotionDBPickerView(
@@ -97,6 +98,7 @@ struct OnboardingView: View {
                 isLoading: viewModel.isLoadingDatabases,
                 onSelect: { viewModel.selectReportDB($0) },
                 onRefresh: { await viewModel.fetchDatabases() },
+                onForceRefresh: { await viewModel.refreshDatabases() },
                 onSkip: { viewModel.skipReportDB() }
             )
         case .mapTodoProps:
