@@ -11,6 +11,17 @@ final class SyncQueueManager {
     }
 
     private var context: ModelContext { PersistenceController.shared.context }
+    private var isProcessingPaused = false
+
+    func pauseProcessing() {
+        isProcessingPaused = true
+        print("[SyncQueue] ⏸️ 처리 일시정지")
+    }
+
+    func resumeProcessing() {
+        isProcessingPaused = false
+        print("[SyncQueue] ▶️ 처리 일시정지 해제")
+    }
 
     private var hasNotionConnectedPlanner: Bool {
         PlannerService.shared.store.contains { $0.isNotionConnected }
@@ -218,6 +229,10 @@ final class SyncQueueManager {
     }
 
     func processIfConnected() {
+        guard !isProcessingPaused else {
+            print("[SyncQueue] ⏸️ 일시정지 중 - 스킵")
+            return
+        }
         guard hasNotionConnectedPlanner else {
             print("[SyncQueue] ⚠️ Notion 연결된 플래너 없음 - 스킵")
             return

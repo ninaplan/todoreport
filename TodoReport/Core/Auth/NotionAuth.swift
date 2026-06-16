@@ -1,12 +1,14 @@
+import AuthenticationServices
 import Combine
 import SwiftUI
 import UIKit
-import SafariServices
 import Security
 
 @MainActor
-final class NotionAuthManager: NSObject, ObservableObject, SFSafariViewControllerDelegate {
+final class NotionAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresentationContextProviding {
     static let shared = NotionAuthManager()
+
+    private static let callbackURLScheme = "todoreport"
 
     // Legacy: readable for resolvedNotionToken fallback and migration
     private(set) var accessToken: String?
@@ -18,7 +20,7 @@ final class NotionAuthManager: NSObject, ObservableObject, SFSafariViewControlle
     var oAuthCancelledCompletion: (() -> Void)?
 
     private var pendingState: String?
-    private var safariVC: SFSafariViewController?
+    private var authSession: ASWebAuthenticationSession?
 
     private enum Key {
         static let accessToken   = "kr.nock.TodoReport.accessToken"
@@ -34,6 +36,9 @@ final class NotionAuthManager: NSObject, ObservableObject, SFSafariViewControlle
     }
 
     func startOAuth() {
+        authSession?.cancel()
+        authSession = nil
+
         let state = UUID().uuidString
         pendingState = state
         guard let url = URL(string: "https://todoreport-backend.vercel.app/api/auth/notion?state=\(state)") else {
@@ -41,47 +46,63 @@ final class NotionAuthManager: NSObject, ObservableObject, SFSafariViewControlle
         }
         isLoading = true
         print("[NotionAuth] 🚀 OAuth 시작")
-        let safari = SFSafariViewController(url: url)
-        safari.delegate = self
-        safari.modalPresentationStyle = .pageSheet
-        safariVC = safari
-        topViewController()?.present(safari, animated: true)
+
+        let session = ASWebAuthenticationSession(
+            url: url,
+            callbackURLScheme: Self.callbackURLScheme
+        ) { [weak self] callbackURL, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.authSession = nil
+
+                if let error {
+                    self.isLoading = false
+                    if let authError = error as? ASWebAuthenticationSessionError,
+                       authError.code == .canceledLogin {
+                        self.oAuthCancelledCompletion?()
+                        print("[NotionAuth] OAuth 취소")
+                    } else {
+                        self.errorMessage = error.localizedDescription
+                        print("[NotionAuth] ❌ OAuth 실패: \(error.localizedDescription)")
+                    }
+                    return
+                }
+
+                guard let callbackURL else {
+                    self.isLoading = false
+                    self.errorMessage = "인증 응답을 받지 못했어요"
+                    print("[NotionAuth] ❌ 콜백 URL 없음")
+                    return
+                }
+
+                self.handleCallback(url: callbackURL)
+            }
+        }
+        session.presentationContextProvider = self
+        session.prefersEphemeralWebBrowserSession = true
+        authSession = session
+
+        if !session.start() {
+            isLoading = false
+            errorMessage = "인증 세션을 시작할 수 없어요"
+            authSession = nil
+            print("[NotionAuth] ❌ ASWebAuthenticationSession.start() 실패")
+        }
     }
 
-    nonisolated func safariViewController(_ controller: SFSafariViewController, initialLoadDidRedirectTo url: URL) {
-        print("[NotionAuth] 🔀 리다이렉트 감지: \(url)")
-        guard url.scheme == "todoreport" else { return }
-        Task { @MainActor in
-            self.safariVC?.dismiss(animated: true)
-            self.safariVC = nil
-            self.handleCallback(url: url)
-        }
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        keyWindow() ?? ASPresentationAnchor()
     }
 
-    nonisolated func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
-        Task { @MainActor in
-            self.isLoading = false
-            self.safariVC = nil
-            self.oAuthCancelledCompletion?()
-        }
-    }
-
-    private func topViewController() -> UIViewController? {
-        guard let scene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .first(where: { $0.activationState == .foregroundActive }),
-              let root = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController else {
-            return nil
-        }
-        var top: UIViewController = root
-        while let presented = top.presentedViewController {
-            top = presented
-        }
-        return top
+    private func keyWindow() -> UIWindow? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let activeScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
+        guard let activeScene else { return nil }
+        return activeScene.windows.first(where: { $0.isKeyWindow }) ?? activeScene.windows.first
     }
 
     func handleCallback(url: URL) {
-        guard url.scheme == "todoreport" else { return }
+        guard url.scheme == Self.callbackURLScheme else { return }
 
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         let params: [String: String] = Dictionary(
@@ -100,8 +121,6 @@ final class NotionAuthManager: NSObject, ObservableObject, SFSafariViewControlle
             }
 
             isLoading = false
-            safariVC?.dismiss(animated: true)
-            safariVC = nil
 
             if let completion = secondaryOAuthCompletion {
                 secondaryOAuthCompletion = nil
@@ -125,12 +144,34 @@ final class NotionAuthManager: NSObject, ObservableObject, SFSafariViewControlle
     }
 
     func signOut() {
+        authSession?.cancel()
+        authSession = nil
+        pendingState = nil
+        secondaryOAuthCompletion = nil
+        oAuthCancelledCompletion = nil
+        isLoading = false
+
         keychainDelete(key: Key.accessToken)
         keychainDelete(key: Key.workspaceId)
         keychainDelete(key: Key.workspaceName)
         keychainDelete(key: Key.botId)
         accessToken = nil
         errorMessage = nil
+    }
+
+    /// 계정 삭제 후 Keychain 잔존 여부 확인용
+    func hasLegacyKeychainCredentials() -> Bool {
+        [Key.accessToken, Key.workspaceId, Key.workspaceName, Key.botId]
+            .contains { keychainRead(key: $0) != nil }
+    }
+
+    /// in-memory accessToken 존재 여부 (init 시 Keychain에서 로드된 value)
+    func hasInMemoryAccessToken() -> Bool {
+        accessToken != nil
+    }
+
+    func currentAccessToken() -> String? {
+        accessToken
     }
 
     // MARK: - Keychain

@@ -153,7 +153,7 @@ struct PlannerMigrationView: View {
             Text("Notion 로그인 중...")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Text("Safari에서 승인 후 돌아오세요")
+            Text("Notion 앱에서 승인 후 돌아오세요")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }

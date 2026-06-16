@@ -1,7 +1,12 @@
 import SwiftUI
 
 struct MainTabView: View {
+    let onAccountDeleted: () -> Void
     @State private var tabCoordinator = MainTabCoordinator.shared
+
+    init(onAccountDeleted: @escaping () -> Void = {}) {
+        self.onAccountDeleted = onAccountDeleted
+    }
 
     var body: some View {
         @Bindable var tabs = tabCoordinator
@@ -14,7 +19,7 @@ struct MainTabView: View {
             }
             Tab("설정", systemImage: "gearshape.fill", value: MainTabCoordinator.Tab.settings) {
                 NavigationStack {
-                    SettingsView()
+                    SettingsView(onAccountDeleted: onAccountDeleted)
                 }
                 .background(Color(.systemGroupedBackground))
             }

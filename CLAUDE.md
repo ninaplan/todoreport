@@ -513,6 +513,22 @@ guard let value = optional else { return }
 
 ## 알려진 패턴 / 주의사항
 
+**Notion OAuth (`NotionAuthManager`)**
+
+- `ASWebAuthenticationSession` + `prefersEphemeralWebBrowserSession = true` — 매 연결마다 ephemeral 브라우저 세션 (계정 삭제·연동 초기화 후 Notion 로그인 화면부터 시작).
+- `callbackURLScheme: todoreport` — 백엔드 callback HTTP 302 → `todoreport://auth/callback` / `auth/error`.
+- completion handler → `handleCallback` → `secondaryOAuthCompletion(token)`. `TodoReportApp.onOpenURL` fallback 유지.
+- 사용자 취소: `ASWebAuthenticationSessionError.canceledLogin` → `oAuthCancelledCompletion?()`.
+- 마지막 Notion 연동 플래너 삭제/연동 초기화·계정 삭제 시 `revoke` + `signOut()` (다른 연동 플래너 있으면 signOut 생략). ~~`clearWebCookies`~~ — ephemeral 세션으로 불필요.
+
+**멀티 플래너 — 플래너마다 독립 Notion DB 세트**
+
+- 플래너 1개 = **투두 DB 1 + 리포트 DB 1 + OAuth 토큰(`notionAccessToken`)** 묶음. `PlannerService`·`SyncQueue`·리포트 저장은 **항상 `todo.plannerId` / `selectedPlanner` 기준**.
+- **같은 Notion 워크스페이스**에 DB가 여러 개여도, 플래너 B를 **다른 DB 세트**에 연결하는 것은 지원 시나리오. 다만 사용자가 **플래너 전환·DB 선택을 혼동**하면 다른 플래너에서 저장/동기화 실패(404 등)·설정 화면 DB 이름 미표시처럼 보일 수 있음.
+- **원칙:** DB 세트(투두+리포트)당 플래너 1개. 두 플래너에 동일 DB 중복 연결 비권장.
+- **운영 Q&A (사용자 가이드):** `SPEC.md` §6 멀티 플래너 — 「멀티 플래너 + 노션 DB (Q&A · 가이드)」 참고.
+- **개발 시:** `isNotionConnected`만으로 리포트 저장 가능 여부 판단하지 말 것 — `notionReportDBId`·`resolvedNotionToken` 유효성도 필요 (향후 UX 개선 후보).
+
 **AutoFocusTextField — Dynamic Type + 한글 IME**
 
 투두 인라인 입력 등 한글 조합이 필요한 곳은 SwiftUI `TextField` 대신 `AutoFocusTextField`(UIKit)를 쓴다.
@@ -658,7 +674,7 @@ Phase 5 (출시)
 - ✅ SwiftData 실제 연동 (TodoItem, DailyReportItem, CategoryItem, PlannerItem, SyncQueueItem)
 - ✅ SyncQueue Offline-First (SyncQueueManager + SyncQueueProcessor)
 - ✅ Notion API 연동 (NotionAPIClient → 백엔드 → Notion)
-- ✅ NotionAuthManager (SFSafariViewController OAuth, planner별 토큰)
+- ✅ NotionAuthManager (ASWebAuthenticationSession OAuth, `prefersEphemeralWebBrowserSession`, planner별 토큰)
 - ✅ PlannerService (SwiftData CRUD, 레거시 마이그레이션, plannerId backfill)
 
 **Phase 3 ✅ 완료** 홈 화면 위젯

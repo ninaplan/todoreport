@@ -44,7 +44,7 @@
 | 로컬 캐시 | SwiftData + 이벤트 기반 캐시 (16절 참고) |
 | 네트워크 | URLSession (자체 APIClient 래퍼) |
 | 결제 | StoreKit 2 (Apple IAP) |
-| 인증 | Notion OAuth (SFSafariViewController) |
+| 인증 | Notion OAuth (ASWebAuthenticationSession, `prefersEphemeralWebBrowserSession`) |
 
 #### 백엔드
 | 항목 | 결정 |
@@ -99,7 +99,7 @@ TodoReport/
 │   ├── Network/
 │   │   └── APIClient.swift        # 백엔드 호출 단일 창구
 │   ├── Auth/
-│   │   └── NotionAuth.swift       # OAuth (SFSafariViewController)
+│   │   └── NotionAuth.swift       # OAuth (ASWebAuthenticationSession)
 │   └── Cache/
 │       └── CacheManager.swift     # 로컬 캐싱 (SwiftData + TTL)
 │
@@ -481,6 +481,21 @@ api/
 - 무료: 플래너 1개 / 유료: 무제한
 - 메인 화면 상단 드롭다운으로 플래너 전환
 
+**멀티 플래너 + 노션 DB (Q&A · 가이드)**
+
+| 질문 | 답 |
+|---|---|
+| 같은 노션 워크스페이스에 DB가 여러 개인데, 플래너도 여러 개 만들 수 있나? | ✅ 가능. **플래너마다 서로 다른 (투두 DB + 리포트 DB) 세트**를 연결하는 용도. |
+| 플래너 A·B가 **서로 다른 DB**에 연결돼 있으면? | 정상. **투두 탭 상단 플래너 이름**으로 전환하면, 그 플래너에 묶인 DB·토큰·동기화만 적용됨. |
+| 두 플래너에 **같은 DB**를 연결해도 되나? | 비권장. 데이터·동기화가 꼬일 수 있음. **DB 세트(투두+리포트)당 플래너 1개**를 원칙으로. |
+| 플래너 추가 후 설정에 **투두/리포트 DB 이름이 비어** 보이거나 속성을 못 읽으면? | ① **지금 선택한 플래너**가 맞는지 확인 ② **설정 → 플래너 → 투두 DB / 리포트 DB**에서 DB 재선택·저장 ③ OAuth·토큰 문제면 **연동 초기화 후 재연결** |
+| 리포트 **노션 저장 404**가 날 때 | 대개 **선택 플래너의 리포트 DB ID가 없거나**, Notion에서 DB가 삭제·이동된 경우. 다른 플래너 DB와 혼동했는지 먼저 확인. |
+
+**예방 체크리스트 (플래너 추가·DB 변경 후)**
+1. 투두 탭에서 **의도한 플래너**가 선택돼 있는지
+2. **설정 → 플래너 → 투두 DB / 리포트 DB**에 이름이 표시되는지
+3. 투두 동기화·리포트 노션 저장을 **그 플래너 기준**으로 한 번 테스트
+
 #### 구독 해지 시 플래너 처리
 - 구독 만료 감지 시 플래너가 2개 이상이면 `PlannerDowngradeView` 시트 표시
 - 사용자가 유지할 플래너 1개 선택 → 나머지는 `isReadOnly = true` (데이터 보존, 편집 차단)
@@ -553,26 +568,28 @@ api/
 
 > 별도 앱 계정 로그인(Sign in with Apple 등) 없음. Notion OAuth는 노션 연결 시에만 진행.
 
-**Notion OAuth 플로우 (`NotionAuthManager`, ✅ 2026-06-12):**
+**Notion OAuth 플로우 (`NotionAuthManager`, ✅ 2026-06-16):**
 
 ```
 앱 startOAuth()
-  → SFSafariViewController: GET /api/auth/notion?state=...
+  → ASWebAuthenticationSession (prefersEphemeralWebBrowserSession = true)
+     callbackURLScheme: todoreport
+     GET /api/auth/notion?state=...
   → Notion 로그인·승인
   → Notion → GET /api/auth/notion/callback?code=...
   → 백엔드 HTTP 302 직접 리다이렉트:
        성공: todoreport://auth/callback?access_token=...&workspace_id=...
        실패: todoreport://auth/error?reason=...
-  → delegate initialLoadDidRedirectTo (todoreport:// 감지)
-       → Safari dismiss → handleCallback → secondaryOAuthCompletion(token)
+  → session completion handler → handleCallback → secondaryOAuthCompletion(token)
 ```
 
-- **iOS 26 대응:** SFSafariViewController에서 JavaScript로 커스텀 URL 스킴을 열 수 없어, 백엔드가 `/ios-auth` 중간 페이지를 거치지 않고 `todoreport://`로 **직접 302**한다 (`app/api/auth/notion/callback/route.ts`).
-- **`/ios-auth` 페이지:** OAuth 경로에서는 더 이상 사용하지 않음. 파일(`app/ios-auth/page.tsx`)은 삭제하지 않고 유지.
-- **Safari 사용자 취소:** `safariViewControllerDidFinish`에서 `NotionAuthManager.isLoading = false`, `oAuthCancelledCompletion?()` 호출.
-- **온보딩:** `OnboardingViewModel.startNotionOAuth()`가 `secondaryOAuthCompletion`과 함께 `oAuthCancelledCompletion`을 등록해 Safari 중간 종료 시 `isLoading` 고착 방지.
+- **Ephemeral 세션:** `prefersEphemeralWebBrowserSession = true` — 매 OAuth마다 새 브라우저 세션. 계정 삭제·연동 초기화 후에도 Notion 로그인 화면부터 시작.
+- **iOS 26 / 백엔드:** callback이 `/ios-auth` 중간 페이지 없이 `todoreport://`로 **HTTP 302 직접 리다이렉트** (`app/api/auth/notion/callback/route.ts`). `/ios-auth` 파일은 레거시로 유지.
+- **사용자 취소:** `ASWebAuthenticationSessionError.canceledLogin` → `NotionAuthManager.isLoading = false`, `oAuthCancelledCompletion?()`.
+- **온보딩·마이그레이션:** `startNotionOAuth()` / `PlannerMigrationViewModel.startConnection()`이 `secondaryOAuthCompletion` + `oAuthCancelledCompletion` 등록.
+- **fallback:** `TodoReportApp.onOpenURL` → `handleCallback` (completion과 중복 가능, `secondaryOAuthCompletion` 1회 소비).
 
-**관련 파일:** `Core/Auth/NotionAuth.swift`, `Features/Onboarding/OnboardingViewModel.swift`, `todoreport-backend/app/api/auth/notion/callback/route.ts`
+**관련 파일:** `Core/Auth/NotionAuth.swift`, `Features/Onboarding/OnboardingViewModel.swift`, `Features/Settings/PlannerMigrationViewModel.swift`, `todoreport-backend/app/api/auth/notion/callback/route.ts`
 
 **노션 DB 목록 조회 (`NotionDatabasesFetcher`):**
 - 공통 모듈 — 온보딩·플래너 추가·마이그레이션·노션 설정
@@ -1489,7 +1506,7 @@ SyncQueue에 createTodo 추가
          ↓                              ↓
          └─────────┬────────────────────┘
                    ↓
-         Notion OAuth 진행 (Safari)
+         Notion OAuth 진행 (ASWebAuthenticationSession)
                    ↓
          투두 DB 선택
                    ↓
@@ -1645,12 +1662,18 @@ v1 출시 — 노션에 자동 저장되는 투두 & 데일리 리포트. 지금
 
 ## 리팩토링 TODO
 
-### Notion OAuth iOS 26 · Safari 취소 (✅ 2026-06-12)
+### Notion OAuth — ASWebAuthenticationSession 전환 (✅ 2026-06-16)
+- **변경:** `SFSafariViewController` → `ASWebAuthenticationSession`, `prefersEphemeralWebBrowserSession = true`
+- **효과:** 계정 삭제·연동 초기화 후 매번 Notion 로그인 화면부터 시작. `clearWebCookies` / `SFSafariViewControllerDelegate` 제거.
+- **취소:** `ASWebAuthenticationSessionError.canceledLogin` + `oAuthCancelledCompletion`
+- **이력 (2026-06-12):** iOS 26에서 SFSafariViewController 커스텀 스킴 한계 → 백엔드 `todoreport://` HTTP 302 직접 리다이렉트 (유지)
+- 관련: `NotionAuth.swift`, `OnboardingViewModel.swift`, `PlannerMigrationViewModel.swift`, `todoreport-backend/app/api/auth/notion/callback/route.ts`
+
+### Notion OAuth iOS 26 · Safari 취소 (✅ 2026-06-12, superseded by ASWebAuthenticationSession)
 - **문제 1:** iOS 26 `SFSafariViewController`에서 JavaScript `window.location = todoreport://...`가 동작하지 않아 OAuth 완료 후 앱 복귀 실패
 - **해결 1:** 백엔드 callback이 `/ios-auth` 중간 페이지 대신 `todoreport://auth/callback` / `todoreport://auth/error`로 **HTTP 302 직접 리다이렉트**
 - **문제 2:** 사용자가 OAuth 중 Safari 시트를 닫으면 `NotionAuthManager.isLoading`·온보딩 `isLoading`이 `true`로 고착
-- **해결 2:** `safariViewControllerDidFinish` + `oAuthCancelledCompletion` — 온보딩 `startNotionOAuth()`에서 취소 콜백 등록
-- 관련: `NotionAuth.swift`, `OnboardingViewModel.swift`, `todoreport-backend/app/api/auth/notion/callback/route.ts`
+- **해결 2 (구현 교체됨):** ~~`safariViewControllerDidFinish`~~ → `ASWebAuthenticationSessionError.canceledLogin` + `oAuthCancelledCompletion`
 
 ### TodoService → DataRepository 패턴 통합 (v1 후반 또는 v2)
 - 현재: TodoService가 SwiftData + SyncQueue를 직접 사용

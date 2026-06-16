@@ -33,7 +33,16 @@ final class APIClient {
         let (_, response) = try await session.data(for: request)
         try validate(response)
     }
+
+    func revokeNotionToken(_ token: String) async throws {
+        struct RevokeResponse: Decodable {
+            let ok: Bool?
+        }
+        let _: RevokeResponse = try await post("/api/auth/notion/revoke", body: EmptyRequestBody(), token: token)
+    }
 }
+
+private struct EmptyRequestBody: Encodable {}
 
 // MARK: - Private
 

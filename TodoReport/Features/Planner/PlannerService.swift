@@ -186,9 +186,28 @@ final class PlannerService {
         store = (try? context.fetch(descriptor))?.map { $0.toPlanner() } ?? []
     }
 
-    /// SwiftData 최신 상태를 store에 반영 (설정 저장 직후 등)
+    /// store 변경 후 SwiftData 최신 상태 반영 (설정 저장 직후 등)
     func reloadFromStore() {
         refreshStore()
+    }
+
+    /// 계정 삭제 후 온보딩 재진입용 — store 비우기·기본 로컬 플래너 1개 생성
+    func resetStoreAfterAccountDeletion() {
+        selectedPlannerId = ""
+        refreshStore()
+        guard store.isEmpty else {
+            if let first = store.first {
+                selectPlanner(first)
+            }
+            return
+        }
+        let planner = Planner(name: generateDefaultName())
+        context.insert(PlannerItem.from(planner))
+        try? context.save()
+        refreshStore()
+        if let first = store.first {
+            selectPlanner(first)
+        }
     }
 
     // 기존 데이터(plannerId가 nil 또는 빈 문자열)를 기본 플래너 ID로 설정
@@ -239,6 +258,12 @@ final class PlannerService {
 
     func resetNotionConnection(for planner: Planner) async {
         let id = planner.id
+        let tokenToRevoke = planner.notionAccessToken
+        let wasNotionConnected = planner.isNotionConnected
+        let shouldClearGlobalSession = wasNotionConnected
+            && countOtherNotionConnectedPlanners(excluding: id) == 0
+
+        await revokePlannerNotionTokenBestEffort(tokenToRevoke)
 
         let todoDesc = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.plannerId == id })
         for item in (try? context.fetch(todoDesc)) ?? [] { context.delete(item) }
@@ -261,6 +286,11 @@ final class PlannerService {
 
         try? context.save()
         refreshStore()
+
+        if shouldClearGlobalSession {
+            await clearNotionGlobalSession()
+        }
+
         print("[PlannerService] 🔄 연동 초기화 완료 - plannerId:\(id)")
     }
 
@@ -291,6 +321,12 @@ final class PlannerService {
     func deletePlanner(_ planner: Planner) async throws {
         guard store.count > 1 else { return }
         let id = planner.id
+        let tokenToRevoke = planner.notionAccessToken
+        let wasNotionConnected = planner.isNotionConnected
+        let shouldClearGlobalSession = wasNotionConnected
+            && countOtherNotionConnectedPlanners(excluding: id) == 0
+
+        await revokePlannerNotionTokenBestEffort(tokenToRevoke)
 
         let todoDesc = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.plannerId == id })
         for item in (try? context.fetch(todoDesc)) ?? [] { context.delete(item) }
@@ -313,5 +349,32 @@ final class PlannerService {
         if selectedPlannerId == planner.id {
             selectedPlannerId = store.first?.id ?? ""
         }
+
+        if shouldClearGlobalSession {
+            await clearNotionGlobalSession()
+        }
+    }
+
+    // MARK: - Notion 세션 정리
+
+    private func countOtherNotionConnectedPlanners(excluding plannerId: String) -> Int {
+        store.filter { $0.id != plannerId && $0.isNotionConnected }.count
+    }
+
+    private func revokePlannerNotionTokenBestEffort(_ token: String?) async {
+        guard let token, !token.isEmpty else { return }
+        do {
+            try await APIClient.shared.revokeNotionToken(token)
+        } catch {
+            AppLogger.shared.error(
+                "PlannerService",
+                "Notion 토큰 revoke 실패 (계속 진행): \(error.localizedDescription)"
+            )
+        }
+    }
+
+    @MainActor
+    private func clearNotionGlobalSession() {
+        NotionAuthManager.shared.signOut()
     }
 }

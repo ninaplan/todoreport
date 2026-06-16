@@ -1,0 +1,50 @@
+---
+description: 투두리포트 CLAUDE.md 개발 규칙·주의사항 (아키텍처·Swift·Xcode 제약)
+alwaysApply: true
+---
+
+# Xcode / 프로젝트 파일 (절대 위반 금지)
+
+- **project.pbxproj 절대 수정 금지** — 타겟·빌드 설정·파일 참조 변경은 Xcode에서만. 에이전트가 `*.pbxproj`를 편집·생성·삭제하지 않음.
+- **Info.plist 신규 생성 금지** — 기존 plist만 사용. 새 `Info.plist` 파일을 만들거나 추가하지 않음.
+
+# 절대 원칙
+
+- **기존 코드 무단 변경 금지** — 요청 범위 외 UI·로직·구조·아키텍처 임의 변경 금지. 불가피하면 이유 설명 후 승인.
+- **모듈 독립성** — Feature별 완전 분리. 한 기능 수정이 다른 기능에 영향 없어야 함.
+- **Notion API는 iOS에서 직접 호출 금지** → `APIClient.shared` → Next.js 백엔드(`todoreport-backend`)만.
+- **외부 API는 CacheManager 경유** (읽기 캐싱).
+- **Offline-First 쓰기** — SwiftData 저장 → UI 갱신 → SyncQueue → 백그라운드 Notion 전송.
+- **Force unwrap(`!`) / force try / `@ObservableObject` 금지** → `@Observable`, optional binding.
+- **View에서 ViewModel 프로퍼티 직접 수정 금지** — 상태 변경은 ViewModel 메서드만.
+- **alert 상태** — `showXxxAlert`/`xxxItem`이 있으면 `cancelXxx()`/`confirmXxx()` 쌍 필수.
+
+# 아키텍처
+
+- **Feature 패턴:** `FeatureView` + `@Observable FeatureViewModel` + `FeatureService` (View에 비즈니스 로직 금지).
+- **Repository:** ViewModel은 `DataRepository` 프로토콜만 사용 (`RepositoryFactory.current`).
+- **네트워크:** `Core/Network/APIClient.swift` 단일 창구. 직접 `URLSession` 호출 금지.
+- **SyncQueue:** `selectedPlanner` 의존 금지 → `item.plannerId`로 `PlannerService.shared.store`에서 플래너 조회.
+- **`TodoItem.update(from:)`** — `notionPageId`, `notionRelationLinked`, `notionCreatedAt`, `plannerId` 덮어쓰기 금지.
+
+# 코딩 컨벤션
+
+- async/await (completion handler 금지), throws + do-catch, 1파일 1타입, 접근 제어 명시.
+- iOS Release에서 `fatalError` 금지 (Persistence 실패는 `PersistenceErrorView`).
+- 임시 `// TODO:`/`// FIXME:` 금지. 복잡한 비즈니스 로직에만 한국어 주석.
+
+# 알려진 패턴 / 주의사항
+
+- **AutoFocusTextField:** 한글 IME·Dynamic Type — 고정 pt 대신 `textStyle: .body` 등 사용.
+- **Stale 스냅샷:** `let planner: Planner` 상수 보관 금지 → `@Observable` 서비스에서 computed로 live 조회.
+- **ModelContainer:** in-memory 폴백 금지 (데이터 소멸 조용히 감춤).
+- **구독 만료:** `wasProBefore`로 최초 무료 vs 만료 구분. DEBUG는 `refreshIsProDebug(previousValue:)`.
+- **isReadOnly:** 구독 만료 시 Pro 플래너(2번째+) 편집 차단, 데이터는 보존.
+- **CategoryNotionSync:** select/status 매핑 플래너만. 삭제=노션 옵션 삭제, 보관=앱만 숨김.
+- **기간 리포트 매칭:** start+endDate exact 매칭만. 시작일만 같은 주간↔월간 폴백 금지 (iOS·백엔드 공통).
+- **Widget:** App Group `group.kr.nock.TodoReport` — capability는 Xcode에서 수동 설정.
+
+# 백엔드
+
+- 별도 레포: `todoreport-backend` (Next.js App Router, Vercel).
+- Notion API는 서버사이드 전용. iOS 변경과 함께 배포 필요 시 `vercel deploy --prod`.

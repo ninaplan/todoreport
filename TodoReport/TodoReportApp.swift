@@ -14,7 +14,7 @@ struct TodoReportApp: App {
                 if let error = PersistenceController.shared.initializationError {
                     PersistenceErrorView(error: error)
                 } else if onboardingCompleted {
-                    MainTabView()
+                    MainTabView(onAccountDeleted: { onboardingCompleted = false })
                 } else {
                     OnboardingView {
                         onboardingCompleted = true

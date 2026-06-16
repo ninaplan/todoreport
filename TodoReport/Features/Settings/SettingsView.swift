@@ -1,10 +1,13 @@
 import SwiftUI
+import SwiftData
 import MessageUI
 import UserNotifications
 
 // MARK: - 설정 뷰
 
 struct SettingsView: View {
+    let onAccountDeleted: () -> Void
+
     private var planners: [Planner] { PlannerService.shared.store }
     @State private var subscriptionManager = SubscriptionManager.shared
     private var isPro: Bool { subscriptionManager.isPro }
@@ -17,16 +20,35 @@ struct SettingsView: View {
     @State private var activeMailSheet: SupportMailKind? = nil
     @State private var restoreAlertMessage: String?
     @State private var isRestoringSubscription = false
+    @State private var settingsViewModel: SettingsViewModel
+    @Environment(\.modelContext) private var modelContext
+
+    init(onAccountDeleted: @escaping () -> Void = {}) {
+        self.onAccountDeleted = onAccountDeleted
+        _settingsViewModel = State(initialValue: SettingsViewModel(onAccountDeleted: onAccountDeleted))
+    }
 
     var body: some View {
+        @Bindable var vm = settingsViewModel
         List {
             subscriptionSection
             plannersSection
             globalSettingsSection
+            accountDeletionSection
             supportSection
             appInfoSection
         }
         .navigationTitle("설정")
+        .overlay {
+            if vm.isDeletingAccount {
+                ZStack {
+                    Color.black.opacity(0.25).ignoresSafeArea()
+                    ProgressView("삭제 중...")
+                        .padding(24)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+            }
+        }
         .sheet(isPresented: $showAddPlannerSheet) {
             PlannerAddView()
                 .presentationDragIndicator(.visible)
@@ -47,6 +69,28 @@ struct SettingsView: View {
             Button("확인", role: .cancel) { restoreAlertMessage = nil }
         } message: {
             Text(restoreAlertMessage ?? "")
+        }
+        .alert("데이터 및 계정 삭제", isPresented: $vm.showDeleteAccountAlert) {
+            Button("취소", role: .cancel) { settingsViewModel.cancelDeleteAccount() }
+            Button("계속") { settingsViewModel.confirmDeleteAccountWarning() }
+        } message: {
+            Text("앱의 모든 투두·리포트·플래너·노션 연결 정보가 삭제됩니다. 노션에 저장된 페이지는 삭제되지 않습니다.")
+        }
+        .alert("정말 삭제할까요?", isPresented: $vm.showDeleteAccountFinalAlert) {
+            Button("취소", role: .cancel) { settingsViewModel.cancelDeleteAccount() }
+            Button("삭제하기", role: .destructive) {
+                Task { await settingsViewModel.performDeleteAccount(context: modelContext) }
+            }
+        } message: {
+            Text("이 작업은 되돌릴 수 없습니다.")
+        }
+        .alert("삭제 실패", isPresented: Binding(
+            get: { vm.deleteAccountError != nil },
+            set: { if !$0 { settingsViewModel.dismissDeleteAccountError() } }
+        )) {
+            Button("확인") { settingsViewModel.dismissDeleteAccountError() }
+        } message: {
+            Text(vm.deleteAccountError ?? "")
         }
         .task {
             let settings = await UNUserNotificationCenter.current().notificationSettings()
@@ -168,6 +212,21 @@ struct SettingsView: View {
             Text("환경 설정")
         } footer: {
             Text("리포트의 연속 달성은 어제까지 기준으로 계산됩니다.")
+        }
+    }
+
+    // MARK: - 계정 삭제
+
+    private var accountDeletionSection: some View {
+        Section {
+            Button(role: .destructive) {
+                settingsViewModel.requestDeleteAccount()
+            } label: {
+                Text("데이터 및 계정 삭제")
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+        } footer: {
+            Text("투두, 리포트, 플래너, 노션 연결 정보가 모두 삭제됩니다. 노션에 저장된 페이지는 삭제되지 않으며 노션에서 직접 관리할 수 있습니다.")
         }
     }
 
