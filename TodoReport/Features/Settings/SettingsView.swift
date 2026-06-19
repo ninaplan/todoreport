@@ -37,6 +37,9 @@ struct SettingsView: View {
             accountDeletionSection
             supportSection
             appInfoSection
+            #if DEBUG
+            DebugDeveloperOptionsSection()
+            #endif
         }
         .navigationTitle("설정")
         .overlay {

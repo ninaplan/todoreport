@@ -114,10 +114,22 @@ struct TodoView: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .refreshable {
-                    await viewModel.syncFromNotion()
+                    await viewModel.refreshFromNotion()
                     await dailyReportViewModel.fetchReport(for: viewModel.selectedDate, completionRate: viewModel.completionRate)
                 }
                 .onAppear { Task { await viewModel.onAppear() } }
+                .onChange(of: tabCoordinator.foregroundRefreshToken) { _, _ in
+                    Task {
+                        await viewModel.handleForegroundRefresh()
+                        await dailyReportViewModel.fetchReport(
+                            for: viewModel.selectedDate,
+                            completionRate: viewModel.completionRate
+                        )
+                    }
+                }
+                .onChange(of: tabCoordinator.todoRootResetToken) { _, _ in
+                    resetTodoNavigationToRoot()
+                }
                 .onChange(of: tabCoordinator.pendingTodoDate) { _, date in
                     guard let date else { return }
                     viewModel.navigateToDate(date)
@@ -132,9 +144,6 @@ struct TodoView: View {
                             completionRate: viewModel.completionRate
                         )
                     }
-                }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-                    Task { await viewModel.onForeground() }
                 }
                 } // ScrollViewReader
 
@@ -292,6 +301,19 @@ struct TodoView: View {
     }
 
     // MARK: - 투두 행 빌더 (공통 스와이프 액션 포함)
+
+    private func resetTodoNavigationToRoot() {
+        tabCoordinator.selectedTab = .todo
+        showViewOptions = false
+        showPlannerSheet = false
+        showQuickCapture = false
+        showCategorySheet = false
+        changingDateTodo = nil
+        editingTodo = nil
+        isAddingTodo = false
+        newTodoTitle = ""
+        viewModel.goToToday()
+    }
 
     @ViewBuilder
     private func todoRows(for todos: [Todo]) -> some View {

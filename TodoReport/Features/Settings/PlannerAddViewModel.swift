@@ -46,8 +46,6 @@ final class PlannerAddViewModel {
 
     @ObservationIgnored private var databasesFetchTask: Task<Void, Never>?
 
-    private let backendBase = "https://todoreport-backend.vercel.app"
-
     // MARK: - 로컬 모드
 
     func selectLocalMode() async {
@@ -213,7 +211,7 @@ final class PlannerAddViewModel {
         isLoading = true
         defer { isLoading = false }
         let token = capturedAccessToken ?? ""
-        guard let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else { return }
+        guard let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/properties") else { return }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         do {
@@ -232,7 +230,7 @@ final class PlannerAddViewModel {
         isLoading = true
         defer { isLoading = false }
         let token = capturedAccessToken ?? ""
-        guard let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else { return }
+        guard let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/properties") else { return }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         do {
@@ -295,7 +293,7 @@ final class PlannerAddViewModel {
     }
 
     private func addNotionProperty(dbId: String, name: String, type: String, options: [String] = [], token: String) async -> String? {
-        guard let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/add-property") else { return nil }
+        guard let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/add-property") else { return nil }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

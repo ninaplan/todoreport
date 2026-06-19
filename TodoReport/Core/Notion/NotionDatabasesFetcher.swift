@@ -2,7 +2,6 @@ import Foundation
 
 /// 노션 DB 목록 조회 — 온보딩·플래너 추가·마이그레이션·설정 공통.
 enum NotionDatabasesFetcher {
-    private static let backendBase = "https://todoreport-backend.vercel.app"
     private static let emptyRetryNanoseconds: [UInt64] = [
         2_000_000_000,
         3_000_000_000,
@@ -43,7 +42,7 @@ enum NotionDatabasesFetcher {
     }
 
     private static func fetchOnce(token: String) async -> FetchOutcome {
-        guard let url = URL(string: "\(backendBase)/api/notion/databases") else {
+        guard let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases") else {
             return .failure("DB 목록을 불러오지 못했어요")
         }
         var request = URLRequest(url: url)

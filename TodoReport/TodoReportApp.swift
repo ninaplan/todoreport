@@ -68,7 +68,11 @@ struct TodoReportApp: App {
         }
         .modelContainer(PersistenceController.shared.container)
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active {
+            switch newPhase {
+            case .background:
+                AppForegroundCoordinator.shared.recordBackgroundEntry()
+            case .active:
+                AppForegroundCoordinator.shared.handleBecomeActive()
                 Task { await SubscriptionManager.shared.updatePurchasedProducts() }
                 ReportNotificationManager.shared.rescheduleAll()
                 Task { @MainActor in SyncQueueManager.shared.processIfConnected() }
@@ -78,6 +82,8 @@ struct TodoReportApp: App {
                         await CategoryNotionSync.shared.syncCategoriesByName(plannerId: plannerId)
                     }
                 }
+            default:
+                break
             }
         }
     }

@@ -66,7 +66,6 @@ final class PlannerMigrationViewModel {
     private var context: ModelContext { PersistenceController.shared.context }
     private let reportService = DailyReportService()
     private let todoService = TodoService.shared
-    private let backendBase = "https://todoreport-backend.vercel.app"
     @ObservationIgnored private var databasesFetchTask: Task<Void, Never>?
     private var migrationTask: Task<Void, Never>?
 
@@ -244,7 +243,7 @@ final class PlannerMigrationViewModel {
         isLoading = true
         defer { isLoading = false }
         let token = capturedAccessToken ?? ""
-        guard let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else { return }
+        guard let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/properties") else { return }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         do {
@@ -265,7 +264,7 @@ final class PlannerMigrationViewModel {
         isLoading = true
         defer { isLoading = false }
         let token = capturedAccessToken ?? ""
-        guard let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else { return }
+        guard let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/properties") else { return }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         do {
@@ -330,7 +329,7 @@ final class PlannerMigrationViewModel {
     }
 
     private func addNotionProperty(dbId: String, name: String, type: String, options: [String] = [], token: String) async -> String? {
-        guard let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/add-property") else { return nil }
+        guard let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/add-property") else { return nil }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -393,7 +392,7 @@ final class PlannerMigrationViewModel {
 
     private func verifyNotionConnection() async -> Bool {
         let token = capturedAccessToken ?? ""
-        guard let url = URL(string: "\(backendBase)/api/notion/databases") else { return false }
+        guard let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases") else { return false }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         do {

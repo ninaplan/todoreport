@@ -28,7 +28,6 @@ final class CategoryNotionSync {
     private init() {}
 
     private var context: ModelContext { PersistenceController.shared.context }
-    private let backendBase = "https://todoreport-backend.vercel.app"
     @ObservationIgnored private var cachedNotionOptionsByPlannerId: [String: [NotionCategoryOption]] = [:]
 
     // MARK: - Mode
@@ -51,7 +50,7 @@ final class CategoryNotionSync {
         guard let dbId = planner.notionTodoDBId,
               let token = planner.resolvedNotionToken,
               hasCategoryPropertyMapping(planner.decodedTodoPropsMapping),
-              let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else {
+              let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/properties") else {
             AppLogger.shared.warn("CategoryNotionSync", "노션 옵션 조회 스킵 - DB/토큰/속성명 없음")
             return []
         }
@@ -440,7 +439,7 @@ final class CategoryNotionSync {
         token: String
     ) async -> Bool {
         guard !dbId.isEmpty, !propertyName.isEmpty,
-              let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/remove-select-option") else {
+              let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/remove-select-option") else {
             return false
         }
 
@@ -480,7 +479,7 @@ final class CategoryNotionSync {
 
     private func addSelectOption(dbId: String, propertyName: String, optionName: String, token: String) async {
         guard !dbId.isEmpty, !propertyName.isEmpty, !optionName.isEmpty,
-              let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/add-select-option") else { return }
+              let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/add-select-option") else { return }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

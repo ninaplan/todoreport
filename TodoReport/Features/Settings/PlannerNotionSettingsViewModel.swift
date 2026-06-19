@@ -27,7 +27,6 @@ final class PlannerNotionSettingsViewModel {
     var ratingMode: PropMappingMode = .appOnly
 
     private let planner: Planner
-    private let backendBase = "https://todoreport-backend.vercel.app"
     @ObservationIgnored private var databasesFetchTask: Task<Void, Never>?
 
     init(planner: Planner) {
@@ -108,7 +107,7 @@ final class PlannerNotionSettingsViewModel {
         defer { isLoading = false }
 
         guard let token = planner.resolvedNotionToken,
-              let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else { return }
+              let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/properties") else { return }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
@@ -149,7 +148,7 @@ final class PlannerNotionSettingsViewModel {
         defer { isLoading = false }
 
         guard let token = planner.resolvedNotionToken,
-              let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else { return }
+              let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/properties") else { return }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
@@ -271,7 +270,7 @@ final class PlannerNotionSettingsViewModel {
         dbId: String, name: String, type: String, options: [String] = [], format: String? = nil
     ) async -> String? {
         guard let token = planner.resolvedNotionToken,
-              let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/add-property") else { return nil }
+              let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/add-property") else { return nil }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

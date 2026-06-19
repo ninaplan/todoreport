@@ -14,6 +14,10 @@ final class MainTabCoordinator {
     var pendingTodoDate: Date?
     /// 설정 탭 NavigationStack 초기화 트리거 (위젯 진입 등)
     private(set) var settingsStackResetToken: Int = 0
+    /// 5분+ 백그라운드 복귀 시 투두 탭 루트 리셋 트리거
+    private(set) var todoRootResetToken: Int = 0
+    /// 포그라운드 복귀 시 데이터 갱신 트리거
+    private(set) var foregroundRefreshToken: Int = 0
 
     private init() {}
 
@@ -30,5 +34,13 @@ final class MainTabCoordinator {
 
     func clearPendingTodoDate() {
         pendingTodoDate = nil
+    }
+
+    func requestTodoRootReset() {
+        todoRootResetToken += 1
+    }
+
+    func triggerForegroundRefresh() {
+        foregroundRefreshToken += 1
     }
 }

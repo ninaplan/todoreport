@@ -2,6 +2,7 @@ import SwiftUI
 import Charts
 
 struct ReportView: View {
+    @Environment(MainTabCoordinator.self) private var tabCoordinator
     @State private var viewModel = ReportViewModel()
     @State private var reportScrollOffset: CGFloat = 52
     @State private var showReviewTodoRestrictedAlert = false
@@ -53,6 +54,9 @@ struct ReportView: View {
                 .onPreferenceChange(ScrollOffsetPreferenceKey.self) { y in
                     reportScrollOffset = y
                 }
+                .refreshable {
+                    await viewModel.fetchReportWithNotionSync()
+                }
 
                 DateNavigationRow(
                     title: viewModel.periodTitle,
@@ -77,7 +81,10 @@ struct ReportView: View {
                     .frame(width: 172)
                 }
             }
-            .task { await viewModel.fetchReport() }
+            .task { await viewModel.fetchReportWithNotionSync() }
+            .onChange(of: tabCoordinator.foregroundRefreshToken) { _, _ in
+                Task { await viewModel.handleForegroundRefresh() }
+            }
             .onChange(of: viewModel.selectedPeriod) { _, _ in
                 viewModel.onPeriodChanged()
             }

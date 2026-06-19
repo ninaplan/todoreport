@@ -105,8 +105,6 @@ final class OnboardingViewModel {
     @ObservationIgnored private var databasesFetchTask: Task<Void, Never>?
     @ObservationIgnored private(set) var capturedToken: String?
 
-    private let backendBase = "https://todoreport-backend.vercel.app"
-
     init() {
         NotionAuthManager.shared.$errorMessage
             .receive(on: DispatchQueue.main)
@@ -353,7 +351,7 @@ final class OnboardingViewModel {
         isLoadingDBs = true
         defer { isLoadingDBs = false }
 
-        guard let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else { return }
+        guard let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/properties") else { return }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(capturedToken ?? "")", forHTTPHeaderField: "Authorization")
 
@@ -373,7 +371,7 @@ final class OnboardingViewModel {
         isLoadingDBs = true
         defer { isLoadingDBs = false }
 
-        guard let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else { return }
+        guard let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/properties") else { return }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(capturedToken ?? "")", forHTTPHeaderField: "Authorization")
 
@@ -466,7 +464,7 @@ final class OnboardingViewModel {
 
     private func addNotionProperty(dbId: String, name: String, type: String, options: [String] = []) async -> String? {
         guard let token = capturedToken,
-              let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/add-property") else { return nil }
+              let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/add-property") else { return nil }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -508,7 +506,7 @@ final class OnboardingViewModel {
 
     private func refreshTodoPropertiesList() async {
         guard let dbId = selectedTodoDBId,
-              let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else { return }
+              let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/properties") else { return }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(capturedToken ?? "")", forHTTPHeaderField: "Authorization")
         guard let (data, _) = try? await URLSession.shared.data(for: request),
@@ -520,7 +518,7 @@ final class OnboardingViewModel {
 
     private func refreshReportPropertiesList() async {
         guard let dbId = selectedReportDBId,
-              let url = URL(string: "\(backendBase)/api/notion/databases/\(dbId)/properties") else { return }
+              let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/properties") else { return }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(capturedToken ?? "")", forHTTPHeaderField: "Authorization")
         guard let (data, _) = try? await URLSession.shared.data(for: request),

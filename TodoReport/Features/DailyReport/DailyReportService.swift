@@ -112,6 +112,7 @@ final class DailyReportService {
 
         let dateStr = seoulDateString(from: date)
         var params: [String: String] = ["date": dateStr, "dbId": dbId]
+        if let pid = pid { params["plannerId"] = pid }
         if let v = mapping.date   { params["dateProp"] = v }
         if let v = mapping.review { params["reviewProp"] = v }
         if let v = mapping.rating { params["ratingProp"] = v }

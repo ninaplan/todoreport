@@ -10,7 +10,7 @@ final class APIClient {
 
     private init() {
         session = URLSession.shared
-        baseURL = "https://todoreport-backend.vercel.app"
+        baseURL = BackendBaseURL.resolved
     }
 
     func get<T: Decodable>(_ path: String, params: [String: String] = [:], token: String? = nil) async throws -> T {
@@ -31,6 +31,9 @@ final class APIClient {
     func delete(_ path: String, token: String? = nil) async throws {
         let request = try buildRequest(path: path, method: "DELETE", token: token)
         let (_, response) = try await session.data(for: request)
+        #if DEBUG
+        debugLogResponse(response, for: request)
+        #endif
         try validate(response)
     }
 
@@ -76,11 +79,17 @@ private extension APIClient {
             request.httpBody = try JSONEncoder().encode(body)
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
+        #if DEBUG
+        debugLogRequest(request, baseURL: baseURL)
+        #endif
         return request
     }
 
     func perform<T: Decodable>(_ request: URLRequest) async throws -> T {
         let (data, response) = try await session.data(for: request)
+        #if DEBUG
+        debugLogResponse(response, for: request)
+        #endif
         try validate(response)
         do {
             return try JSONDecoder().decode(T.self, from: data)
@@ -96,9 +105,29 @@ private extension APIClient {
         }
         guard (200..<300).contains(http.statusCode) else {
             AppLogger.shared.error("APIClient", "HTTP 오류 - statusCode:\(http.statusCode) url:\(http.url?.path ?? "")")
+            #if DEBUG
+            print("[APIClient] ❌ HTTP \(http.statusCode) - \(http.url?.absoluteString ?? "unknown")")
+            #endif
             throw APIError.httpError(statusCode: http.statusCode)
         }
     }
+
+    #if DEBUG
+    func debugLogRequest(_ request: URLRequest, baseURL: String) {
+        let url = request.url?.absoluteString ?? "unknown"
+        let method = request.httpMethod ?? "?"
+        print("[APIClient] ➡️ \(method) \(url) (baseURL: \(baseURL))")
+    }
+
+    func debugLogResponse(_ response: URLResponse, for request: URLRequest) {
+        let url = request.url?.absoluteString ?? "unknown"
+        if let http = response as? HTTPURLResponse {
+            print("[APIClient] ⬅️ HTTP \(http.statusCode) - \(url)")
+        } else {
+            print("[APIClient] ⬅️ invalid response - \(url)")
+        }
+    }
+    #endif
 }
 
 // MARK: - Error

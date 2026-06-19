@@ -41,7 +41,7 @@ final class NotionAuthManager: NSObject, ObservableObject, ASWebAuthenticationPr
 
         let state = UUID().uuidString
         pendingState = state
-        guard let url = URL(string: "https://todoreport-backend.vercel.app/api/auth/notion?state=\(state)") else {
+        guard let url = URL(string: "\(BackendBaseURL.resolved)/api/auth/notion?state=\(state)") else {
             return
         }
         isLoading = true

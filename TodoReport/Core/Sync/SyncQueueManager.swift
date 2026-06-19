@@ -143,7 +143,11 @@ final class SyncQueueManager {
 
     private func enqueue(action: String, entityType: String, entityId: String, payload: Data, plannerId: String?) {
         guard isPlannerNotionConnected(plannerId) else {
+            #if DEBUG
+            debugLogEnqueueSkip(action: action, entityType: entityType, entityId: entityId, plannerId: plannerId)
+            #else
             print("[SyncQueue] 🚫 enqueue 스킵 - Notion 미연결 plannerId:\(plannerId ?? "nil")")
+            #endif
             return
         }
 
@@ -226,6 +230,23 @@ final class SyncQueueManager {
             predicate: #Predicate<SyncQueueItem> { $0.status == "pending" || $0.status == "processing" }
         )
         return (try? context.fetch(descriptor))?.isEmpty == false
+    }
+
+    /// Notion 페이지가 삭제된 경우(404) — 해당 todo의 pending/processing 큐 항목 전부 제거
+    func clearPendingTodoOperations(notionPageId: String, localId: String?) {
+        let descriptor = FetchDescriptor<SyncQueueItem>(
+            predicate: #Predicate<SyncQueueItem> {
+                $0.entityType == "todo" &&
+                ($0.status == "pending" || $0.status == "processing")
+            }
+        )
+        guard let items = try? context.fetch(descriptor), !items.isEmpty else { return }
+        let targetIds = Set([notionPageId, localId].compactMap { $0 })
+        let toDelete = items.filter { targetIds.contains($0.entityId) }
+        guard !toDelete.isEmpty else { return }
+        toDelete.forEach { context.delete($0) }
+        try? context.save()
+        print("[SyncQueue] 🗑️ Notion 404 → 큐 \(toDelete.count)개 제거 notionPageId:\(notionPageId)")
     }
 
     func processIfConnected() {
@@ -411,4 +432,18 @@ final class SyncQueueManager {
         fmt.timeZone = TimeZone(identifier: "Asia/Seoul")
         return fmt.string(from: date)
     }
+
+    #if DEBUG
+    private func debugLogEnqueueSkip(action: String, entityType: String, entityId: String, plannerId: String?) {
+        let reason: String
+        if plannerId == nil {
+            reason = "plannerId nil"
+        } else if PlannerService.shared.store.first(where: { $0.id == plannerId }) == nil {
+            reason = "planner not found in store (plannerId: \(plannerId ?? "nil"))"
+        } else {
+            reason = "planner exists but isNotionConnected == false (plannerId: \(plannerId ?? "nil"))"
+        }
+        print("[SyncQueue] 🚫 enqueue 스킵 - \(action) \(entityType) entityId:\(entityId) reason:\(reason)")
+    }
+    #endif
 }

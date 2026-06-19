@@ -23,6 +23,8 @@ struct Todo: Identifiable, Codable {
     var recurrenceEndDate: Date?
     var recurrenceCount: Int?
     var notionRelationLinked: Bool
+    /// 로컬에서 마지막으로 생성·수정된 시각 (Notion/캐시 지연 시 merge 보호용)
+    var localModifiedAt: Date?
 
     init(
         id: String = UUID().uuidString,
@@ -43,7 +45,8 @@ struct Todo: Identifiable, Codable {
         recurrenceId: String? = nil,
         recurrenceEndDate: Date? = nil,
         recurrenceCount: Int? = nil,
-        notionRelationLinked: Bool = false
+        notionRelationLinked: Bool = false,
+        localModifiedAt: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -64,6 +67,11 @@ struct Todo: Identifiable, Codable {
         self.recurrenceEndDate = recurrenceEndDate
         self.recurrenceCount = recurrenceCount
         self.notionRelationLinked = notionRelationLinked
+        self.localModifiedAt = localModifiedAt
+    }
+
+    mutating func markLocallyModified(at date: Date = .now) {
+        localModifiedAt = date
     }
 }
 
@@ -180,6 +188,7 @@ final class TodoService {
         let token = planner?.resolvedNotionToken
 
         var params: [String: String] = ["date": seoulDateString(from: date), "dbId": dbId]
+        if let pid = pid { params["plannerId"] = pid }
         if let v = mapping.completed { params["completedProp"] = v }
         if let v = mapping.date      { params["dateProp"] = v }
         if let v = mapping.isPinned  { params["isPinnedProp"] = v }

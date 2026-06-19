@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum ReportPeriod: String, CaseIterable {
     case weekly  = "주간"
@@ -44,6 +45,8 @@ final class ReportViewModel {
 
     private let service = ReportService.shared
     private let calendar = Calendar.current
+    @ObservationIgnored private var isHandlingForegroundRefresh = false
+    @ObservationIgnored private var notionSyncTask: Task<Void, Never>?
 
     // MARK: - Computed
 
@@ -92,7 +95,7 @@ final class ReportViewModel {
         monthlyReport = nil
         periodOffset = 0
         ReportNotificationManager.shared.rescheduleAll()
-        Task { await fetchReport() }
+        Task { await fetchReportWithNotionSync() }
     }
 
     func cancelNotionConnect() {
@@ -208,67 +211,149 @@ final class ReportViewModel {
 
     // MARK: - Data
 
-    func fetchReport() async {
-        isLoading = true
+    func handleForegroundRefresh() async {
+        guard !isHandlingForegroundRefresh else { return }
+        isHandlingForegroundRefresh = true
+        do {
+            defer { isHandlingForegroundRefresh = false }
+            await fetchReportWithNotionSync()
+        }
+    }
 
+    /// 로컬(SwiftData)만 조회 — 기간 이동 시 사용
+    func fetchReport() async {
+        let hadLocal = hasLocalReportForCurrentPeriod
+        if !hadLocal { isLoading = true }
+        do {
+            defer { isLoading = false }
+            await loadLocalReport()
+        }
+    }
+
+    /// 화면 최초 진입·pull-to-refresh·포그라운드 복귀 — 로컬 먼저, 백그라운드 Notion sync
+    func fetchReportWithNotionSync() async {
+        let hadLocal = hasLocalReportForCurrentPeriod
+        await fetchReport()
+        await performBackgroundNotionSync(quiet: hadLocal)
+    }
+
+    private var hasLocalReportForCurrentPeriod: Bool {
+        switch selectedPeriod {
+        case .weekly: return weeklyReport != nil
+        case .monthly: return monthlyReport != nil
+        }
+    }
+
+    @MainActor
+    private func loadLocalReport() async {
         switch selectedPeriod {
         case .weekly:
             let weekStart = startOfCurrentWeek(offset: periodOffset)
             weeklyReport = await service.fetchWeeklyReport(startingFrom: weekStart)
-            isLoading = false
-            await syncMissingDays(from: weekStart, count: 7)
-            weeklyReport = await service.fetchWeeklyReport(startingFrom: weekStart)
-
         case .monthly:
             guard isPro else {
                 paywallMessage = "월간 리포트는 Pro 기능이에요"
                 showPaywall = true
-                isLoading = false
                 return
             }
             let (year, month) = yearMonthOfCurrent(offset: periodOffset)
-            let monthStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)) ?? .now
-            let daysInMonth = calendar.range(of: .day, in: .month, for: monthStart)?.count ?? 30
-            monthlyReport = await service.fetchMonthlyReport(year: year, month: month)
-            isLoading = false
-            await syncMissingDays(from: monthStart, count: daysInMonth)
             monthlyReport = await service.fetchMonthlyReport(year: year, month: month)
         }
     }
 
+    @MainActor
+    private func reloadLocalReport(animated: Bool) async {
+        switch selectedPeriod {
+        case .weekly:
+            let weekStart = startOfCurrentWeek(offset: periodOffset)
+            let updated = await service.fetchWeeklyReport(startingFrom: weekStart)
+            if animated, weeklyReport != nil {
+                withAnimation(.easeInOut(duration: 0.3)) { weeklyReport = updated }
+            } else {
+                weeklyReport = updated
+            }
+        case .monthly:
+            guard isPro else { return }
+            let (year, month) = yearMonthOfCurrent(offset: periodOffset)
+            let updated = await service.fetchMonthlyReport(year: year, month: month)
+            if animated, monthlyReport != nil {
+                withAnimation(.easeInOut(duration: 0.3)) { monthlyReport = updated }
+            } else {
+                monthlyReport = updated
+            }
+        }
+    }
+
+    @MainActor
+    private func performBackgroundNotionSync(quiet: Bool) async {
+        notionSyncTask?.cancel()
+        let task = Task { @MainActor in
+            do {
+                defer {
+                    isSyncing = false
+                    notionSyncTask = nil
+                }
+                if !quiet { isSyncing = true }
+
+                switch selectedPeriod {
+                case .weekly:
+                    let weekStart = startOfCurrentWeek(offset: periodOffset)
+                    await syncMissingDays(from: weekStart, count: 7, manageSyncingFlag: false)
+                case .monthly:
+                    guard isPro else { return }
+                    let (year, month) = yearMonthOfCurrent(offset: periodOffset)
+                    let monthStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)) ?? .now
+                    let daysInMonth = calendar.range(of: .day, in: .month, for: monthStart)?.count ?? 30
+                    await syncMissingDays(from: monthStart, count: daysInMonth, manageSyncingFlag: false)
+                }
+
+                await reloadLocalReport(animated: quiet)
+            }
+        }
+        notionSyncTask = task
+        await task.value
+    }
+
     // MARK: - Notion Sync (없는 날짜만, 병렬 처리)
 
-    private func syncMissingDays(from start: Date, count: Int) async {
+    private func syncMissingDays(from start: Date, count: Int, manageSyncingFlag: Bool = true) async {
         let planner = PlannerService.shared.selectedPlanner
         guard planner?.isNotionConnected == true else { return }
 
-        isSyncing = true
-        defer { isSyncing = false }
+        let performSync = {
+            let todoService = TodoService.shared
+            let calendar = self.calendar
 
-        let todoService = TodoService.shared
-        let calendar = self.calendar
+            var daysToSync: [Date] = []
+            for i in 0..<count {
+                guard let dayStart = calendar.date(byAdding: .day, value: i, to: start),
+                      let dayEnd   = calendar.date(byAdding: .day, value: 1, to: dayStart) else { continue }
+                if dayStart > calendar.startOfDay(for: .now) { continue }
+                let hasTodos        = await self.service.hasTodos(in: dayStart..<dayEnd)
+                let hasNotionReport = await self.service.hasNotionDailyReport(in: dayStart..<dayEnd)
+                if !hasTodos || !hasNotionReport { daysToSync.append(dayStart) }
+            }
 
-        // sync 필요한 날짜 수집 (SwiftData 조회, 순차, 빠름)
-        var daysToSync: [Date] = []
-        for i in 0..<count {
-            guard let dayStart = calendar.date(byAdding: .day, value: i, to: start),
-                  let dayEnd   = calendar.date(byAdding: .day, value: 1, to: dayStart) else { continue }
-            if dayStart > calendar.startOfDay(for: .now) { continue }
-            let hasTodos        = await self.service.hasTodos(in: dayStart..<dayEnd)
-            let hasNotionReport = await self.service.hasNotionDailyReport(in: dayStart..<dayEnd)
-            if !hasTodos || !hasNotionReport { daysToSync.append(dayStart) }
-        }
+            guard !daysToSync.isEmpty else { return }
 
-        guard !daysToSync.isEmpty else { return }
-
-        // 병렬 네트워크 요청
-        await withTaskGroup(of: Void.self) { group in
-            for dayStart in daysToSync {
-                group.addTask {
-                    await todoService.syncTodosFromNotion(for: dayStart)
-                    await DailyReportService().syncReportFromNotion(for: dayStart)
+            await withTaskGroup(of: Void.self) { group in
+                for dayStart in daysToSync {
+                    group.addTask {
+                        await todoService.syncTodosFromNotion(for: dayStart)
+                        await DailyReportService().syncReportFromNotion(for: dayStart)
+                    }
                 }
             }
+        }
+
+        if manageSyncingFlag {
+            do {
+                isSyncing = true
+                defer { isSyncing = false }
+                await performSync()
+            }
+        } else {
+            await performSync()
         }
     }
 

@@ -99,6 +99,13 @@ final class SyncQueueProcessor {
                     try? context.save()
                     print("[Processor] ✅ 성공 - \(item.entityId)")
                 } catch {
+                    if item.entityType == "todo",
+                       item.action != "create",
+                       isNotionPageNotFound(error) {
+                        handleTodoNotFoundOnNotion(notionPageId: item.entityId)
+                        continue
+                    }
+
                     item.retryCount += 1
                     let isFinalFailure = item.retryCount > 3
                     item.status = isFinalFailure ? "failed" : "pending"
@@ -174,5 +181,32 @@ final class SyncQueueProcessor {
         item.notionRelationLinked = true
         try? context.save()
         print("[Processor] 🔗 notionRelationLinked = true - \(notionPageId)")
+    }
+
+    /// Notion에서 페이지가 삭제됨(404) — 큐 정리 후 로컬 항목 삭제
+    private func handleTodoNotFoundOnNotion(notionPageId: String) {
+        let pageId = notionPageId
+        let todoDescriptor = FetchDescriptor<TodoItem>(
+            predicate: #Predicate { $0.notionPageId == pageId }
+        )
+        let localTodo = try? context.fetch(todoDescriptor).first
+        let localId = localTodo?.id
+
+        SyncQueueManager.shared.clearPendingTodoOperations(notionPageId: notionPageId, localId: localId)
+
+        if let localTodo {
+            let todoId = localTodo.id
+            context.delete(localTodo)
+            try? context.save()
+            TodoNotificationManager.shared.cancel(for: todoId)
+            print("[Processor] 🗑️ Notion 404 → 로컬 todo 삭제 notionPageId:\(notionPageId)")
+        }
+
+        AppLogger.shared.warn("Processor", "Notion 404 → 큐 정리 및 로컬 삭제 notionPageId:\(notionPageId)")
+    }
+
+    private func isNotionPageNotFound(_ error: Error) -> Bool {
+        guard case APIError.httpError(let statusCode) = error else { return false }
+        return statusCode == 404
     }
 }

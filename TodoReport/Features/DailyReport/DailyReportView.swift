@@ -39,9 +39,6 @@ struct DailyReportCard: View {
             guard !focused, viewModel.hasUnsavedReview else { return }
             Task { await viewModel.saveReport() }
         }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            Task { await viewModel.fetchReport(for: date, completionRate: completionRate) }
-        }
         .simultaneousGesture(
             DragGesture(minimumDistance: 30)
                 .onEnded { value in
