@@ -36,6 +36,7 @@ final class SubscriptionManager {
 
     private(set) var products: [Product] = []
     private(set) var purchasedProductIDs: Set<String> = []
+    var expirationDate: Date?
     private(set) var isLoadingProducts: Bool = false
     private(set) var isLoadFailed: Bool = false
     private(set) var productLoadFailureDetail: String?
@@ -59,8 +60,47 @@ final class SubscriptionManager {
         return "Pro"
     }
 
+    var expirationDateText: String? {
+        guard let expirationDate else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy.MM.dd"
+        return formatter.string(from: expirationDate)
+    }
+
     var monthlyProduct: Product? { product(for: Self.monthlyProductId) }
     var yearlyProduct: Product? { product(for: Self.yearlyProductId) }
+
+    var yearlyIntroOfferText: String? {
+        guard let offer = yearlyProduct?.subscription?.introductoryOffer else { return nil }
+        guard offer.paymentMode == .freeTrial else { return nil }
+        let unit = offer.period.unit
+        let count = offer.period.value
+        let unitText: String
+        switch unit {
+        case .day: unitText = "일"
+        case .week: unitText = "주"
+        case .month: unitText = "개월"
+        case .year: unitText = "년"
+        @unknown default: unitText = ""
+        }
+        return "\(count)\(unitText) 무료"
+    }
+
+    var monthlyIntroOfferText: String? {
+        guard let offer = monthlyProduct?.subscription?.introductoryOffer else { return nil }
+        guard offer.paymentMode == .freeTrial else { return nil }
+        let unit = offer.period.unit
+        let count = offer.period.value
+        let unitText: String
+        switch unit {
+        case .day: unitText = "일"
+        case .week: unitText = "주"
+        case .month: unitText = "개월"
+        case .year: unitText = "년"
+        @unknown default: unitText = ""
+        }
+        return "\(count)\(unitText) 무료"
+    }
 
     func product(for id: String) -> Product? {
         products.first { $0.id == id }
@@ -95,6 +135,10 @@ final class SubscriptionManager {
             let loaded = try await Product.products(for: Array(Self.expectedProductIds))
                 .sorted { $0.price < $1.price }
             products = loaded
+            AppLogger.shared.error(
+                "SubscriptionManager",
+                "introOffer 확인 - monthly: \(loaded.first(where: { $0.id == Self.monthlyProductId })?.subscription?.introductoryOffer != nil), yearly: \(loaded.first(where: { $0.id == Self.yearlyProductId })?.subscription?.introductoryOffer != nil)"
+            )
             let receivedIds = Set(loaded.map(\.id))
             let missingIds = Self.expectedProductIds.subtracting(receivedIds)
             isLoadFailed = loaded.isEmpty || !missingIds.isEmpty
@@ -176,12 +220,19 @@ final class SubscriptionManager {
 
     func updatePurchasedProducts() async {
         var ids: Set<String> = []
+        var latestExpiration: Date?
         for await result in Transaction.currentEntitlements {
             guard case .verified(let tx) = result else { continue }
             if tx.revocationDate == nil {
                 ids.insert(tx.productID)
+                if let exp = tx.expirationDate {
+                    if latestExpiration == nil || exp > latestExpiration! {
+                        latestExpiration = exp
+                    }
+                }
             }
         }
+        expirationDate = latestExpiration
         let wasPro = !purchasedProductIDs.isEmpty || wasProBefore
         purchasedProductIDs = ids
         let isNowPro = !ids.isEmpty

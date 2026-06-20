@@ -128,7 +128,8 @@ struct PaywallView: View {
                     subtitle: "매월 자동 갱신",
                     priceText: subscriptionManager.monthlyProduct?.displayPrice ?? (subscriptionManager.isLoadingProducts ? "로딩 중..." : "---"),
                     isSelected: viewModel.selectedProductId == SubscriptionManager.monthlyProductId,
-                    savingsText: nil
+                    savingsText: nil,
+                    introOfferText: subscriptionManager.monthlyIntroOfferText
                 ) {
                     viewModel.selectedProductId = SubscriptionManager.monthlyProductId
                 }
@@ -139,7 +140,8 @@ struct PaywallView: View {
                     subtitle: "매년 자동 갱신",
                     priceText: subscriptionManager.yearlyProduct?.displayPrice ?? (subscriptionManager.isLoadingProducts ? "로딩 중..." : "---"),
                     isSelected: viewModel.selectedProductId == SubscriptionManager.yearlyProductId,
-                    savingsText: yearlySavingsText
+                    savingsText: yearlySavingsText,
+                    introOfferText: subscriptionManager.yearlyIntroOfferText
                 ) {
                     viewModel.selectedProductId = SubscriptionManager.yearlyProductId
                 }
@@ -164,13 +166,21 @@ struct PaywallView: View {
             Button {
                 Task { await viewModel.purchase() }
             } label: {
-                Text("구독 시작하기")
-                    .font(.system(size: 17, weight: .bold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                Group {
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .tint(Color(.systemBackground))
+                    } else {
+                        Text("구독 시작하기")
+                            .font(.headline)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(Color(.label))
+                .foregroundStyle(Color(.systemBackground))
+                .clipShape(Capsule())
             }
-            .buttonStyle(.borderedProminent)
-            .tint(AppTheme.shared.accent)
             .disabled(viewModel.isLoading || !viewModel.canPurchase)
 
             Button {
@@ -178,7 +188,7 @@ struct PaywallView: View {
             } label: {
                 Text("구독 복원")
                     .font(.footnote)
-                    .foregroundStyle(AppTheme.shared.accent)
+                    .foregroundStyle(.secondary)
             }
             .disabled(viewModel.isLoading)
 
@@ -201,7 +211,7 @@ struct PaywallView: View {
             }
         }
         .font(.caption)
-        .foregroundStyle(AppTheme.shared.accent)
+        .tint(.secondary)
     }
 }
 
@@ -242,6 +252,7 @@ private struct PlanCard: View {
     let priceText: String
     let isSelected: Bool
     let savingsText: String?
+    let introOfferText: String?
     let onTap: () -> Void
 
     var body: some View {
@@ -262,6 +273,15 @@ private struct PlanCard: View {
                                 .background(AppTheme.shared.accent)
                                 .clipShape(Capsule())
                         }
+                        if let introOffer = introOfferText {
+                            Text(introOffer)
+                                .font(.caption.bold())
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .foregroundStyle(.white)
+                                .background(Color.blue.opacity(0.75))
+                                .clipShape(Capsule())
+                        }
                     }
                     Text(subtitle)
                         .font(.caption)
@@ -270,7 +290,7 @@ private struct PlanCard: View {
                 Spacer()
                 Text(priceText)
                     .font(.subheadline.bold())
-                    .foregroundStyle(isSelected ? AppTheme.shared.accent : .primary)
+                    .foregroundStyle(.primary)
             }
             .padding(16)
             .background(Color(.secondarySystemGroupedBackground))
@@ -278,7 +298,7 @@ private struct PlanCard: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(
-                        isSelected ? AppTheme.shared.accent : Color(.separator),
+                        isSelected ? Color(.label) : Color(.separator),
                         lineWidth: isSelected ? 2 : 0.5
                     )
             )
