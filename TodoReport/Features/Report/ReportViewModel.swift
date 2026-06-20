@@ -76,18 +76,42 @@ final class ReportViewModel {
             return
         }
         periodOffset -= 1
-        Task { await fetchReport() }
+        clearCurrentPeriodReport()
+        Task {
+            await fetchReport()
+            if !hasLocalReportForCurrentPeriod {
+                await fetchReportWithNotionSync()
+            } else {
+                await performBackgroundNotionSync(quiet: true)
+            }
+        }
     }
 
     func goToNextPeriod() {
         guard canGoNext else { return }
         periodOffset += 1
-        Task { await fetchReport() }
+        clearCurrentPeriodReport()
+        Task {
+            await fetchReport()
+            if !hasLocalReportForCurrentPeriod {
+                await fetchReportWithNotionSync()
+            } else {
+                await performBackgroundNotionSync(quiet: true)
+            }
+        }
     }
 
     func onPeriodChanged() {
         periodOffset = 0
-        Task { await fetchReport() }
+        clearCurrentPeriodReport()
+        Task {
+            await fetchReport()
+            if !hasLocalReportForCurrentPeriod {
+                await fetchReportWithNotionSync()
+            } else {
+                await performBackgroundNotionSync(quiet: true)
+            }
+        }
     }
 
     func onPlannerChanged() {
@@ -96,6 +120,15 @@ final class ReportViewModel {
         periodOffset = 0
         ReportNotificationManager.shared.rescheduleAll()
         Task { await fetchReportWithNotionSync() }
+    }
+
+    private func clearCurrentPeriodReport() {
+        switch selectedPeriod {
+        case .weekly:
+            weeklyReport = nil
+        case .monthly:
+            monthlyReport = nil
+        }
     }
 
     func cancelNotionConnect() {
@@ -226,6 +259,7 @@ final class ReportViewModel {
         if !hadLocal { isLoading = true }
         do {
             defer { isLoading = false }
+            guard !Task.isCancelled else { return }
             await loadLocalReport()
         }
     }

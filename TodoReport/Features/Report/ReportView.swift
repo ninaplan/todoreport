@@ -30,7 +30,7 @@ struct ReportView: View {
                                     )
                                 }
                             )
-                        if viewModel.isLoading {
+                        if viewModel.isLoading || (viewModel.selectedPeriod == .weekly ? viewModel.weeklyReport == nil : viewModel.monthlyReport == nil) {
                             ProgressView()
                                 .frame(maxWidth: .infinity, minHeight: 200)
                         } else {
@@ -81,7 +81,7 @@ struct ReportView: View {
                     .frame(width: 172)
                 }
             }
-            .task { await viewModel.fetchReportWithNotionSync() }
+            .onAppear { Task { await viewModel.fetchReportWithNotionSync() } }
             .onChange(of: tabCoordinator.foregroundRefreshToken) { _, _ in
                 Task { await viewModel.handleForegroundRefresh() }
             }
