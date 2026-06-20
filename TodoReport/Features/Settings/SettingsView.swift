@@ -34,9 +34,17 @@ struct SettingsView: View {
             subscriptionSection
             plannersSection
             globalSettingsSection
-            accountDeletionSection
             supportSection
             appInfoSection
+            Section {
+                Button("구독 복원") {
+                    Task { await restoreSubscription() }
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .foregroundStyle(.secondary)
+                .disabled(isRestoringSubscription)
+            }
+            accountDeletionSection
             #if DEBUG
             DebugDeveloperOptionsSection()
             #endif
@@ -106,26 +114,36 @@ struct SettingsView: View {
 
     private var subscriptionSection: some View {
         Section("구독") {
-            LabeledContent("현재 플랜") {
-                Text(subscriptionManager.activePlanDisplayName)
-                    .foregroundStyle(.secondary)
-            }
-            if !isPro {
-                Button("Pro로 업그레이드") {
+            Button {
+                if isPro {
+                    Task { await subscriptionManager.showManageSubscriptions() }
+                } else {
                     showPaywall = true
                 }
-                .foregroundStyle(AppTheme.shared.accent)
-            } else {
-                Button("구독 관리") {
-                    Task { await subscriptionManager.showManageSubscriptions() }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 15))
+                        .foregroundStyle(isPro ? AppTheme.shared.accent : Color(.tertiaryLabel))
+                    if isPro {
+                        Text("Pro 플랜")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if let expirationText = subscriptionManager.expirationDateText {
+                            Text("\(expirationText) 만료")
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Text("Pro로 업그레이드하기")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(Color(.tertiaryLabel))
                 }
-                .foregroundStyle(.secondary)
             }
-            Button("구독 복원") {
-                Task { await restoreSubscription() }
-            }
-            .foregroundStyle(.secondary)
-            .disabled(isRestoringSubscription)
+            .buttonStyle(.plain)
         }
     }
 
