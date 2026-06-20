@@ -287,7 +287,6 @@ final class CategoryNotionSync {
 
     func onCategorySaved(_ category: Category) async {
         guard category.status == .active,
-              category.isLinkedToNotion,
               let plannerId = category.plannerId,
               let planner = PlannerService.shared.store.first(where: { $0.id == plannerId }),
               isSelectSyncEnabled(for: planner),
@@ -295,10 +294,24 @@ final class CategoryNotionSync {
               let dbId = planner.notionTodoDBId,
               let token = planner.resolvedNotionToken else { return }
 
-        await addSelectOption(
-            dbId: dbId, propertyName: prop,
-            optionName: category.notionOptionName ?? category.name,
-            token: token
+        if category.isLinkedToNotion {
+            let optionName = category.notionOptionName ?? category.name
+            _ = await addSelectOption(
+                dbId: dbId, propertyName: prop, optionName: optionName, token: token
+            )
+            return
+        }
+
+        let trimmedName = category.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+
+        let added = await addSelectOption(
+            dbId: dbId, propertyName: prop, optionName: trimmedName, token: token
+        )
+        guard added else { return }
+
+        await linkNewCategoryToNotionOption(
+            categoryId: category.id, optionName: trimmedName, planner: planner
         )
     }
 
@@ -477,30 +490,106 @@ final class CategoryNotionSync {
         }
     }
 
-    private func addSelectOption(dbId: String, propertyName: String, optionName: String, token: String) async {
-        guard !dbId.isEmpty, !propertyName.isEmpty, !optionName.isEmpty,
-              let url = URL(string: "\(BackendBaseURL.resolved)/api/notion/databases/\(dbId)/add-select-option") else { return }
+    private func linkNewCategoryToNotionOption(
+        categoryId: String,
+        optionName: String,
+        planner: Planner
+    ) async {
+        let notionOptions = await fetchNotionOptions(planner: planner)
+        let trimmed = optionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let option = notionOptions.first(where: {
+            $0.name.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed
+        }) {
+            await persistNotionLink(
+                categoryId: categoryId,
+                optionId: option.id,
+                optionName: option.name,
+                plannerId: planner.id
+            )
+            return
+        }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let body: [String: String] = ["propertyName": propertyName, "optionName": optionName]
-        guard let bodyData = try? JSONEncoder().encode(body) else { return }
-        request.httpBody = bodyData
+        AppLogger.shared.warn(
+            "CategoryNotionSync",
+            "옵션 추가 후 노션 옵션 ID 조회 실패 - '\(trimmed)', name: 접두사 fallback 저장"
+        )
+        await persistNotionLink(
+            categoryId: categoryId,
+            optionId: "name:\(trimmed)",
+            optionName: trimmed,
+            plannerId: planner.id
+        )
+    }
+
+    private func persistNotionLink(
+        categoryId: String,
+        optionId: String,
+        optionName: String,
+        plannerId: String
+    ) async {
+        let id = categoryId
+        let descriptor = FetchDescriptor<CategoryItem>(predicate: #Predicate { $0.id == id })
+        guard let item = try? context.fetch(descriptor).first else {
+            AppLogger.shared.warn("CategoryNotionSync", "노션 연결 저장 실패 - CategoryItem 없음 id:\(categoryId)")
+            return
+        }
+        item.notionOptionId = optionId
+        item.notionOptionName = optionName
+        try? context.save()
+        await CategoryService.shared.refresh()
+        AppLogger.shared.info(
+            "CategoryNotionSync",
+            "카테고리 노션 연결 저장 - \(optionName) optionId:\(optionId) planner:\(plannerId)"
+        )
+    }
+
+    private func addSelectOption(
+        dbId: String,
+        propertyName: String,
+        optionName: String,
+        token: String
+    ) async -> Bool {
+        let trimmedName = optionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !dbId.isEmpty, !propertyName.isEmpty, !trimmedName.isEmpty else {
+            AppLogger.shared.warn(
+                "CategoryNotionSync",
+                "노션 select 옵션 추가 스킵 - dbId/propertyName/optionName 누락"
+            )
+            return false
+        }
+
+        let path = "/api/notion/databases/\(dbId)/add-select-option"
+        let body = AddSelectOptionRequest(propertyName: propertyName, optionName: trimmedName)
 
         do {
-            _ = try await URLSession.shared.data(for: request)
+            let _: AddSelectOptionResponse = try await APIClient.shared.post(path, body: body, token: token)
+            return true
+        } catch let error as APIError {
+            AppLogger.shared.warn(
+                "CategoryNotionSync",
+                "노션 select 옵션 추가 실패 - \(propertyName)/\(trimmedName): \(error.localizedDescription)"
+            )
+            return false
         } catch {
             AppLogger.shared.warn(
                 "CategoryNotionSync",
-                "노션 select 옵션 추가 실패 - \(propertyName)/\(optionName): \(error.localizedDescription)"
+                "노션 select 옵션 추가 실패 - \(propertyName)/\(trimmedName): \(error.localizedDescription)"
             )
+            return false
         }
     }
 }
 
-// MARK: - API Response
+// MARK: - API Request / Response
+
+private struct AddSelectOptionRequest: Encodable {
+    let propertyName: String
+    let optionName: String
+}
+
+private struct AddSelectOptionResponse: Decodable {
+    let success: Bool?
+}
 
 private struct CategoryPropertiesResponse: Decodable {
     let properties: [PropItem]

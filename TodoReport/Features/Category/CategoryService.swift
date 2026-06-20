@@ -164,7 +164,7 @@ final class CategoryService {
         try context.save()
         await refreshStore()
         let saved = cat
-        Task { await CategoryNotionSync.shared.onCategorySaved(saved) }
+        await CategoryNotionSync.shared.onCategorySaved(saved)
     }
 
     func archiveCategory(id: String) async throws {

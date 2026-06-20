@@ -237,11 +237,22 @@ private struct CategoryEditSheet: View {
                         .toolbarSecondaryActionStyle()
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("저장") {
+                    Button {
                         Task { await viewModel.saveEdit() }
+                    } label: {
+                        if viewModel.isSaving {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Text("저장")
+                        }
                     }
-                    .toolbarPrimaryActionStyle(isEnabled: !viewModel.editName.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .disabled(viewModel.editName.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .toolbarPrimaryActionStyle(
+                        isEnabled: !viewModel.editName.trimmingCharacters(in: .whitespaces).isEmpty && !viewModel.isSaving
+                    )
+                    .disabled(
+                        viewModel.editName.trimmingCharacters(in: .whitespaces).isEmpty || viewModel.isSaving
+                    )
                 }
             }
             .onAppear { isNameFocused = true }

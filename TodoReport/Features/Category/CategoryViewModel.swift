@@ -8,6 +8,7 @@ final class CategoryViewModel {
     private(set) var isNotionCategorySyncEnabled: Bool = false
 
     var isSheetPresented: Bool = false
+    var isSaving: Bool = false
     var editName: String = ""
     var editColorHex: String = "#FD6845"
     var editIcon: String = "tag.fill"
@@ -170,6 +171,10 @@ final class CategoryViewModel {
     }
 
     func saveEdit() async {
+        guard !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+
         let trimmed = editName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
 
