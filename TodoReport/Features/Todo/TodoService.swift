@@ -273,17 +273,18 @@ final class TodoService {
             let categoryId = CategoryNotionSync.shared.applyCategoryFromNotion(
                 name: nt.categoryName, plannerId: plannerId
             )
-            let insertDate = parseNotionTodoDate(nt.date, fallback: startOfDay)
+            let parsedDate = parseNotionTodoDate(nt.date, fallback: startOfDay)
             let todo = Todo(
                 title: nt.title,
                 memo: nt.memo,
                 isCompleted: nt.isCompleted,
                 isPinned: nt.isPinned,
-                date: insertDate,
+                date: parsedDate.date,
                 notionCreatedAt: parsedNotionCreatedAt,
                 categoryId: categoryId,
                 notionPageId: nt.notionPageId,
-                plannerId: plannerId
+                plannerId: plannerId,
+                scheduledTime: parsedDate.scheduledTime
             )
             context.insert(TodoItem.from(todo))
         }
@@ -333,42 +334,108 @@ final class TodoService {
         return fmt.string(from: date)
     }
 
-    /// Notion date 문자열(ISO8601 또는 yyyy-MM-dd) → startOfDay. 실패 시 fallback.
-    private func parseNotionTodoDate(_ dateString: String, fallback: Date) -> Date {
+    private struct NotionTodoDateFields {
+        let date: Date
+        let scheduledTime: Date?
+    }
+
+    /// Notion date 문자열 → `date`(startOfDay) + `scheduledTime`(ISO8601 시간 포함 시만).
+    private func parseNotionTodoDate(_ dateString: String, fallback: Date) -> NotionTodoDateFields {
         let cal = Calendar.current
         let fallbackDay = cal.startOfDay(for: fallback)
         let trimmed = dateString.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return fallbackDay }
+        guard !trimmed.isEmpty else {
+            return NotionTodoDateFields(date: fallbackDay, scheduledTime: nil)
+        }
 
         let seoul = TimeZone(identifier: "Asia/Seoul")
 
-        let iso = ISO8601DateFormatter()
-        iso.timeZone = seoul
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let parsed = iso.date(from: trimmed) { return cal.startOfDay(for: parsed) }
-        iso.formatOptions = [.withInternetDateTime]
-        if let parsed = iso.date(from: trimmed) { return cal.startOfDay(for: parsed) }
+        if !trimmed.contains("T"), let dayOnly = parseNotionDayOnlyDate(trimmed, calendar: cal, timeZone: seoul) {
+            return NotionTodoDateFields(date: dayOnly, scheduledTime: nil)
+        }
 
+        if let parsed = parseNotionDateTime(trimmed, timeZone: seoul) {
+            return NotionTodoDateFields(
+                date: cal.startOfDay(for: parsed),
+                scheduledTime: parsed
+            )
+        }
+
+        if let dayOnly = parseNotionDayOnlyDate(trimmed, calendar: cal, timeZone: seoul) {
+            return NotionTodoDateFields(date: dayOnly, scheduledTime: nil)
+        }
+
+        return NotionTodoDateFields(date: fallbackDay, scheduledTime: nil)
+    }
+
+    private func parseNotionDayOnlyDate(
+        _ string: String,
+        calendar: Calendar,
+        timeZone: TimeZone?
+    ) -> Date? {
         let dayOnly = DateFormatter()
         dayOnly.dateFormat = "yyyy-MM-dd"
         dayOnly.locale = Locale(identifier: "en_US_POSIX")
-        dayOnly.timeZone = seoul
-        if let parsed = dayOnly.date(from: trimmed) { return cal.startOfDay(for: parsed) }
-        if trimmed.count >= 10, let parsed = dayOnly.date(from: String(trimmed.prefix(10))) {
-            return cal.startOfDay(for: parsed)
+        dayOnly.timeZone = timeZone
+        if let parsed = dayOnly.date(from: string) {
+            return calendar.startOfDay(for: parsed)
         }
-
-        return fallbackDay
+        if string.count >= 10, let parsed = dayOnly.date(from: String(string.prefix(10))) {
+            return calendar.startOfDay(for: parsed)
+        }
+        return nil
     }
 
-    /// pageId 매칭 기존 항목 — Notion date 반영 및 날짜 변경 연쇄 처리 (scheduledTime은 유지)
+    private func parseNotionDateTime(_ string: String, timeZone: TimeZone?) -> Date? {
+        let iso = ISO8601DateFormatter()
+        iso.timeZone = timeZone
+        let formatSets: [ISO8601DateFormatter.Options] = [
+            [.withInternetDateTime, .withFractionalSeconds, .withColonSeparatorInTimeZone],
+            [.withInternetDateTime, .withFractionalSeconds],
+            [.withInternetDateTime, .withColonSeparatorInTimeZone],
+            [.withInternetDateTime],
+        ]
+        for options in formatSets {
+            iso.formatOptions = options
+            if let parsed = iso.date(from: string) { return parsed }
+        }
+        return nil
+    }
+
+    private func notionScheduledTimesEqual(_ lhs: Date?, _ rhs: Date?) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil):
+            return true
+        case let (left?, right?):
+            let cal = Calendar.current
+            let leftComponents = cal.dateComponents([.year, .month, .day, .hour, .minute], from: left)
+            let rightComponents = cal.dateComponents([.year, .month, .day, .hour, .minute], from: right)
+            return leftComponents == rightComponents
+        default:
+            return false
+        }
+    }
+
+    /// pageId 매칭 기존 항목 — Notion date·scheduledTime 반영, 날짜 변경 시 relation 리셋
     private func applyNotionDate(to existing: TodoItem, from notionDateString: String) {
-        let newDate = parseNotionTodoDate(notionDateString, fallback: existing.date)
-        guard !Calendar.current.isDate(existing.date, inSameDayAs: newDate) else { return }
-        existing.date = newDate
-        existing.notionRelationLinked = false
-        if existing.scheduledTime != nil {
+        let parsed = parseNotionTodoDate(notionDateString, fallback: existing.date)
+        let cal = Calendar.current
+        let dateChanged = !cal.isDate(existing.date, inSameDayAs: parsed.date)
+        let hadScheduledTime = existing.scheduledTime != nil
+        let scheduledTimeChanged = !notionScheduledTimesEqual(existing.scheduledTime, parsed.scheduledTime)
+
+        guard dateChanged || scheduledTimeChanged else { return }
+
+        existing.date = parsed.date
+        existing.scheduledTime = parsed.scheduledTime
+        if dateChanged {
+            existing.notionRelationLinked = false
+        }
+
+        if parsed.scheduledTime != nil {
             TodoNotificationManager.shared.schedule(for: existing.toTodo())
+        } else if hadScheduledTime {
+            TodoNotificationManager.shared.cancel(for: existing.id)
         }
     }
 
