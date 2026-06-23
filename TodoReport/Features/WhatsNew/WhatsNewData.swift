@@ -5,7 +5,8 @@ let whatsNewReleases: [WhatsNewRelease] = [
         id: "1.0.2",
         symbolName: "bookmark",
         items: [
-            "할일 시간 동기화 오류 수정"
+            "할일 시간 동기화 오류 수정",
+            "투두 목록 스크롤 시 버튼 가림 현상 수정"
         ],
         showsPopup: false
     ),
