@@ -100,6 +100,9 @@ struct TodoView: View {
                 .safeAreaInset(edge: .top, spacing: 0) {
                     Color.clear.frame(height: 56)
                 }
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    Color.clear.frame(height: 100)
+                }
                 .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
                     guard isAddingTodo else { return }
                     withAnimation { proxy.scrollTo("addTodoRow", anchor: .bottom) }
