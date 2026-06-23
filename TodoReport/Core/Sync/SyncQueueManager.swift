@@ -355,6 +355,12 @@ final class SyncQueueManager {
             "linkDailyReport": true,
             "date": seoulDateString(from: todo.date),
         ]
+        if let st = todo.scheduledTime {
+            let fmt = ISO8601DateFormatter()
+            fmt.formatOptions = [.withInternetDateTime, .withColonSeparatorInTimeZone]
+            fmt.timeZone = TimeZone(identifier: "Asia/Seoul")
+            body["scheduledTime"] = fmt.string(from: st)
+        }
         if let v = ctx.planner.notionTodoDBId ?? ctx.legacyTodoDBId { body["dbId"] = v }
         if let v = ctx.planner.notionReportDBId ?? ctx.legacyReportDBId { body["reportDBId"] = v }
         if let v = ctx.mapping.reportRelation ?? ctx.legacyTodo?.reportRelation { body["reportRelationProp"] = v }
