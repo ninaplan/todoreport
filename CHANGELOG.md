@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.2] - 2026-06-22
+### 버그 수정
+- Notion 날짜·시간 양방향 동기화 오류 수정
+- Notion에서 시간 설정한 할일이 앱에 시간 미반영되던 문제 수정 (`parseNotionTodoDate`가 `startOfDay()`로 시간 정보를 버리던 문제)
+- Notion에서 가져온 할일에 `scheduledTime`이 설정되지 않던 문제 수정 (`upsertFromNotion`)
+- 앱에서 설정한 할일 시간이 Notion에 반영되지 않던 문제 수정 (백엔드 PATCH가 `scheduledTime`을 무시하던 문제)
+
+- UI 변경 없음
+
 ## [1.0.1] - 예정
 ### 버그 수정
 - 할일 날짜 변경 후 오늘 화면에 잠깐 표시되는 현상 수정

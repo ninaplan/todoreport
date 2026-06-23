@@ -304,6 +304,11 @@ struct SettingsView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "-"
         let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "-"
         return Section("앱 정보") {
+            NavigationLink {
+                WhatsNewView()
+            } label: {
+                Text("업데이트 내역")
+            }
             LabeledContent("버전") {
                 Text(version).foregroundStyle(.secondary)
             }
