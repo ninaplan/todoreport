@@ -18,6 +18,7 @@ struct SettingsView: View {
     @State private var showAddPlannerSheet = false
     @State private var showPaywall = false
     @State private var activeMailSheet: SupportMailKind? = nil
+    @State private var showFeedbackForm = false
     @State private var restoreAlertMessage: String?
     @State private var isRestoringSubscription = false
     @State private var settingsViewModel: SettingsViewModel
@@ -72,6 +73,9 @@ struct SettingsView: View {
         }
         .sheet(item: $activeMailSheet) { kind in
             SupportMailView(kind: kind)
+        }
+        .sheet(isPresented: $showFeedbackForm) {
+            SafariView(url: URL(string: "https://paperlog.notion.site/1aea0117a683440ea5f1432e4842a9ba")!)
         }
         .alert("구독 복원", isPresented: Binding(
             get: { restoreAlertMessage != nil },
@@ -284,7 +288,7 @@ struct SettingsView: View {
             .buttonStyle(.plain)
 
             Button {
-                activeMailSheet = .feedback
+                showFeedbackForm = true
             } label: {
                 LabeledContent("피드백 및 기능 제안") {
                     Image(systemName: "arrow.up.right")
