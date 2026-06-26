@@ -281,6 +281,7 @@ final class PlannerService {
         if let item = try? context.fetch(plannerDesc).first {
             item.isNotionConnected  = false
             item.notionAccessToken  = nil
+            item.notionRefreshToken = nil
             item.notionTodoDBId     = nil
             item.notionReportDBId   = nil
             item.todoPropsMapping   = nil
