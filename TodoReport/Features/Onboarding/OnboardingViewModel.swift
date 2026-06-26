@@ -104,6 +104,7 @@ final class OnboardingViewModel {
     @ObservationIgnored private var cancellables = Set<AnyCancellable>()
     @ObservationIgnored private var databasesFetchTask: Task<Void, Never>?
     @ObservationIgnored private(set) var capturedToken: String?
+    @ObservationIgnored private(set) var capturedRefreshToken: String?
 
     init() {
         NotionAuthManager.shared.$errorMessage
@@ -141,9 +142,10 @@ final class OnboardingViewModel {
 
     private func startNotionOAuth() async {
         isLoading = true
-        NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token in
+        NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token, refreshToken in
             Task { @MainActor [weak self] in
                 self?.capturedToken = token
+                self?.capturedRefreshToken = refreshToken
                 self?.isLoading = false
                 self?.proceedFromNotionOAuth()
             }
@@ -249,6 +251,7 @@ final class OnboardingViewModel {
         planner.notionTodoDBId = selectedTodoDBId
         planner.notionReportDBId = selectedReportDBId
         planner.notionAccessToken = capturedToken
+        planner.notionRefreshToken = capturedRefreshToken
         planner.isNotionConnected = true
         TodoPropsMappingAutoFill.backfillIds(mapping: &todoPropsMapping, properties: todoProperties)
         ReportPropsMappingAutoFill.backfillIds(mapping: &reportPropsMapping, properties: reportProperties)

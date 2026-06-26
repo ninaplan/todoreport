@@ -42,6 +42,7 @@ final class PlannerAddViewModel {
     }
 
     private(set) var capturedAccessToken: String?
+    private(set) var capturedRefreshToken: String?
     private(set) var createdLocalPlanner: Planner?
 
     @ObservationIgnored private var databasesFetchTask: Task<Void, Never>?
@@ -66,11 +67,13 @@ final class PlannerAddViewModel {
     func selectNotionMode() {
         databases = []
         capturedAccessToken = nil
+        capturedRefreshToken = nil
         step = .notionOAuth
         isLoading = true
-        NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token in
+        NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token, refreshToken in
             guard let self else { return }
             self.capturedAccessToken = token
+            self.capturedRefreshToken = refreshToken
             self.isLoading = false
             self.step = .loadingDatabases
             Task { await self.fetchDatabases() }
@@ -113,6 +116,7 @@ final class PlannerAddViewModel {
         planner.notionTodoDBId    = selectedTodoDBId
         planner.notionReportDBId  = selectedReportDBId
         planner.notionAccessToken = capturedAccessToken
+        planner.notionRefreshToken = capturedRefreshToken
         if let data = try? JSONEncoder().encode(todoPropsMapping),
            let json = String(data: data, encoding: .utf8) {
             planner.todoPropsMapping = json
@@ -143,11 +147,13 @@ final class PlannerAddViewModel {
             databasesFetchTask = nil
             databases = []
             capturedAccessToken = nil
+            capturedRefreshToken = nil
             isLoadingDatabases = false
             step = .chooseMode
         case .selectTodoDB:
             databases = []
             capturedAccessToken = nil
+            capturedRefreshToken = nil
             step = .chooseMode
         case .mapTodoProps:
             selectedTodoDBId = nil

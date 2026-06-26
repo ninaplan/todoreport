@@ -12,6 +12,10 @@ final class PlannerItem {
     var notionCategoryDBId: String?  // v2 Pro: 카테고리 전용 DB
     // 플래너별 Notion 토큰 (온보딩 플래너는 nil → NotionAuthManager Keychain 사용)
     var notionAccessToken: String?
+    // [참고] 토큰 끊김의 실제 원인은 시간 만료가 아니라 같은 워크스페이스의
+    // 중복 OAuth 재인증임 (2026-06-24 조사 확정). 자세한 내용은 백엔드
+    // lib/notion-auth.ts 주석과 V2-IDEAS.md 참고.
+    var notionRefreshToken: String?
     // 아이콘: SF Symbol 이름 또는 "photo"
     var iconType: String?
     @Attribute(.externalStorage) var iconImageData: Data?
@@ -31,6 +35,7 @@ final class PlannerItem {
         notionReportDBId: String? = nil,
         notionCategoryDBId: String? = nil,
         notionAccessToken: String? = nil,
+        notionRefreshToken: String? = nil,
         iconType: String? = nil,
         iconImageData: Data? = nil,
         createdAt: Date = .now,
@@ -46,6 +51,7 @@ final class PlannerItem {
         self.notionReportDBId = notionReportDBId
         self.notionCategoryDBId = notionCategoryDBId
         self.notionAccessToken = notionAccessToken
+        self.notionRefreshToken = notionRefreshToken
         self.iconType = iconType
         self.iconImageData = iconImageData
         self.createdAt = createdAt
@@ -62,6 +68,7 @@ final class PlannerItem {
             notionReportDBId: notionReportDBId,
             notionCategoryDBId: notionCategoryDBId,
             notionAccessToken: notionAccessToken,
+            notionRefreshToken: notionRefreshToken,
             iconType: iconType,
             iconImageData: iconImageData,
             createdAt: createdAt,
@@ -79,6 +86,7 @@ final class PlannerItem {
         notionReportDBId = planner.notionReportDBId
         notionCategoryDBId = planner.notionCategoryDBId
         notionAccessToken = planner.notionAccessToken
+        notionRefreshToken = planner.notionRefreshToken
         iconType = planner.iconType
         iconImageData = planner.iconImageData
         todoPropsMapping = planner.todoPropsMapping
@@ -94,6 +102,7 @@ final class PlannerItem {
             notionReportDBId: planner.notionReportDBId,
             notionCategoryDBId: planner.notionCategoryDBId,
             notionAccessToken: planner.notionAccessToken,
+            notionRefreshToken: planner.notionRefreshToken,
             iconType: planner.iconType,
             iconImageData: planner.iconImageData,
             createdAt: planner.createdAt,

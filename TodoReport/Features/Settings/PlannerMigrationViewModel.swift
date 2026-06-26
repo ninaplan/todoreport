@@ -29,6 +29,7 @@ final class PlannerMigrationViewModel {
     var alertMessage: String?
 
     private(set) var capturedAccessToken: String?
+    private(set) var capturedRefreshToken: String?
     private(set) var databases: [NotionDatabase] = []
     var selectedTodoDBId: String?
     var selectedReportDBId: String?
@@ -84,9 +85,10 @@ final class PlannerMigrationViewModel {
         guard step == .idle else { return }
         step = .oauthRequired
         isLoading = true
-        NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token in
+        NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token, refreshToken in
             guard let self else { return }
             self.capturedAccessToken = token
+            self.capturedRefreshToken = refreshToken
             self.isLoading = false
             Task { await self.fetchDatabases() }
         }
@@ -156,6 +158,7 @@ final class PlannerMigrationViewModel {
         case .selectTodoDB:
             databases = []
             capturedAccessToken = nil
+            capturedRefreshToken = nil
             step = .idle
         case .mapTodoProps:
             selectedTodoDBId = nil
@@ -175,6 +178,7 @@ final class PlannerMigrationViewModel {
         let previousCategoryProp = planner.decodedTodoPropsMapping.category
         var updated = planner
         updated.notionAccessToken = capturedAccessToken
+        updated.notionRefreshToken = capturedRefreshToken
         updated.notionTodoDBId    = selectedTodoDBId
         updated.notionReportDBId  = selectedReportDBId
         updated.isNotionConnected = true

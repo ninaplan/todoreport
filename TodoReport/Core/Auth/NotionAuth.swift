@@ -16,7 +16,7 @@ final class NotionAuthManager: NSObject, ObservableObject, ASWebAuthenticationPr
     @Published var errorMessage: String?
 
     // 항상 이 콜백을 통해 토큰 전달 (플래너 모델에 직접 저장)
-    var secondaryOAuthCompletion: ((String) -> Void)?
+    var secondaryOAuthCompletion: ((String, String?) -> Void)?
     var oAuthCancelledCompletion: (() -> Void)?
 
     private var pendingState: String?
@@ -137,9 +137,11 @@ final class NotionAuthManager: NSObject, ObservableObject, ASWebAuthenticationPr
 
             isLoading = false
 
+            let refreshToken = params["refresh_token"]
+
             if let completion = secondaryOAuthCompletion {
                 secondaryOAuthCompletion = nil
-                completion(token)
+                completion(token, refreshToken)
                 print("[NotionAuth] ✅ OAuth 완료 - 플래너 콜백 전달")
             } else {
                 print("[NotionAuth] ⚠️ secondaryOAuthCompletion 미설정 - 토큰 드롭")
