@@ -55,9 +55,7 @@ struct TodoView: View {
                             completionRate: viewModel.completionRate,
                             displayRate: viewModel.filteredCompletionRate,
                             displayCompleted: viewModel.filteredCompletedCount,
-                            displayTotal: viewModel.filteredTotalCount,
-                            onPrevDay: { viewModel.requestPreviousDay() },
-                            onNextDay: { viewModel.requestNextDay() }
+                            displayTotal: viewModel.filteredTotalCount
                         )
                     }
                     .listRowSeparator(.hidden)
@@ -166,16 +164,11 @@ struct TodoView: View {
                     onGoToday: { viewModel.goToToday() }
                 )
                 .padding(.horizontal, 16)
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 20, coordinateSpace: .local)
-                        .onEnded { value in
-                            let h = value.translation.width
-                            let v = value.translation.height
-                            guard abs(h) > abs(v) else { return }
-                            if h < 0 { viewModel.requestNextDay() } else { viewModel.requestPreviousDay() }
-                        }
-                )
             } // outer ZStack
+            .edgeSwipeNavigation(
+                onPrev: { viewModel.requestPreviousDay() },
+                onNext: { viewModel.requestNextDay() }
+            )
             .background(Color(.systemGroupedBackground))
             .coordinateSpace(.named("todoScroll"))
             .onPreferenceChange(ScrollOffsetPreferenceKey.self) { y in
