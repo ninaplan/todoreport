@@ -5,6 +5,7 @@ final class DailyReportViewModel {
     private(set) var isSaving: Bool = false
 
     var selectedRating: DayRating? = nil
+    var ratingHapticTrigger: Bool = false
     var reviewText: String = ""
 
     private var currentDate: Date = .now
@@ -62,8 +63,9 @@ final class DailyReportViewModel {
 
     // MARK: - Actions
 
-    func selectRating(_ rating: DayRating) async {
+    func selectRating(_ rating: DayRating?) async {
         selectedRating = rating
+        ratingHapticTrigger.toggle()
         await saveReport()
     }
 

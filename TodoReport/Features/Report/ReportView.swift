@@ -67,6 +67,10 @@ struct ReportView: View {
                 )
                 .padding(.horizontal, 16)
             }
+            .edgeSwipeNavigation(
+                onPrev: { viewModel.goToPreviousPeriod() },
+                onNext: { viewModel.goToNextPeriod() }
+            )
             .background(Color(.systemGroupedBackground))
             .navigationTitle("리포트")
             .navigationBarTitleDisplayMode(.inline)
@@ -277,8 +281,7 @@ private struct SummaryCard: View {
             summaryItem(
                 value: String(format: "%.1f", averageRating),
                 label: "별점 평균",
-                symbolName: "star.fill",
-                symbolColor: Color(.systemFill),
+                prefix: "⭐",
                 color: .primary
             )
             Divider().frame(height: 48)
@@ -302,7 +305,7 @@ private struct SummaryCard: View {
         color: Color
     ) -> some View {
         VStack(spacing: 4) {
-            HStack(spacing: 2) {
+            HStack(spacing: 4) {
                 if let symbolName {
                     Image(systemName: symbolName)
                         .font(.subheadline)
@@ -725,7 +728,7 @@ private struct ReviewTimelineRow: View {
                         .font(.caption.bold())
                         .foregroundStyle(.primary)
                     if entry.rating > 0 {
-                        PawRatingView(rating: Int(entry.rating), size: 10, spacing: 2)
+                        PawRatingView(rating: Int(entry.rating), size: 10, spacing: 3)
                     }
                 }
             }

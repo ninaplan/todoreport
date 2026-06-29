@@ -8,8 +8,6 @@ struct DailyReportCard: View {
     let displayRate: Double         // UI 표시용 (필터 반영)
     let displayCompleted: Int
     let displayTotal: Int
-    var onPrevDay: (() -> Void)? = nil
-    var onNextDay: (() -> Void)? = nil
 
     @FocusState private var isReviewFocused: Bool
 
@@ -28,7 +26,7 @@ struct DailyReportCard: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(Color(.separator), lineWidth: 0.5)
         )
-        .sensoryFeedback(.selection, trigger: viewModel.selectedRating)
+        .sensoryFeedback(.selection, trigger: viewModel.ratingHapticTrigger)
         .task(id: date) {
             await viewModel.fetchReport(for: date, completionRate: completionRate)
         }
@@ -39,15 +37,6 @@ struct DailyReportCard: View {
             guard !focused, viewModel.hasUnsavedReview else { return }
             Task { await viewModel.saveReport() }
         }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 30)
-                .onEnded { value in
-                    let h = value.translation.width
-                    let v = value.translation.height
-                    guard abs(h) > abs(v) else { return }
-                    if h < 0 { onNextDay?() } else { onPrevDay?() }
-                }
-        )
     }
 
     // MARK: - 완료율
@@ -82,10 +71,11 @@ struct DailyReportCard: View {
                 rating: currentRatingCount,
                 interactive: true,
                 size: 24,
-                spacing: 6,
+                spacing: 8,
                 onTap: { count in
-                    let rating = DayRating.allCases[count - 1]
-                    Task { await viewModel.selectRating(rating) }
+                    let tapped = DayRating.allCases[count - 1]
+                    let newRating: DayRating? = (viewModel.selectedRating == tapped) ? nil : tapped
+                    Task { await viewModel.selectRating(newRating) }
                 }
             )
 

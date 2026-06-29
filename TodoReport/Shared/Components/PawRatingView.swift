@@ -26,11 +26,13 @@ struct PawRatingView: View {
         Group {
             if index <= rating {
                 Text("⭐")
+                    .font(.system(size: size))
             } else {
                 Image(systemName: "star.fill")
+                    .font(.system(size: size))
                     .foregroundStyle(Color(.systemFill))
             }
         }
-        .font(.system(size: size))
+        .frame(width: size, height: size)
     }
 }
