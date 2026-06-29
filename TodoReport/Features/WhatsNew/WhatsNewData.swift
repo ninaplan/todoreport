@@ -2,6 +2,16 @@ import Foundation
 
 let whatsNewReleases: [WhatsNewRelease] = [
     WhatsNewRelease(
+        id: "1.0.3",
+        symbolName: "bookmark",
+        items: [
+            "화면 가장자리 스와이프로 날짜·기간 이동 가능",
+            "별점 다시 탭하면 선택 취소 가능",
+            "고객 피드백을 앱 안에서 바로 작성 가능"
+        ],
+        showsPopup: false
+    ),
+    WhatsNewRelease(
         id: "1.0.2",
         symbolName: "bookmark",
         items: [
