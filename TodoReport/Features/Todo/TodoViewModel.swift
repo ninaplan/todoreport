@@ -9,7 +9,10 @@ final class TodoViewModel {
     var plannerName: String { PlannerService.shared.selectedPlanner?.name ?? "내 플래너" }
     var isViewOptionsVisible: Bool = false
     var hideCompleted: Bool = UserDefaults.standard.bool(forKey: "todoHideCompleted") {
-        didSet { UserDefaults.standard.set(hideCompleted, forKey: "todoHideCompleted") }
+        didSet {
+            UserDefaults.standard.set(hideCompleted, forKey: "todoHideCompleted")
+            updateWidget()
+        }
     }
     var showMemo: Bool = UserDefaults.standard.bool(forKey: "todoShowMemo") {
         didSet { UserDefaults.standard.set(showMemo, forKey: "todoShowMemo") }
@@ -558,15 +561,6 @@ final class TodoViewModel {
     }
 
     func requestPreviousDay() {
-        let cal = Calendar.current
-        let todayStart = cal.startOfDay(for: .now)
-        let selectedStart = cal.startOfDay(for: selectedDate)
-        let yesterdayStart = cal.date(byAdding: .day, value: -1, to: todayStart) ?? todayStart
-        guard isPro || selectedStart > yesterdayStart else {
-            datePaywallMessage = "다른 날 투두 확인은 Pro 기능이에요"
-            showDatePaywall = true
-            return
-        }
         goToPreviousDay()
     }
 
@@ -577,14 +571,6 @@ final class TodoViewModel {
 
     func requestNextDay() {
         let cal = Calendar.current
-        let todayStart = cal.startOfDay(for: .now)
-        let selectedStart = cal.startOfDay(for: selectedDate)
-        let tomorrowStart = cal.date(byAdding: .day, value: 1, to: todayStart) ?? todayStart
-        guard isPro || selectedStart < tomorrowStart else {
-            datePaywallMessage = "다른 날 투두 확인은 Pro 기능이에요"
-            showDatePaywall = true
-            return
-        }
         guard let next = cal.date(byAdding: .day, value: 1, to: selectedDate) else { return }
         selectedDate = next
     }
@@ -602,11 +588,6 @@ final class TodoViewModel {
     func navigateToDate(_ date: Date) {
         let cal = Calendar.current
         let target = cal.startOfDay(for: date)
-        guard TodoDateAccess.canView(date: target, isPro: isPro) else {
-            datePaywallMessage = "다른 날 투두 확인은 Pro 기능이에요"
-            showDatePaywall = true
-            return
-        }
         selectedDate = target
     }
 }

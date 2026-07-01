@@ -6,7 +6,6 @@ import WidgetKit
 
 struct MediumWidgetView: View {
     let data: WidgetSnapshotData?
-    let isPro: Bool
 
     private var rate: Double    { data?.completionRate  ?? 0 }
     private var completed: Int  { data?.completedCount  ?? 0 }
@@ -15,39 +14,48 @@ struct MediumWidgetView: View {
     private var todos: [WidgetTodoItem] { data?.todos.prefix(4).map { $0 } ?? [] }
 
     var body: some View {
-        if isPro {
-            contentView
-        } else {
-            ProLockedWidgetView(message: "투두 목록 위젯은 Pro 기능이에요")
-        }
+        contentView
     }
 
     private var contentView: some View {
         HStack(alignment: .top, spacing: 14) {
 
             // ── 왼쪽: 통계 ──
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(planner)
-                    .font(.caption.weight(.semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
-                Spacer(minLength: 0)
+                Spacer()
 
                 Text("\(Int(rate * 100))%")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundStyle(nockOrange)
 
-                Text("\(completed)/\(total)개")
-                    .font(.caption.weight(.medium))
+                Text("\(completed)/\(total)개 완료")
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color(.systemGray5))
+                            .frame(height: 5)
+                        Capsule()
+                            .fill(nockOrange)
+                            .frame(width: geo.size.width * CGFloat(rate), height: 5)
+                            .animation(.easeInOut(duration: 0.4), value: rate)
+                    }
+                }
+                .frame(height: 5)
+                .padding(.top, 6)
 
                 Text(todayString)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.caption2)
                     .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                    .padding(.top, 2)
+                    .padding(.top, 6)
             }
             .frame(width: 88)
 
@@ -60,11 +68,15 @@ struct MediumWidgetView: View {
             // ── 오른쪽: 투두 목록 ──
             VStack(alignment: .leading, spacing: 8) {
                 if todos.isEmpty {
-                    Spacer()
-                    Text("투두를 추가해보세요")
-                        .font(.subheadline)
-                        .foregroundStyle(.tertiary)
-                    Spacer()
+                    VStack(spacing: 4) {
+                        Image(systemName: "checklist")
+                            .foregroundStyle(.secondary)
+                        Text("첫 번째 할일을\n추가해보세요")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     ForEach(todos) { todo in
                         todoRow(todo)
@@ -82,7 +94,10 @@ struct MediumWidgetView: View {
         HStack(spacing: 8) {
             Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 16))
-                .foregroundStyle(todo.isCompleted ? nockOrange : Color(.systemGray4))
+                .foregroundStyle(todo.isCompleted ? nockOrange :
+                    Color(uiColor: UIColor { t in
+                        t.userInterfaceStyle == .dark ? .systemGray : .systemGray3
+                    }))
 
             Text(todo.title)
                 .font(.subheadline)
@@ -94,7 +109,7 @@ struct MediumWidgetView: View {
 
     private var todayString: String {
         let fmt = DateFormatter()
-        fmt.dateFormat = "M월 d일"
+        fmt.dateFormat = "M월 d일 (E)"
         fmt.locale = Locale(identifier: "ko_KR")
         return fmt.string(from: .now)
     }

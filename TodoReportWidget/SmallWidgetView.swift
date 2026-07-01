@@ -56,7 +56,7 @@ struct SmallWidgetView: View {
             // 날짜
             Text(todayString)
                 .font(.caption2)
-                .foregroundStyle(Color(.tertiaryLabel))
+                .foregroundStyle(.primary)
                 .padding(.top, 6)
         }
         .padding(14)
@@ -66,7 +66,7 @@ struct SmallWidgetView: View {
 
     private var todayString: String {
         let fmt = DateFormatter()
-        fmt.dateFormat = "M월 d일"
+        fmt.dateFormat = "M월 d일 (E)"
         fmt.locale = Locale(identifier: "ko_KR")
         return fmt.string(from: .now)
     }

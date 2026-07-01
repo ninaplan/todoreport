@@ -6,7 +6,6 @@ import WidgetKit
 
 struct LargeWidgetView: View {
     let data: WidgetSnapshotData?
-    let isPro: Bool
 
     private var rate: Double    { data?.completionRate  ?? 0 }
     private var completed: Int  { data?.completedCount  ?? 0 }
@@ -15,11 +14,7 @@ struct LargeWidgetView: View {
     private var todos: [WidgetTodoItem] { data?.todos.prefix(8).map { $0 } ?? [] }
 
     var body: some View {
-        if isPro {
-            contentView
-        } else {
-            ProLockedWidgetView(message: "전체 목록 위젯은 Pro 기능이에요")
-        }
+        contentView
     }
 
     private var contentView: some View {
@@ -42,7 +37,7 @@ struct LargeWidgetView: View {
                     Text("\(Int(rate * 100))%")
                         .font(.title2.bold())
                         .foregroundStyle(nockOrange)
-                    Text("\(completed)/\(total)개")
+                    Text("\(completed)/\(total)개 완료")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -67,14 +62,17 @@ struct LargeWidgetView: View {
 
             // ── 투두 목록 ──
             if todos.isEmpty {
-                Spacer()
-                Text("오늘의 투두를 추가해보세요")
-                    .font(.subheadline)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                Spacer()
+                VStack(spacing: 4) {
+                    Image(systemName: "checklist")
+                        .foregroundStyle(.secondary)
+                    Text("첫 번째 할일을\n추가해보세요")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 12) {
                     // 상단 고정 항목 먼저
                     let pinned  = todos.filter {  $0.isPinned && !$0.isCompleted }
                     let normal  = todos.filter { !$0.isPinned && !$0.isCompleted }
@@ -96,7 +94,10 @@ struct LargeWidgetView: View {
         HStack(spacing: 8) {
             Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 16))
-                .foregroundStyle(todo.isCompleted ? nockOrange : Color(.systemGray4))
+                .foregroundStyle(todo.isCompleted ? nockOrange :
+                    Color(uiColor: UIColor { t in
+                        t.userInterfaceStyle == .dark ? .systemGray : .systemGray3
+                    }))
 
             Text(todo.title)
                 .font(.subheadline)
