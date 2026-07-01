@@ -1,9 +1,9 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-06-20 기준)
+## 현재 상황 (2026-07-01 기준)
 
 ### 앱 상태
-- v1.0.1 App Store 심사 제출 완료
+- v1.0.3 App Store 심사 제출 완료 (2026-06-29)
 - 백엔드는 이미 프로덕션 배포 완료 (제2원칙에 따라 하위 호환 유지)
 
 ### v1.0.1 수정 내용
@@ -17,6 +17,10 @@
 ### 다음 할 일
 - 투두 탭 콜드 스타트 시 로딩 인디케이터 부재 문제 진단 및 수정
 - 디자인 데이 항목 일괄 처리 (V2-IDEAS.md 참고)
+
+**완료 (v1.0.3):**
+- 다크/라이트/시스템 외관 모드 선택 기능 추가
+- 페이월 다크 고정
 
 ### 주요 파일
 - SPEC.md — 앱 전체 스펙
@@ -414,11 +418,8 @@ guard SubscriptionManager.shared.isPro else {
 ```
 
 **유료 기능 목록:**
-- 다른 날 투두 확인 (어제·오늘·내일 외 날짜)
-- 주간 리포트 이전 기간 조회 (이번 주는 무료)
-- 월간 리포트 (전체 유료)
+- 노션에 리포트 저장하기 (주간/월간)
 - 멀티 플래너 (2개 이상)
-- 홈 화면 위젯 Medium·Large (Small 완료율은 무료)
 - 반복 투두 (v2 예정)
 
 ---
@@ -518,6 +519,13 @@ guard let value = optional else { return }
 ---
 
 ## 알려진 패턴 / 주의사항
+
+**외관 모드 설정 (`appColorScheme`)**
+
+- `@AppStorage("appColorScheme") private var appColorScheme: String = "system"`
+- 값: `"system"` / `"light"` / `"dark"`
+- 루트 `Group`에 `.preferredColorScheme()` 적용
+- `PaywallView`는 이 설정과 무관하게 항상 `.preferredColorScheme(.dark)` 고정
 
 **Notion OAuth (`NotionAuthManager`)**
 
@@ -687,7 +695,7 @@ Phase 5 (출시)
 - ✅ WidgetDataProvider (App Group UserDefaults 공유, main app 타겟)
 - ✅ TodoWidgetBundle / TodoWidgetProvider (widget extension 타겟: TodoReportWidget/)
 - ✅ Small / Medium / Large 위젯 뷰 (SmallWidgetView, MediumWidgetView, LargeWidgetView)
-- ✅ TodoViewModel.updateWidget() — 투두 fetch/toggle/add/delete 후 자동 갱신
+- ✅ TodoViewModel.updateWidget() — 투두 fetch/toggle/add/delete 후 자동 갱신, `hideCompleted` 설정 변경 시 (`didSet`)
 - ✅ Small 완료율 무료, Medium·Large 목록 Pro 게이팅 (`widgetIsPro` App Group 동기화)
 - ✅ `todoreport://todo` 딥링크, 설정 탭 NavigationStack 재진입 시 루트 초기화
 - ✅ `refreshTodayFromStore()` — 앱 실행·포그라운드 시 위젯 갱신

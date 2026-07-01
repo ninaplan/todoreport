@@ -208,6 +208,7 @@ api/
 - 완료 체크 → Notion 실시간 업데이트
 - 카테고리 태그 (앱 전용)
 - 날짜별 투두 조회
+- **날짜 이동** — 모든 날짜 자유 이동 가능 (무료)
 - **투두 메모** — 투두별 상세 내용 추가 (Notion 페이지 텍스트 블록으로 저장)
 - **할일 보관** — 🔜 **v1 미구현**. V2 인박스와 함께 구현 예정 (카테고리 보관과 별개)
 
@@ -265,21 +266,19 @@ api/
 | 기능 | 무료 | Pro |
 |---|---|---|
 | Small — 오늘 완료율 보기 | ✅ | ✅ |
-| Small — 탭하여 앱 열기 (투두 탭) | ✅ | ✅ |
-| Medium — 투두 목록 보기 (읽기) | ❌ | ✅ |
-| Large — 전체 목록 보기 (읽기) | ❌ | ✅ |
+| Medium — 투두 목록 (최대 4개) | ✅ | ✅ |
+| Large — 투두 전체 목록 (최대 8개) | ✅ | ✅ |
 | 위젯에서 체크박스 탭 → 완료 처리 | ❌ | 🔜 |
 | 위젯 ＋ 버튼 → 퀵캡처 시트 | ❌ | 🔜 |
 
-**Small (2×2, 무료)**
-- 오늘 완료율 %, 완료/전체 개수, 진행 바, 플래너명, 날짜 (`M월 d일`)
+**Small (2×2)**
+- 오늘 완료율 %, 완료/전체 개수, 진행 바, 플래너명, 날짜 (`M월 d일 (E)`)
 - 탭 → `todoreport://todo` → 투두 탭·오늘 날짜
 
-**Medium (4×2, Pro) · Large (4×4, Pro)**
-- Medium: 왼쪽 통계(완료율 32pt, 날짜 `subheadline`·`M월 d일`) + 오른쪽 투두 목록 (최대 4개, `subheadline`)
+**Medium (4×2) · Large (4×4)**
+- Medium: 왼쪽 통계(완료율 32pt, 진행 바, 날짜 `caption2`·`M월 d일 (E)`) + 오른쪽 투두 목록 (최대 4개)
 - Large: 헤더(완료율·날짜) + 진행 바 + 투두 전체 목록 (최대 8개, 중요 항목 우선)
-- 미구독 시 Paywall 안내 표시, 탭 시 `todoreport://paywall`
-- Pro 위젯 탭 → `todoreport://todo` → 투두 탭·오늘 날짜
+- 탭 → `todoreport://todo` → 투두 탭·오늘 날짜
 
 **v1 탭 동작 (읽기 전용)**
 - StaticConfiguration 위젯은 **영역 어디를 탭해도 앱이 열림** (할일 행 단독 체크 불가 — iOS 제약)
@@ -289,7 +288,7 @@ api/
 **데이터 동기화 (`WidgetDataProvider`)**
 - App Group ID: `group.kr.nock.TodoReport` — **TodoReport·TodoReportWidget 양쪽** entitlements + Xcode **+ Capability → App Groups** 필수
 - entitlements 파일: `TodoReport/TodoReport.entitlements`, `TodoReportWidget/TodoReportWidget.entitlements`
-- 갱신 시점: 투두 fetch/추가/체크/삭제, 앱 실행·포그라운드 복귀 (`refreshTodayFromStore()`), 구독·DEBUG Pro 토글 (`syncProStatus` / `refreshTodayFromStore`)
+- 갱신 시점: 투두 fetch/추가/체크/삭제, 완료 할일 숨기기(`hideCompleted`) 설정 변경 시, 앱 실행·포그라운드 복귀 (`refreshTodayFromStore()`), 구독·DEBUG Pro 토글 (`syncProStatus` / `refreshTodayFromStore`)
 - 완료율: 오늘 **전체 투두** 기준 (앱 `hideCompleted`와 무관). 목록 표시는 `hideCompleted` 반영
 - Pro 상태: `SubscriptionManager.isPro` → App Group `widgetIsPro`. DEBUG 빌드 `debugIsPro` 토글 지원
 - 실패 시 `AppLogger` `[WidgetDataProvider]` 로그 (App Group 접근 실패·인코딩 실패)
@@ -308,12 +307,10 @@ api/
 - Notion 페이지 제목: `M월 d일 (요일) 리포트` (예: "6월 6일 (토) 리포트")
 - 사진 첨부 기능 구조 대비 설계 (v2 구현 예정)
 
-#### 주간 리포트 (이번 주 한정 무료)
-- 오늘이 포함된 이번 주 데이터 조회 (무료)
-- 완료율 그래프 (요일별 막대)
-- 별점 그래프 (꺾은선, 흐름 파악)
-- 카테고리별 달성률
-- 이전 주 조회 및 노션 저장은 유료
+#### 주간·월간 리포트 조회 (무료)
+- 주간·월간 리포트 데이터 조회 (이번 주·이번 달, **이전 주·이전 달** 포함) — 무료
+- 완료율·별점·카테고리 그래프, 하루 리뷰 타임라인 조회 포함
+- 노션에 리포트 **저장**만 유료 (아래 6-2 참고)
 
 #### 카테고리 관리
 - SwiftData 저장 (플래너별 `plannerId`)
@@ -348,11 +345,15 @@ api/
   - `AppLogger` 수집 로그 전문 (`Documents/app_logs.txt`)
 - 로그 파일: 앱 실행마다 세션 구분선 추가, 500KB 초과 시 오래된 절반 자동 삭제
 
+#### 환경 설정 (설정 탭)
+- 외관 모드 선택: 시스템 / 라이트 / 다크 (`@AppStorage("appColorScheme")`)
+- `PaywallView`는 설정과 무관하게 항상 다크 고정 (`.preferredColorScheme(.dark)`)
+
 ### 6-2. 유료 기능 (Apple IAP 구독)
 
 #### 이전 기간 데이터 조회
-- 이전 주 / 이전 달 데이터 조회
-- 무료 사용자는 이번 주(주간 리포트)만 조회 가능, 월간 리포트는 전체 유료
+- ~~이전 주 / 이전 달 데이터 조회~~ → **무료** (6-1 주간·월간 리포트 조회 참고)
+- 노션에 리포트 **저장**만 유료 (아래 「노션에 저장하기」)
 
 #### 노션에 저장하기 (주간/월간 리포트)
 - **「노션에 리포트 저장하기」** 버튼 (아이콘: `square.and.arrow.up`, 수동, 유료 전용)
@@ -510,7 +511,7 @@ api/
 
 #### 다른 날 투두 확인
 - 날짜 피커로 원하는 날짜 선택 → 해당 날짜 투두 목록 조회
-- 무료: 어제·오늘·내일 3일 접근 가능 / 유료: 모든 날짜 조회 가능
+- 모든 날짜 자유 이동 가능 (무료, 6-1 참고)
 - 과거 날짜 투두 완료 처리도 가능 (Notion 실시간 업데이트)
 
 ---
@@ -959,13 +960,13 @@ struct Category: Identifiable, Codable {
 
 | 동작 | 기능 | 유료 여부 |
 |---|---|---|
-| 날짜 좌측 공간 탭 | 이전 날 | 유료 |
-| 날짜 우측 공간 탭 | 다음 날 | 유료 |
-| 날짜 텍스트 탭 | 달력 피커 모달 | 유료 |
+| 날짜 좌측 공간 탭 | 이전 날 | 무료 |
+| 날짜 우측 공간 탭 | 다음 날 | 무료 |
+| 날짜 텍스트 탭 | 달력 피커 모달 | 무료 |
 | 화면 스와이프 | ❌ 사용 안 함 | — |
 | 힌트 | 양옆 흐릿한 화살표 ‹ › | — |
 
-> 무료 사용자는 어제·오늘·내일 3일 접근 가능. 그 외 날짜 탭 시 유료 안내 표시.
+> 모든 날짜 자유 이동 가능 (무료).
 
 ### 투두 아이템 제스처
 
@@ -1088,6 +1089,7 @@ struct Category: Identifiable, Codable {
 │  [ 환경 설정 ]                  │
 │  시작 요일      월요일     ›    │
 │  연속 달성 기준  전체 완료  ›   │
+│  외관 모드      시스템     ›    │  ← 시스템 / 라이트 / 다크
 │  알림           허용됨  ↗     │  ← 시스템 설정 앱으로 이동
 ├─────────────────────────────────┤
 │  [ 고객지원 ]                   │
