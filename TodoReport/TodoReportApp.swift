@@ -5,6 +5,7 @@ import UserNotifications
 @main
 struct TodoReportApp: App {
     @AppStorage("onboardingCompleted") private var onboardingCompleted = false
+    @AppStorage("appColorScheme") private var appColorScheme: String = "system"
     @Environment(\.scenePhase) private var scenePhase
     @State private var showPlannerDowngrade: Bool = false
     @State private var showPaywall: Bool = false
@@ -65,6 +66,7 @@ struct TodoReportApp: App {
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
             }
+            .preferredColorScheme(appColorScheme == "dark" ? .dark : appColorScheme == "light" ? .light : nil)
         }
         .modelContainer(PersistenceController.shared.container)
         .onChange(of: scenePhase) { _, newPhase in

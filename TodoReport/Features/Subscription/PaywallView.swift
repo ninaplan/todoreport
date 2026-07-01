@@ -52,6 +52,7 @@ struct PaywallView: View {
                 if success { dismiss() }
             }
         }
+        .preferredColorScheme(.dark)
         .task { await viewModel.loadIfNeeded() }
     }
 

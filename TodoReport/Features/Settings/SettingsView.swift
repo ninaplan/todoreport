@@ -14,6 +14,7 @@ struct SettingsView: View {
 
     @AppStorage("startWeekday") private var startWeekday = "월"
     @AppStorage(StreakCriteria.storageKey) private var streakCriteriaRaw = StreakCriteria.allCompleted.rawValue
+    @AppStorage("appColorScheme") private var appColorScheme: String = "system"
     @State private var notificationAuthStatus: UNAuthorizationStatus = .notDetermined
     @State private var showAddPlannerSheet = false
     @State private var showPaywall = false
@@ -214,6 +215,13 @@ struct SettingsView: View {
                 ForEach(StreakCriteria.allCases, id: \.rawValue) { criteria in
                     Text(criteria.displayName).tag(criteria.rawValue)
                 }
+            }
+            .tint(.secondary)
+
+            Picker("외관 모드", selection: $appColorScheme) {
+                Text("시스템").tag("system")
+                Text("라이트").tag("light")
+                Text("다크").tag("dark")
             }
             .tint(.secondary)
 
