@@ -102,7 +102,7 @@ struct MediumTodoWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TodoTimelineProvider()) { entry in
-            MediumWidgetView(data: entry.data, isPro: entry.isPro)
+            MediumWidgetView(data: entry.data)
         }
         .configurationDisplayName("투두 목록")
         .description("오늘의 투두 목록을 확인하세요.")
@@ -115,7 +115,7 @@ struct LargeTodoWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TodoTimelineProvider()) { entry in
-            LargeWidgetView(data: entry.data, isPro: entry.isPro)
+            LargeWidgetView(data: entry.data)
         }
         .configurationDisplayName("투두 전체 목록")
         .description("오늘의 투두 전체 목록을 확인하세요.")

@@ -70,11 +70,6 @@ final class ReportViewModel {
     // MARK: - Actions
 
     func goToPreviousPeriod() {
-        guard isPro else {
-            paywallMessage = "이전 기간 조회는 Pro 기능이에요"
-            showPaywall = true
-            return
-        }
         periodOffset -= 1
         clearCurrentPeriodReport()
         Task {
@@ -143,7 +138,6 @@ final class ReportViewModel {
     func dismissPaywall() {
         showPaywall = false
         paywallMessage = ""
-        if selectedPeriod == .monthly { selectedPeriod = .weekly }
     }
 
     func prepareSave() {
@@ -285,11 +279,6 @@ final class ReportViewModel {
             let weekStart = startOfCurrentWeek(offset: periodOffset)
             weeklyReport = await service.fetchWeeklyReport(startingFrom: weekStart)
         case .monthly:
-            guard isPro else {
-                paywallMessage = "월간 리포트는 Pro 기능이에요"
-                showPaywall = true
-                return
-            }
             let (year, month) = yearMonthOfCurrent(offset: periodOffset)
             monthlyReport = await service.fetchMonthlyReport(year: year, month: month)
         }
@@ -307,7 +296,6 @@ final class ReportViewModel {
                 weeklyReport = updated
             }
         case .monthly:
-            guard isPro else { return }
             let (year, month) = yearMonthOfCurrent(offset: periodOffset)
             let updated = await service.fetchMonthlyReport(year: year, month: month)
             if animated, monthlyReport != nil {
@@ -334,7 +322,6 @@ final class ReportViewModel {
                     let weekStart = startOfCurrentWeek(offset: periodOffset)
                     await syncMissingDays(from: weekStart, count: 7, manageSyncingFlag: false)
                 case .monthly:
-                    guard isPro else { return }
                     let (year, month) = yearMonthOfCurrent(offset: periodOffset)
                     let monthStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)) ?? .now
                     let daysInMonth = calendar.range(of: .day, in: .month, for: monthStart)?.count ?? 30
