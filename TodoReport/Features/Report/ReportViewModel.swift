@@ -254,6 +254,7 @@ final class ReportViewModel {
         do {
             defer { isLoading = false }
             guard !Task.isCancelled else { return }
+            if !hadLocal { await Task.yield() }
             await loadLocalReport()
         }
     }
