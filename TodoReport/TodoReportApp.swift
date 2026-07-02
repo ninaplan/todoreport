@@ -65,6 +65,7 @@ struct TodoReportApp: App {
             }
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
+                    .presentationDragIndicator(.visible)
             }
             .preferredColorScheme(appColorScheme == "dark" ? .dark : appColorScheme == "light" ? .light : nil)
         }

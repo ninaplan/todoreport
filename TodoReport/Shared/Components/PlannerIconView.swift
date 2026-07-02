@@ -17,7 +17,7 @@ struct PlannerIconView: View {
                     .clipShape(Circle())
             } else if let symbol = iconType {
                 Circle()
-                    .fill(Color(.systemGray3))
+                    .fill(Color(.systemGray5))
                     .frame(width: size, height: size)
                 Image(systemName: symbol)
                     .font(.system(size: size * 0.4, weight: .semibold))
@@ -25,7 +25,7 @@ struct PlannerIconView: View {
             } else {
                 // 기본: 연회색 원 + 노트 아이콘
                 Circle()
-                    .fill(Color(.systemGray3))
+                    .fill(Color(.systemGray5))
                     .frame(width: size, height: size)
                 Image(systemName: "checklist")
                     .font(.system(size: size * 0.4, weight: .semibold))

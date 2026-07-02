@@ -211,17 +211,10 @@ struct SettingsView: View {
                 ReportNotificationManager.shared.rescheduleAll()
             }
 
-            Picker("연속 달성 기준", selection: $streakCriteriaRaw) {
-                ForEach(StreakCriteria.allCases, id: \.rawValue) { criteria in
-                    Text(criteria.displayName).tag(criteria.rawValue)
-                }
-            }
-            .tint(.secondary)
-
-            Picker("외관 모드", selection: $appColorScheme) {
+            Picker("외관", selection: $appColorScheme) {
                 Text("시스템").tag("system")
-                Text("라이트").tag("light")
-                Text("다크").tag("dark")
+                Text("라이트 모드").tag("light")
+                Text("다크 모드").tag("dark")
             }
             .tint(.secondary)
 
@@ -241,6 +234,13 @@ struct SettingsView: View {
                 .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
+
+            Picker("연속 달성 기준", selection: $streakCriteriaRaw) {
+                ForEach(StreakCriteria.allCases, id: \.rawValue) { criteria in
+                    Text(criteria.displayName).tag(criteria.rawValue)
+                }
+            }
+            .tint(.secondary)
         } header: {
             Text("환경 설정")
         } footer: {
@@ -314,7 +314,6 @@ struct SettingsView: View {
 
     private var appInfoSection: some View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "-"
-        let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "-"
         return Section("앱 정보") {
             NavigationLink {
                 WhatsNewView()
@@ -323,9 +322,6 @@ struct SettingsView: View {
             }
             LabeledContent("버전") {
                 Text(version).foregroundStyle(.secondary)
-            }
-            LabeledContent("빌드") {
-                Text(build).foregroundStyle(.secondary)
             }
         }
     }

@@ -3,6 +3,7 @@ import StoreKit
 
 struct PaywallView: View {
     var message: String? = nil
+
     @State private var viewModel = PaywallViewModel()
     @State private var subscriptionManager = SubscriptionManager.shared
     @Environment(\.dismiss) private var dismiss
@@ -10,33 +11,68 @@ struct PaywallView: View {
     private static let privacyPolicyURL = URL(string: "https://nock.kr/privacy")
     private static let eulaURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")
 
+    private var isDark: Bool { true }
+
+    private var backgroundColor: Color {
+        isDark ? .black : Color(.systemGroupedBackground)
+    }
+
+    private var cardBackground: Color {
+        isDark ? Color(hex: "2C2C2E") : .white
+    }
+
+    private var primaryText: Color {
+        isDark ? .white : Color(hex: "111111")
+    }
+
+    private var secondaryText: Color {
+        isDark ? Color(hex: "AAAAAA") : Color(hex: "666666")
+    }
+
+    private var dividerColor: Color {
+        isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.08)
+    }
+
+    private var selectedIntroOfferText: String? {
+        viewModel.selectedProductId == SubscriptionManager.yearlyProductId
+            ? subscriptionManager.yearlyIntroOfferText
+            : subscriptionManager.monthlyIntroOfferText
+    }
+
+    private var ctaTitle: String {
+        selectedIntroOfferText != nil ? "7일 무료로 시작하기" : "구독 시작하기"
+    }
+
+    // MARK: - Body
+
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    headerSection
-                    featureListSection
-                    planCardsSection
-                    actionSection
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        headerSection
+                        proFeaturesSection
+                        freeFeaturesSection
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 32)
+
+                bottomSection
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Pro")
+            .background(backgroundColor)
+            .navigationTitle("투두x리포트 Pro")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("닫기") { dismiss() }
-                        .foregroundStyle(.secondary)
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    CloseButton { dismiss() }
                 }
             }
             .overlay {
                 if viewModel.isLoading {
                     ZStack {
                         Color.black.opacity(0.25).ignoresSafeArea()
-                        ProgressView().tint(.white)
+                        ProgressView().tint(Color.nockOrange)
                     }
                 }
             }
@@ -51,259 +87,485 @@ struct PaywallView: View {
             .onChange(of: viewModel.purchaseSuccess) { _, success in
                 if success { dismiss() }
             }
+            .task { await viewModel.loadIfNeeded() }
         }
+        .presentationBackground(backgroundColor)
         .preferredColorScheme(.dark)
-        .task { await viewModel.loadIfNeeded() }
     }
 
     // MARK: - Header
 
     private var headerSection: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             Image(systemName: "crown.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(AppTheme.shared.accent.opacity(0.7))
+                .font(.system(size: 44))
+                .foregroundStyle(Color.nockOrange.opacity(0.85))
 
-            Text("Pro로 업그레이드")
-                .font(.title2.bold())
+            Text("앱에서 기록하고, 노션에 쌓아가세요")
+                .font(.system(size: 14))
+                .foregroundStyle(secondaryText)
+                .multilineTextAlignment(.center)
 
             if let message {
                 Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.nockOrange)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
             }
         }
-        .padding(.top, 16)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 20)
+        .padding(.bottom, 24)
     }
 
-    // MARK: - Feature List
+    // MARK: - Pro Features
 
-    private var featureListSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            FeatureRow(icon: "calendar",             text: "더 많은 날짜의 할일 확인")
-            FeatureRow(icon: "chart.bar.fill",       text: "주간·월간 리포트 전체 기간 조회")
-            FeatureRow(icon: "square.stack.fill",    text: "멀티 플래너로 프로젝트 분리")
-            FeatureRow(icon: "square.and.arrow.up",  text: "주간·월간 리포트 노션에 저장")
-            FeatureRow(icon: "arrow.clockwise",      text: "반복 할일 설정", isComingSoon: true)
-            FeatureRow(icon: "link",                 text: "프로젝트·목표 DB와 카테고리 연동", isComingSoon: true)
+    private var proFeaturesSection: some View {
+        VStack(spacing: 0) {
+            ProFeatureRow(
+                title: "주간·월간 리포트 노션에 저장",
+                description: "리포트를 노션 DB에 저장해 나만의 기록 아카이브를 만드세요.",
+                isComingSoon: false,
+                primaryText: primaryText,
+                secondaryText: secondaryText
+            )
+
+            proFeatureDivider
+
+            ProFeatureRow(
+                title: "멀티 플래너",
+                description: "업무·개인·프로젝트를 각각의 공간에서 분리해 관리하세요. 현재 워크스페이스당 플래너 1개를 권장합니다.",
+                isComingSoon: false,
+                primaryText: primaryText,
+                secondaryText: secondaryText
+            )
+
+            proFeatureDivider
+
+            ProFeatureRow(
+                title: "반복 할일",
+                description: "매일·매주 반복되는 할일을 한 번만 설정하면 자동으로 생성됩니다.",
+                isComingSoon: true,
+                primaryText: primaryText,
+                secondaryText: secondaryText
+            )
+
+            proFeatureDivider
+
+            ProFeatureRow(
+                title: "집중시간 트래커",
+                description: "측정한 집중시간이 리포트에 함께 기록됩니다.",
+                isComingSoon: true,
+                primaryText: primaryText,
+                secondaryText: secondaryText
+            )
+
+            proFeatureDivider
+
+            ProFeatureRow(
+                title: "카테고리 → 노션 DB 연동",
+                description: "카테고리가 노션 프로젝트·목표 DB와 연결됩니다.",
+                isComingSoon: true,
+                primaryText: primaryText,
+                secondaryText: secondaryText
+            )
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color(.separator), lineWidth: 0.5)
-        )
+        .padding(.vertical, 4)
+        .background(cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
-    // MARK: - Plan Cards
+    private var proFeatureDivider: some View {
+        Rectangle()
+            .fill(dividerColor)
+            .frame(height: 0.5)
+            .padding(.leading, 41)
+    }
+
+    // MARK: - Free Features
+
+    private var freeFeaturesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("무료로 제공")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(secondaryText)
+
+            PaywallChipFlowLayout(spacing: 8, lineSpacing: 8) {
+                FreeFeatureChip(label: "노션 양방향 동기화", primaryText: primaryText, secondaryText: secondaryText)
+                FreeFeatureChip(label: "투두 관리", primaryText: primaryText, secondaryText: secondaryText)
+                FreeFeatureChip(label: "데일리 리포트", primaryText: primaryText, secondaryText: secondaryText)
+                FreeFeatureChip(label: "주간·월간 리포트 기기 저장", primaryText: primaryText, secondaryText: secondaryText)
+                FreeFeatureChip(label: "하루 리뷰", primaryText: primaryText, secondaryText: secondaryText)
+                InboxComingSoonChip(secondaryText: secondaryText)
+            }
+        }
+        .padding(.top, 20)
+        .padding(.leading, 4)
+    }
+
+    // MARK: - Bottom (Fixed)
+
+    private var bottomSection: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(dividerColor)
+                .frame(height: 0.5)
+
+            VStack(spacing: 12) {
+                if subscriptionManager.isLoadFailed {
+                    loadFailedView
+                } else {
+                    planCardsSection
+                }
+
+                ctaButton
+                footerSection
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 12)
+        }
+        .background(backgroundColor)
+    }
+
+    private var loadFailedView: some View {
+        VStack(spacing: 8) {
+            Text("상품 정보를 불러오지 못했어요.")
+                .font(.subheadline)
+                .foregroundStyle(secondaryText)
+            if let detail = subscriptionManager.productLoadFailureDetail {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(secondaryText)
+                    .multilineTextAlignment(.center)
+            }
+            Button("다시 시도") {
+                Task { await viewModel.reloadProducts() }
+            }
+            .font(.subheadline.bold())
+            .foregroundStyle(Color.nockOrange)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+    }
 
     private var planCardsSection: some View {
-        VStack(spacing: 10) {
-            if subscriptionManager.isLoadFailed {
-                VStack(spacing: 8) {
-                    Text("상품 정보를 불러오지 못했어요.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    if let detail = subscriptionManager.productLoadFailureDetail {
-                        Text(detail)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .multilineTextAlignment(.center)
-                    }
-                    Button("다시 시도") {
-                        Task { await viewModel.reloadProducts() }
-                    }
-                    .font(.subheadline.bold())
-                    .foregroundStyle(AppTheme.shared.accent)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-            } else {
-                PlanCard(
-                    title: "월간",
-                    englishTitle: "Monthly",
-                    subtitle: "매월 자동 갱신",
-                    priceText: subscriptionManager.monthlyProduct?.displayPrice ?? (subscriptionManager.isLoadingProducts ? "로딩 중..." : "---"),
-                    isSelected: viewModel.selectedProductId == SubscriptionManager.monthlyProductId,
-                    savingsText: nil,
-                    introOfferText: subscriptionManager.monthlyIntroOfferText
-                ) {
-                    viewModel.selectedProductId = SubscriptionManager.monthlyProductId
-                }
+        VStack(spacing: 8) {
+            PaywallPlanCard(
+                title: "연간",
+                priceText: subscriptionManager.yearlyProduct?.displayPrice
+                    ?? (subscriptionManager.isLoadingProducts ? "로딩 중..." : "---"),
+                unit: "/년",
+                subtitle: yearlyPlanSubtitle,
+                discountBadge: "43% 할인",
+                isSelected: viewModel.selectedProductId == SubscriptionManager.yearlyProductId,
+                cardBackground: cardBackground,
+                dividerColor: dividerColor,
+                primaryText: primaryText,
+                secondaryText: secondaryText,
+                onTap: { viewModel.selectedProductId = SubscriptionManager.yearlyProductId }
+            )
 
-                PlanCard(
-                    title: "연간",
-                    englishTitle: "Yearly",
-                    subtitle: "매년 자동 갱신",
-                    priceText: subscriptionManager.yearlyProduct?.displayPrice ?? (subscriptionManager.isLoadingProducts ? "로딩 중..." : "---"),
-                    isSelected: viewModel.selectedProductId == SubscriptionManager.yearlyProductId,
-                    savingsText: yearlySavingsText,
-                    introOfferText: subscriptionManager.yearlyIntroOfferText
-                ) {
-                    viewModel.selectedProductId = SubscriptionManager.yearlyProductId
-                }
-            }
+            PaywallPlanCard(
+                title: "월간",
+                priceText: subscriptionManager.monthlyProduct?.displayPrice
+                    ?? (subscriptionManager.isLoadingProducts ? "로딩 중..." : "---"),
+                unit: "/월",
+                subtitle: "언제든 해지 가능",
+                discountBadge: nil,
+                isSelected: viewModel.selectedProductId == SubscriptionManager.monthlyProductId,
+                cardBackground: cardBackground,
+                dividerColor: dividerColor,
+                primaryText: primaryText,
+                secondaryText: secondaryText,
+                onTap: { viewModel.selectedProductId = SubscriptionManager.monthlyProductId }
+            )
         }
+        .padding(.bottom, 12)
     }
 
-    private var yearlySavingsText: String? {
-        guard let monthly = subscriptionManager.monthlyProduct,
-              let yearly  = subscriptionManager.yearlyProduct else { return nil }
-        let monthlyAnnual = monthly.price * Decimal(12)
-        let savings = monthlyAnnual - yearly.price
-        guard savings > 0 else { return nil }
-        let pct = Int((NSDecimalNumber(decimal: savings / monthlyAnnual).doubleValue * 100).rounded())
-        return "\(pct)% 절약"
-    }
-
-    // MARK: - Action
-
-    private var actionSection: some View {
-        VStack(spacing: 14) {
-            Button {
-                Task { await viewModel.purchase() }
-            } label: {
-                Group {
-                    if viewModel.isLoading {
-                        ProgressView()
-                            .tint(Color(.systemBackground))
-                    } else {
-                        Text("구독 시작하기")
-                            .font(.headline)
-                    }
+    private var ctaButton: some View {
+        Button {
+            Task { await viewModel.purchase() }
+        } label: {
+            Group {
+                if viewModel.isLoading {
+                    ProgressView()
+                        .tint(.white)
+                } else {
+                    Text(ctaTitle)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .background(Color(.label))
-                .foregroundStyle(Color(.systemBackground))
-                .clipShape(Capsule())
             }
-            .disabled(viewModel.isLoading || !viewModel.canPurchase)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(Color.nockOrange)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .disabled(viewModel.isLoading || !viewModel.canPurchase)
+    }
 
+    private var footerSection: some View {
+        HStack(spacing: 20) {
             Button {
                 Task { await viewModel.restore() }
             } label: {
                 Text("구독 복원")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
             .disabled(viewModel.isLoading)
 
-            Text("구독은 Apple ID에 연결되며 iTunes 계정에 청구됩니다.\n구독 관리는 기기 설정 > Apple ID > 구독에서 가능합니다.")
-                .font(.system(size: 13))
-                .foregroundStyle(Color(.secondaryLabel))
-                .multilineTextAlignment(.center)
-
-            legalLinksRow
-        }
-    }
-
-    private var legalLinksRow: some View {
-        HStack(spacing: 20) {
+            if let eulaURL = Self.eulaURL {
+                Link("이용약관", destination: eulaURL)
+            }
             if let privacyPolicyURL = Self.privacyPolicyURL {
                 Link("개인정보처리방침", destination: privacyPolicyURL)
             }
-            if let eulaURL = Self.eulaURL {
-                Link("이용약관(EULA)", destination: eulaURL)
-            }
         }
-        .font(.caption)
-        .tint(.secondary)
+        .font(.system(size: 11))
+        .foregroundStyle(secondaryText)
+        .tint(secondaryText)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Helpers
+
+    private var yearlyPlanSubtitle: String? {
+        guard let monthlyEquivalent = yearlyMonthlyEquivalentText,
+              let savings = yearlySavingsAmountText else { return nil }
+        return "월 \(monthlyEquivalent) 꼴 · \(savings)"
+    }
+
+    private var yearlyMonthlyEquivalentText: String? {
+        guard let yearly = subscriptionManager.yearlyProduct else { return nil }
+        let monthlyAmount = yearly.price / 12
+        return formatCurrency(monthlyAmount, using: yearly)
+    }
+
+    private var yearlySavingsAmountText: String? {
+        guard let monthly = subscriptionManager.monthlyProduct,
+              let yearly = subscriptionManager.yearlyProduct else { return nil }
+        let savings = monthly.price * 12 - yearly.price
+        guard savings > 0 else { return nil }
+        let formatted = formatCurrency(savings, using: yearly)
+        return "연 \(formatted) 절약"
+    }
+
+    private func formatCurrency(_ amount: Decimal, using product: Product) -> String {
+        var value = amount
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &value, 0, .plain)
+        return rounded.formatted(product.priceFormatStyle)
     }
 }
 
-// MARK: - Feature Row
+// MARK: - ProFeatureRow
 
-private struct FeatureRow: View {
-    let icon: String
-    let text: String
-    var isComingSoon: Bool = false
+private struct ProFeatureRow: View {
+    let title: String
+    let description: String
+    let isComingSoon: Bool
+    let primaryText: Color
+    let secondaryText: Color
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.subheadline)
-                .foregroundStyle(isComingSoon ? Color(.secondaryLabel) : AppTheme.shared.accent)
-                .frame(width: 22, alignment: .center)
-            Text(text)
-                .font(.subheadline)
-                .foregroundStyle(isComingSoon ? Color(.secondaryLabel) : Color(.label))
-            if isComingSoon {
-                Text("곧 출시")
-                    .font(.caption2.bold())
-                    .foregroundStyle(Color(.secondaryLabel))
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 2)
-                    .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        HStack(alignment: .top, spacing: 13) {
+            Image(systemName: "sparkles.2")
+                .font(.system(size: 16, weight: .regular))
+                .foregroundStyle(primaryText)
+                .frame(width: 28, height: 28, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(primaryText)
+                    if isComingSoon {
+                        Text("예정")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(secondaryText)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(secondaryText.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+                }
+                Text(description)
+                    .font(.system(size: 12))
+                    .foregroundStyle(secondaryText)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .opacity(isComingSoon ? 0.6 : 1)
+    }
+}
+
+// MARK: - Free Feature Chips
+
+private struct FreeFeatureChip: View {
+    let label: String
+    let primaryText: Color
+    let secondaryText: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(primaryText)
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundStyle(secondaryText)
         }
     }
 }
 
-// MARK: - Plan Card
+private struct InboxComingSoonChip: View {
+    let secondaryText: Color
 
-private struct PlanCard: View {
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "clock")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(secondaryText)
+            Text("인박스")
+                .font(.system(size: 12))
+                .foregroundStyle(secondaryText)
+            Text("예정")
+                .font(.system(size: 12))
+                .foregroundStyle(secondaryText)
+                .opacity(0.5)
+        }
+    }
+}
+
+// MARK: - PaywallPlanCard
+
+private struct PaywallPlanCard: View {
     let title: String
-    let englishTitle: String
-    let subtitle: String
     let priceText: String
+    let unit: String
+    let subtitle: String?
+    let discountBadge: String?
     let isSelected: Bool
-    let savingsText: String?
-    let introOfferText: String?
+    let cardBackground: Color
+    let dividerColor: Color
+    let primaryText: Color
+    let secondaryText: Color
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Text(title).font(.system(size: 17, weight: .bold))
-                        Text(englishTitle)
-                            .font(.system(size: 13, weight: .regular))
-                            .foregroundStyle(Color(.secondaryLabel))
-                        if let savings = savingsText {
-                            Text(savings)
-                                .font(.caption.bold())
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .foregroundStyle(.white)
-                                .background(AppTheme.shared.accent)
-                                .clipShape(Capsule())
-                        }
-                        if let introOffer = introOfferText {
-                            Text(introOffer)
-                                .font(.caption.bold())
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .foregroundStyle(.white)
-                                .background(Color.blue.opacity(0.75))
-                                .clipShape(Capsule())
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .center, spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .strokeBorder(
+                                isSelected ? Color.nockOrange : dividerColor,
+                                lineWidth: isSelected ? 2 : 1.5
+                            )
+                            .frame(width: 18, height: 18)
+                        if isSelected {
+                            Circle()
+                                .fill(Color.nockOrange)
+                                .frame(width: 9, height: 9)
                         }
                     }
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+
+                    Text(title)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(primaryText)
+
+                    if let discountBadge {
+                        Text(discountBadge)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Color.nockOrange)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.nockOrange.opacity(0.15))
+                            .clipShape(Capsule())
+                    }
+
+                    Spacer()
+
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text(priceText)
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(primaryText)
+                        Text(unit)
+                            .font(.system(size: 13))
+                            .foregroundStyle(secondaryText)
+                    }
                 }
-                Spacer()
-                Text(priceText)
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.primary)
+
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundStyle(secondaryText)
+                        .padding(.leading, 28)
+                }
             }
-            .padding(16)
-            .background(Color(.secondarySystemGroupedBackground))
+            .padding(14)
+            .background(cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(
-                        isSelected ? Color(.label) : Color(.separator),
-                        lineWidth: isSelected ? 2 : 0.5
+                        isSelected ? Color.nockOrange : dividerColor,
+                        lineWidth: isSelected ? 1.5 : 0.5
                     )
             )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Chip Flow Layout
+
+private struct PaywallChipFlowLayout: Layout {
+    var spacing: CGFloat
+    var lineSpacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var height: CGFloat = 0
+        var rowWidth: CGFloat = 0
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if rowWidth > 0, rowWidth + spacing + size.width > maxWidth {
+                height += rowHeight + lineSpacing
+                rowWidth = 0
+                rowHeight = 0
+            }
+            rowWidth += (rowWidth > 0 ? spacing : 0) + size.width
+            rowHeight = max(rowHeight, size.height)
+        }
+        height += rowHeight
+        return CGSize(width: maxWidth, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += rowHeight + lineSpacing
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
     }
 }
