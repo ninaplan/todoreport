@@ -2,6 +2,16 @@ import Foundation
 
 let whatsNewReleases: [WhatsNewRelease] = [
     WhatsNewRelease(
+        id: "1.0.4",
+        symbolName: "bookmark",
+        items: [
+            "날짜 이동 제한 해제 ",
+            "화면 모드 설정 추가",
+            "위젯 무제한 사용"
+        ],
+        showsPopup: false
+    ),
+    WhatsNewRelease(
         id: "1.0.3",
         symbolName: "bookmark",
         items: [

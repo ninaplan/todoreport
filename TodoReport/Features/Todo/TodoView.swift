@@ -222,11 +222,6 @@ struct TodoView: View {
                 ))
                 .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $vm.showDatePaywall) {
-                PaywallView(message: viewModel.datePaywallMessage)
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.visible)
-            }
             .sheet(isPresented: $showPlannerSheet) {
                 PlannerSelectionSheet()
                     .presentationDragIndicator(.visible)

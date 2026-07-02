@@ -31,17 +31,28 @@ struct ReportView: View {
                                 }
                             )
                         if viewModel.isLoading || (viewModel.selectedPeriod == .weekly ? viewModel.weeklyReport == nil : viewModel.monthlyReport == nil) {
-                            ProgressView()
-                                .frame(maxWidth: .infinity, minHeight: 200)
-                        } else {
-                            if viewModel.isSyncing {
-                                HStack(spacing: 6) {
-                                    ProgressView().scaleEffect(0.75)
-                                    Text("노션 동기화 중...")
+                            VStack(spacing: 8) {
+                                ProgressView()
+                                if viewModel.isLoading && (viewModel.selectedPeriod == .weekly ? viewModel.weeklyReport == nil : viewModel.monthlyReport == nil) {
+                                    Text("불러오는 중...")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
-                                .frame(maxWidth: .infinity, alignment: .center)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 200)
+                        } else {
+                            if viewModel.isSyncing {
+                                HStack(spacing: 8) {
+                                    ProgressView().scaleEffect(0.85)
+                                    Text("노션 동기화 중...")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .frame(maxWidth: .infinity)
+                                .background(Color(.tertiarySystemFill))
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                             }
                             content
                         }

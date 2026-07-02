@@ -15,15 +15,22 @@
   - NavigationStack + CloseButton 표준화
   - 기능 카드 + 무료 제공 목록
   - 하단 가격 카드 + CTA 고정
+- 리포트 탭 최초 진입 시 빈 화면으로 오래 대기하던 문제 수정
+  - 원인: calculateStreak()가 365일치를 동기 조회하며 MainActor를 막아 첫 프레임 렌더링 자체가 지연됨
+  - 조치: fetchReport()에 Task.yield() 추가해 로딩 상태를 최소 1프레임 먼저 그리도록 함 (임시 완화, 근본 원인인 스트릭 계산 범위 축소는 별도 예정)
+- 투두 탭 날짜(달력) 클릭 시 날짜 이동 제한을 해제했는데도 페이월이 뜨던 버그 수정
+  - 원인: requestDatePicker()에 예전 Pro 가드가 남아있었음
+  - 조치: 가드 및 showDatePaywall/datePaywallMessage/dismissDatePaywall() 관련 코드 전체 제거
 
 ### 다음 할 일
 - v1.0.4 App Store 제출
 - NotionWorkspaceConnection 리팩터링 (멀티 플래너 근본 해결)
 - 구독 상태 카드 (설정 화면) 페이월 스타일 통일
+- 리포트 스트릭 계산 범위 축소/캐싱 (365일 전체 스캔 근본 개선)
 
 ### 알려진 버그
 - 프로 구독 만료 시 멀티 플래너 개수 제한 미적용 [심각]
-- 콜드 스타트 시 Notion 동기화 로딩 인디케이터 미표시
+- 콜드 스타트 시 Notion 동기화 로딩 인디케이터 미표시 (투두 탭)
 - 투두 날짜 이동 후 목적지 날짜 미표시 (간헐적)
 
 ### 주요 파일

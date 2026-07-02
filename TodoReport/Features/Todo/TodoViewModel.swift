@@ -44,8 +44,6 @@ final class TodoViewModel {
 
     var showReadOnlyAlert: Bool = false
 
-    var showDatePaywall: Bool = false
-    private(set) var datePaywallMessage: String = ""
     var showDatePicker: Bool = false
     private(set) var isNotionSyncing: Bool = false
     private(set) var isAwaitingInitialNotionLoad: Bool = false
@@ -543,17 +541,7 @@ final class TodoViewModel {
     }
 
     func requestDatePicker() {
-        guard isPro else {
-            datePaywallMessage = "다른 날 투두 확인은 Pro 기능이에요"
-            showDatePaywall = true
-            return
-        }
         showDatePicker = true
-    }
-
-    func dismissDatePaywall() {
-        showDatePaywall = false
-        datePaywallMessage = ""
     }
 
     var canGoNextDay: Bool {
