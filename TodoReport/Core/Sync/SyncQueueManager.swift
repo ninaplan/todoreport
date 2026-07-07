@@ -385,6 +385,7 @@ final class SyncQueueManager {
             "linkDailyReport": true,
             "date": seoulDateString(from: todo.date),
         ]
+        body["plannerId"] = ctx.planner.id
         if let st = todo.scheduledTime {
             let fmt = ISO8601DateFormatter()
             fmt.formatOptions = [.withInternetDateTime, .withColonSeparatorInTimeZone]
@@ -410,6 +411,7 @@ final class SyncQueueManager {
             "isCompleted": todo.isCompleted,
             "isPinned": todo.isPinned,
         ]
+        body["plannerId"] = ctx.planner.id
         if let st = todo.scheduledTime {
             let fmt = ISO8601DateFormatter()
             fmt.formatOptions = [.withInternetDateTime, .withColonSeparatorInTimeZone]

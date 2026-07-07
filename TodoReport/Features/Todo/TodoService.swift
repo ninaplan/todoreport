@@ -301,9 +301,15 @@ final class TodoService {
             }
         )
         if let allItems = try? context.fetch(allDescriptor) {
-            let toDelete = allItems.filter {
-                !notionPageIds.contains($0.notionPageId) &&
-                !SyncQueueManager.shared.hasPendingOperation(for: $0.notionPageId)
+            let toDelete = allItems.filter { item in
+                guard !notionPageIds.contains(item.notionPageId),
+                      !SyncQueueManager.shared.hasPendingOperation(for: item.notionPageId) else {
+                    return false
+                }
+                if let localModifiedAt = item.localModifiedAt, localModifiedAt > fetchStartedAt {
+                    return false
+                }
+                return true
             }
             toDelete.forEach { context.delete($0) }
             if !toDelete.isEmpty {

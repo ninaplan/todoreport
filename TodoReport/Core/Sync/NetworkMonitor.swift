@@ -2,7 +2,7 @@ import Foundation
 import Network
 
 @MainActor
-final class NetworkMonitor {
+final class NetworkMonitor: @unchecked Sendable {
     static let shared = NetworkMonitor()
     private init() {}
 
