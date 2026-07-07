@@ -28,6 +28,11 @@
 - 구독 상태 카드 (설정 화면) 페이월 스타일 통일
 - 리포트 스트릭 계산 범위 축소/캐싱 (365일 전체 스캔 근본 개선)
 
+### 최근 완료 작업
+- 오프라인 동기화 큐 손실 버그 완전 해결 (2026-07-07): NetworkMonitor.swift 신규 생성(NWPathMonitor 기반 재연결 자동 감지), SyncQueueProcessor.swift에 네트워크 에러 전용 분기 추가(retryCount 미증가, 오프라인 중 무한 재귀 방지), SyncQueueManager.swift에 recoverStuckProcessingItems() 추가(processing 고아 상태 앱 시작 시 자동 복구). 개발자 옵션에 동기화 큐 상태(pending/processing/failed 개수) 디버그 UI 추가.
+- [해결 확인됨, 2026-07-07 실기기 테스트 완료] AutoFocusTextField가 @FocusState 없이 UIViewRepresentable로 UITextField/UITextView를 직접 감싸고 becomeFirstResponder()를 수동 호출하는 방식으로 구조 변경되어 있음을 확인. markedTextRange == nil 체크로 IME 조합 중 텍스트 동기화를 막아 문제 해결됨. 실기기 한글 입력 테스트 완료.
+- [해결 완료, 2026-07-07] 원인이 두 가지였음: 1) 네트워크 에러와 API 에러를 구분 안 하고 동일하게 retryCount를 증가시켜 오프라인 중 재시도 예산이 소진되면 clearFailedItems()가 데이터를 삭제 2) processing 상태에서 앱 종료 등으로 중단되면 영구 고아 상태가 되어 어떤 재시도 로직에도 안 걸림. 해결: NetworkMonitor.swift(NWPathMonitor) 신규 추가로 재연결 자동 감지, SyncQueueProcessor.swift에 isNetworkUnavailable() 판별 추가로 네트워크 에러는 retryCount 미증가, SyncQueueManager.swift init()에 recoverStuckProcessingItems() 추가로 앱 시작 시 processing 고아 항목을 pending으로 자동 복구. 실기기 비행모드 테스트로 검증 완료.
+
 ### 알려진 버그
 - 프로 구독 만료 시 멀티 플래너 개수 제한 미적용 [심각]
 - 콜드 스타트 시 Notion 동기화 로딩 인디케이터 미표시 (투두 탭)
@@ -62,6 +67,7 @@
 - **인증:** Notion OAuth (ASWebAuthenticationSession)
 - **결제:** StoreKit 2 (Apple IAP)
 - **폰트:** Nanum Square Round
+- **디버그:** 설정 → 개발자 옵션 → 동기화 큐 상태에서 pending/processing/failed 개수 실시간 확인 가능 (#if DEBUG 전용)
 
 ### 백엔드 (별도 레포)
 - Next.js 14 App Router + Vercel
