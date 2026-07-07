@@ -23,6 +23,7 @@ final class TodoItem {
     var recurrenceEndDate: Date?
     var recurrenceCount: Int?
     var notionRelationLinked: Bool = false
+    var localModifiedAt: Date?
 
     var decodedRecurrence: RecurrenceRule? {
         guard let data = recurrenceData else { return nil }

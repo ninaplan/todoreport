@@ -128,6 +128,7 @@ final class TodoService {
         guard let item = try context.fetch(descriptor).first else { return }
         let dateChanged = !Calendar.current.isDate(item.date, inSameDayAs: todo.date)
         item.update(from: todo)
+        item.localModifiedAt = .now
         if dateChanged {
             item.notionRelationLinked = false
         }
@@ -197,19 +198,20 @@ final class TodoService {
         }
 
         do {
+            let fetchStartedAt = Date()
             let notionTodos: [NotionTodoResponse] = try await APIClient.shared.get(
                 "/api/notion/todo", params: params, token: token
             )
             guard !Task.isCancelled else { return }
             print("[TodoService] 🔄 Notion fetch - \(seoulDateString(from: date)) \(notionTodos.count)개")
-            upsertFromNotion(notionTodos, for: date, plannerId: pid)
+            upsertFromNotion(notionTodos, for: date, plannerId: pid, fetchStartedAt: fetchStartedAt)
         } catch {
             print("[TodoService] ⚠️ Notion sync 실패 - \(error.localizedDescription)")
             AppLogger.shared.warn("TodoService", "Notion sync 실패 - \(error.localizedDescription)")
         }
     }
 
-    private func upsertFromNotion(_ notionTodos: [NotionTodoResponse], for date: Date, plannerId: String?) {
+    private func upsertFromNotion(_ notionTodos: [NotionTodoResponse], for date: Date, plannerId: String?, fetchStartedAt: Date) {
         let startOfDay = Calendar.current.startOfDay(for: date)
         guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return }
 
@@ -231,6 +233,7 @@ final class TodoService {
             if let existing = try? context.fetch(byPageId).first {
                 // pending 작업 중인 항목은 어떤 필드도 노션 결과로 덮어쓰지 않음
                 guard !SyncQueueManager.shared.hasPendingOperation(for: pageId) else { continue }
+                if let localModifiedAt = existing.localModifiedAt, localModifiedAt > fetchStartedAt { continue }
                 existing.title = nt.title
                 existing.memo = nt.memo
                 if let nc = parsedNotionCreatedAt { existing.notionCreatedAt = nc }
@@ -257,7 +260,8 @@ final class TodoService {
                 // notionPageId는 항상 연결
                 existing.notionPageId = nt.notionPageId
                 // pending 작업 중인 항목의 나머지 필드는 덮어쓰지 않음
-                if !SyncQueueManager.shared.hasPendingOperation(for: nt.notionPageId) {
+                if !SyncQueueManager.shared.hasPendingOperation(for: nt.notionPageId),
+                   existing.localModifiedAt == nil || existing.localModifiedAt.map({ $0 <= fetchStartedAt }) == true {
                     existing.memo = nt.memo
                     if let nc = parsedNotionCreatedAt { existing.notionCreatedAt = nc }
                     existing.isCompleted = nt.isCompleted
