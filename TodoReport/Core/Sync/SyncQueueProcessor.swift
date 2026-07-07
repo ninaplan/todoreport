@@ -13,6 +13,7 @@ final class SyncQueueProcessor {
         guard !isProcessing else { return }
         isProcessing = true
         defer { isProcessing = false }
+        var stoppedDueToOffline = false
 
         do {
             let descriptor = FetchDescriptor<SyncQueueItem>(
@@ -106,6 +107,15 @@ final class SyncQueueProcessor {
                         continue
                     }
 
+                    if isNetworkUnavailable(error) {
+                        item.status = "pending"
+                        try? context.save()
+                        print("[Processor] ⏸️ 네트워크 없음 - 처리 중단 \(item.entityId)")
+                        AppLogger.shared.warn("Processor", "네트워크 없음 - 처리 중단 \(item.entityId)")
+                        stoppedDueToOffline = true
+                        break
+                    }
+
                     item.retryCount += 1
                     let isFinalFailure = item.retryCount > 3
                     item.status = isFinalFailure ? "failed" : "pending"
@@ -121,11 +131,13 @@ final class SyncQueueProcessor {
             }
 
             // 루프 실행 중 새로 enqueue된 아이템 처리
-            let remainingDesc = FetchDescriptor<SyncQueueItem>(
-                predicate: #Predicate<SyncQueueItem> { $0.status == "pending" }
-            )
-            if let remaining = try? context.fetch(remainingDesc), !remaining.isEmpty {
-                Task { await self.process() }
+            if !stoppedDueToOffline {
+                let remainingDesc = FetchDescriptor<SyncQueueItem>(
+                    predicate: #Predicate<SyncQueueItem> { $0.status == "pending" }
+                )
+                if let remaining = try? context.fetch(remainingDesc), !remaining.isEmpty {
+                    Task { await self.process() }
+                }
             }
         } catch {
             // fetch 실패 — 다음 실행 시 재시도
@@ -208,5 +220,21 @@ final class SyncQueueProcessor {
     private func isNotionPageNotFound(_ error: Error) -> Bool {
         guard case APIError.httpError(let statusCode) = error else { return false }
         return statusCode == 404
+    }
+
+    private func isNetworkUnavailable(_ error: Error) -> Bool {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost, .timedOut,
+                 .cannotConnectToHost, .cannotFindHost, .dataNotAllowed:
+                return true
+            default:
+                return false
+            }
+        }
+        if let underlying = (error as NSError).userInfo[NSUnderlyingErrorKey] as? Error {
+            return isNetworkUnavailable(underlying)
+        }
+        return false
     }
 }

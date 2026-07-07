@@ -8,6 +8,7 @@ final class SyncQueueManager {
         clearUnprocessableQueueItems()
         clearFailedItems()
         clearOldItems()
+        recoverStuckProcessingItems()
     }
 
     private var context: ModelContext { PersistenceController.shared.context }
@@ -232,6 +233,25 @@ final class SyncQueueManager {
         return (try? context.fetch(descriptor))?.isEmpty == false
     }
 
+    var pendingQueueCounts: (pending: Int, processing: Int, failed: Int) {
+        let descriptor = FetchDescriptor<SyncQueueItem>()
+        guard let items = try? context.fetch(descriptor) else {
+            return (0, 0, 0)
+        }
+        var pending = 0
+        var processing = 0
+        var failed = 0
+        for item in items {
+            switch item.status {
+            case "pending": pending += 1
+            case "processing": processing += 1
+            case "failed": failed += 1
+            default: break
+            }
+        }
+        return (pending, processing, failed)
+    }
+
     /// Notion 페이지가 삭제된 경우(404) — 해당 todo의 pending/processing 큐 항목 전부 제거
     func clearPendingTodoOperations(notionPageId: String, localId: String?) {
         let descriptor = FetchDescriptor<SyncQueueItem>(
@@ -298,6 +318,16 @@ final class SyncQueueManager {
         items.forEach { context.delete($0) }
         try? context.save()
         print("[SyncQueue] 🗑️ 오래된 항목 \(items.count)개 삭제 (7일 초과)")
+    }
+
+    private func recoverStuckProcessingItems() {
+        let descriptor = FetchDescriptor<SyncQueueItem>(
+            predicate: #Predicate<SyncQueueItem> { $0.status == "processing" }
+        )
+        guard let items = try? context.fetch(descriptor), !items.isEmpty else { return }
+        items.forEach { $0.status = "pending" }
+        try? context.save()
+        print("[SyncQueue] 🔧 processing 고아 항목 \(items.count)개 → pending 복구")
     }
 
     // MARK: - Todo Payload
@@ -440,6 +470,60 @@ final class SyncQueueManager {
     }
 
     #if DEBUG
+    func debugDumpQueueItems() {
+        let dateFormatter = ISO8601DateFormatter()
+        print("[SyncQueue:Dump] ========== 큐 상세 로그 ==========")
+
+        let pendingDescriptor = FetchDescriptor<SyncQueueItem>(
+            predicate: #Predicate<SyncQueueItem> { $0.status == "pending" },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        let pendingItems = (try? context.fetch(pendingDescriptor)) ?? []
+        print("[SyncQueue:Dump] --- pending (\(pendingItems.count)개) ---")
+
+        var plannerCounts: [String: Int] = [:]
+        for item in pendingItems {
+            let key = item.plannerId ?? "nil"
+            plannerCounts[key, default: 0] += 1
+        }
+        print("[SyncQueue:Dump] plannerId별 개수:")
+        for (plannerId, count) in plannerCounts.sorted(by: { $0.key < $1.key }) {
+            let resolvedPlannerId = plannerId == "nil" ? nil : plannerId
+            let connected = isPlannerNotionConnected(resolvedPlannerId)
+            print("[SyncQueue:Dump]   \(plannerId): \(count)개, isPlannerNotionConnected: \(connected)")
+        }
+
+        var actionCounts: [String: Int] = [:]
+        for item in pendingItems {
+            actionCounts[item.action, default: 0] += 1
+        }
+        print("[SyncQueue:Dump] action별 개수: create=\(actionCounts["create", default: 0]), update=\(actionCounts["update", default: 0]), delete=\(actionCounts["delete", default: 0])")
+
+        let retryGte1Count = pendingItems.filter { $0.retryCount >= 1 }.count
+        let requeueGte1Count = pendingItems.filter { $0.requeueCount >= 1 }.count
+        print("[SyncQueue:Dump] retryCount >= 1: \(retryGte1Count)개, requeueCount >= 1: \(requeueGte1Count)개")
+
+        print("[SyncQueue:Dump] 가장 오래된 pending 5개:")
+        for item in pendingItems.prefix(5) {
+            print("[SyncQueue:Dump]   entityId:\(item.entityId) action:\(item.action) plannerId:\(item.plannerId ?? "nil") retryCount:\(item.retryCount) requeueCount:\(item.requeueCount) createdAt:\(dateFormatter.string(from: item.createdAt))")
+        }
+
+        let processingDescriptor = FetchDescriptor<SyncQueueItem>(
+            predicate: #Predicate<SyncQueueItem> { $0.status == "processing" },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        let processingItems = (try? context.fetch(processingDescriptor)) ?? []
+        print("[SyncQueue:Dump] --- processing (\(processingItems.count)개) ---")
+
+        let stuckThreshold = Date().addingTimeInterval(-10 * 60)
+        for item in processingItems {
+            let stuckMark = item.createdAt < stuckThreshold ? " ⚠️ 오래 갇힘" : ""
+            print("[SyncQueue:Dump]   entityId:\(item.entityId) action:\(item.action) plannerId:\(item.plannerId ?? "nil") createdAt:\(dateFormatter.string(from: item.createdAt))\(stuckMark)")
+        }
+
+        print("[SyncQueue:Dump] ====================================")
+    }
+
     private func debugLogEnqueueSkip(action: String, entityType: String, entityId: String, plannerId: String?) {
         let reason: String
         if plannerId == nil {
