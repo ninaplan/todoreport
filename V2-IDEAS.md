@@ -14,6 +14,7 @@
 - 위젯 인터랙티브 체크·+ 버튼
 - 스와이프 액션 버튼 순서 커스터마이징 — 끝까지 당기면 실행되는 자리를 사용자가 직접 지정
 - 삭제 후 되돌리기(Undo) 토스트 — 스와이프 삭제 확인창 없이 빠르게 삭제, 대신 일정 시간 내 복구 가능하게
+- Tombstone(묘비) 패턴 — 삭제된 항목이 stale한 pull 응답으로 부활하는 이슈 방어. Undo 토스트와 함께 묶어서 구현 검토 (2026-07-08 조사)
 
 ## 자잘한 업데이트
 - 앱 전체 문구 톤앤매너 통일 (~요 → ~입니다 체)
@@ -61,3 +62,29 @@
   예: 같은 workspace_id로 재연결 시도 시 경고/차단
 - "워크스페이스 1개 = 플래너 1개" 원칙과 멀티유저 공유 기능(V2)의
   아키텍처 충돌 — 별도 설계 결정 필요
+
+## Sync 근본 구조 개선 조사 기록 (2026-07-08)
+
+### 완료된 것
+- Notion 응답에 lastEditedTime 필드 추가 (백엔드 GET/POST/PATCH)
+- iOS notionLastEditedTime 필드 추가 (Todo, TodoItem)
+- Push 성공 시 응답의 lastEditedTime을 로컬에 저장 (SyncQueueProcessor)
+- Pull upsertFromNotion에 Version Guard 추가 (stale 응답 스킵)
+- Debounce pull에 push 큐 대기 로직 추가
+
+### 미해결(V2) — Tombstone 부재
+- 시나리오: 새 투두 A 생성 → 즉시 삭제 → 이탈했다가 복귀 → A 부활
+- 원인: 백엔드 캐시(25초 TTL) 안에서 pull 응답이 "A 살아있던 시절" 상태를 내려줌.
+  로컬에 삭제됐으니 신규 insert 분기 진입 → A 부활
+- Version Guard로 못 잡힘: Guard는 "기존 로컬이 있을 때" 덮어쓰기 방어용.
+  로컬에 없는 항목이 부활하는 케이스는 대상 밖
+- 심각도: UX 이슈(최대 25초 유령 항목). 데이터 손실 없고 자연 회복됨
+- V2 처리 방향: RecentlyDeletedTracker (notionPageId + 삭제시각) 저장소 도입 →
+  upsertFromNotion 신규 insert 분기에서 최근 삭제 pageId 스킵 → 24시간 후 자동 정리.
+  Undo 토스트 기능과 함께 묶어서 구현 검토
+
+### 미해결(V2) — Backend 캐시 정합성
+- Vercel Edge Function이 여러 인스턴스로 분산 → 메모리 캐시가 서로 안 맞는 문제
+- Redis(Upstash 도쿄 리전) 프로젝트 연결까지는 완료. lib/cache.ts 교체는 미착수
+- 오늘 도입한 Version Guard가 클라이언트 방어망 역할을 하므로 Redis 근본 해결의 시급성은 낮아짐
+- 다만 성능/latency 관점에서 Redis 도입은 여전히 유효. 별도 세션 예정
