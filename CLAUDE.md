@@ -3,8 +3,12 @@
 ## 현재 상황 (2026-07-08 기준)
 
 ### 앱 상태
-- v1.0.3 App Store 심사 제출 완료 (2026-06-29)
-- v1.0.4 제출 준비 완료 — 빌드 번호 bump 후 Archive·ASC 제출
+- v1.0.4 App Store 제출 완료
+- v1.0.5 제출 예정 (빌드 11) — Xcode에서 MARKETING_VERSION 1.05 · CURRENT_PROJECT_VERSION 11 설정 후 Archive
+
+### v1.0.5 변경 내용
+- Notion 동기화 안정성 개선 — 날짜 이동 후 할일이 이전 상태로 되돌아가거나 사라지던 문제 수정 (Version Guard, push 큐 대기)
+- 오프라인에서 편집한 내용이 Notion에 반영되지 않던 문제 수정 (NetworkMonitor, 큐 손실·고아 항목 복구)
 
 ### v1.0.4 변경 내용
 - 다크/라이트 모드 선택 기능
@@ -21,12 +25,9 @@
 - 투두 탭 날짜(달력) 클릭 시 날짜 이동 제한을 해제했는데도 페이월이 뜨던 버그 수정
   - 원인: requestDatePicker()에 예전 Pro 가드가 남아있었음
   - 조치: 가드 및 showDatePaywall/datePaywallMessage/dismissDatePaywall() 관련 코드 전체 제거
-- Notion 동기화 안정성 개선 (2026-07-08)
-  - notionLastEditedTime + Version Guard로 stale pull 응답이 로컬을 덮어쓰는 문제 방어
-  - debounce pull 전 push 큐 완료 대기 (최대 5초)
 
 ### 다음 할 일
-- v1.0.4 App Store Archive·제출 (빌드 번호 10 → 11 bump 필요)
+- v1.0.5 App Store Archive·제출 (1.05 / 빌드 11)
 - NotionWorkspaceConnection 리팩터링 (멀티 플래너 근본 해결)
 - 구독 상태 카드 (설정 화면) 페이월 스타일 통일
 - 리포트 스트릭 계산 범위 축소/캐싱 (365일 전체 스캔 근본 개선)
