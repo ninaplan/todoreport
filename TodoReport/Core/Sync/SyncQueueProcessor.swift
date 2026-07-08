@@ -80,7 +80,7 @@ final class SyncQueueProcessor {
                 try? context.save()
 
                 do {
-                    let notionPageId = try await NotionAPIClient.shared.sync(
+                    let syncResult = try await NotionAPIClient.shared.sync(
                         action: item.action,
                         entityType: item.entityType,
                         entityId: item.entityId,
@@ -88,13 +88,22 @@ final class SyncQueueProcessor {
                         planner: planner
                     )
                     if item.action == "create", item.entityType == "todo",
-                       let pageId = notionPageId {
+                       let pageId = syncResult.pageId {
                         updateNotionPageId(localId: item.entityId, notionPageId: pageId)
                         enqueueTodoUpdateForRelation(localId: item.entityId)
                     }
                     if item.action == "update", item.entityType == "todo",
                        payloadRequestsDailyReportLink(item.payload) {
                         setRelationLinked(notionPageId: item.entityId)
+                    }
+                    if item.entityType == "todo",
+                       item.action != "delete",
+                       let editedTime = syncResult.lastEditedTime {
+                        saveNotionLastEditedTime(
+                            localId: item.entityId,
+                            notionPageId: syncResult.pageId ?? item.entityId,
+                            editedTime: editedTime
+                        )
                     }
                     context.delete(item)
                     try? context.save()
@@ -168,6 +177,26 @@ final class SyncQueueProcessor {
         item.notionPageId = notionPageId
         try? context.save()
         print("[Processor] 🔗 notionPageId 업데이트 - \(localId) → \(notionPageId)")
+    }
+
+    private func saveNotionLastEditedTime(localId: String, notionPageId: String, editedTime: Date) {
+        let descriptor = FetchDescriptor<TodoItem>(
+            predicate: #Predicate { $0.notionPageId == notionPageId }
+        )
+        if let item = try? context.fetch(descriptor).first {
+            item.notionLastEditedTime = editedTime
+            try? context.save()
+            print("[Processor] 🕐 notionLastEditedTime 저장 - notionPageId:\(notionPageId) time:\(editedTime)")
+            return
+        }
+        let byLocalId = FetchDescriptor<TodoItem>(
+            predicate: #Predicate { $0.id == localId }
+        )
+        if let item = try? context.fetch(byLocalId).first {
+            item.notionLastEditedTime = editedTime
+            try? context.save()
+            print("[Processor] 🕐 notionLastEditedTime 저장 (localId) - localId:\(localId) time:\(editedTime)")
+        }
     }
 
     private func enqueueTodoUpdateForRelation(localId: String) {

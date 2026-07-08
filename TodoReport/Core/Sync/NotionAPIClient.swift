@@ -5,22 +5,22 @@ final class NotionAPIClient {
     static let shared = NotionAPIClient()
     private init() {}
 
-    /// create todo 시 Notion page ID 반환, 그 외 nil
-    func sync(action: String, entityType: String, entityId: String, payload: Data, planner: Planner) async throws -> String? {
+    func sync(action: String, entityType: String, entityId: String, payload: Data, planner: Planner) async throws -> SyncResult {
         do {
             switch (entityType, action) {
             case ("todo", "create"):
                 return try await syncTodoCreate(payload: payload, planner: planner)
             case ("todo", "update"):
-                try await syncTodoUpdate(entityId: entityId, payload: payload, planner: planner)
+                return try await syncTodoUpdate(entityId: entityId, payload: payload, planner: planner)
             case ("todo", "delete"):
                 try await syncTodoDelete(entityId: entityId, planner: planner)
+                return SyncResult(pageId: nil, lastEditedTime: nil)
             case ("dailyReport", "create"), ("dailyReport", "update"):
                 try await syncDailyReport(payload: payload, planner: planner)
+                return SyncResult(pageId: nil, lastEditedTime: nil)
             default:
-                break
+                return SyncResult(pageId: nil, lastEditedTime: nil)
             }
-            return nil
         } catch {
             print("[Sync] ❌ 실패 상세 - \(error)")
             print("[Sync] ❌ 실패 localizedDescription - \(error.localizedDescription)")
@@ -30,23 +30,24 @@ final class NotionAPIClient {
 
     // MARK: - Todo
 
-    private func syncTodoCreate(payload: Data, planner: Planner) async throws -> String {
+    private func syncTodoCreate(payload: Data, planner: Planner) async throws -> SyncResult {
         let body = decodePayload(payload)
         let path = "/api/notion/todo"
         let token = planner.resolvedNotionToken
         print("[Sync] 📤 요청 - path:\(path) body:\(jsonLog(body))")
         print("[Sync] 📤 payload: \(body)")
         let response: CreateResponse = try await APIClient.shared.post(path, body: AnyEncodable(body), token: token)
-        return response.id
+        return SyncResult(pageId: response.id, lastEditedTime: parseLastEditedTime(response.lastEditedTime))
     }
 
-    private func syncTodoUpdate(entityId: String, payload: Data, planner: Planner) async throws {
+    private func syncTodoUpdate(entityId: String, payload: Data, planner: Planner) async throws -> SyncResult {
         let body = decodePayload(payload)
         let path = "/api/notion/todo/\(entityId)"
         let token = planner.resolvedNotionToken
         print("[Sync] 📤 요청 - path:\(path) body:\(jsonLog(body))")
         print("[Sync] 📤 payload: \(body)")
-        let _: EmptyResponse = try await APIClient.shared.patch(path, body: AnyEncodable(body), token: token)
+        let response: UpdateResponse = try await APIClient.shared.patch(path, body: AnyEncodable(body), token: token)
+        return SyncResult(pageId: nil, lastEditedTime: parseLastEditedTime(response.lastEditedTime))
     }
 
     private func syncTodoDelete(entityId: String, planner: Planner) async throws {
@@ -84,12 +85,34 @@ final class NotionAPIClient {
               let str = String(data: data, encoding: .utf8) else { return "nil" }
         return str
     }
+
+    private func parseLastEditedTime(_ string: String?) -> Date? {
+        guard let string else { return nil }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = iso.date(from: string) { return d }
+        iso.formatOptions = [.withInternetDateTime]
+        return iso.date(from: string)
+    }
 }
 
 // MARK: - Supporting Types
 
+struct SyncResult {
+    let pageId: String?
+    let lastEditedTime: Date?
+}
+
 private struct EmptyResponse: Decodable {}
-private struct CreateResponse: Decodable { let id: String }
+private struct CreateResponse: Decodable {
+    let id: String
+    let lastEditedTime: String?
+}
+
+private struct UpdateResponse: Decodable {
+    let success: Bool?
+    let lastEditedTime: String?
+}
 
 private struct AnyEncodable: Encodable {
     private let value: [String: Any]
