@@ -168,6 +168,13 @@ final class TodoViewModel {
             try? await Task.sleep(nanoseconds: Self.dateSyncDebounceNanoseconds)
             guard !Task.isCancelled else { return }
             guard Calendar.current.isDate(selectedDate, inSameDayAs: targetDate) else { return }
+            // push 큐가 처리 중이면 pull을 미룸 — stale 응답 유발 창을 좁힘
+            let timeout = Date.now.addingTimeInterval(5)
+            while SyncQueueManager.shared.hasPendingItems && Date.now < timeout {
+                try? await Task.sleep(for: .milliseconds(200))
+                guard !Task.isCancelled else { return }
+                guard Calendar.current.isDate(selectedDate, inSameDayAs: targetDate) else { return }
+            }
             let hadLocalData = !todosForSelectedDate.isEmpty
             await syncFromNotion(for: targetDate, immediate: true, quiet: hadLocalData)
         }
