@@ -1,10 +1,10 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-07-03 기준)
+## 현재 상황 (2026-07-08 기준)
 
 ### 앱 상태
 - v1.0.3 App Store 심사 제출 완료 (2026-06-29)
-- v1.0.4 개발 완료, 커밋 후 제출 예정
+- v1.0.4 제출 준비 완료 — 빌드 번호 bump 후 Archive·ASC 제출
 
 ### v1.0.4 변경 내용
 - 다크/라이트 모드 선택 기능
@@ -21,14 +21,18 @@
 - 투두 탭 날짜(달력) 클릭 시 날짜 이동 제한을 해제했는데도 페이월이 뜨던 버그 수정
   - 원인: requestDatePicker()에 예전 Pro 가드가 남아있었음
   - 조치: 가드 및 showDatePaywall/datePaywallMessage/dismissDatePaywall() 관련 코드 전체 제거
+- Notion 동기화 안정성 개선 (2026-07-08)
+  - notionLastEditedTime + Version Guard로 stale pull 응답이 로컬을 덮어쓰는 문제 방어
+  - debounce pull 전 push 큐 완료 대기 (최대 5초)
 
 ### 다음 할 일
-- v1.0.4 App Store 제출
+- v1.0.4 App Store Archive·제출 (빌드 번호 10 → 11 bump 필요)
 - NotionWorkspaceConnection 리팩터링 (멀티 플래너 근본 해결)
 - 구독 상태 카드 (설정 화면) 페이월 스타일 통일
 - 리포트 스트릭 계산 범위 축소/캐싱 (365일 전체 스캔 근본 개선)
 
 ### 최근 완료 작업
+- Notion 동기화 Version Guard (2026-07-08): notionLastEditedTime 필드, push 성공 시 저장, pull upsert Version Guard, debounce pull 큐 대기. V2 Tombstone은 미해결(유령 항목 부활 케이스).
 - 오프라인 동기화 큐 손실 버그 완전 해결 (2026-07-07): NetworkMonitor.swift 신규 생성(NWPathMonitor 기반 재연결 자동 감지), SyncQueueProcessor.swift에 네트워크 에러 전용 분기 추가(retryCount 미증가, 오프라인 중 무한 재귀 방지), SyncQueueManager.swift에 recoverStuckProcessingItems() 추가(processing 고아 상태 앱 시작 시 자동 복구). 개발자 옵션에 동기화 큐 상태(pending/processing/failed 개수) 디버그 UI 추가.
 - [해결 확인됨, 2026-07-07 실기기 테스트 완료] AutoFocusTextField가 @FocusState 없이 UIViewRepresentable로 UITextField/UITextView를 직접 감싸고 becomeFirstResponder()를 수동 호출하는 방식으로 구조 변경되어 있음을 확인. markedTextRange == nil 체크로 IME 조합 중 텍스트 동기화를 막아 문제 해결됨. 실기기 한글 입력 테스트 완료.
 - [해결 완료, 2026-07-07] 원인이 두 가지였음: 1) 네트워크 에러와 API 에러를 구분 안 하고 동일하게 retryCount를 증가시켜 오프라인 중 재시도 예산이 소진되면 clearFailedItems()가 데이터를 삭제 2) processing 상태에서 앱 종료 등으로 중단되면 영구 고아 상태가 되어 어떤 재시도 로직에도 안 걸림. 해결: NetworkMonitor.swift(NWPathMonitor) 신규 추가로 재연결 자동 감지, SyncQueueProcessor.swift에 isNetworkUnavailable() 판별 추가로 네트워크 에러는 retryCount 미증가, SyncQueueManager.swift init()에 recoverStuckProcessingItems() 추가로 앱 시작 시 processing 고아 항목을 pending으로 자동 복구. 실기기 비행모드 테스트로 검증 완료.

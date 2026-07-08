@@ -5,11 +5,12 @@ let whatsNewReleases: [WhatsNewRelease] = [
         id: "1.0.4",
         symbolName: "bookmark",
         items: [
-            "날짜 이동 제한 해제 ",
+            "날짜 이동 제한 해제",
             "화면 모드 설정 추가",
-            "위젯 무제한 사용"
+            "위젯 무제한 사용",
+            "Notion 동기화 안정성 개선"
         ],
-        showsPopup: false
+        showsPopup: true
     ),
     WhatsNewRelease(
         id: "1.0.3",
