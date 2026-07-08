@@ -12,6 +12,7 @@ final class TodoItem {
     var createdAt: Date
     var completedAt: Date?
     var notionCreatedAt: Date?
+    var notionLastEditedTime: Date?
     var categoryId: String?
     var categoryName: String?
     var notionPageId: String
@@ -39,6 +40,7 @@ final class TodoItem {
         date: Date = .now,
         completedAt: Date? = nil,
         notionCreatedAt: Date? = nil,
+        notionLastEditedTime: Date? = nil,
         categoryId: String? = nil,
         notionPageId: String = "",
         plannerId: String? = nil,
@@ -59,6 +61,7 @@ final class TodoItem {
         self.createdAt = .now
         self.completedAt = completedAt
         self.notionCreatedAt = notionCreatedAt
+        self.notionLastEditedTime = notionLastEditedTime
         self.categoryId = categoryId
         self.notionPageId = notionPageId
         self.plannerId = plannerId
@@ -77,6 +80,7 @@ final class TodoItem {
             isCompleted: isCompleted, isPinned: isPinned,
             date: date, createdAt: createdAt,
             completedAt: completedAt, notionCreatedAt: notionCreatedAt,
+            notionLastEditedTime: notionLastEditedTime,
             categoryId: categoryId, notionPageId: notionPageId,
             plannerId: plannerId, scheduledTime: scheduledTime,
             alarmOffset: alarmOffset,
@@ -106,6 +110,7 @@ final class TodoItem {
         // notionPageId: SyncQueueProcessor.updateNotionPageId() 가 세팅
         // notionRelationLinked: updateTodo(dateChanged) / NotionRelationLinker 가 관리
         // notionCreatedAt: Notion에서 내려온 값만 신뢰 (upsertFromNotion에서 직접 세팅)
+        // notionLastEditedTime: SyncQueueProcessor의 push 성공 시 / upsertFromNotion의 pull 시에만 세팅
         // plannerId: 생성 시 고정 — 플래너 이동 기능 구현 시 별도 메서드로 처리
     }
 
@@ -115,6 +120,7 @@ final class TodoItem {
             isCompleted: todo.isCompleted, isPinned: todo.isPinned,
             date: todo.date, completedAt: todo.completedAt,
             notionCreatedAt: todo.notionCreatedAt,
+            notionLastEditedTime: todo.notionLastEditedTime,
             categoryId: todo.categoryId,
             notionPageId: todo.notionPageId, plannerId: todo.plannerId,
             scheduledTime: todo.scheduledTime, alarmOffset: todo.alarmOffset,

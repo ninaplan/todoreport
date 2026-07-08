@@ -13,6 +13,7 @@ struct Todo: Identifiable, Codable {
     var createdAt: Date
     var completedAt: Date?
     var notionCreatedAt: Date?
+    var notionLastEditedTime: Date?
     var categoryId: String?
     var notionPageId: String
     var plannerId: String?
@@ -36,6 +37,7 @@ struct Todo: Identifiable, Codable {
         createdAt: Date = .now,
         completedAt: Date? = nil,
         notionCreatedAt: Date? = nil,
+        notionLastEditedTime: Date? = nil,
         categoryId: String? = nil,
         notionPageId: String = "",
         plannerId: String? = nil,
@@ -57,6 +59,7 @@ struct Todo: Identifiable, Codable {
         self.createdAt = createdAt
         self.completedAt = completedAt
         self.notionCreatedAt = notionCreatedAt
+        self.notionLastEditedTime = notionLastEditedTime
         self.categoryId = categoryId
         self.notionPageId = notionPageId
         self.plannerId = plannerId
@@ -479,4 +482,5 @@ private struct NotionTodoResponse: Decodable {
     let categoryName: String?
     let notionPageId: String
     let createdAt: String?
+    let lastEditedTime: String?
 }
