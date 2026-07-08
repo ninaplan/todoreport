@@ -237,6 +237,14 @@ final class TodoService {
                 // pending 작업 중인 항목은 어떤 필드도 노션 결과로 덮어쓰지 않음
                 guard !SyncQueueManager.shared.hasPendingOperation(for: pageId) else { continue }
                 if let localModifiedAt = existing.localModifiedAt, localModifiedAt > fetchStartedAt { continue }
+                // Version Guard: incoming lastEditedTime이 로컬보다 오래되었으면 stale 응답으로 간주
+                let incomingLastEditedTime = parseLastEditedTime(nt.lastEditedTime)
+                if let incoming = incomingLastEditedTime,
+                   let existingLastEditedTime = existing.notionLastEditedTime,
+                   incoming <= existingLastEditedTime {
+                    print("[TodoService] ⏭️ stale 응답 skip - pageId:\(pageId) incoming:\(incoming) existing:\(existingLastEditedTime)")
+                    continue
+                }
                 existing.title = nt.title
                 existing.memo = nt.memo
                 if let nc = parsedNotionCreatedAt { existing.notionCreatedAt = nc }
@@ -246,6 +254,9 @@ final class TodoService {
                     name: nt.categoryName, plannerId: plannerId
                 )
                 applyNotionDate(to: existing, from: nt.date)
+                if let incoming = incomingLastEditedTime {
+                    existing.notionLastEditedTime = incoming
+                }
                 continue
             }
 
@@ -262,9 +273,18 @@ final class TodoService {
             if let existing = try? context.fetch(byTitleDate).first {
                 // notionPageId는 항상 연결
                 existing.notionPageId = nt.notionPageId
+                let incomingLastEditedTime = parseLastEditedTime(nt.lastEditedTime)
+                let versionGuardPassed: Bool = {
+                    guard let incoming = incomingLastEditedTime,
+                          let existingLastEditedTime = existing.notionLastEditedTime else {
+                        return true
+                    }
+                    return incoming > existingLastEditedTime
+                }()
                 // pending 작업 중인 항목의 나머지 필드는 덮어쓰지 않음
                 if !SyncQueueManager.shared.hasPendingOperation(for: nt.notionPageId),
-                   existing.localModifiedAt == nil || existing.localModifiedAt.map({ $0 <= fetchStartedAt }) == true {
+                   existing.localModifiedAt == nil || existing.localModifiedAt.map({ $0 <= fetchStartedAt }) == true,
+                   versionGuardPassed {
                     existing.memo = nt.memo
                     if let nc = parsedNotionCreatedAt { existing.notionCreatedAt = nc }
                     existing.isCompleted = nt.isCompleted
@@ -272,6 +292,9 @@ final class TodoService {
                     existing.categoryId = CategoryNotionSync.shared.applyCategoryFromNotion(
                         name: nt.categoryName, plannerId: plannerId
                     )
+                    if let incoming = incomingLastEditedTime {
+                        existing.notionLastEditedTime = incoming
+                    }
                 }
                 continue
             }
@@ -288,6 +311,7 @@ final class TodoService {
                 isPinned: nt.isPinned,
                 date: parsedDate.date,
                 notionCreatedAt: parsedNotionCreatedAt,
+                notionLastEditedTime: parseLastEditedTime(nt.lastEditedTime),
                 categoryId: categoryId,
                 notionPageId: nt.notionPageId,
                 plannerId: plannerId,
@@ -413,6 +437,15 @@ final class TodoService {
             if let parsed = iso.date(from: string) { return parsed }
         }
         return nil
+    }
+
+    private func parseLastEditedTime(_ string: String?) -> Date? {
+        guard let string else { return nil }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = iso.date(from: string) { return d }
+        iso.formatOptions = [.withInternetDateTime]
+        return iso.date(from: string)
     }
 
     private func notionScheduledTimesEqual(_ lhs: Date?, _ rhs: Date?) -> Bool {
