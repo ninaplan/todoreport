@@ -134,7 +134,7 @@ struct PaywallView: View {
 
             ProFeatureRow(
                 title: "멀티 플래너",
-                description: "업무·개인·프로젝트를 각각의 공간에서 분리해 관리하세요. 현재 워크스페이스당 플래너 1개를 권장합니다.",
+                description: "업무·개인·프로젝트를 각각의 공간에서 분리해 관리하세요.",
                 isComingSoon: false,
                 primaryText: primaryText,
                 secondaryText: secondaryText

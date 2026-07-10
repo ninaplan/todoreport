@@ -28,11 +28,12 @@
 
 ### 다음 할 일
 - v1.0.5 App Store Archive·제출 (1.05 / 빌드 11)
-- NotionWorkspaceConnection 리팩터링 (멀티 플래너 근본 해결)
 - 구독 상태 카드 (설정 화면) 페이월 스타일 통일
 - 리포트 스트릭 계산 범위 축소/캐싱 (365일 전체 스캔 근본 개선)
+- 멀티플래너 UI 복원 (현재 숨김 상태, 다음 세션 예정)
 
 ### 최근 완료 작업
+- NotionWorkspaceConnection 1·2단계 (2026-07-10, 커밋 15c9a98): 워크스페이스 단위 토큰 공유 + revoke 안전장치(마지막 참조 플래너가 아니면 revoke 스킵)
 - Notion 동기화 Version Guard (2026-07-08): notionLastEditedTime 필드, push 성공 시 저장, pull upsert Version Guard, debounce pull 큐 대기. V2 Tombstone은 미해결(유령 항목 부활 케이스).
 - 오프라인 동기화 큐 손실 버그 완전 해결 (2026-07-07): NetworkMonitor.swift 신규 생성(NWPathMonitor 기반 재연결 자동 감지), SyncQueueProcessor.swift에 네트워크 에러 전용 분기 추가(retryCount 미증가, 오프라인 중 무한 재귀 방지), SyncQueueManager.swift에 recoverStuckProcessingItems() 추가(processing 고아 상태 앱 시작 시 자동 복구). 개발자 옵션에 동기화 큐 상태(pending/processing/failed 개수) 디버그 UI 추가.
 - [해결 확인됨, 2026-07-07 실기기 테스트 완료] AutoFocusTextField가 @FocusState 없이 UIViewRepresentable로 UITextField/UITextView를 직접 감싸고 becomeFirstResponder()를 수동 호출하는 방식으로 구조 변경되어 있음을 확인. markedTextRange == nil 체크로 IME 조합 중 텍스트 동기화를 막아 문제 해결됨. 실기기 한글 입력 테스트 완료.
@@ -556,10 +557,16 @@ guard let value = optional else { return }
 - completion handler → `handleCallback` → `secondaryOAuthCompletion(token)`. `TodoReportApp.onOpenURL` fallback 유지.
 - 사용자 취소: `ASWebAuthenticationSessionError.canceledLogin` → `oAuthCancelledCompletion?()`.
 - 마지막 Notion 연동 플래너 삭제/연동 초기화·계정 삭제 시 `revoke` + `signOut()` (다른 연동 플래너 있으면 signOut 생략). ~~`clearWebCookies`~~ — ephemeral 세션으로 불필요.
+- ~~재인증 시 이전 토큰 자동 무효화~~
+- → **정정 (2026-07-10):** 재인증 자체는 안전함 (Notion 동의 화면에서 기존 페이지 체크를 유지한 경우). 실제 문제는 두 가지였음:
+  (1) 앱의 "연동초기화"가 명시적으로 revoke API를 호출하면 워크스페이스 공유 권한 전체가 끊김 (Notion이 사용자+Integration당 권한 상태를 하나만 관리하기 때문)
+  (2) Notion OAuth 재동의 화면에서 기존에 체크돼 있던 페이지를 사용자가 직접 해제하면 그 페이지 접근이 즉시 빠짐 (앱 코드가 관여 못 하는 영역, Notion 자체 동작)
+  NotionWorkspaceConnection 구조(1단계+2단계, 2026-07-10 커밋 15c9a98)는 (1)을 막는 안전장치로 여전히 유효함 — 마지막 참조 플래너가 아니면 revoke 자체를 스킵함. (2)는 코드로 방지 불가, OAuth 진입 전 안내 문구로만 완화 가능.
+  멀티플래너 UI는 아직 숨김 상태 유지 (복원은 다음 세션 예정). 상세: `V2-IDEAS.md` §Notion 토큰 끊김.
 
 **멀티 플래너 — 플래너마다 독립 Notion DB 세트**
 
-- 플래너 1개 = **투두 DB 1 + 리포트 DB 1 + OAuth 토큰(`notionAccessToken`)** 묶음. `PlannerService`·`SyncQueue`·리포트 저장은 **항상 `todo.plannerId` / `selectedPlanner` 기준**.
+- 플래너 1개 = **투두 DB 1 + 리포트 DB 1 + Notion 워크스페이스 연결(`NotionWorkspaceConnection`, 동일 워크스페이스는 플래너 간 공유)** 묶음. `PlannerService`·`SyncQueue`·리포트 저장은 **항상 `todo.plannerId` / `selectedPlanner` 기준**.
 - **같은 Notion 워크스페이스**에 DB가 여러 개여도, 플래너 B를 **다른 DB 세트**에 연결하는 것은 지원 시나리오. 다만 사용자가 **플래너 전환·DB 선택을 혼동**하면 다른 플래너에서 저장/동기화 실패(404 등)·설정 화면 DB 이름 미표시처럼 보일 수 있음.
 - **원칙:** DB 세트(투두+리포트)당 플래너 1개. 두 플래너에 동일 DB 중복 연결 비권장.
 - **운영 Q&A (사용자 가이드):** `SPEC.md` §6 멀티 플래너 — 「멀티 플래너 + 노션 DB (Q&A · 가이드)」 참고.

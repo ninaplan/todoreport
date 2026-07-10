@@ -113,7 +113,7 @@ struct PlannerAddView: View {
                         Image(systemName: "info.circle.fill")
                             .font(.system(size: 16))
                             .foregroundStyle(.secondary)
-                        Text("노션 워크스페이스당 플래너 1개를 연결할 수 있어요. 여러 워크스페이스를 사용하면 플래너를 더 추가할 수 있습니다.")
+                        Text("같은 워크스페이스에 여러 플래너를 연결할 수 있어요. 노션 연결 화면에서 기존에 허용했던 페이지는 체크 해제하지 말고, 새로 쓸 페이지만 추가로 체크해주세요.")
                             .font(.system(size: 16))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
