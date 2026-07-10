@@ -105,6 +105,9 @@ final class OnboardingViewModel {
     @ObservationIgnored private var databasesFetchTask: Task<Void, Never>?
     @ObservationIgnored private(set) var capturedToken: String?
     @ObservationIgnored private(set) var capturedRefreshToken: String?
+    @ObservationIgnored private(set) var capturedWorkspaceId: String?
+    @ObservationIgnored private(set) var capturedWorkspaceName: String?
+    @ObservationIgnored private(set) var capturedBotId: String?
 
     init() {
         NotionAuthManager.shared.$errorMessage
@@ -142,10 +145,13 @@ final class OnboardingViewModel {
 
     private func startNotionOAuth() async {
         isLoading = true
-        NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token, refreshToken in
+        NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token, refreshToken, workspaceId, workspaceName, botId in
             Task { @MainActor [weak self] in
                 self?.capturedToken = token
                 self?.capturedRefreshToken = refreshToken
+                self?.capturedWorkspaceId = workspaceId
+                self?.capturedWorkspaceName = workspaceName
+                self?.capturedBotId = botId
                 self?.isLoading = false
                 self?.proceedFromNotionOAuth()
             }
@@ -250,8 +256,24 @@ final class OnboardingViewModel {
         planner.name = plannerName
         planner.notionTodoDBId = selectedTodoDBId
         planner.notionReportDBId = selectedReportDBId
-        planner.notionAccessToken = capturedToken
-        planner.notionRefreshToken = capturedRefreshToken
+        if let token = capturedToken,
+           let workspaceId = capturedWorkspaceId,
+           let workspaceName = capturedWorkspaceName,
+           let connectionId = try? PlannerService.shared.upsertNotionWorkspaceConnection(
+            workspaceId: workspaceId,
+            workspaceName: workspaceName,
+            accessToken: token,
+            refreshToken: capturedRefreshToken,
+            botId: capturedBotId
+           ) {
+            planner.notionWorkspaceConnectionId = connectionId
+            planner.notionAccessToken = nil
+            planner.notionRefreshToken = nil
+        } else {
+            planner.notionWorkspaceConnectionId = nil
+            planner.notionAccessToken = capturedToken
+            planner.notionRefreshToken = capturedRefreshToken
+        }
         planner.isNotionConnected = true
         TodoPropsMappingAutoFill.backfillIds(mapping: &todoPropsMapping, properties: todoProperties)
         ReportPropsMappingAutoFill.backfillIds(mapping: &reportPropsMapping, properties: reportProperties)

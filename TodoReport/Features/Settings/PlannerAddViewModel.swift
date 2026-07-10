@@ -43,6 +43,9 @@ final class PlannerAddViewModel {
 
     private(set) var capturedAccessToken: String?
     private(set) var capturedRefreshToken: String?
+    private(set) var capturedWorkspaceId: String?
+    private(set) var capturedWorkspaceName: String?
+    private(set) var capturedBotId: String?
     private(set) var createdLocalPlanner: Planner?
 
     @ObservationIgnored private var databasesFetchTask: Task<Void, Never>?
@@ -68,12 +71,18 @@ final class PlannerAddViewModel {
         databases = []
         capturedAccessToken = nil
         capturedRefreshToken = nil
+        capturedWorkspaceId = nil
+        capturedWorkspaceName = nil
+        capturedBotId = nil
         step = .notionOAuth
         isLoading = true
-        NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token, refreshToken in
+        NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token, refreshToken, workspaceId, workspaceName, botId in
             guard let self else { return }
             self.capturedAccessToken = token
             self.capturedRefreshToken = refreshToken
+            self.capturedWorkspaceId = workspaceId
+            self.capturedWorkspaceName = workspaceName
+            self.capturedBotId = botId
             self.isLoading = false
             self.step = .loadingDatabases
             Task { await self.fetchDatabases() }
@@ -115,8 +124,24 @@ final class PlannerAddViewModel {
         planner.isNotionConnected = true
         planner.notionTodoDBId    = selectedTodoDBId
         planner.notionReportDBId  = selectedReportDBId
-        planner.notionAccessToken = capturedAccessToken
-        planner.notionRefreshToken = capturedRefreshToken
+        if let token = capturedAccessToken,
+           let workspaceId = capturedWorkspaceId,
+           let workspaceName = capturedWorkspaceName,
+           let connectionId = try? PlannerService.shared.upsertNotionWorkspaceConnection(
+            workspaceId: workspaceId,
+            workspaceName: workspaceName,
+            accessToken: token,
+            refreshToken: capturedRefreshToken,
+            botId: capturedBotId
+           ) {
+            planner.notionWorkspaceConnectionId = connectionId
+            planner.notionAccessToken = nil
+            planner.notionRefreshToken = nil
+        } else {
+            planner.notionWorkspaceConnectionId = nil
+            planner.notionAccessToken = capturedAccessToken
+            planner.notionRefreshToken = capturedRefreshToken
+        }
         if let data = try? JSONEncoder().encode(todoPropsMapping),
            let json = String(data: data, encoding: .utf8) {
             planner.todoPropsMapping = json
@@ -148,12 +173,18 @@ final class PlannerAddViewModel {
             databases = []
             capturedAccessToken = nil
             capturedRefreshToken = nil
+            capturedWorkspaceId = nil
+            capturedWorkspaceName = nil
+            capturedBotId = nil
             isLoadingDatabases = false
             step = .chooseMode
         case .selectTodoDB:
             databases = []
             capturedAccessToken = nil
             capturedRefreshToken = nil
+            capturedWorkspaceId = nil
+            capturedWorkspaceName = nil
+            capturedBotId = nil
             step = .chooseMode
         case .mapTodoProps:
             selectedTodoDBId = nil

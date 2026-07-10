@@ -13,6 +13,7 @@ final class PersistenceController {
     private init() {
         let schema = Schema([
             PlannerItem.self,
+            NotionWorkspaceConnection.self,
             TodoItem.self,
             DailyReportItem.self,
             CategoryItem.self,

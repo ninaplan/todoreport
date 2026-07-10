@@ -15,6 +15,7 @@ struct Planner: Identifiable, Hashable, Codable {
     // 플래너별 Notion 토큰 (nil이면 NotionAuthManager Keychain 토큰 fallback)
     var notionAccessToken: String?
     var notionRefreshToken: String?
+    var notionWorkspaceConnectionId: String?
     // 아이콘: SF Symbol 이름 또는 "photo"
     var iconType: String?
     var iconImageData: Data?
@@ -35,6 +36,7 @@ struct Planner: Identifiable, Hashable, Codable {
         notionCategoryDBId: String? = nil,
         notionAccessToken: String? = nil,
         notionRefreshToken: String? = nil,
+        notionWorkspaceConnectionId: String? = nil,
         iconType: String? = nil,
         iconImageData: Data? = nil,
         createdAt: Date = .now,
@@ -51,6 +53,7 @@ struct Planner: Identifiable, Hashable, Codable {
         self.notionCategoryDBId = notionCategoryDBId
         self.notionAccessToken = notionAccessToken
         self.notionRefreshToken = notionRefreshToken
+        self.notionWorkspaceConnectionId = notionWorkspaceConnectionId
         self.iconType = iconType
         self.iconImageData = iconImageData
         self.createdAt = createdAt
@@ -60,9 +63,21 @@ struct Planner: Identifiable, Hashable, Codable {
     }
 
     // 이 플래너에서 사용할 Notion 액세스 토큰
-    // 마이그레이션 전 기존 플래너: Keychain fallback 유지
+    // 워크스페이스 연결 참조 → 레거시 플래너별 토큰 → Keychain fallback
     var resolvedNotionToken: String? {
-        notionAccessToken ?? NotionAuthManager.shared.accessToken
+        if let connectionId = notionWorkspaceConnectionId,
+           let connection = PlannerService.shared.notionWorkspaceConnection(id: connectionId) {
+            return connection.accessToken
+        }
+        return notionAccessToken ?? NotionAuthManager.shared.accessToken
+    }
+
+    var resolvedNotionRefreshToken: String? {
+        if let connectionId = notionWorkspaceConnectionId,
+           let connection = PlannerService.shared.notionWorkspaceConnection(id: connectionId) {
+            return connection.refreshToken
+        }
+        return notionRefreshToken
     }
 
     var decodedTodoPropsMapping: TodoPropsMapping {
@@ -194,6 +209,66 @@ final class PlannerService {
         refreshStore()
     }
 
+    // MARK: - Notion Workspace Connection
+
+    func notionWorkspaceConnection(id: String) -> NotionWorkspaceConnection? {
+        let descriptor = FetchDescriptor<NotionWorkspaceConnection>(
+            predicate: #Predicate { $0.id == id }
+        )
+        return try? context.fetch(descriptor).first
+    }
+
+    @discardableResult
+    func upsertNotionWorkspaceConnection(
+        workspaceId: String,
+        workspaceName: String,
+        accessToken: String,
+        refreshToken: String?,
+        botId: String?
+    ) throws -> String {
+        let descriptor = FetchDescriptor<NotionWorkspaceConnection>(
+            predicate: #Predicate { $0.workspaceId == workspaceId }
+        )
+        let now = Date.now
+        if let existing = try context.fetch(descriptor).first {
+            existing.accessToken = accessToken
+            existing.refreshToken = refreshToken
+            existing.workspaceName = workspaceName
+            existing.botId = botId
+            existing.updatedAt = now
+            try context.save()
+            return existing.id
+        }
+
+        let connection = NotionWorkspaceConnection(
+            workspaceId: workspaceId,
+            workspaceName: workspaceName,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            botId: botId,
+            createdAt: now,
+            updatedAt: now
+        )
+        context.insert(connection)
+        try context.save()
+        return connection.id
+    }
+
+    func otherPlannersSharing(connectionId: String, excluding plannerId: String) -> Int {
+        store.filter {
+            $0.id != plannerId && $0.notionWorkspaceConnectionId == connectionId
+        }.count
+    }
+
+    func deleteNotionWorkspaceConnection(id: String) {
+        let descriptor = FetchDescriptor<NotionWorkspaceConnection>(
+            predicate: #Predicate { $0.id == id }
+        )
+        guard let connection = try? context.fetch(descriptor).first else { return }
+        context.delete(connection)
+        try? context.save()
+    }
+
     /// 계정 삭제 후 온보딩 재진입용 — store 비우기·기본 로컬 플래너 1개 생성
     func resetStoreAfterAccountDeletion() {
         selectedPlannerId = ""
@@ -261,12 +336,11 @@ final class PlannerService {
 
     func resetNotionConnection(for planner: Planner) async {
         let id = planner.id
-        let tokenToRevoke = planner.notionAccessToken
         let wasNotionConnected = planner.isNotionConnected
         let shouldClearGlobalSession = wasNotionConnected
             && countOtherNotionConnectedPlanners(excluding: id) == 0
 
-        await revokePlannerNotionTokenBestEffort(tokenToRevoke)
+        await revokeNotionTokenForPlannerDisconnect(planner)
 
         let todoDesc = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.plannerId == id })
         for item in (try? context.fetch(todoDesc)) ?? [] { context.delete(item) }
@@ -282,6 +356,7 @@ final class PlannerService {
             item.isNotionConnected  = false
             item.notionAccessToken  = nil
             item.notionRefreshToken = nil
+            item.notionWorkspaceConnectionId = nil
             item.notionTodoDBId     = nil
             item.notionReportDBId   = nil
             item.todoPropsMapping   = nil
@@ -325,12 +400,11 @@ final class PlannerService {
     func deletePlanner(_ planner: Planner) async throws {
         guard store.count > 1 else { return }
         let id = planner.id
-        let tokenToRevoke = planner.notionAccessToken
         let wasNotionConnected = planner.isNotionConnected
         let shouldClearGlobalSession = wasNotionConnected
             && countOtherNotionConnectedPlanners(excluding: id) == 0
 
-        await revokePlannerNotionTokenBestEffort(tokenToRevoke)
+        await revokeNotionTokenForPlannerDisconnect(planner)
 
         let todoDesc = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.plannerId == id })
         for item in (try? context.fetch(todoDesc)) ?? [] { context.delete(item) }
@@ -363,6 +437,19 @@ final class PlannerService {
 
     private func countOtherNotionConnectedPlanners(excluding plannerId: String) -> Int {
         store.filter { $0.id != plannerId && $0.isNotionConnected }.count
+    }
+
+    private func revokeNotionTokenForPlannerDisconnect(_ planner: Planner) async {
+        if let connectionId = planner.notionWorkspaceConnectionId {
+            if otherPlannersSharing(connectionId: connectionId, excluding: planner.id) > 0 {
+                return
+            }
+            let token = notionWorkspaceConnection(id: connectionId)?.accessToken
+            await revokePlannerNotionTokenBestEffort(token)
+            deleteNotionWorkspaceConnection(id: connectionId)
+        } else {
+            await revokePlannerNotionTokenBestEffort(planner.notionAccessToken)
+        }
     }
 
     private func revokePlannerNotionTokenBestEffort(_ token: String?) async {

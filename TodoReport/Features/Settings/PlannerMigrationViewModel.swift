@@ -30,6 +30,9 @@ final class PlannerMigrationViewModel {
 
     private(set) var capturedAccessToken: String?
     private(set) var capturedRefreshToken: String?
+    private(set) var capturedWorkspaceId: String?
+    private(set) var capturedWorkspaceName: String?
+    private(set) var capturedBotId: String?
     private(set) var databases: [NotionDatabase] = []
     var selectedTodoDBId: String?
     var selectedReportDBId: String?
@@ -85,10 +88,13 @@ final class PlannerMigrationViewModel {
         guard step == .idle else { return }
         step = .oauthRequired
         isLoading = true
-        NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token, refreshToken in
+        NotionAuthManager.shared.secondaryOAuthCompletion = { [weak self] token, refreshToken, workspaceId, workspaceName, botId in
             guard let self else { return }
             self.capturedAccessToken = token
             self.capturedRefreshToken = refreshToken
+            self.capturedWorkspaceId = workspaceId
+            self.capturedWorkspaceName = workspaceName
+            self.capturedBotId = botId
             self.isLoading = false
             Task { await self.fetchDatabases() }
         }
@@ -159,6 +165,9 @@ final class PlannerMigrationViewModel {
             databases = []
             capturedAccessToken = nil
             capturedRefreshToken = nil
+            capturedWorkspaceId = nil
+            capturedWorkspaceName = nil
+            capturedBotId = nil
             step = .idle
         case .mapTodoProps:
             selectedTodoDBId = nil
@@ -177,8 +186,24 @@ final class PlannerMigrationViewModel {
     private func saveConnectionSettings() async {
         let previousCategoryProp = planner.decodedTodoPropsMapping.category
         var updated = planner
-        updated.notionAccessToken = capturedAccessToken
-        updated.notionRefreshToken = capturedRefreshToken
+        if let token = capturedAccessToken,
+           let workspaceId = capturedWorkspaceId,
+           let workspaceName = capturedWorkspaceName,
+           let connectionId = try? PlannerService.shared.upsertNotionWorkspaceConnection(
+            workspaceId: workspaceId,
+            workspaceName: workspaceName,
+            accessToken: token,
+            refreshToken: capturedRefreshToken,
+            botId: capturedBotId
+           ) {
+            updated.notionWorkspaceConnectionId = connectionId
+            updated.notionAccessToken = nil
+            updated.notionRefreshToken = nil
+        } else {
+            updated.notionWorkspaceConnectionId = nil
+            updated.notionAccessToken = capturedAccessToken
+            updated.notionRefreshToken = capturedRefreshToken
+        }
         updated.notionTodoDBId    = selectedTodoDBId
         updated.notionReportDBId  = selectedReportDBId
         updated.isNotionConnected = true

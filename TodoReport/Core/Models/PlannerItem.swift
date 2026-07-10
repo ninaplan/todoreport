@@ -16,6 +16,8 @@ final class PlannerItem {
     // 중복 OAuth 재인증임 (2026-06-24 조사 확정). 자세한 내용은 백엔드
     // lib/notion-auth.ts 주석과 V2-IDEAS.md 참고.
     var notionRefreshToken: String?
+    // 워크스페이스 단위 Notion 연결 참조 (nil이면 레거시 플래너별 토큰 사용)
+    var notionWorkspaceConnectionId: String?
     // 아이콘: SF Symbol 이름 또는 "photo"
     var iconType: String?
     @Attribute(.externalStorage) var iconImageData: Data?
@@ -36,6 +38,7 @@ final class PlannerItem {
         notionCategoryDBId: String? = nil,
         notionAccessToken: String? = nil,
         notionRefreshToken: String? = nil,
+        notionWorkspaceConnectionId: String? = nil,
         iconType: String? = nil,
         iconImageData: Data? = nil,
         createdAt: Date = .now,
@@ -52,6 +55,7 @@ final class PlannerItem {
         self.notionCategoryDBId = notionCategoryDBId
         self.notionAccessToken = notionAccessToken
         self.notionRefreshToken = notionRefreshToken
+        self.notionWorkspaceConnectionId = notionWorkspaceConnectionId
         self.iconType = iconType
         self.iconImageData = iconImageData
         self.createdAt = createdAt
@@ -69,6 +73,7 @@ final class PlannerItem {
             notionCategoryDBId: notionCategoryDBId,
             notionAccessToken: notionAccessToken,
             notionRefreshToken: notionRefreshToken,
+            notionWorkspaceConnectionId: notionWorkspaceConnectionId,
             iconType: iconType,
             iconImageData: iconImageData,
             createdAt: createdAt,
@@ -87,6 +92,7 @@ final class PlannerItem {
         notionCategoryDBId = planner.notionCategoryDBId
         notionAccessToken = planner.notionAccessToken
         notionRefreshToken = planner.notionRefreshToken
+        notionWorkspaceConnectionId = planner.notionWorkspaceConnectionId
         iconType = planner.iconType
         iconImageData = planner.iconImageData
         todoPropsMapping = planner.todoPropsMapping
@@ -103,6 +109,7 @@ final class PlannerItem {
             notionCategoryDBId: planner.notionCategoryDBId,
             notionAccessToken: planner.notionAccessToken,
             notionRefreshToken: planner.notionRefreshToken,
+            notionWorkspaceConnectionId: planner.notionWorkspaceConnectionId,
             iconType: planner.iconType,
             iconImageData: planner.iconImageData,
             createdAt: planner.createdAt,
