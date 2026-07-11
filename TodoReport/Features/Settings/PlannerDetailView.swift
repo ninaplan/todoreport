@@ -14,7 +14,6 @@ struct PlannerDetailView: View {
     @State private var selectedIconImageData: Data?
     @State private var photoItem: PhotosPickerItem?
     @State private var showIconSheet = false
-    @State private var showDeleteAlert = false
     @State private var showResetNotionAlert = false
     @State private var showMigrationModeAlert = false
     @State private var showMigrationSheet = false
@@ -31,8 +30,6 @@ struct PlannerDetailView: View {
         "cart.fill", "car.fill", "creditcard.fill",
         "music.note", "paintbrush.fill", "camera.fill", "gamecontroller.fill"
     ]
-
-    private var totalPlannerCount: Int { PlannerService.shared.store.count }
 
     init(planner: Planner) {
         self.plannerId = planner.id
@@ -61,9 +58,6 @@ struct PlannerDetailView: View {
                 notionSection
             } else {
                 connectNotionSection
-            }
-            if totalPlannerCount > 1 {
-                deleteSection
             }
         }
         .disabled(currentPlanner.isReadOnly)
@@ -98,14 +92,6 @@ struct PlannerDetailView: View {
                     selectedIconImageData = data
                 }
             }
-        }
-        .alert("플래너 삭제", isPresented: $showDeleteAlert) {
-            Button("취소", role: .cancel) { }
-            Button("삭제", role: .destructive) {
-                Task { try? await PlannerService.shared.deletePlanner(currentPlanner); dismiss() }
-            }
-        } message: {
-            Text("플래너를 삭제하면 해당 플래너의 모든 데이터가 삭제됩니다. 계속할까요?")
         }
         .alert("연동 초기화", isPresented: $showResetNotionAlert) {
             Button("취소", role: .cancel) { }
@@ -275,19 +261,6 @@ struct PlannerDetailView: View {
             Text("Notion 연동")
         } footer: {
             Text("로컬 데이터를 Notion과 연결해요")
-        }
-    }
-
-    // MARK: - 삭제
-
-    private var deleteSection: some View {
-        Section {
-            Button(role: .destructive) {
-                showDeleteAlert = true
-            } label: {
-                Text("플래너 삭제")
-                    .frame(maxWidth: .infinity, alignment: .center)
-            }
         }
     }
 

@@ -29,16 +29,11 @@ struct TodoReportApp: App {
                 AppLogger.shared.logNewSession()
                 UNUserNotificationCenter.current().delegate = AppNotificationDelegate.shared
                 TodoNotificationManager.shared.requestPermission()
-                SubscriptionManager.shared.onSubscriptionExpired = {
-                    ReportNotificationManager.shared.cancelAll()
-                    if PlannerService.shared.store.count > 1 {
-                        showPlannerDowngrade = true
-                    }
-                }
                 Task {
                     async let entitlements: Void = SubscriptionManager.shared.updatePurchasedProducts()
                     async let products: Void = SubscriptionManager.shared.loadProducts()
                     _ = await (entitlements, products)
+                    evaluateSubscriptionState()
                     ReportNotificationManager.shared.rescheduleAll()
                 }
                 Task { @MainActor in
@@ -77,7 +72,10 @@ struct TodoReportApp: App {
                 AppForegroundCoordinator.shared.recordBackgroundEntry()
             case .active:
                 AppForegroundCoordinator.shared.handleBecomeActive()
-                Task { await SubscriptionManager.shared.updatePurchasedProducts() }
+                Task {
+                    await SubscriptionManager.shared.updatePurchasedProducts()
+                    evaluateSubscriptionState()
+                }
                 ReportNotificationManager.shared.rescheduleAll()
                 Task { @MainActor in SyncQueueManager.shared.processIfConnected() }
                 Task { @MainActor in NotionRelationLinker.shared.linkMissing() }
@@ -90,5 +88,17 @@ struct TodoReportApp: App {
                 break
             }
         }
+    }
+
+    /// entitlement 갱신 후 구독·플래너 상태를 멱등적으로 점검한다.
+    @MainActor
+    private func evaluateSubscriptionState() {
+        if SubscriptionManager.shared.isPro {
+            PlannerService.shared.restoreAllPlanners()
+            return
+        }
+        guard PlannerService.shared.activePlannerCount > 1 else { return }
+        ReportNotificationManager.shared.cancelAll()
+        showPlannerDowngrade = true
     }
 }

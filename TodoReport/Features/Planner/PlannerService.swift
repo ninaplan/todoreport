@@ -25,6 +25,7 @@ struct Planner: Identifiable, Hashable, Codable {
     var reportPropsMapping: String?
     // Pro 해지 후 읽기 전용 전환 여부
     var isReadOnly: Bool
+    var sortOrder: Double
 
     init(
         id: String = UUID().uuidString,
@@ -42,7 +43,8 @@ struct Planner: Identifiable, Hashable, Codable {
         createdAt: Date = .now,
         todoPropsMapping: String? = nil,
         reportPropsMapping: String? = nil,
-        isReadOnly: Bool = false
+        isReadOnly: Bool = false,
+        sortOrder: Double = 0
     ) {
         self.id = id
         self.name = name
@@ -60,6 +62,7 @@ struct Planner: Identifiable, Hashable, Codable {
         self.todoPropsMapping = todoPropsMapping
         self.reportPropsMapping = reportPropsMapping
         self.isReadOnly = isReadOnly
+        self.sortOrder = sortOrder
     }
 
     // 이 플래너에서 사용할 Notion 액세스 토큰
@@ -114,6 +117,11 @@ final class PlannerService {
 
     var selectedPlanner: Planner? {
         store.first(where: { $0.id == selectedPlannerId }) ?? store.first
+    }
+
+    /// 읽기 전용이 아닌 플래너 수 (다운그레이드 필요 여부 판단용)
+    var activePlannerCount: Int {
+        store.filter { !$0.isReadOnly }.count
     }
 
     private var context: ModelContext { PersistenceController.shared.context }
@@ -200,7 +208,10 @@ final class PlannerService {
     }
 
     private func refreshStore() {
-        let descriptor = FetchDescriptor<PlannerItem>(sortBy: [SortDescriptor(\.createdAt)])
+        let descriptor = FetchDescriptor<PlannerItem>(sortBy: [
+            SortDescriptor(\.sortOrder),
+            SortDescriptor(\.createdAt)
+        ])
         store = (try? context.fetch(descriptor))?.map { $0.toPlanner() } ?? []
     }
 
@@ -331,6 +342,18 @@ final class PlannerService {
             context.insert(PlannerItem.from(planner))
         }
         try context.save()
+        refreshStore()
+    }
+
+    func reorderPlanners(_ newOrder: [Planner]) {
+        let orderById = Dictionary(uniqueKeysWithValues: newOrder.enumerated().map { ($1.id, Double($0)) })
+        guard let items = try? context.fetch(FetchDescriptor<PlannerItem>()) else { return }
+        for item in items {
+            if let order = orderById[item.id] {
+                item.sortOrder = order
+            }
+        }
+        try? context.save()
         refreshStore()
     }
 

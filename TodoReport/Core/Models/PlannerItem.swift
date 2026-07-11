@@ -27,6 +27,7 @@ final class PlannerItem {
     var reportPropsMapping: String?
     // Pro 해지 후 읽기 전용 전환 여부
     var isReadOnly: Bool = false
+    var sortOrder: Double = 0
 
     init(
         id: String = UUID().uuidString,
@@ -44,7 +45,8 @@ final class PlannerItem {
         createdAt: Date = .now,
         todoPropsMapping: String? = nil,
         reportPropsMapping: String? = nil,
-        isReadOnly: Bool = false
+        isReadOnly: Bool = false,
+        sortOrder: Double = 0
     ) {
         self.id = id
         self.name = name
@@ -62,6 +64,7 @@ final class PlannerItem {
         self.todoPropsMapping = todoPropsMapping
         self.reportPropsMapping = reportPropsMapping
         self.isReadOnly = isReadOnly
+        self.sortOrder = sortOrder
     }
 
     func toPlanner() -> Planner {
@@ -79,7 +82,8 @@ final class PlannerItem {
             createdAt: createdAt,
             todoPropsMapping: todoPropsMapping,
             reportPropsMapping: reportPropsMapping,
-            isReadOnly: isReadOnly
+            isReadOnly: isReadOnly,
+            sortOrder: sortOrder
         )
     }
 
@@ -98,6 +102,7 @@ final class PlannerItem {
         todoPropsMapping = planner.todoPropsMapping
         reportPropsMapping = planner.reportPropsMapping
         isReadOnly = planner.isReadOnly
+        sortOrder = planner.sortOrder
     }
 
     static func from(_ planner: Planner) -> PlannerItem {
@@ -115,7 +120,8 @@ final class PlannerItem {
             createdAt: planner.createdAt,
             todoPropsMapping: planner.todoPropsMapping,
             reportPropsMapping: planner.reportPropsMapping,
-            isReadOnly: planner.isReadOnly
+            isReadOnly: planner.isReadOnly,
+            sortOrder: planner.sortOrder
         )
     }
 }

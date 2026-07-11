@@ -41,8 +41,6 @@ final class SubscriptionManager {
     private(set) var isLoadFailed: Bool = false
     private(set) var productLoadFailureDetail: String?
 
-    var onSubscriptionExpired: (() -> Void)?
-    private var wasProBefore: Bool = false
     private var updateListenerTask: Task<Void, Never>?
 
     private init() { startTransactionListener() }
@@ -233,15 +231,6 @@ final class SubscriptionManager {
             }
         }
         expirationDate = latestExpiration
-        let wasPro = !purchasedProductIDs.isEmpty || wasProBefore
         purchasedProductIDs = ids
-        let isNowPro = !ids.isEmpty
-        if wasPro && !isNowPro {
-            onSubscriptionExpired?()
-        }
-        if isNowPro {
-            wasProBefore = true
-            PlannerService.shared.restoreAllPlanners()
-        }
     }
 }

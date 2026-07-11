@@ -27,7 +27,10 @@ final class PaywallViewModel {
         defer { isLoading = false }
         do {
             try await SubscriptionManager.shared.purchase(productId: selectedProductId)
-            if SubscriptionManager.shared.isPro { purchaseSuccess = true }
+            if SubscriptionManager.shared.isPro {
+                PlannerService.shared.restoreAllPlanners()
+                purchaseSuccess = true
+            }
         } catch {
             AppLogger.shared.error("PaywallViewModel", "purchase 실패: \(error)")
             #if DEBUG
@@ -45,6 +48,7 @@ final class PaywallViewModel {
         do {
             try await SubscriptionManager.shared.restorePurchases()
             if SubscriptionManager.shared.isPro {
+                PlannerService.shared.restoreAllPlanners()
                 purchaseSuccess = true
             } else {
                 errorMessage = "복원할 구독이 없습니다."
