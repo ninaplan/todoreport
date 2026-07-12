@@ -4,7 +4,16 @@
 
 ### 앱 상태
 - v1.0.4 App Store 제출 완료
-- v1.0.5 제출 예정 (빌드 11) — Xcode에서 MARKETING_VERSION 1.05 · CURRENT_PROJECT_VERSION 11 설정 후 Archive
+- v1.0.5 App Store 제출 완료 (빌드 11)
+- v1.0.6 제출 예정
+
+### v1.0.6 변경 내용 (제출 예정)
+- 플래너 순서 변경·삭제 관리 화면 추가 (설정 → 플래너 → 플래너 관리)
+- Pro 구독 만료 시 멀티 플래너 자동 다운그레이드 수정 (`evaluateSubscriptionState`)
+- 재구독 시 플래너 잠금 즉시 해제 (`restoreAllPlanners` 직접 호출)
+- 노션 연결 해제 시 로컬 투두·리포트 보존 (`resetNotionConnection` 필드만 초기화)
+- 같은 노션 워크스페이스 멀티 플래너 연동 시 기존 플래너 연동 끊김 수정 (NotionWorkspaceConnection)
+- "연동 초기화" → "노션 연결 해제" 명칭 변경
 
 ### v1.0.5 변경 내용
 - Notion 동기화 안정성 개선 — 날짜 이동 후 할일이 이전 상태로 되돌아가거나 사라지던 문제 수정 (Version Guard, push 큐 대기)
@@ -27,7 +36,7 @@
   - 조치: 가드 및 showDatePaywall/datePaywallMessage/dismissDatePaywall() 관련 코드 전체 제거
 
 ### 다음 할 일
-- v1.0.5 App Store Archive·제출 (1.05 / 빌드 11)
+- v1.0.6 App Store Archive·제출
 - 노션 업로드 마이그레이션 버그 수정 — `PlannerMigrationViewModel.uploadToNotion()`에서 `plannerId`가 nil인 기존 투두가 `SyncQueueManager`의 `isPlannerNotionConnected(nil)` 가드에 걸려 조용히 스킵됨 (설계만 완료, 미적용)
 - 노션 연결 시작 전 안내 팝업 추가 — 기존 "같은 워크스페이스" 인라인 문구를 조건부 alert("페이지 선택 시 주의해주세요")로 교체 (설계만 완료, 미적용)
 - 구독 상태 카드 (설정 화면) 페이월 스타일 통일
