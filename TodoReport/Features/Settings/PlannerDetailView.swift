@@ -18,6 +18,11 @@ struct PlannerDetailView: View {
     @State private var showMigrationModeAlert = false
     @State private var showMigrationSheet = false
     @State private var selectedMigrationMode: PlannerMigrationViewModel.SyncMode?
+    @State private var showPlannerDeleteAlert = false
+
+    private var canDeletePlanner: Bool {
+        PlannerService.shared.store.count > 1
+    }
 
     private static let sfSymbols: [String] = [
         // 플래너/학습/업무
@@ -59,6 +64,9 @@ struct PlannerDetailView: View {
             } else {
                 connectNotionSection
             }
+            if canDeletePlanner {
+                deletePlannerSection
+            }
         }
         .disabled(currentPlanner.isReadOnly)
         .navigationTitle("플래너 설정")
@@ -93,13 +101,21 @@ struct PlannerDetailView: View {
                 }
             }
         }
-        .alert("연동 초기화", isPresented: $showResetNotionAlert) {
+        .alert("노션 연결 해제", isPresented: $showResetNotionAlert) {
             Button("취소", role: .cancel) { }
-            Button("초기화", role: .destructive) {
+            Button("해제", role: .destructive) {
                 Task { await PlannerService.shared.resetNotionConnection(for: currentPlanner); dismiss() }
             }
         } message: {
-            Text("앱에 저장된 데이터가 모두 삭제됩니다. 노션 데이터는 유지됩니다.")
+            Text("노션 연결이 끊어지며, 이 플래너는 로컬 플래너로 전환됩니다. 투두·리포트 데이터는 그대로 유지돼요.")
+        }
+        .alert("플래너 삭제", isPresented: $showPlannerDeleteAlert) {
+            Button("취소", role: .cancel) { showPlannerDeleteAlert = false }
+            Button("삭제", role: .destructive) {
+                Task { await deletePlanner() }
+            }
+        } message: {
+            Text(currentPlanner.deleteConfirmationMessage)
         }
     }
 
@@ -234,7 +250,7 @@ struct PlannerDetailView: View {
             Button(role: .destructive) {
                 showResetNotionAlert = true
             } label: {
-                Text("연동 초기화")
+                Text("노션 연결 해제")
             }
         }
     }
@@ -264,6 +280,20 @@ struct PlannerDetailView: View {
         }
     }
 
+    // MARK: - 플래너 삭제
+
+    private var deletePlannerSection: some View {
+        Section {
+            Button(role: .destructive) {
+                showPlannerDeleteAlert = true
+            } label: {
+                Text("플래너 삭제")
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .listRowBackground(Color.clear)
+        }
+    }
+
     // MARK: - Migration Mode Alert
 
     private func cancelMigrationMode() {
@@ -289,5 +319,11 @@ struct PlannerDetailView: View {
         updated.iconType = selectedIconType
         updated.iconImageData = selectedIconImageData
         try? await PlannerService.shared.savePlanner(updated)
+    }
+
+    private func deletePlanner() async {
+        showPlannerDeleteAlert = false
+        try? await PlannerService.shared.deletePlanner(currentPlanner)
+        dismiss()
     }
 }

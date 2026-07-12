@@ -117,8 +117,6 @@ private struct PlannerNameStepView: View {
     @Bindable var viewModel: OnboardingViewModel
     @FocusState private var focused: Bool
 
-    private let autoNames = ["내 플래너", "나의 할 일", "오늘의 투두", "일상 기록", "할 일 모음", "나만의 계획"]
-
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
@@ -178,7 +176,7 @@ private struct PlannerNameStepView: View {
         .onAppear {
             focused = true
             if viewModel.plannerName.isEmpty {
-                viewModel.plannerName = autoNames.randomElement() ?? "내 플래너"
+                viewModel.plannerName = PlannerService.defaultNamePool.randomElement() ?? "내 플래너"
             }
         }
     }

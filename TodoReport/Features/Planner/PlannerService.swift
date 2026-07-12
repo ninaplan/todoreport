@@ -100,6 +100,13 @@ struct Planner: Identifiable, Hashable, Codable {
         }
         return decoded
     }
+
+    var deleteConfirmationMessage: String {
+        if isNotionConnected {
+            return "노션에 저장된 데이터는 그대로 있어요. 앱에서 연결만 완전히 제거하며, 다시 사용하려면 재연동이 필요해요."
+        }
+        return "로컬에만 저장된 데이터라 삭제하면 복구할 수 없어요."
+    }
 }
 
 // MARK: - PlannerService
@@ -128,12 +135,13 @@ final class PlannerService {
 
     // MARK: - 디폴트 이름 생성
 
+    static let defaultNamePool: [String] = [
+        "내 플래너", "나의 할 일", "오늘의 투두", "일상 기록", "할 일 모음", "나만의 계획"
+    ]
+
     func generateDefaultName() -> String {
-        let adjectives = ["귀여운", "작은", "용감한", "졸린", "배고픈", "신나는", "따뜻한", "차가운", "빠른", "느린", "똑똑한", "엉뚱한", "수줍은", "씩씩한", "행복한"]
-        let animals = ["사자", "호랑이", "토끼", "펭귄", "곰", "여우", "돌고래", "판다", "코알라", "햄스터", "고슴도치", "미어캣", "카피바라", "라마", "알파카"]
         let existing = Set(store.map { $0.name })
-        let candidates = adjectives.flatMap { adj in animals.map { "\(adj) \($0)" } }
-            .filter { !existing.contains($0) }
+        let candidates = Self.defaultNamePool.filter { !existing.contains($0) }
         return candidates.randomElement() ?? "내 플래너 \(store.count + 1)"
     }
 
@@ -366,10 +374,17 @@ final class PlannerService {
         await revokeNotionTokenForPlannerDisconnect(planner)
 
         let todoDesc = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.plannerId == id })
-        for item in (try? context.fetch(todoDesc)) ?? [] { context.delete(item) }
+        for item in (try? context.fetch(todoDesc)) ?? [] {
+            item.notionPageId = ""
+            item.notionRelationLinked = false
+            item.notionLastEditedTime = nil
+            item.notionCreatedAt = nil
+        }
 
         let reportDesc = FetchDescriptor<DailyReportItem>(predicate: #Predicate { $0.plannerId == id })
-        for item in (try? context.fetch(reportDesc)) ?? [] { context.delete(item) }
+        for item in (try? context.fetch(reportDesc)) ?? [] {
+            item.notionPageId = ""
+        }
 
         let queueDesc = FetchDescriptor<SyncQueueItem>(predicate: #Predicate { $0.plannerId == id })
         for item in (try? context.fetch(queueDesc)) ?? [] { context.delete(item) }
@@ -393,7 +408,7 @@ final class PlannerService {
             clearNotionGlobalSession()
         }
 
-        print("[PlannerService] 🔄 연동 초기화 완료 - plannerId:\(id)")
+        print("[PlannerService] 🔄 노션 연결 해제 완료 - plannerId:\(id)")
     }
 
     // MARK: - Pro 해지 다운그레이드

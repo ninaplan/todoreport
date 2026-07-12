@@ -22,11 +22,7 @@ struct SettingsView: View {
     @State private var showFeedbackForm = false
     @State private var restoreAlertMessage: String?
     @State private var isRestoringSubscription = false
-    @State private var plannerPendingDelete: Planner?
-    @State private var showPlannerDeleteAlert = false
-    @State private var showLastPlannerAlert = false
     @State private var settingsViewModel: SettingsViewModel
-    @Environment(\.editMode) private var editMode
     @Environment(\.modelContext) private var modelContext
 
     init(onAccountDeleted: @escaping () -> Void = {}) {
@@ -56,11 +52,6 @@ struct SettingsView: View {
             #endif
         }
         .navigationTitle("설정")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                EditButton()
-            }
-        }
         .overlay {
             if vm.isDeletingAccount {
                 ZStack {
@@ -116,21 +107,6 @@ struct SettingsView: View {
             Button("확인") { settingsViewModel.dismissDeleteAccountError() }
         } message: {
             Text(vm.deleteAccountError ?? "")
-        }
-        .alert("플래너 삭제", isPresented: $showPlannerDeleteAlert) {
-            Button("취소", role: .cancel) { cancelDeletePlanner() }
-            Button("삭제", role: .destructive) {
-                Task { await confirmDeletePlanner() }
-            }
-        } message: {
-            if let planner = plannerPendingDelete {
-                Text(plannerDeleteMessage(for: planner))
-            }
-        }
-        .alert("플래너 삭제", isPresented: $showLastPlannerAlert) {
-            Button("확인", role: .cancel) { showLastPlannerAlert = false }
-        } message: {
-            Text("최소 1개의 플래너가 필요해요.")
         }
         .task {
             let settings = await UNUserNotificationCenter.current().notificationSettings()
@@ -198,77 +174,59 @@ struct SettingsView: View {
 
     private var plannersSection: some View {
         Section("플래너") {
-            ForEach(planners) { planner in
-                NavigationLink {
-                    PlannerDetailView(planner: planner)
-                } label: {
-                    PlannerRow(planner: planner)
-                }
-                .disabled(isPlannerRowNavigationDisabled(planner))
-                .opacity(isPlannerRowDimmed(planner) ? 0.4 : 1.0)
+            if planners.count <= 1 {
+                singlePlannerContent
+            } else {
+                multiPlannerContent
             }
-            .onMove(perform: movePlanners)
-            .onDelete(perform: requestDeletePlanners)
-            Button {
-                guard isPro else { showPaywall = true; return }
-                showAddPlannerSheet = true
+        }
+    }
+
+    @ViewBuilder
+    private var singlePlannerContent: some View {
+        if let planner = planners.first {
+            NavigationLink {
+                PlannerDetailView(planner: planner)
             } label: {
-                HStack(spacing: 6) {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
-                        Text("플래너 추가")
-                            .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
-                        if !isPro { ProBadge() }
-                    }
+                PlannerRow(planner: planner)
+            }
+            .disabled(planner.isReadOnly)
+            .opacity(planner.isReadOnly ? 0.4 : 1.0)
+        }
+        addPlannerButton
+    }
+
+    @ViewBuilder
+    private var multiPlannerContent: some View {
+        if let selected = PlannerService.shared.selectedPlanner {
+            NavigationLink {
+                PlannerDetailView(planner: selected)
+            } label: {
+                PlannerRow(planner: selected)
+            }
+            .disabled(selected.isReadOnly)
+            .opacity(selected.isReadOnly ? 0.4 : 1.0)
+        }
+        NavigationLink {
+            PlannerManagementView()
+        } label: {
+            PlannerManagementEntryRow(planners: planners)
+        }
+    }
+
+    private var addPlannerButton: some View {
+        Button {
+            guard isPro else { showPaywall = true; return }
+            showAddPlannerSheet = true
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
+                Text("플래너 추가")
+                    .foregroundStyle(isPro ? AppTheme.shared.accent : .secondary)
+                if !isPro { ProBadge() }
             }
         }
-    }
-
-    private var isEditingPlanners: Bool {
-        editMode?.wrappedValue.isEditing == true
-    }
-
-    private func isPlannerRowNavigationDisabled(_ planner: Planner) -> Bool {
-        planner.isReadOnly && !isEditingPlanners
-    }
-
-    private func isPlannerRowDimmed(_ planner: Planner) -> Bool {
-        planner.isReadOnly && !isEditingPlanners
-    }
-
-    private func movePlanners(from source: IndexSet, to destination: Int) {
-        var ordered = planners
-        ordered.move(fromOffsets: source, toOffset: destination)
-        PlannerService.shared.reorderPlanners(ordered)
-    }
-
-    private func requestDeletePlanners(at offsets: IndexSet) {
-        guard let index = offsets.first else { return }
-        if planners.count <= 1 {
-            showLastPlannerAlert = true
-            return
-        }
-        plannerPendingDelete = planners[index]
-        showPlannerDeleteAlert = true
-    }
-
-    private func cancelDeletePlanner() {
-        plannerPendingDelete = nil
-        showPlannerDeleteAlert = false
-    }
-
-    private func confirmDeletePlanner() async {
-        guard let planner = plannerPendingDelete else { return }
-        plannerPendingDelete = nil
-        showPlannerDeleteAlert = false
-        try? await PlannerService.shared.deletePlanner(planner)
-    }
-
-    private func plannerDeleteMessage(for planner: Planner) -> String {
-        if planner.isNotionConnected {
-            return "노션에 저장된 데이터는 그대로 있어요. 앱에서 연결만 완전히 제거하며, 다시 사용하려면 재연동이 필요해요."
-        }
-        return "로컬에만 저장된 데이터라 삭제하면 복구할 수 없어요."
     }
 
     // MARK: - 환경 설정
@@ -400,38 +358,63 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - 플래너 행
+// MARK: - 플래너 관리 진입 행 (아이콘 스택)
 
-private struct PlannerRow: View {
-    let planner: Planner
+private struct PlannerManagementEntryRow: View {
+    let planners: [Planner]
+
+    private let iconSize: CGFloat = 28
+    private let overlap: CGFloat = 10
+    private let maxVisible = 4
+
+    private var overflowCount: Int {
+        max(0, planners.count - maxVisible)
+    }
+
+    private var visiblePlanners: [Planner] {
+        Array(planners.prefix(maxVisible))
+    }
+
+    private var stackWidth: CGFloat {
+        let count = visiblePlanners.count + (overflowCount > 0 ? 1 : 0)
+        guard count > 0 else { return iconSize }
+        return iconSize + CGFloat(count - 1) * (iconSize - overlap)
+    }
 
     var body: some View {
-        HStack(spacing: 10) {
-            PlannerIconView(
-                iconType: planner.iconType,
-                iconImageData: planner.iconImageData,
-                colorHex: planner.colorHex,
-                size: 28
-            )
-            VStack(alignment: .leading, spacing: 2) {
-                Text(planner.name)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                if planner.isReadOnly {
-                    Text("Pro 구독 시 다시 활성화됩니다")
-                        .font(.caption)
+        HStack(spacing: 12) {
+            ZStack(alignment: .leading) {
+                ForEach(Array(visiblePlanners.enumerated()), id: \.element.id) { index, planner in
+                    PlannerIconView(
+                        iconType: planner.iconType,
+                        iconImageData: planner.iconImageData,
+                        colorHex: planner.colorHex,
+                        size: iconSize
+                    )
+                    .overlay {
+                        Circle()
+                            .strokeBorder(Color(.systemBackground), lineWidth: 2)
+                    }
+                    .offset(x: CGFloat(index) * (iconSize - overlap))
+                }
+                if overflowCount > 0 {
+                    Text("+\(overflowCount)")
+                        .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
+                        .frame(width: iconSize, height: iconSize)
+                        .background(Circle().fill(Color(.systemGray5)))
+                        .overlay {
+                            Circle()
+                                .strokeBorder(Color(.systemBackground), lineWidth: 2)
+                        }
+                        .offset(x: CGFloat(visiblePlanners.count) * (iconSize - overlap))
                 }
             }
+            .frame(width: stackWidth, height: iconSize, alignment: .leading)
+
+            Text("플래너 관리")
+                .foregroundStyle(.primary)
             Spacer()
-            if planner.isReadOnly {
-                Image(systemName: "lock.fill")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            if planner.isNotionConnected {
-                NotionBadge()
-            }
         }
     }
 }
