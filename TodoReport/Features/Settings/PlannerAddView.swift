@@ -4,6 +4,10 @@ struct PlannerAddView: View {
     @State private var viewModel = PlannerAddViewModel()
     @Environment(\.dismiss) private var dismiss
     @State private var showingPlannerDetail = false
+    @State private var showNotionWorkspaceInfoAlert = false
+
+    private static let notionWorkspaceInfoMessage =
+        "같은 워크스페이스에 여러 플래너를 연결할 수 있어요. 노션 연결 화면에서 기존에 허용했던 페이지는 체크 해제하지 말고, 새로 쓸 페이지만 추가로 체크해주세요."
 
     private var isDBPickerStep: Bool {
         viewModel.step == .selectTodoDB || viewModel.step == .selectReportDB
@@ -87,6 +91,12 @@ struct PlannerAddView: View {
         } message: {
             Text(viewModel.alertMessage ?? "")
         }
+        .alert("페이지 선택 시 주의해주세요", isPresented: $showNotionWorkspaceInfoAlert) {
+            Button("취소", role: .cancel) { cancelNotionWorkspaceInfo() }
+            Button("계속") { confirmNotionWorkspaceInfo() }
+        } message: {
+            Text(Self.notionWorkspaceInfoMessage)
+        }
     }
 
     private var navTitle: String {
@@ -109,22 +119,8 @@ struct PlannerAddView: View {
                     .multilineTextAlignment(.center)
 
                 VStack(spacing: 12) {
-                    HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: "info.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.secondary)
-                        Text("같은 워크스페이스에 여러 플래너를 연결할 수 있어요. 노션 연결 화면에서 기존에 허용했던 페이지는 체크 해제하지 말고, 새로 쓸 페이지만 추가로 체크해주세요.")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .lineLimit(nil)
-                            .lineSpacing(4)
-                    }
-                    .padding(.horizontal, 4)
-                    .padding(.bottom, 8)
-
                     Button {
-                        viewModel.selectNotionMode()
+                        requestNotionMode()
                     } label: {
                         HStack(spacing: 16) {
                             Group {
@@ -326,5 +322,24 @@ struct PlannerAddView: View {
                 )
             }
         )
+    }
+
+    // MARK: - 노션 연결 안내
+
+    private func requestNotionMode() {
+        if viewModel.showNotionWorkspaceInfo {
+            showNotionWorkspaceInfoAlert = true
+        } else {
+            viewModel.selectNotionMode()
+        }
+    }
+
+    private func confirmNotionWorkspaceInfo() {
+        showNotionWorkspaceInfoAlert = false
+        viewModel.selectNotionMode()
+    }
+
+    private func cancelNotionWorkspaceInfo() {
+        showNotionWorkspaceInfoAlert = false
     }
 }
