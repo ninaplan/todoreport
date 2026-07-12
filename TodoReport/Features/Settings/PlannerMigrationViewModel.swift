@@ -451,14 +451,20 @@ final class PlannerMigrationViewModel {
         }
 
         // Todo: SyncQueue enqueue — 네트워크 없어도 항상 로컬 저장 후 자동 재시도
+        var backfillChanged = false
         for item in todoItems {
             guard !Task.isCancelled else { return }
+            if item.plannerId == nil || item.plannerId == "" {
+                item.plannerId = plannerId
+                backfillChanged = true
+            }
             let todo = item.toTodo()
             await MainActor.run {
                 SyncQueueManager.shared.enqueueTodoCreate(todo)
                 completedCount += 1
             }
         }
+        if backfillChanged { try? context.save() }
 
         // Report: 직접 API 호출 — 실패 감지
         var reportFailCount = 0
