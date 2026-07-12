@@ -490,7 +490,7 @@ api/
 | 같은 노션 워크스페이스에 DB가 여러 개인데, 플래너도 여러 개 만들 수 있나? | ✅ 가능. **플래너마다 서로 다른 (투두 DB + 리포트 DB) 세트**를 연결하는 용도. |
 | 플래너 A·B가 **서로 다른 DB**에 연결돼 있으면? | 정상. **투두 탭 상단 플래너 이름**으로 전환하면, 그 플래너에 묶인 DB·토큰·동기화만 적용됨. |
 | 두 플래너에 **같은 DB**를 연결해도 되나? | 비권장. 데이터·동기화가 꼬일 수 있음. **DB 세트(투두+리포트)당 플래너 1개**를 원칙으로. |
-| 플래너 추가 후 설정에 **투두/리포트 DB 이름이 비어** 보이거나 속성을 못 읽으면? | ① **지금 선택한 플래너**가 맞는지 확인 ② **설정 → 플래너 → 투두 DB / 리포트 DB**에서 DB 재선택·저장 ③ OAuth·토큰 문제면 **연동 초기화 후 재연결** |
+| 플래너 추가 후 설정에 **투두/리포트 DB 이름이 비어** 보이거나 속성을 못 읽으면? | ① **지금 선택한 플래너**가 맞는지 확인 ② **설정 → 플래너 → 투두 DB / 리포트 DB**에서 DB 재선택·저장 ③ OAuth·토큰 문제면 **노션 연결 해제 후 재연결** |
 | 리포트 **노션 저장 404**가 날 때 | 대개 **선택 플래너의 리포트 DB ID가 없거나**, Notion에서 DB가 삭제·이동된 경우. 다른 플래너 DB와 혼동했는지 먼저 확인. |
 
 **예방 체크리스트 (플래너 추가·DB 변경 후)**
@@ -502,8 +502,20 @@ api/
 - 구독 만료 감지 시 플래너가 2개 이상이면 `PlannerDowngradeView` 시트 표시
 - 사용자가 유지할 플래너 1개 선택 → 나머지는 `isReadOnly = true` (데이터 보존, 편집 차단)
 - `.interactiveDismissDisabled()` — 선택 전 시트 닫기 불가
-- 재구독 시 `restoreAllPlanners()` → 전체 플래너 `isReadOnly = false` 자동 복원
+- 재구독 시 `restoreAllPlanners()` → 전체 플래너 `isReadOnly = false` 자동 복원 (구매/복원 성공 즉시, 앱 재시작 불필요)
 - isReadOnly 플래너: 설정 탭에서 잠금 아이콘 + "Pro 구독 시 다시 활성화됩니다" 표시
+
+#### 플래너 관리 (순서 변경·삭제)
+- 설정 화면: 플래너 1개면 인라인 표시, 2개 이상이면 선택된 플래너 1행 + 아이콘 스택("플래너 관리" 진입) 2행으로 축약
+- 관리 화면에서 드래그 순서변경(편집모드), 스와이프 삭제(언제든), 편집모드 마이너스 버튼 삭제 — 세 방식 공존
+- 대표 플래너 전환은 관리 화면이 아니라 **투두 탭 상단 드롭다운에서만** 가능. 관리 화면엔 현재 선택된 플래너 옆에 "사용중" 태그만 표시(정보용)
+- 읽기 전용 플래너도 삭제·순서변경 가능 (이름/아이콘 등 내용 수정만 차단)
+- 삭제 확인 문구는 노션 연동 여부로 분기 (노션 연동: 데이터는 노션에 유지, 연결만 제거 / 로컬: 복구 불가 경고). 최소 1개 플래너는 항상 유지되어야 하며 삭제 불가
+
+#### 노션 연결 해제 (예전 명칭: 연동 초기화)
+- 플래너 설정 → 노션 설정 → "노션 연결 해제"
+- 노션 연결 정보(토큰, DB ID, 속성 매핑)만 초기화되고 **로컬 투두·리포트 데이터는 삭제되지 않음** — 해당 플래너는 로컬 전용 플래너로 전환됨
+- 노션 쪽 원본 데이터도 삭제하지 않음 (API 삭제 호출 없음)
 
 #### 반복 투두
 - 반복 주기: 매일 / 평일만(월~금) / 주말만(토~일) / 매주 요일 선택 / 격주 / 매월 / 매년
@@ -585,7 +597,7 @@ api/
   → session completion handler → handleCallback → secondaryOAuthCompletion(token)
 ```
 
-- **Ephemeral 세션:** `prefersEphemeralWebBrowserSession = true` — 매 OAuth마다 새 브라우저 세션. 계정 삭제·연동 초기화 후에도 Notion 로그인 화면부터 시작.
+- **Ephemeral 세션:** `prefersEphemeralWebBrowserSession = true` — 매 OAuth마다 새 브라우저 세션. 계정 삭제·노션 연결 해제 후에도 Notion 로그인 화면부터 시작.
 - **iOS 26 / 백엔드:** callback이 `/ios-auth` 중간 페이지 없이 `todoreport://`로 **HTTP 302 직접 리다이렉트** (`app/api/auth/notion/callback/route.ts`). `/ios-auth` 파일은 레거시로 유지.
 - **사용자 취소:** `ASWebAuthenticationSessionError.canceledLogin` → `NotionAuthManager.isLoading = false`, `oAuthCancelledCompletion?()`.
 - **온보딩·마이그레이션:** `startNotionOAuth()` / `PlannerMigrationViewModel.startConnection()`이 `secondaryOAuthCompletion` + `oAuthCancelledCompletion` 등록.
@@ -1695,7 +1707,7 @@ v1 출시 — 노션에 자동 저장되는 투두 & 데일리 리포트. 지금
 
 ### Notion OAuth — ASWebAuthenticationSession 전환 (✅ 2026-06-16)
 - **변경:** `SFSafariViewController` → `ASWebAuthenticationSession`, `prefersEphemeralWebBrowserSession = true`
-- **효과:** 계정 삭제·연동 초기화 후 매번 Notion 로그인 화면부터 시작. `clearWebCookies` / `SFSafariViewControllerDelegate` 제거.
+- **효과:** 계정 삭제·노션 연결 해제 후 매번 Notion 로그인 화면부터 시작. `clearWebCookies` / `SFSafariViewControllerDelegate` 제거.
 - **취소:** `ASWebAuthenticationSessionError.canceledLogin` + `oAuthCancelledCompletion`
 - **이력 (2026-06-12):** iOS 26에서 SFSafariViewController 커스텀 스킴 한계 → 백엔드 `todoreport://` HTTP 302 직접 리다이렉트 (유지)
 - 관련: `NotionAuth.swift`, `OnboardingViewModel.swift`, `PlannerMigrationViewModel.swift`, `todoreport-backend/app/api/auth/notion/callback/route.ts`

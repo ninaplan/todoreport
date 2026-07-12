@@ -1,6 +1,6 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-07-08 기준)
+## 현재 상황 (2026-07-11 기준)
 
 ### 앱 상태
 - v1.0.4 App Store 제출 완료
@@ -28,11 +28,13 @@
 
 ### 다음 할 일
 - v1.0.5 App Store Archive·제출 (1.05 / 빌드 11)
+- 노션 업로드 마이그레이션 버그 수정 — `PlannerMigrationViewModel.uploadToNotion()`에서 `plannerId`가 nil인 기존 투두가 `SyncQueueManager`의 `isPlannerNotionConnected(nil)` 가드에 걸려 조용히 스킵됨 (설계만 완료, 미적용)
+- 노션 연결 시작 전 안내 팝업 추가 — 기존 "같은 워크스페이스" 인라인 문구를 조건부 alert("페이지 선택 시 주의해주세요")로 교체 (설계만 완료, 미적용)
 - 구독 상태 카드 (설정 화면) 페이월 스타일 통일
 - 리포트 스트릭 계산 범위 축소/캐싱 (365일 전체 스캔 근본 개선)
-- 멀티플래너 UI 복원 (현재 숨김 상태, 다음 세션 예정)
 
 ### 최근 완료 작업
+- 플래너 관리 화면 신설 + 구독 다운그레이드 버그 수정 (2026-07-11, 커밋 ab6021c → 56fb69a): 상세 내용은 아래 "구독 만료 감지" / "플래너 관리" / "노션 연결 해제" 섹션 참고
 - NotionWorkspaceConnection 1·2단계 (2026-07-10, 커밋 15c9a98): 워크스페이스 단위 토큰 공유 + revoke 안전장치(마지막 참조 플래너가 아니면 revoke 스킵)
 - Notion 동기화 Version Guard (2026-07-08): notionLastEditedTime 필드, push 성공 시 저장, pull upsert Version Guard, debounce pull 큐 대기. V2 Tombstone은 미해결(유령 항목 부활 케이스).
 - 오프라인 동기화 큐 손실 버그 완전 해결 (2026-07-07): NetworkMonitor.swift 신규 생성(NWPathMonitor 기반 재연결 자동 감지), SyncQueueProcessor.swift에 네트워크 에러 전용 분기 추가(retryCount 미증가, 오프라인 중 무한 재귀 방지), SyncQueueManager.swift에 recoverStuckProcessingItems() 추가(processing 고아 상태 앱 시작 시 자동 복구). 개발자 옵션에 동기화 큐 상태(pending/processing/failed 개수) 디버그 UI 추가.
@@ -40,7 +42,7 @@
 - [해결 완료, 2026-07-07] 원인이 두 가지였음: 1) 네트워크 에러와 API 에러를 구분 안 하고 동일하게 retryCount를 증가시켜 오프라인 중 재시도 예산이 소진되면 clearFailedItems()가 데이터를 삭제 2) processing 상태에서 앱 종료 등으로 중단되면 영구 고아 상태가 되어 어떤 재시도 로직에도 안 걸림. 해결: NetworkMonitor.swift(NWPathMonitor) 신규 추가로 재연결 자동 감지, SyncQueueProcessor.swift에 isNetworkUnavailable() 판별 추가로 네트워크 에러는 retryCount 미증가, SyncQueueManager.swift init()에 recoverStuckProcessingItems() 추가로 앱 시작 시 processing 고아 항목을 pending으로 자동 복구. 실기기 비행모드 테스트로 검증 완료.
 
 ### 알려진 버그
-- 프로 구독 만료 시 멀티 플래너 개수 제한 미적용 [심각]
+- 노션 업로드 마이그레이션 시 plannerId가 nil인 기존 투두가 노션에 안 올라감 (원인 파악됨, 수정 미적용 — 위 "다음 할 일" 참고)
 - 콜드 스타트 시 Notion 동기화 로딩 인디케이터 미표시 (투두 탭)
 - 투두 날짜 이동 후 목적지 날짜 미표시 (간헐적)
 
@@ -623,21 +625,26 @@ private var currentPlanner: Planner {
 }
 ```
 
-**구독 만료 감지 — wasProBefore 플래그**
+**구독 만료 감지 — 상태 기반 멱등 체크 (evaluateSubscriptionState)**
 
-`updatePurchasedProducts()` 호출 시 구매 ID 목록이 비어도 "처음부터 무료"인지 "만료"인지 구별해야 한다.
-`wasProBefore = false`로 시작하여 첫 로드에서 false→false 전환은 콜백 미실행, 실제 만료(true→false)만 실행.
+기존에는 `wasProBefore` 플래그로 "Pro→Free 전환 시점"을 감지했으나, 이 값이 메모리에만 존재해서 앱이 종료된 상태에서 구독이 만료되면 재실행 후 첫 체크에서 전환 자체가 감지되지 않는 버그가 있었음 (2026-07-11 발견·수정, 커밋 ab6021c).
+
+`SubscriptionManager.updatePurchasedProducts()`는 이제 entitlement 상태 갱신만 책임지고 전환 감지 로직은 제거됨. 대신 `TodoReportApp.evaluateSubscriptionState()`가 앱 최초 실행 + `scenePhase == .active` 전환마다 호출되어 "지금 상태"만 보고 판단한다:
 
 ```swift
-// SubscriptionManager.updatePurchasedProducts() 내부
-let wasPro = !purchasedProductIDs.isEmpty || wasProBefore
-purchasedProductIDs = ids
-let isNowPro = !ids.isEmpty
-if wasPro && !isNowPro { await MainActor.run { onSubscriptionExpired?() } }
-if isNowPro { wasProBefore = true }
+// TodoReportApp.evaluateSubscriptionState()
+if SubscriptionManager.shared.isPro {
+    PlannerService.shared.restoreAllPlanners()
+    return
+}
+guard PlannerService.shared.activePlannerCount > 1 else { return }
+ReportNotificationManager.shared.cancelAll()
+showPlannerDowngrade = true
 ```
 
-DEBUG 빌드에서는 `refreshIsProDebug(previousValue:)` 호출 — `previousValue`(SwiftUI onChange의 oldValue)로 동일하게 전환 감지.
+멱등적 구조라 몇 번을 다시 체크해도 같은 결과가 나옴 — 콜드 실행/포그라운드 복귀 어느 쪽이든 정확히 잡히고, 이미 다운그레이드된 상태에서 반복 팝업도 안 생김.
+
+`PaywallViewModel.purchase()` / `restore()`도 성공 확인 직후 `PlannerService.shared.restoreAllPlanners()`를 직접 호출 — 재구독 시 앱 재시작 없이 즉시 복구됨.
 
 **읽기 전용 플래너 — isReadOnly**
 
@@ -646,7 +653,36 @@ DEBUG 빌드에서는 `refreshIsProDebug(previousValue:)` 호출 — `previousVa
 - `PlannerService.downgradeToFree(keepPlannerId:)` — 선택 플래너 외 전체 isReadOnly = true
 - `PlannerService.restoreAllPlanners()` — 재구독 시 전체 isReadOnly = false
 - `TodoViewModel`: `addTodo()`, `deleteTodo()`, `performSaveTodoEdit()` 진입 전 isReadOnly 체크 → `showReadOnlyAlert`
-- `PlannerDetailView`: `List { ... }.disabled(currentPlanner.isReadOnly)` + 상단 잠금 배너
+- `PlannerDetailView`: `List { ... }.disabled(currentPlanner.isReadOnly)` + 상단 잠금 배너. 이름/아이콘/노션설정 등 내용 수정만 차단.
+
+**플래너 관리 화면 — PlannerManagementView (2026-07-11 신규, 커밋 56fb69a)**
+
+설정 화면 플래너 섹션이 플래너 개수에 따라 분기됨:
+- **1개**: 기존과 동일하게 그 플래너를 인라인 행으로 표시 + "+ 플래너 추가" 버튼
+- **2개 이상**: `①` 현재 선택된 플래너 1행(탭하면 `PlannerDetailView`) + `②` 전체 플래너 아이콘을 겹쳐 쌓은 스택(최대 4개, 초과분은 "+N" 배지) + "플래너 관리" 텍스트 — 탭하면 `PlannerManagementView`로 이동. 이 경우 "+ 플래너 추가"는 관리화면 안으로 이동.
+
+`PlannerManagementView` 구조:
+- `PlannerItem.sortOrder: Double = 0` 필드로 정렬. `PlannerService.refreshStore()`는 `sortOrder` 오름차순 → 같으면 `createdAt` 오름차순(2차 정렬). 기존 플래너는 전부 sortOrder=0이라 createdAt 기준 기존 순서가 그대로 유지됨 — 백필 마이그레이션 불필요.
+- `PlannerService.reorderPlanners(_ newOrder: [Planner])` — 드래그로 바뀐 순서를 0, 1, 2... 순차 재할당.
+- `PlannerService.activePlannerCount` — `isReadOnly == false` 플래너 수 (다운그레이드 필요 여부 판단용).
+- **비편집 상태**: 각 행은 순수 `NavigationLink`로 `PlannerDetailView` 이동 (표준 chevron). 읽기전용이면 disabled+dim. 선택된 플래너는 이름 옆에 작은 "사용중" 캡슐 태그로만 표시(인터랙션 없음, 순수 표시용) — 대표 플래너 전환은 이 화면에서 하지 않고 **홈 화면(투두 탭 상단 드롭다운)에서만** 가능.
+- **편집 상태** (우상단 EditButton): 각 행 왼쪽에 커스텀 마이너스 원형 버튼(`.onDelete` 미사용, 탭 즉시 확인 alert — native reveal 2단계 문제 회피) + 오른쪽에 native `.onMove` 드래그 핸들.
+- **스와이프 삭제**: 편집모드와 별개로 `.swipeActions`(휴지통 아이콘만)로 언제든 삭제 가능. 편집모드 마이너스 버튼과 공존(둘 다 같은 확인 alert·마지막 1개 가드 재사용).
+- 삭제 확인 문구는 `Planner.deleteConfirmationMessage`(computed property, `PlannerDetailView`와 공용)로 노션연동/로컬 분기.
+- `PlannerDetailView` 맨 아래에도 동일한 삭제 버튼 있음 (박스/카드 배경 없이 텍스트만 — `.listRowBackground(Color.clear)`). 두 군데서 삭제 가능하지만 확인 문구·로직은 공용.
+- 신규 플래너 기본 이름은 온보딩과 동일한 풀 사용 (`PlannerService.defaultNamePool` — "내 플래너", "나의 할 일" 등 담백한 톤. 예전엔 "행복한 라마"류 형용사+동물 조합이라 온보딩과 톤이 안 맞았음). 아이콘 색 랜덤 배정은 시도했다가 되돌림 — 사용자가 사진으로 아이콘을 직접 선택하는 경우가 많아서 우선순위 낮다고 판단. **V2: 사용자가 색상 팔레트·아이콘을 직접 고르는 기능 검토 중** (현재 SF Symbol 아이콘 세트가 플래너와 무관한 것들이 많아 세트 자체 교체도 필요).
+
+**노션 연결 해제 — resetNotionConnection (2026-07-11, 명칭·동작 변경, 커밋 56fb69a)**
+
+- "연동 초기화" → **"노션 연결 해제"** 로 명칭 변경 (버튼/alert 타이틀/확인 버튼 전부).
+- 예전엔 연동 해제 시 로컬 `TodoItem`/`DailyReportItem`을 전부 삭제했는데, 이제 **삭제하지 않고 노션 연결 필드만 초기화**함 — `notionPageId = ""`, `notionRelationLinked = false`, `notionLastEditedTime = nil`, `notionCreatedAt = nil`로 정리해서 "로컬 전용 투두"로 자연스럽게 전환 (`notionPageId == ""`가 코드 전반에서 로컬 전용 판별 기준).
+- `SyncQueueItem` 삭제, 플래너 자체 연동 필드 초기화(`isNotionConnected = false`, 토큰/DB ID/매핑 nil)는 기존 그대로.
+- alert 메시지도 실제 동작에 맞게 변경: "노션 연결이 끊어지며, 이 플래너는 로컬 플래너로 전환됩니다. 투두·리포트 데이터는 그대로 유지돼요."
+- `deletePlanner()`(플래너 자체 삭제)는 이 변경과 무관 — 거기는 여전히 전체 삭제가 의도된 동작.
+
+**⚠️ 발견된 버그 (미수정) — 노션 업로드 마이그레이션**
+
+`PlannerMigrationViewModel.uploadToNotion()`이 `plannerId == nil`인 레거시 투두도 업로드 대상에 포함시키지만(`$0.plannerId == plannerId || $0.plannerId == nil`), `SyncQueueManager.enqueueTodoCreate()` 내부의 `isPlannerNotionConnected(_:)`가 `plannerId == nil`이면 무조건 `false`를 반환해서 큐에 안 들어가고 조용히 스킵됨. 리포트는 `DailyReportService.saveReport()`가 `selectedPlanner?.id`로 자동 보정해서 문제없음. 수정 방향: `uploadToNotion()`에서 `item.toTodo()` 호출 전에 nil `plannerId`를 마이그레이션 대상 플래너 ID로 채워주면 됨 (설계 완료, 다음 세션에 적용 예정).
 
 **카테고리 노션 동기화 — CategoryNotionSync**
 
