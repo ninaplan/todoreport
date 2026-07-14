@@ -13,7 +13,7 @@ struct PlannerDowngradeView: View {
                         .foregroundStyle(.secondary)
                     Text("Pro 구독이 종료되었습니다")
                         .font(.title2.bold())
-                    Text("유지할 플래너 1개를 선택해 주세요.\n나머지 플래너는 읽기 전용으로 전환됩니다.")
+                    Text("유지할 플래너 1개를 선택해 주세요.\n나머지 플래너는 비활성화되며, Pro 구독 시 다시 사용할 수 있어요.")
                         .font(.body)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
