@@ -2,13 +2,24 @@ import Foundation
 
 let whatsNewReleases: [WhatsNewRelease] = [
     WhatsNewRelease(
+        id: "1.0.6",
+        symbolName: "rectangle.stack",
+        items: [
+            "플래너 관리 화면 추가 (순서 변경·삭제)",
+            "구독 만료·재구독 시 플래너 잠금 처리 개선",
+            "노션 연결 해제 시 로컬 데이터 유지",
+            "같은 워크스페이스 멀티 플래너 연동 끊김 수정"
+        ],
+        showsPopup: true
+    ),
+    WhatsNewRelease(
         id: "1.0.5",
         symbolName: "arrow.triangle.2.circlepath",
         items: [
             "노션 동기화 안정성 개선",
             "오프라인 편집 내용이 노션에 반영되지 않던 문제 수정"
         ],
-        showsPopup: true
+        showsPopup: false
     ),
     WhatsNewRelease(
         id: "1.0.4",
