@@ -500,7 +500,8 @@ api/
 
 #### 구독 해지 시 플래너 처리
 - 구독 만료 감지 시 플래너가 2개 이상이면 `PlannerDowngradeView` 시트 표시
-- 사용자가 유지할 플래너 1개 선택 → 나머지는 `isReadOnly = true` (데이터 보존, 편집 차단)
+- 사용자 안내: 유지할 플래너 1개 선택, 나머지는 비활성화되며 Pro 구독 시 다시 사용 가능 (내부 플래그 `isReadOnly`)
+- 사용자가 유지할 플래너 1개 선택 → 나머지는 `isReadOnly = true` (데이터 보존, 편집·사용 차단 — 재구독 전까지 비활성)
 - `.interactiveDismissDisabled()` — 선택 전 시트 닫기 불가
 - 재구독 시 `restoreAllPlanners()` → 전체 플래너 `isReadOnly = false` 자동 복원 (구매/복원 성공 즉시, 앱 재시작 불필요)
 - isReadOnly 플래너: 설정 탭에서 잠금 아이콘 + "Pro 구독 시 다시 활성화됩니다" 표시
