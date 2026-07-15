@@ -16,13 +16,11 @@ final class AppForegroundCoordinator {
 
     @MainActor
     func handleBecomeActive() {
-        if let entered = backgroundEnteredAt {
-            let elapsed = Date().timeIntervalSince(entered)
-            if elapsed >= Self.longBackgroundThreshold {
-                MainTabCoordinator.shared.requestTodoRootReset()
-            }
-        }
-        backgroundEnteredAt = nil
+        defer { backgroundEnteredAt = nil }
+        guard let entered = backgroundEnteredAt else { return }
+        let elapsed = Date().timeIntervalSince(entered)
+        guard elapsed >= Self.longBackgroundThreshold else { return }
+        MainTabCoordinator.shared.requestTodoRootReset()
         MainTabCoordinator.shared.triggerForegroundRefresh()
     }
 }

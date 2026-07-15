@@ -22,7 +22,6 @@ final class TodoViewModel {
     var selectedDate: Date = .now {
         didSet {
             Task { await fetchLocalTodos() }
-            scheduleDebouncedNotionSync()
             Task { @MainActor in await RecurringTodoManager.shared.generateUpcoming() }
         }
     }
