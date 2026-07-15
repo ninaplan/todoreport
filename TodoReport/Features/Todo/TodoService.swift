@@ -201,20 +201,84 @@ final class TodoService {
         }
 
         do {
-            let fetchStartedAt = Date()
             let notionTodos: [NotionTodoResponse] = try await APIClient.shared.get(
                 "/api/notion/todo", params: params, token: token
             )
             guard !Task.isCancelled else { return }
             print("[TodoService] 🔄 Notion fetch - \(seoulDateString(from: date)) \(notionTodos.count)개")
-            upsertFromNotion(notionTodos, for: date, plannerId: pid, fetchStartedAt: fetchStartedAt)
+            upsertFromNotion(notionTodos, for: date, plannerId: pid)
         } catch {
             print("[TodoService] ⚠️ Notion sync 실패 - \(error.localizedDescription)")
             AppLogger.shared.warn("TodoService", "Notion sync 실패 - \(error.localizedDescription)")
         }
     }
 
-    private func upsertFromNotion(_ notionTodos: [NotionTodoResponse], for date: Date, plannerId: String?, fetchStartedAt: Date) {
+    private static let localModificationProtectionInterval: TimeInterval = 60
+
+    private func itemBelongsToSyncPlanner(_ item: TodoItem, plannerId: String?) -> Bool {
+        guard let plannerId else { return item.plannerId == nil }
+        return item.plannerId == plannerId || item.plannerId == nil
+    }
+
+    private func isLocallyProtectedFromNotionOverwrite(_ item: TodoItem, now: Date = .now) -> Bool {
+        if !item.notionPageId.isEmpty,
+           SyncQueueManager.shared.hasPendingOperation(for: item.notionPageId) {
+            return true
+        }
+        if SyncQueueManager.shared.hasPendingCreate(for: item.id)
+            || SyncQueueManager.shared.hasPendingUpdate(for: item.id) {
+            return true
+        }
+        if let localModifiedAt = item.localModifiedAt,
+           now.timeIntervalSince(localModifiedAt) < Self.localModificationProtectionInterval {
+            return true
+        }
+        return false
+    }
+
+    private func findExistingByNotionPageId(_ pageId: String, plannerId: String?) -> TodoItem? {
+        let descriptor = FetchDescriptor<TodoItem>(
+            predicate: #Predicate { $0.notionPageId == pageId }
+        )
+        guard let items = try? context.fetch(descriptor) else { return nil }
+        return items.first { itemBelongsToSyncPlanner($0, plannerId: plannerId) }
+    }
+
+    private func applyNotionTodoResponse(
+        _ nt: NotionTodoResponse,
+        to existing: TodoItem,
+        plannerId: String?,
+        parsedNotionCreatedAt: Date?
+    ) {
+        let pageId = nt.notionPageId
+        guard !isLocallyProtectedFromNotionOverwrite(existing) else { return }
+
+        let incomingLastEditedTime = parseLastEditedTime(nt.lastEditedTime)
+        if let incoming = incomingLastEditedTime,
+           let existingLastEditedTime = existing.notionLastEditedTime,
+           incoming <= existingLastEditedTime {
+            print("[TodoService] ⏭️ stale 응답 skip - pageId:\(pageId) incoming:\(incoming) existing:\(existingLastEditedTime)")
+            return
+        }
+
+        existing.title = nt.title
+        existing.memo = nt.memo
+        if let nc = parsedNotionCreatedAt { existing.notionCreatedAt = nc }
+        existing.isCompleted = nt.isCompleted
+        existing.isPinned = nt.isPinned
+        existing.categoryId = CategoryNotionSync.shared.applyCategoryFromNotion(
+            name: nt.categoryName, plannerId: plannerId
+        )
+        applyNotionDate(to: existing, from: nt.date)
+        if let incoming = incomingLastEditedTime {
+            existing.notionLastEditedTime = incoming
+        }
+        if existing.plannerId == nil, let plannerId {
+            existing.plannerId = plannerId
+        }
+    }
+
+    private func upsertFromNotion(_ notionTodos: [NotionTodoResponse], for date: Date, plannerId: String?) {
         let startOfDay = Calendar.current.startOfDay(for: date)
         guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return }
 
@@ -227,40 +291,15 @@ final class TodoService {
 
         for nt in notionTodos {
             let parsedNotionCreatedAt: Date? = nt.createdAt.flatMap { iso8601.date(from: $0) }
-
-            // 1순위: notionPageId 기준 매칭
             let pageId = nt.notionPageId
-            let byPageId = FetchDescriptor<TodoItem>(
-                predicate: #Predicate { $0.notionPageId == pageId }
-            )
-            if let existing = try? context.fetch(byPageId).first {
-                // pending 작업 중인 항목은 어떤 필드도 노션 결과로 덮어쓰지 않음
-                guard !SyncQueueManager.shared.hasPendingOperation(for: pageId) else { continue }
-                if let localModifiedAt = existing.localModifiedAt, localModifiedAt > fetchStartedAt { continue }
-                // Version Guard: incoming lastEditedTime이 로컬보다 오래되었으면 stale 응답으로 간주
-                let incomingLastEditedTime = parseLastEditedTime(nt.lastEditedTime)
-                if let incoming = incomingLastEditedTime,
-                   let existingLastEditedTime = existing.notionLastEditedTime,
-                   incoming <= existingLastEditedTime {
-                    print("[TodoService] ⏭️ stale 응답 skip - pageId:\(pageId) incoming:\(incoming) existing:\(existingLastEditedTime)")
-                    continue
-                }
-                existing.title = nt.title
-                existing.memo = nt.memo
-                if let nc = parsedNotionCreatedAt { existing.notionCreatedAt = nc }
-                existing.isCompleted = nt.isCompleted
-                existing.isPinned = nt.isPinned
-                existing.categoryId = CategoryNotionSync.shared.applyCategoryFromNotion(
-                    name: nt.categoryName, plannerId: plannerId
-                )
-                applyNotionDate(to: existing, from: nt.date)
-                if let incoming = incomingLastEditedTime {
-                    existing.notionLastEditedTime = incoming
-                }
+
+            // 1순위: notionPageId + plannerId 기준 매칭
+            if let existing = findExistingByNotionPageId(pageId, plannerId: plannerId) {
+                applyNotionTodoResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt)
                 continue
             }
 
-            // 2순위: notionPageId 없는 로컬 항목 중 title + date 기준 매칭
+            // 2순위: notionPageId 없는 로컬 항목 중 title + date + plannerId 기준 매칭
             let title = nt.title
             let byTitleDate = FetchDescriptor<TodoItem>(
                 predicate: #Predicate {
@@ -270,36 +309,21 @@ final class TodoService {
                     $0.notionPageId == ""
                 }
             )
-            if let existing = try? context.fetch(byTitleDate).first {
-                // notionPageId는 항상 연결
-                existing.notionPageId = nt.notionPageId
-                let incomingLastEditedTime = parseLastEditedTime(nt.lastEditedTime)
-                let versionGuardPassed: Bool = {
-                    guard let incoming = incomingLastEditedTime,
-                          let existingLastEditedTime = existing.notionLastEditedTime else {
-                        return true
-                    }
-                    return incoming > existingLastEditedTime
-                }()
-                // pending 작업 중인 항목의 나머지 필드는 덮어쓰지 않음
-                if !SyncQueueManager.shared.hasPendingOperation(for: nt.notionPageId),
-                   existing.localModifiedAt == nil || existing.localModifiedAt.map({ $0 <= fetchStartedAt }) == true,
-                   versionGuardPassed {
-                    existing.memo = nt.memo
-                    if let nc = parsedNotionCreatedAt { existing.notionCreatedAt = nc }
-                    existing.isCompleted = nt.isCompleted
-                    existing.isPinned = nt.isPinned
-                    existing.categoryId = CategoryNotionSync.shared.applyCategoryFromNotion(
-                        name: nt.categoryName, plannerId: plannerId
-                    )
-                    if let incoming = incomingLastEditedTime {
-                        existing.notionLastEditedTime = incoming
-                    }
+            if let candidates = try? context.fetch(byTitleDate),
+               let existing = candidates.first(where: { itemBelongsToSyncPlanner($0, plannerId: plannerId) }) {
+                existing.notionPageId = pageId
+                if !isLocallyProtectedFromNotionOverwrite(existing) {
+                    applyNotionTodoResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt)
                 }
                 continue
             }
 
-            // 신규 insert
+            // insert 직전: 같은 pageId 레코드가 있으면 갱신만 (삭제·재생성 방지)
+            if let existing = findExistingByNotionPageId(pageId, plannerId: plannerId) {
+                applyNotionTodoResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt)
+                continue
+            }
+
             let categoryId = CategoryNotionSync.shared.applyCategoryFromNotion(
                 name: nt.categoryName, plannerId: plannerId
             )
@@ -313,44 +337,18 @@ final class TodoService {
                 notionCreatedAt: parsedNotionCreatedAt,
                 notionLastEditedTime: parseLastEditedTime(nt.lastEditedTime),
                 categoryId: categoryId,
-                notionPageId: nt.notionPageId,
+                notionPageId: pageId,
                 plannerId: plannerId,
                 scheduledTime: parsedDate.scheduledTime
             )
             context.insert(TodoItem.from(todo))
         }
 
-        // Notion 응답에 없는 항목 삭제 (notionPageId 연동 완료 항목만 — pending 항목은 제외)
-        let notionPageIds = Set(notionTodos.map { $0.notionPageId })
-        let allDescriptor = FetchDescriptor<TodoItem>(
-            predicate: #Predicate {
-                $0.date >= startOfDay && $0.date < endOfDay && $0.notionPageId != ""
-            }
-        )
-        if let allItems = try? context.fetch(allDescriptor) {
-            let toDelete = allItems.filter { item in
-                guard !notionPageIds.contains(item.notionPageId),
-                      !SyncQueueManager.shared.hasPendingOperation(for: item.notionPageId) else {
-                    return false
-                }
-                if let localModifiedAt = item.localModifiedAt, localModifiedAt > fetchStartedAt {
-                    return false
-                }
-                return true
-            }
-            toDelete.forEach { context.delete($0) }
-            if !toDelete.isEmpty {
-                print("[TodoService] 🗑️ Notion에 없는 항목 \(toDelete.count)개 삭제")
-            }
-        }
-
         try? context.save()
 
         // relation 미연결 항목 → relation 전용 enqueue (일반 update와 분리)
         let itemsToLink: [Todo] = notionTodos.compactMap { nt in
-            let pid = nt.notionPageId
-            let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.notionPageId == pid })
-            guard let item = try? context.fetch(descriptor).first,
+            guard let item = findExistingByNotionPageId(nt.notionPageId, plannerId: plannerId),
                   !item.notionRelationLinked else { return nil }
             return item.toTodo()
         }
