@@ -2,6 +2,16 @@ import Foundation
 
 let whatsNewReleases: [WhatsNewRelease] = [
     WhatsNewRelease(
+        id: "1.0.7",
+        symbolName: "checkmark.circle",
+        items: [
+            "할일을 다른 날짜로 옮길 때 중복 표시되던 문제 수정",
+            "노션 동기화 안정성 개선",
+            "날짜 이동 시 더 빠르게 목록 표시"
+        ],
+        showsPopup: true
+    ),
+    WhatsNewRelease(
         id: "1.0.6",
         symbolName: "rectangle.stack",
         items: [
