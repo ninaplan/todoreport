@@ -217,7 +217,7 @@ api/
 | 방향 | 시점 |
 |---|---|
 | **앱 → Notion** | 쓰기 즉시 — SwiftData 저장 후 SyncQueue 백그라운드 push |
-| **Notion → 앱** | 콜드 스타트(최초 1회) / 포그라운드 복귀 / pull-to-refresh / 플래너 전환 **만** |
+| **Notion → 앱** | 콜드 스타트 / **5분 이상** 백그라운드 후 포그라운드 복귀 / pull-to-refresh / 플래너 전환 **만** |
 
 - **날짜 이동** (`selectedDate` 변경): 로컬 DB만 조회 — Notion API 호출 **없음** (`fetchLocalTodos`)
 - **Notion pull** (`syncFromNotion`): 위 4시점 + `TodoService.syncTodosFromNotion(for: selectedDate)` — **현재 화면 날짜 1일**만 조회
@@ -669,7 +669,8 @@ SyncQueue에 작업 추가
 
 **Notion → 앱 pull (투두):**
 - 날짜 이동 시 pull **없음** — `fetchLocalTodos` only
-- pull 시점: 콜드 스타트(1회) / 포그라운드 / pull-to-refresh / 플래너 전환 → `syncFromNotion`
+- pull 시점: 콜드 스타트 / **5분 이상** 백그라운드 후 포그라운드 / pull-to-refresh / 플래너 전환 → `syncFromNotion`
+- pull 반영 시 Notion 응답 **부재만으로 로컬 삭제하지 않음** (v1.0.7~). insert 전 `notionPageId` 재확인으로 중복 방지.
 
 > ~~로컬 사용자는 SyncQueue 없이 SwiftData만 사용.~~ → 로컬 **플래너**는 enqueue만 생략, SwiftData는 공통.
 

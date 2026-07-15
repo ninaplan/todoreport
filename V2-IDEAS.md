@@ -76,6 +76,18 @@
 - Pull upsertFromNotion에 Version Guard 추가 (stale 응답 스킵)
 - Debounce pull에 push 큐 대기 로직 추가
 
+### 미해결(후속) — relation 지연으로 노션발 항목 편집 반영 지연 (2026-07-15 조사)
+- 증상: 노션에서 새로 생성되어 앱으로 내려온 할일을 노션에서 편집하면, 새로고침을 여러 번 해야 반영됨. 앱에서 원래 있던 할일은 1회에 반영.
+- 원인: insert 직후 `notionRelationLinked == false` → 매 pull마다 relation update enqueue → `hasPendingOperation`이 pull 갱신 전체 차단. relation PATCH 성공 시 `notionLastEditedTime`이 내부 작업 시각으로 올라가 버전 가드가 낡은 GET을 연속 스킵.
+- 수정 방향 후보: (A) relation 이미 enqueue됐거나 linked면 재enqueue 억제, (B) relation 성공 시 `notionLastEditedTime` 갱신하지 않기(사용자 편집 시각 오염 방지).
+
+### 미해결(후속) — 노션에서 삭제한 할일이 앱에 남음 (v1.0.7 의도된 트레이드오프)
+- v1.0.7에서 pull 부재 삭제를 제거해 삭제-재생성 레이스·중복 버그를 막음. 노션 웹에서 직접 삭제한 항목은 앱에 남을 수 있음.
+- 근본 해결: Notion `page.deleted` 웹훅 → 백엔드 신규 서브시스템 → 앱 tombstone/삭제 처리. 별도 세션 2~3개 분량 예상.
+
+### 미해결(후속) — 포그라운드 5분+ 복귀 시 카테고리 sync 이중 호출
+- `TodoReportApp` `scenePhase.active`의 `CategoryNotionSync`와 `syncFromNotion` 내부 `syncNotionCategoriesIfNeeded`가 겹침. 기능상 문제 없으나 여유 시 한쪽으로 통합 검토.
+
 ### 미해결(V2) — Tombstone 부재
 - 시나리오: 새 투두 A 생성 → 즉시 삭제 → 이탈했다가 복귀 → A 부활
 - 원인: 백엔드 캐시(25초 TTL) 안에서 pull 응답이 "A 살아있던 시절" 상태를 내려줌.

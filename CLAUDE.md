@@ -1,13 +1,19 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-07-11 기준)
+## 현재 상황 (2026-07-15 기준)
 
 ### 앱 상태
 - v1.0.4 App Store 제출 완료
 - v1.0.5 App Store 제출 완료 (빌드 11)
-- v1.0.6 제출 예정
+- v1.0.6 App Store 제출 완료
+- v1.0.7 제출 예정
 
-### v1.0.6 변경 내용 (제출 예정)
+### v1.0.7 변경 내용 (제출 예정)
+- 노션 pull 삭제-재생성 레이스로 할일이 3~4개 중복되던 문제 수정 (`upsertFromNotion` — 부재를 삭제로 해석하지 않음, pageId 재확인, plannerId 필터, 60초·pending 보호)
+- 날짜 이동 시 자동 노션 재조회 제거 (local-only 원칙 복원)
+- 포그라운드 복귀 노션 pull을 5분 이상 백그라운드일 때만 실행
+
+### v1.0.6 변경 내용 (제출 완료)
 - 플래너 순서 변경·삭제 관리 화면 추가 (설정 → 플래너 → 플래너 관리)
 - Pro 구독 만료 시 멀티 플래너 자동 다운그레이드 수정 (`evaluateSubscriptionState`)
 - 재구독 시 플래너 잠금 즉시 해제 (`restoreAllPlanners` 직접 호출)
@@ -55,6 +61,8 @@
 - 노션 업로드 마이그레이션 시 plannerId가 nil인 기존 투두가 노션에 안 올라감 (원인 파악됨, 수정 미적용 — 위 "다음 할 일" 참고)
 - 콜드 스타트 시 Notion 동기화 로딩 인디케이터 미표시 (투두 탭)
 - 투두 날짜 이동 후 목적지 날짜 미표시 (간헐적)
+- 노션에서 새로 내려온 할일을 노션에서 편집 시 여러 번 새로고침해야 반영되는 지연 (relation pending·notionLastEditedTime 오염 — V2-IDEAS.md 후속 이슈)
+- 노션에서 삭제한 할일이 앱에 남을 수 있음 (pull 부재 삭제 제거의 의도된 트레이드오프 — 웹훅 필요, V2-IDEAS.md)
 
 ### 주요 파일
 - SPEC.md — 앱 전체 스펙
@@ -410,19 +418,24 @@ guard let planner = PlannerService.shared.store.first(where: { $0.id == item.pla
 **날짜 이동 (`selectedDate` 변경):** 로컬 SwiftData만 조회 — **Notion sync 없음**
 → `TodoViewModel.fetchLocalTodos(for:)`
 
-**Notion → 앱 pull 실행 시점 (이 4가지만):**
-- 콜드 스타트 (`onAppear` 최초 1회 `isFirstLaunch`)
-- 포그라운드 복귀 (`onForeground`)
-- pull-to-refresh
+**Notion → 앱 pull 실행 시점:**
+- 콜드 스타트 (`onAppear` — 당일 로컬 비어 있으면 즉시, 있으면 `onAppear` 디바운스 sync 유지)
+- **5분 이상** 백그라운드 후 포그라운드 복귀 (`AppForegroundCoordinator` → `handleForegroundRefresh`)
+- pull-to-refresh (명시적)
 - 플래너 전환 (`switchPlanner`)
 
 → `TodoViewModel.syncFromNotion(for:)` → `TodoService.syncTodosFromNotion(for:)`
+
+**pull 반영 원칙 (`upsertFromNotion`, v1.0.7~):**
+- Notion 응답에 **없다는 이유만으로 로컬 삭제하지 않음** (부재 ≠ 삭제; 노션 웹 삭제 정리는 웹훅 후속)
+- insert 직전 `notionPageId` 재확인 → 있으면 기존 레코드 갱신 (새 UUID 생성 금지)
+- pending 큐·최근 60초 `localModifiedAt` 항목은 pull이 덮어쓰지 않음
+- 매칭·insert·relation enqueue는 **대상 `plannerId`만** 처리
 
 **앱 → Notion push:** 기존과 동일 — 쓰기 즉시 SwiftData 저장 후 SyncQueue 백그라운드 전송
 
 **Notion 날짜 변경 반영:**
 - `upsertFromNotion` — pageId 매칭 시 `applyNotionDate`로 로컬 date 갱신
-- A일 화면 refresh 시 Notion 응답에 없는 연동 항목 → 로컬 즉시 삭제 (5분 유예 제거)
 - B일 화면에서 refresh 시 해당 항목 pull·반영
 
 ---
@@ -432,7 +445,7 @@ guard let planner = PlannerService.shared.store.first(where: { $0.id == item.pla
 | API | 용도 |
 |---|---|
 | `fetchLocalTodos(for:)` | 로컬 DB만 조회 — **날짜 이동** 시 사용 |
-| `syncFromNotion(for:)` | local fetch + Notion pull — **4가지 sync 시점**에만 |
+| `syncFromNotion(for:)` | local fetch + Notion pull — **위 pull 시점**에만 |
 
 ~~`performFetchTodos` / `fetchTodos`~~ — **제거됨** (v1.0.1)
 
