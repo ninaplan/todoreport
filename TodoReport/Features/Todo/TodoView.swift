@@ -17,6 +17,8 @@ struct TodoView: View {
     @State private var hapticImpactTrigger = false
     @State private var hapticSuccessTrigger = false
     @State private var hapticWarningTrigger = false
+    @State private var showCalendarOpenHint = false
+    @AppStorage("hasSeenCalendarOpenHint") private var hasSeenCalendarOpenHint = false
 
     private static let dateFmt: DateFormatter = {
         let f = DateFormatter()
@@ -164,7 +166,34 @@ struct TodoView: View {
                     onGoToday: { viewModel.goToToday() }
                 )
                 .padding(.horizontal, 16)
+
+                if showCalendarOpenHint {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showCalendarOpenHint = false
+                            }
+                        }
+                        .ignoresSafeArea()
+
+                    VStack(spacing: 0) {
+                        Color.clear
+                            .frame(height: 48)
+                        calendarOpenHintBubble
+                        Spacer(minLength: 0)
+                    }
+                    .allowsHitTesting(false)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             } // outer ZStack
+            .onAppear {
+                guard !hasSeenCalendarOpenHint else { return }
+                hasSeenCalendarOpenHint = true
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showCalendarOpenHint = true
+                }
+            }
             .edgeSwipeNavigation(
                 onPrev: { viewModel.requestPreviousDay() },
                 onNext: { viewModel.requestNextDay() }
@@ -289,6 +318,23 @@ struct TodoView: View {
             .sensoryFeedback(.success, trigger: hapticSuccessTrigger)
             .sensoryFeedback(.warning, trigger: hapticWarningTrigger)
         }
+    }
+
+    private var calendarOpenHintBubble: some View {
+        VStack(spacing: 0) {
+            Image(systemName: "triangle.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(Color.black)
+                .offset(y: 2)
+
+            Text("탭하면 달력을 볼 수 있어요")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.black, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - 투두 행 빌더 (공통 스와이프 액션 포함)
