@@ -105,10 +105,7 @@ struct MonthCalendarView: View {
     private var categoryFilterPicker: some View {
         HStack {
             Spacer(minLength: 0)
-            HStack(spacing: 0) {
-                Text("카테고리:")
-                    .font(.body)
-                    .foregroundStyle(.primary)
+            Menu {
                 Picker("카테고리", selection: $categoryFilter) {
                     Text("전체").tag(CalendarCategoryFilter.all)
                     ForEach(activeCategories) { category in
@@ -116,11 +113,32 @@ struct MonthCalendarView: View {
                     }
                     Text("미분류").tag(CalendarCategoryFilter.uncategorized)
                 }
-                .pickerStyle(.menu)
-                .labelsHidden()
+            } label: {
+                HStack(spacing: 4) {
+                    Text(categoryFilterButtonTitle)
+                        .font(.body)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .contentShape(Rectangle())
             }
+            .id(categoryFilterButtonTitle)
             .fixedSize(horizontal: true, vertical: false)
             Spacer(minLength: 0)
+        }
+        .animation(nil, value: categoryFilterButtonTitle)
+    }
+
+    private var categoryFilterButtonTitle: String {
+        switch categoryFilter {
+        case .all:
+            return "카테고리 필터"
+        case .category(let id):
+            return CategoryService.shared.store.first(where: { $0.id == id })?.name ?? "카테고리"
+        case .uncategorized:
+            return "미분류"
         }
     }
 
