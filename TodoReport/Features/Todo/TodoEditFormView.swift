@@ -11,12 +11,7 @@ struct TodoEditFormView: View {
     let categories: [Category]
     var autoFocus: Bool = true
 
-    private var localizedCalendar: Calendar {
-        var cal = Calendar.current
-        let startWeekday = UserDefaults.standard.string(forKey: "startWeekday") ?? "월"
-        cal.firstWeekday = startWeekday == "일" ? 1 : 2
-        return cal
-    }
+    private var localizedCalendar: Calendar { AppCalendar.localized }
 
     @State private var showTimePicker = false
     @State private var timePickerValue: Date = .now

@@ -714,12 +714,7 @@ private struct PlannerCard: View {
     }
 }
 
-private var localizedCalendar: Calendar {
-    var cal = Calendar.current
-    let startWeekday = UserDefaults.standard.string(forKey: "startWeekday") ?? "월"
-    cal.firstWeekday = startWeekday == "일" ? 1 : 2
-    return cal
-}
+private var localizedCalendar: Calendar { AppCalendar.localized }
 
 // MARK: - 날짜 피커 시트
 
@@ -729,21 +724,24 @@ private struct DatePickerSheet: View {
 
     var body: some View {
         NavigationStack {
-            DatePicker("날짜 선택", selection: $selectedDate, displayedComponents: .date)
-                .datePickerStyle(.graphical)
-                .tint(AppTheme.shared.accent)
-                .environment(\.calendar, localizedCalendar)
-                .padding(.horizontal)
-                .navigationTitle("날짜 선택")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                    Button("완료") { dismiss() }
-                        .toolbarPrimaryActionStyle()
-                    }
+            MonthCalendarView(
+                initialDate: selectedDate,
+                onConfirmDate: { date in
+                    selectedDate = date
+                    dismiss()
                 }
+            )
+            .padding(.horizontal)
+            .padding(.top, 4)
+            .navigationTitle("날짜 선택")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    CloseButton { dismiss() }
+                }
+            }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.large])
     }
 }
 
