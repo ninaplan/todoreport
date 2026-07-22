@@ -721,11 +721,17 @@ private var localizedCalendar: Calendar { AppCalendar.localized }
 private struct DatePickerSheet: View {
     @Binding var selectedDate: Date
     @Environment(\.dismiss) private var dismiss
+    @State private var focusedDate: Date
+
+    init(selectedDate: Binding<Date>) {
+        _selectedDate = selectedDate
+        _focusedDate = State(initialValue: Calendar.current.startOfDay(for: selectedDate.wrappedValue))
+    }
 
     var body: some View {
         NavigationStack {
             MonthCalendarView(
-                initialDate: selectedDate,
+                focusedDate: $focusedDate,
                 onConfirmDate: { date in
                     selectedDate = date
                     dismiss()
@@ -738,6 +744,16 @@ private struct DatePickerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     CloseButton { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        selectedDate = focusedDate
+                        dismiss()
+                    } label: {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Color.nockOrange)
+                    }
                 }
             }
         }

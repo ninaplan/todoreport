@@ -1,25 +1,23 @@
 import SwiftUI
 
 struct MonthCalendarView: View {
-    let initialDate: Date
+    @Binding var focusedDate: Date
     let onConfirmDate: (Date) -> Void
 
     @State private var displayedMonth: Date
-    @State private var focusedDate: Date
     @State private var dotsByDay: [Date: DayCategoryDots] = [:]
     @State private var dayTodos: [Todo] = []
-    @State private var swipeDirection: Int = 0
+    @State private var monthShiftDirection: Int = 0
 
     private var calendar: Calendar { AppCalendar.localized }
     private let dayCellHeight: CGFloat = 48
 
-    init(initialDate: Date, onConfirmDate: @escaping (Date) -> Void) {
-        self.initialDate = initialDate
+    init(focusedDate: Binding<Date>, onConfirmDate: @escaping (Date) -> Void) {
+        _focusedDate = focusedDate
         self.onConfirmDate = onConfirmDate
         let cal = AppCalendar.localized
-        let start = cal.startOfDay(for: initialDate)
+        let start = cal.startOfDay(for: focusedDate.wrappedValue)
         let components = cal.dateComponents([.year, .month], from: start)
-        _focusedDate = State(initialValue: start)
         _displayedMonth = State(initialValue: cal.date(from: components) ?? start)
     }
 
@@ -30,15 +28,14 @@ struct MonthCalendarView: View {
                 weekdayHeader
                 dayGrid
             }
-            .contentShape(Rectangle())
-            .gesture(monthSwipeGesture)
 
             Divider()
                 .padding(.top, 4)
 
             dayTodoList
-            goToDateButton
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task(id: monthIdentity(displayedMonth)) {
             await CategoryService.shared.refresh()
             dotsByDay = await TodoService.shared.fetchCategoryDots(forMonthContaining: displayedMonth)
@@ -104,8 +101,8 @@ struct MonthCalendarView: View {
         .frame(height: dayGridHeight, alignment: .top)
         .id(monthIdentity(displayedMonth))
         .transition(.asymmetric(
-            insertion: .move(edge: swipeDirection >= 0 ? .trailing : .leading).combined(with: .opacity),
-            removal: .move(edge: swipeDirection >= 0 ? .leading : .trailing).combined(with: .opacity)
+            insertion: .move(edge: monthShiftDirection >= 0 ? .trailing : .leading).combined(with: .opacity),
+            removal: .move(edge: monthShiftDirection >= 0 ? .leading : .trailing).combined(with: .opacity)
         ))
     }
 
@@ -205,8 +202,8 @@ struct MonthCalendarView: View {
                 Text("할일 없음")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(.top, 12)
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
@@ -220,7 +217,6 @@ struct MonthCalendarView: View {
                         }
                     }
                 }
-                .frame(maxHeight: 220)
             }
         }
     }
@@ -250,21 +246,6 @@ struct MonthCalendarView: View {
         return color(forCategoryId: categoryId)
     }
 
-    private var goToDateButton: some View {
-        Button {
-            onConfirmDate(focusedDate)
-        } label: {
-            Text("이 날짜로 이동")
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(Color.nockOrange, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .padding(.top, 4)
-    }
-
     // MARK: - Data
 
     private func loadDayTodos() async {
@@ -289,19 +270,9 @@ struct MonthCalendarView: View {
 
     // MARK: - Month navigation
 
-    private var monthSwipeGesture: some Gesture {
-        DragGesture(minimumDistance: 40)
-            .onEnded { value in
-                let horizontal = value.translation.width
-                let vertical = value.translation.height
-                guard abs(horizontal) > abs(vertical), abs(horizontal) > 50 else { return }
-                shiftMonth(by: horizontal < 0 ? 1 : -1)
-            }
-    }
-
     private func shiftMonth(by value: Int) {
         guard let next = calendar.date(byAdding: .month, value: value, to: displayedMonth) else { return }
-        swipeDirection = value
+        monthShiftDirection = value
         withAnimation(.easeInOut(duration: 0.25)) {
             displayedMonth = next
         }
