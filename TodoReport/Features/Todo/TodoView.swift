@@ -751,7 +751,7 @@ private struct DatePickerSheet: View {
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
-            .navigationTitle("날짜 선택")
+            .navigationTitle("달력 보기")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

@@ -1,5 +1,11 @@
 import SwiftUI
 
+private enum CalendarCategoryFilter: Hashable {
+    case all
+    case category(String)
+    case uncategorized
+}
+
 struct MonthCalendarView: View {
     @Binding var focusedDate: Date?
     let onConfirmDate: (Date) -> Void
@@ -8,10 +14,27 @@ struct MonthCalendarView: View {
     @State private var dotsByDay: [Date: DayCategoryDots] = [:]
     @State private var dayTodos: [Todo] = []
     @State private var monthShiftDirection: Int = 0
+    @State private var categoryFilter: CalendarCategoryFilter = .all
 
     private var calendar: Calendar { AppCalendar.localized }
-    private let dayCellHeight: CGFloat = 48
+    private let dayCellHeight: CGFloat = 50
     private let dayGridRowSpacing: CGFloat = 8
+    private let dayNumberFontSize: CGFloat = 17
+
+    private var activeCategories: [Category] {
+        CategoryService.shared.activeCategories
+    }
+
+    private var filteredDayTodos: [Todo] {
+        switch categoryFilter {
+        case .all:
+            return dayTodos
+        case .category(let id):
+            return dayTodos.filter { $0.categoryId == id }
+        case .uncategorized:
+            return dayTodos.filter { $0.categoryId == nil }
+        }
+    }
 
     init(focusedDate: Binding<Date?>, onConfirmDate: @escaping (Date) -> Void) {
         _focusedDate = focusedDate
@@ -25,6 +48,7 @@ struct MonthCalendarView: View {
     var body: some View {
         VStack(spacing: 12) {
             VStack(spacing: 12) {
+                categoryFilterPicker
                 monthHeader
                 weekdayHeader
                 dayGrid
@@ -76,11 +100,35 @@ struct MonthCalendarView: View {
         }
     }
 
+    // MARK: - Category filter
+
+    private var categoryFilterPicker: some View {
+        HStack {
+            Spacer(minLength: 0)
+            HStack(spacing: 0) {
+                Text("카테고리:")
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                Picker("카테고리", selection: $categoryFilter) {
+                    Text("전체").tag(CalendarCategoryFilter.all)
+                    ForEach(activeCategories) { category in
+                        Text(category.name).tag(CalendarCategoryFilter.category(category.id))
+                    }
+                    Text("미분류").tag(CalendarCategoryFilter.uncategorized)
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            Spacer(minLength: 0)
+        }
+    }
+
     private var weekdayHeader: some View {
         HStack(spacing: 0) {
             ForEach(weekdaySymbols, id: \.self) { symbol in
                 Text(symbol)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
             }
@@ -136,7 +184,7 @@ struct MonthCalendarView: View {
                     }
 
                     Text("\(calendar.component(.day, from: date))")
-                        .font(.system(size: 16, weight: isFocused || isToday ? .semibold : .regular))
+                        .font(.system(size: dayNumberFontSize, weight: isFocused || isToday ? .semibold : .regular))
                         .foregroundStyle(isFocused ? Color.white : .primary)
                 }
                 .frame(height: 32)
@@ -153,7 +201,7 @@ struct MonthCalendarView: View {
 
     @ViewBuilder
     private func dotsRow(_ dots: DayCategoryDots?) -> some View {
-        let colors = dotColors(from: dots)
+        let colors = filteredDotColors(from: dots)
         if colors.isEmpty {
             Color.clear
         } else if colors.count <= 4 {
@@ -178,14 +226,22 @@ struct MonthCalendarView: View {
         }
     }
 
-    /// 그리는 시점에 Category 스토어에서 색 조회 (캐시/복제 없음)
-    private func dotColors(from dots: DayCategoryDots?) -> [Color] {
+    /// 필터 적용 후 점 색. 색은 그리는 시점에 Category 스토어에서 조회.
+    private func filteredDotColors(from dots: DayCategoryDots?) -> [Color] {
         guard let dots else { return [] }
-        var colors: [Color] = dots.categoryIds.map { color(forCategoryId: $0) }
-        if dots.hasUncategorized {
-            colors.append(Color(.tertiaryLabel))
+        switch categoryFilter {
+        case .all:
+            var colors: [Color] = dots.categoryIds.map { color(forCategoryId: $0) }
+            if dots.hasUncategorized {
+                colors.append(Color(.tertiaryLabel))
+            }
+            return colors
+        case .category(let id):
+            guard dots.categoryIds.contains(id) else { return [] }
+            return [color(forCategoryId: id)]
+        case .uncategorized:
+            return dots.hasUncategorized ? [Color(.tertiaryLabel)] : []
         }
-        return colors
     }
 
     private func color(forCategoryId categoryId: String) -> Color {
@@ -212,7 +268,7 @@ struct MonthCalendarView: View {
 
     private var dayTodoList: some View {
         Group {
-            if dayTodos.isEmpty {
+            if filteredDayTodos.isEmpty {
                 Text("할일 없음")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -220,7 +276,7 @@ struct MonthCalendarView: View {
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(dayTodos) { todo in
+                        ForEach(filteredDayTodos) { todo in
                             Button {
                                 if let focusedDate {
                                     onConfirmDate(focusedDate)
