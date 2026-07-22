@@ -28,7 +28,6 @@ final class WidgetDataProvider {
 
     static let appGroupId = "group.kr.nock.TodoReport"
     private static let entryKey = "widgetEntry"
-    private static let isProKey = "widgetIsPro"
 
     /// 투두 탭 진입 없이도 오늘 데이터를 위젯에 반영 (앱 실행·포그라운드 복귀 시 호출)
     func refreshTodayFromStore() async {
@@ -76,12 +75,10 @@ final class WidgetDataProvider {
             return
         }
         defaults.set(data, forKey: Self.entryKey)
-        let isPro = SubscriptionManager.shared.isPro
-        defaults.set(isPro, forKey: Self.isProKey)
         WidgetCenter.shared.reloadAllTimelines()
         AppLogger.shared.info(
             "WidgetDataProvider",
-            "위젯 갱신 - \(completed)/\(total) (\(Int(entry.completionRate * 100))%) isPro=\(isPro) planner=\(plannerName)"
+            "위젯 갱신 - \(completed)/\(total) (\(Int(entry.completionRate * 100))%) planner=\(plannerName)"
         )
     }
 
@@ -90,23 +87,9 @@ final class WidgetDataProvider {
         return try? JSONDecoder().decode(WidgetEntry.self, from: data)
     }
 
-    static func readIsPro() -> Bool {
-        UserDefaults(suiteName: appGroupId)?.bool(forKey: isProKey) ?? false
-    }
-
-    func syncProStatus() {
-        guard let defaults = UserDefaults(suiteName: Self.appGroupId) else {
-            AppLogger.shared.error("WidgetDataProvider", "App Group 접근 실패 — Pro 상태 동기화 불가")
-            return
-        }
-        defaults.set(SubscriptionManager.shared.isPro, forKey: Self.isProKey)
-        WidgetCenter.shared.reloadAllTimelines()
-    }
-
     func clear() {
         guard let defaults = UserDefaults(suiteName: Self.appGroupId) else { return }
         defaults.removeObject(forKey: Self.entryKey)
-        defaults.removeObject(forKey: Self.isProKey)
         WidgetCenter.shared.reloadAllTimelines()
     }
 }

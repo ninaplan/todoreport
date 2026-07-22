@@ -72,39 +72,6 @@ struct SmallWidgetView: View {
     }
 }
 
-// MARK: - Pro 잠금 안내
-
-struct ProLockedWidgetView: View {
-    var message: String
-
-    var body: some View {
-        if let paywallURL = URL(string: "todoreport://paywall") {
-            Link(destination: paywallURL) {
-                lockedContent
-            }
-        } else {
-            lockedContent
-        }
-    }
-
-    private var lockedContent: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "crown.fill")
-                .font(.system(size: 22))
-                .foregroundStyle(nockOrange)
-            Text("Pro 기능")
-                .font(.caption.bold())
-            Text(message)
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .containerBackground(.background, for: .widget)
-    }
-}
-
 // MARK: - 색상 헬퍼 (Widget Extension은 Common/Colors.swift에 접근 불가)
 
 private let nockOrange = Color(red: 0xFD / 255, green: 0x68 / 255, blue: 0x45 / 255)

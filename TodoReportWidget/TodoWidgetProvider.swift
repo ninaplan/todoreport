@@ -7,7 +7,6 @@ import SwiftUI
 struct WidgetTimelineEntry: TimelineEntry {
     let date: Date
     let data: WidgetSnapshotData?
-    let isPro: Bool
 }
 
 struct WidgetSnapshotData: Codable {
@@ -30,15 +29,10 @@ struct WidgetTodoItem: Codable, Identifiable {
 
 private let appGroupId = "group.kr.nock.TodoReport"
 private let entryKey   = "widgetEntry"
-private let isProKey   = "widgetIsPro"
 
 private func readWidgetData() -> WidgetSnapshotData? {
     guard let data = UserDefaults(suiteName: appGroupId)?.data(forKey: entryKey) else { return nil }
     return try? JSONDecoder().decode(WidgetSnapshotData.self, from: data)
-}
-
-private func readIsPro() -> Bool {
-    UserDefaults(suiteName: appGroupId)?.bool(forKey: isProKey) ?? false
 }
 
 // MARK: - Placeholder 데이터
@@ -66,16 +60,16 @@ private func placeholderData() -> WidgetSnapshotData {
 struct TodoTimelineProvider: TimelineProvider {
 
     func placeholder(in context: Context) -> WidgetTimelineEntry {
-        WidgetTimelineEntry(date: .now, data: placeholderData(), isPro: true)
+        WidgetTimelineEntry(date: .now, data: placeholderData())
     }
 
     func getSnapshot(in context: Context, completion: @escaping (WidgetTimelineEntry) -> Void) {
         let data = context.isPreview ? placeholderData() : readWidgetData()
-        completion(WidgetTimelineEntry(date: .now, data: data, isPro: context.isPreview ? true : readIsPro()))
+        completion(WidgetTimelineEntry(date: .now, data: data))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<WidgetTimelineEntry>) -> Void) {
-        let entry = WidgetTimelineEntry(date: .now, data: readWidgetData(), isPro: readIsPro())
+        let entry = WidgetTimelineEntry(date: .now, data: readWidgetData())
         // 앱이 직접 reloadAllTimelines()를 호출하므로 긴 간격으로 설정
         let nextRefresh = Calendar.current.date(byAdding: .minute, value: 30, to: .now) ?? .now
         completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
