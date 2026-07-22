@@ -8,8 +8,6 @@ import SwiftUI
 @main
 struct TodoWidgetBundle: WidgetBundle {
     var body: some Widget {
-        SmallTodoWidget()
-        MediumTodoWidget()
-        LargeTodoWidget()
+        TodoWidget()
     }
 }

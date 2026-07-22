@@ -82,43 +82,35 @@ struct TodoTimelineProvider: TimelineProvider {
     }
 }
 
-// MARK: - Widget Declarations
+// MARK: - Widget Declaration
 
-struct SmallTodoWidget: Widget {
+struct TodoWidget: Widget {
     let kind = "kr.nock.TodoReport.SmallWidget"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TodoTimelineProvider()) { entry in
-            SmallWidgetView(data: entry.data)
+            TodoWidgetEntryView(data: entry.data)
         }
-        .configurationDisplayName("투두 완료율")
-        .description("오늘의 투두 완료율을 한눈에 확인하세요.")
-        .supportedFamilies([.systemSmall])
+        .configurationDisplayName("투두리포트")
+        .description("오늘의 투두 완료율과 목록을 확인하세요.")
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
-struct MediumTodoWidget: Widget {
-    let kind = "kr.nock.TodoReport.MediumWidget"
+private struct TodoWidgetEntryView: View {
+    @Environment(\.widgetFamily) private var family
+    let data: WidgetSnapshotData?
 
-    var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: TodoTimelineProvider()) { entry in
-            MediumWidgetView(data: entry.data)
+    var body: some View {
+        switch family {
+        case .systemSmall:
+            SmallWidgetView(data: data)
+        case .systemMedium:
+            MediumWidgetView(data: data)
+        case .systemLarge:
+            LargeWidgetView(data: data)
+        default:
+            SmallWidgetView(data: data)
         }
-        .configurationDisplayName("투두 목록")
-        .description("오늘의 투두 목록을 확인하세요.")
-        .supportedFamilies([.systemMedium])
-    }
-}
-
-struct LargeTodoWidget: Widget {
-    let kind = "kr.nock.TodoReport.LargeWidget"
-
-    var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: TodoTimelineProvider()) { entry in
-            LargeWidgetView(data: entry.data)
-        }
-        .configurationDisplayName("투두 전체 목록")
-        .description("오늘의 투두 전체 목록을 확인하세요.")
-        .supportedFamilies([.systemLarge])
     }
 }
