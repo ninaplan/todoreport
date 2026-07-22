@@ -17,16 +17,19 @@ final class NetworkMonitor: @unchecked Sendable {
 
         wasConnected = monitor.currentPath.status == .satisfied
 
-        monitor.pathUpdateHandler = { [weak self] path in
+        monitor.pathUpdateHandler = { path in
             let isConnected = path.status == .satisfied
             Task { @MainActor in
-                guard let self else { return }
-                if isConnected, !self.wasConnected {
-                    SyncQueueManager.shared.processIfConnected()
-                }
-                self.wasConnected = isConnected
+                NetworkMonitor.shared.handleConnectivityChange(isConnected)
             }
         }
         monitor.start(queue: monitorQueue)
+    }
+
+    private func handleConnectivityChange(_ isConnected: Bool) {
+        if isConnected, !wasConnected {
+            SyncQueueManager.shared.processIfConnected()
+        }
+        wasConnected = isConnected
     }
 }
