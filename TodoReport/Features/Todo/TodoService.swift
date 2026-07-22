@@ -78,6 +78,12 @@ struct Todo: Identifiable, Codable {
     }
 }
 
+/// 달력 점용 — categoryId만 담음. 색 변환은 UI에서 Category 조회로 수행.
+struct DayCategoryDots {
+    let categoryIds: [String]
+    let hasUncategorized: Bool
+}
+
 // MARK: - TodoService
 
 final class TodoService {
@@ -100,6 +106,47 @@ final class TodoService {
             return items.filter { $0.plannerId == pid || $0.plannerId == nil }
         } catch {
             return []
+        }
+    }
+
+    /// 해당 월의 날짜별 카테고리 점용 ID 목록. 색은 포함하지 않음(그릴 때 Category 조회).
+    func fetchCategoryDots(forMonthContaining date: Date) async -> [Date: DayCategoryDots] {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month], from: date)
+        guard let monthStart = calendar.date(from: components),
+              let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) else {
+            return [:]
+        }
+        let plannerId = PlannerService.shared.selectedPlanner?.id
+        do {
+            let descriptor = FetchDescriptor<TodoItem>(
+                predicate: #Predicate { $0.date >= monthStart && $0.date < monthEnd },
+                sortBy: [SortDescriptor(\.createdAt)]
+            )
+            var items = try context.fetch(descriptor)
+            if let pid = plannerId {
+                items = items.filter { $0.plannerId == pid || $0.plannerId == nil }
+            }
+
+            var buckets: [Date: (ids: [String], seen: Set<String>, hasUncategorized: Bool)] = [:]
+            for item in items {
+                let day = calendar.startOfDay(for: item.date)
+                var bucket = buckets[day] ?? (ids: [], seen: [], hasUncategorized: false)
+                if let categoryId = item.categoryId {
+                    if !bucket.seen.contains(categoryId) {
+                        bucket.seen.insert(categoryId)
+                        bucket.ids.append(categoryId)
+                    }
+                } else {
+                    bucket.hasUncategorized = true
+                }
+                buckets[day] = bucket
+            }
+            return buckets.mapValues {
+                DayCategoryDots(categoryIds: $0.ids, hasUncategorized: $0.hasUncategorized)
+            }
+        } catch {
+            return [:]
         }
     }
 

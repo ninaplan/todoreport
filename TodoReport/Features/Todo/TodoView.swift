@@ -721,12 +721,16 @@ private var localizedCalendar: Calendar { AppCalendar.localized }
 private struct DatePickerSheet: View {
     @Binding var selectedDate: Date
     @Environment(\.dismiss) private var dismiss
-    @State private var focusedDate: Date
+    @State private var focusedDate: Date?
+    @State private var showMoveHint = false
+    @AppStorage("hasSeenCalendarMoveHint") private var hasSeenCalendarMoveHint = false
 
     init(selectedDate: Binding<Date>) {
         _selectedDate = selectedDate
-        _focusedDate = State(initialValue: Calendar.current.startOfDay(for: selectedDate.wrappedValue))
+        _focusedDate = State(initialValue: nil)
     }
+
+    private var hasFocusedDate: Bool { focusedDate != nil }
 
     var body: some View {
         NavigationStack {
@@ -739,6 +743,14 @@ private struct DatePickerSheet: View {
             )
             .padding(.horizontal)
             .padding(.top, 4)
+            .overlay(alignment: .topTrailing) {
+                if showMoveHint {
+                    calendarMoveHintBubble
+                        .padding(.trailing, 4)
+                        .padding(.top, 2)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
             .navigationTitle("날짜 선택")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -747,17 +759,51 @@ private struct DatePickerSheet: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
+                        guard let focusedDate else { return }
                         selectedDate = focusedDate
                         dismiss()
                     } label: {
                         Image(systemName: "checkmark")
                             .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(Color.nockOrange)
+                            .foregroundStyle(hasFocusedDate ? Color.nockOrange : Color(.tertiaryLabel))
                     }
                 }
             }
         }
         .presentationDetents([.large])
+        .onChange(of: focusedDate) { oldValue, newValue in
+            guard oldValue == nil, newValue != nil, !hasSeenCalendarMoveHint else { return }
+            hasSeenCalendarMoveHint = true
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showMoveHint = true
+            }
+            Task {
+                try? await Task.sleep(for: .seconds(3))
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showMoveHint = false
+                    }
+                }
+            }
+        }
+    }
+
+    private var calendarMoveHintBubble: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            Image(systemName: "triangle.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(Color.black)
+                .rotationEffect(.degrees(180))
+                .padding(.trailing, 14)
+
+            Text("선택한 날짜로 이동해요")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.black, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .allowsHitTesting(false)
     }
 }
 

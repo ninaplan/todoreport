@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct MonthCalendarView: View {
-    @Binding var focusedDate: Date
+    @Binding var focusedDate: Date?
     let onConfirmDate: (Date) -> Void
 
     @State private var displayedMonth: Date
@@ -11,14 +11,15 @@ struct MonthCalendarView: View {
 
     private var calendar: Calendar { AppCalendar.localized }
     private let dayCellHeight: CGFloat = 48
+    private let dayGridRowSpacing: CGFloat = 8
 
-    init(focusedDate: Binding<Date>, onConfirmDate: @escaping (Date) -> Void) {
+    init(focusedDate: Binding<Date?>, onConfirmDate: @escaping (Date) -> Void) {
         _focusedDate = focusedDate
         self.onConfirmDate = onConfirmDate
         let cal = AppCalendar.localized
-        let start = cal.startOfDay(for: focusedDate.wrappedValue)
-        let components = cal.dateComponents([.year, .month], from: start)
-        _displayedMonth = State(initialValue: cal.date(from: components) ?? start)
+        let anchor = focusedDate.wrappedValue.map { cal.startOfDay(for: $0) } ?? cal.startOfDay(for: .now)
+        let components = cal.dateComponents([.year, .month], from: anchor)
+        _displayedMonth = State(initialValue: cal.date(from: components) ?? anchor)
     }
 
     var body: some View {
@@ -32,7 +33,7 @@ struct MonthCalendarView: View {
             Divider()
                 .padding(.top, 4)
 
-            dayTodoList
+            bottomContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -40,7 +41,7 @@ struct MonthCalendarView: View {
             await CategoryService.shared.refresh()
             dotsByDay = await TodoService.shared.fetchCategoryDots(forMonthContaining: displayedMonth)
         }
-        .task(id: calendar.startOfDay(for: focusedDate)) {
+        .task(id: focusedDate.map { calendar.startOfDay(for: $0) }) {
             await loadDayTodos()
         }
     }
@@ -88,7 +89,8 @@ struct MonthCalendarView: View {
 
     private var dayGrid: some View {
         let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
-        return LazyVGrid(columns: columns, spacing: 8) {
+        let weekCount = max(gridDays.count / 7, 1)
+        return LazyVGrid(columns: columns, spacing: dayGridRowSpacing) {
             ForEach(Array(gridDays.enumerated()), id: \.offset) { _, day in
                 if let day {
                     dayCell(for: day)
@@ -98,7 +100,7 @@ struct MonthCalendarView: View {
                 }
             }
         }
-        .frame(height: dayGridHeight, alignment: .top)
+        .frame(height: dayGridHeight(weekCount: weekCount), alignment: .top)
         .id(monthIdentity(displayedMonth))
         .transition(.asymmetric(
             insertion: .move(edge: monthShiftDirection >= 0 ? .trailing : .leading).combined(with: .opacity),
@@ -106,15 +108,14 @@ struct MonthCalendarView: View {
         ))
     }
 
-    private var dayGridHeight: CGFloat {
-        // 6행 고정 — 월 전환 시 제목/레이아웃 흔들림 방지
-        dayCellHeight * 6 + 8 * 5
+    private func dayGridHeight(weekCount: Int) -> CGFloat {
+        dayCellHeight * CGFloat(weekCount) + dayGridRowSpacing * CGFloat(max(weekCount - 1, 0))
     }
 
     // MARK: - Day cell
 
     private func dayCell(for date: Date) -> some View {
-        let isFocused = calendar.isDate(date, inSameDayAs: focusedDate)
+        let isFocused = focusedDate.map { calendar.isDate(date, inSameDayAs: $0) } ?? false
         let isToday = calendar.isDateInToday(date)
         let dayStart = calendar.startOfDay(for: date)
         let dots = dotsByDay[dayStart]
@@ -194,7 +195,20 @@ struct MonthCalendarView: View {
         return Color(.tertiaryLabel)
     }
 
-    // MARK: - Day todo list
+    // MARK: - Bottom content
+
+    @ViewBuilder
+    private var bottomContent: some View {
+        if focusedDate == nil {
+            Text("날짜를 탭하세요")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .padding(.horizontal, 12)
+        } else {
+            dayTodoList
+        }
+    }
 
     private var dayTodoList: some View {
         Group {
@@ -202,14 +216,15 @@ struct MonthCalendarView: View {
                 Text("할일 없음")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding(.top, 12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(dayTodos) { todo in
                             Button {
-                                onConfirmDate(focusedDate)
+                                if let focusedDate {
+                                    onConfirmDate(focusedDate)
+                                }
                             } label: {
                                 todoRow(todo)
                             }
@@ -219,6 +234,7 @@ struct MonthCalendarView: View {
                 }
             }
         }
+        .padding(.horizontal, 12)
     }
 
     private func todoRow(_ todo: Todo) -> some View {
@@ -249,6 +265,10 @@ struct MonthCalendarView: View {
     // MARK: - Data
 
     private func loadDayTodos() async {
+        guard let focusedDate else {
+            dayTodos = []
+            return
+        }
         let fetched = await TodoService.shared.fetchTodos(for: focusedDate)
         dayTodos = Self.sortedLikeTodoTab(fetched)
     }
@@ -286,11 +306,11 @@ struct MonthCalendarView: View {
         return Array(symbols[startIndex...]) + Array(symbols[..<startIndex])
     }
 
-    /// 항상 6주(42칸). 빈 칸은 nil로 두어 투명 유지.
+    /// 해당 월의 실제 주 수만큼만 칸 생성(5주/6주). 앞뒤 빈 칸은 nil.
     private var gridDays: [Date?] {
         guard let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: displayedMonth)),
               let dayRange = calendar.range(of: .day, in: .month, for: monthStart) else {
-            return Array(repeating: nil, count: 42)
+            return []
         }
         let firstWeekday = calendar.component(.weekday, from: monthStart)
         let leading = (firstWeekday - calendar.firstWeekday + 7) % 7
@@ -298,10 +318,10 @@ struct MonthCalendarView: View {
         for day in dayRange {
             days.append(calendar.date(byAdding: .day, value: day - 1, to: monthStart))
         }
-        while days.count < 42 {
+        while days.count % 7 != 0 {
             days.append(nil)
         }
-        return Array(days.prefix(42))
+        return days
     }
 
     private func monthTitle(_ date: Date) -> String {
