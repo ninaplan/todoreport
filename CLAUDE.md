@@ -7,6 +7,18 @@
 - v1.0.5 App Store 제출 완료 (빌드 11)
 - v1.0.6 App Store 제출 완료
 - v1.0.7 제출 예정
+- v1.08 제출 예정
+
+### v1.08 변경 내용 (제출 예정)
+- 투두 날짜 선택: iOS graphical DatePicker → 커스텀 `MonthCalendarView` (캘린더 탭 재사용 염두의 독립 컴포넌트, `Shared/Components/`)
+  - 날짜별 카테고리 색 점(최대 3 + "+N", 미분류 회색), 미선택 시작 → 탭 시 선택+하단 목록, 체크/목록 탭으로 이동, X는 닫기만
+  - 카테고리 필터(Menu): 전체/활성 카테고리/미분류 — View 레벨 필터링만(`filteredDotColors`/`filteredDayTodos`), TodoService 미변경, 시트 닫으면 `.all`로 초기화
+  - 시트 제목 「달력 보기」, large detent, 로컬 SwiftData만(`fetchCategoryDots` / `fetchTodos`)
+- `AppCalendar.localized` 헬퍼 추가 — `startWeekday` 규칙 공유 (TodoView·TodoEditFormView·MonthCalendarView)
+- 투두 탭 날짜 제목 아래 「탭하면 달력을 볼 수 있어요」 1회 말풍선 (`hasSeenCalendarOpenHint`)
+- 달력 첫 날짜 선택 시 「선택한 날짜로 이동해요」 1회 말풍선 (`hasSeenCalendarMoveHint`)
+- 위젯 미사용 Pro 잠금 죽은 코드 정리 (`ProLockedWidgetView`, `isPro` App Group 배관)
+- `NetworkMonitor` Swift 6 동시성 경고 제거 (`handleConnectivityChange` MainActor 분리)
 
 ### v1.0.7 변경 내용 (제출 예정)
 - 노션 pull 삭제-재생성 레이스로 할일이 3~4개 중복되던 문제 수정 (`upsertFromNotion` — 부재를 삭제로 해석하지 않음, pageId 재확인, plannerId 필터, 60초·pending 보호)
@@ -46,13 +58,16 @@
   - 조치: 가드 및 showDatePaywall/datePaywallMessage/dismissDatePaywall() 관련 코드 전체 제거
 
 ### 다음 할 일
-- v1.0.6 App Store Archive·제출
+- 달력에서 노션 과거 데이터 「이 달 불러오기」 — 백엔드 기간 조회 API(startDate~endDate) 신설 필요 (V2-IDEAS.md)
+- 인박스(날짜 없는 할일) — date 옵셔널화 + 노션 동기화「길 A」(V2-IDEAS.md)
+- 달력 UX 미세조정 — 월 이동 시 선택 해제, 필터 버튼 틴트 앱 톤 통일, 폰트·말풍선 위치
 - 노션 업로드 마이그레이션 버그 수정 — `PlannerMigrationViewModel.uploadToNotion()`에서 `plannerId`가 nil인 기존 투두가 `SyncQueueManager`의 `isPlannerNotionConnected(nil)` 가드에 걸려 조용히 스킵됨 (설계만 완료, 미적용)
 - 노션 연결 시작 전 안내 팝업 추가 — 기존 "같은 워크스페이스" 인라인 문구를 조건부 alert("페이지 선택 시 주의해주세요")로 교체 (설계만 완료, 미적용)
 - 구독 상태 카드 (설정 화면) 페이월 스타일 통일
 - 리포트 스트릭 계산 범위 축소/캐싱 (365일 전체 스캔 근본 개선)
 
 ### 최근 완료 작업
+- 커스텀 월간 달력 + 카테고리 필터 + 안내 말풍선 (2026-07-22, v1.08): `MonthCalendarView`, `AppCalendar`, `DatePickerSheet` 교체, 위젯 Pro 죽은 코드·NetworkMonitor Swift 6 정리
 - 플래너 관리 화면 신설 + 구독 다운그레이드 버그 수정 (2026-07-11, 커밋 ab6021c → 56fb69a): 상세 내용은 아래 "구독 만료 감지" / "플래너 관리" / "노션 연결 해제" 섹션 참고
 - NotionWorkspaceConnection 1·2단계 (2026-07-10, 커밋 15c9a98): 워크스페이스 단위 토큰 공유 + revoke 안전장치(마지막 참조 플래너가 아니면 revoke 스킵)
 - Notion 동기화 Version Guard (2026-07-08): notionLastEditedTime 필드, push 성공 시 저장, pull upsert Version Guard, debounce pull 큐 대기. V2 Tombstone은 미해결(유령 항목 부활 케이스).
@@ -787,7 +802,7 @@ Phase 5 (출시)
 - ✅ TodoWidgetBundle / TodoWidgetProvider (widget extension 타겟: TodoReportWidget/)
 - ✅ Small / Medium / Large 위젯 뷰 (SmallWidgetView, MediumWidgetView, LargeWidgetView)
 - ✅ TodoViewModel.updateWidget() — 투두 fetch/toggle/add/delete 후 자동 갱신, `hideCompleted` 설정 변경 시 (`didSet`)
-- ✅ 위젯 전체 무료 (Pro 게이팅 없음). v1.0.7에서 Small/Medium/Large를 단일 위젯으로 통합(kind=Small 유지), widgetFamily로 분기. isPro 관련 코드·ProLockedWidgetView는 미사용 잔존(추후 정리)
+- ✅ 위젯 전체 무료 (Pro 게이팅 없음). v1.0.7에서 Small/Medium/Large를 단일 위젯으로 통합(kind=Small 유지), widgetFamily로 분기. v1.08에서 isPro 배관·ProLockedWidgetView 제거 완료
 - ✅ `todoreport://todo` 딥링크, 설정 탭 NavigationStack 재진입 시 루트 초기화
 - ✅ `refreshTodayFromStore()` — 앱 활성화(scenePhase .active) 시 호출해 위젯을 오늘 데이터로 갱신 (v1.0.7에서 호출 연결)
 - ⚠️ App Groups capability: 두 타겟 모두 Xcode > Signing & Capabilities에서 수동 활성화 필요
