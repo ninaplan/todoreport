@@ -5,6 +5,7 @@ let whatsNewReleases: [WhatsNewRelease] = [
         id: "1.0.7",
         symbolName: "checkmark.circle",
         items: [
+            "위젯을 개선해 모든 크기를 사용할 수 있도록 변경 (중간·큰 크기 위젯이 비어 보이면 삭제 후 다시 추가)",
             "할일을 다른 날짜로 옮길 때 중복 표시되던 문제 수정",
             "노션 동기화 안정성 개선",
             "날짜 이동 시 더 빠르게 목록 표시"

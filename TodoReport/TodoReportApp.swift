@@ -6,9 +6,12 @@ import UserNotifications
 struct TodoReportApp: App {
     @AppStorage("onboardingCompleted") private var onboardingCompleted = false
     @AppStorage("appColorScheme") private var appColorScheme: String = "system"
+    @AppStorage("lastSeenWhatsNewVersion") private var lastSeenWhatsNewVersion = ""
     @Environment(\.scenePhase) private var scenePhase
     @State private var showPlannerDowngrade: Bool = false
     @State private var showPaywall: Bool = false
+    @State private var showWhatsNewPopup: Bool = false
+
     var body: some Scene {
         WindowGroup {
             Group {
@@ -16,8 +19,17 @@ struct TodoReportApp: App {
                     PersistenceErrorView(error: error)
                 } else if onboardingCompleted {
                     MainTabView(onAccountDeleted: { onboardingCompleted = false })
+                        .onAppear { presentWhatsNewPopupIfNeeded() }
+                        .sheet(isPresented: $showWhatsNewPopup, onDismiss: markLatestWhatsNewAsSeen) {
+                            if let release = whatsNewReleases.first {
+                                WhatsNewPopupView(release: release) {
+                                    showWhatsNewPopup = false
+                                }
+                            }
+                        }
                 } else {
                     OnboardingView {
+                        markLatestWhatsNewAsSeen()
                         onboardingCompleted = true
                     }
                 }
@@ -84,6 +96,9 @@ struct TodoReportApp: App {
                         await CategoryNotionSync.shared.syncCategoriesByName(plannerId: plannerId)
                     }
                 }
+                Task { @MainActor in
+                    await WidgetDataProvider.shared.refreshTodayFromStore()
+                }
             default:
                 break
             }
@@ -100,5 +115,16 @@ struct TodoReportApp: App {
         guard PlannerService.shared.activePlannerCount > 1 else { return }
         ReportNotificationManager.shared.cancelAll()
         showPlannerDowngrade = true
+    }
+
+    private func presentWhatsNewPopupIfNeeded() {
+        guard let latest = whatsNewReleases.first, latest.showsPopup else { return }
+        guard lastSeenWhatsNewVersion != latest.id else { return }
+        showWhatsNewPopup = true
+    }
+
+    private func markLatestWhatsNewAsSeen() {
+        guard let latest = whatsNewReleases.first else { return }
+        lastSeenWhatsNewVersion = latest.id
     }
 }
