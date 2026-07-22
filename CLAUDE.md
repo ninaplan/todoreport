@@ -1,6 +1,6 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-07-15 기준)
+## 현재 상황 (2026-07-22 기준)
 
 ### 앱 상태
 - v1.0.4 App Store 제출 완료
@@ -12,6 +12,9 @@
 - 노션 pull 삭제-재생성 레이스로 할일이 3~4개 중복되던 문제 수정 (`upsertFromNotion` — 부재를 삭제로 해석하지 않음, pageId 재확인, plannerId 필터, 60초·pending 보호)
 - 날짜 이동 시 자동 노션 재조회 제거 (local-only 원칙 복원)
 - 포그라운드 복귀 노션 pull을 5분 이상 백그라운드일 때만 실행
+- 위젯 3종(Small/Medium/Large)을 사이즈별 분기하는 단일 위젯으로 통합 (kind는 기존 Small 값 유지 → 기존 Small 배치 사용자 보존, Medium/Large 배치자는 재추가 필요). 앱아이콘 롱프레스 빠른 선택창에서 S만 활성화되던 문제 해결
+- 위젯에 지난 날짜 할일이 남던 문제 수정: refreshTodayFromStore()가 정의만 되고 호출되지 않던 것을 앱 활성화(scenePhase .active) 시 호출하도록 연결
+- 업데이트 안내 팝업 자동 표시 완성: showsPopup 플래그가 소비되지 않던 것을 연결 (WhatsNewPopupView 신설, MainTabView 분기 sheet, lastSeenWhatsNewVersion로 1회 표시, 온보딩 완료 시 선저장으로 신규 설치자 제외)
 
 ### v1.0.6 변경 내용 (제출 완료)
 - 플래너 순서 변경·삭제 관리 화면 추가 (설정 → 플래너 → 플래너 관리)
@@ -784,9 +787,9 @@ Phase 5 (출시)
 - ✅ TodoWidgetBundle / TodoWidgetProvider (widget extension 타겟: TodoReportWidget/)
 - ✅ Small / Medium / Large 위젯 뷰 (SmallWidgetView, MediumWidgetView, LargeWidgetView)
 - ✅ TodoViewModel.updateWidget() — 투두 fetch/toggle/add/delete 후 자동 갱신, `hideCompleted` 설정 변경 시 (`didSet`)
-- ✅ Small 완료율 무료, Medium·Large 목록 Pro 게이팅 (`widgetIsPro` App Group 동기화)
+- ✅ 위젯 전체 무료 (Pro 게이팅 없음). v1.0.7에서 Small/Medium/Large를 단일 위젯으로 통합(kind=Small 유지), widgetFamily로 분기. isPro 관련 코드·ProLockedWidgetView는 미사용 잔존(추후 정리)
 - ✅ `todoreport://todo` 딥링크, 설정 탭 NavigationStack 재진입 시 루트 초기화
-- ✅ `refreshTodayFromStore()` — 앱 실행·포그라운드 시 위젯 갱신
+- ✅ `refreshTodayFromStore()` — 앱 활성화(scenePhase .active) 시 호출해 위젯을 오늘 데이터로 갱신 (v1.0.7에서 호출 연결)
 - ⚠️ App Groups capability: 두 타겟 모두 Xcode > Signing & Capabilities에서 수동 활성화 필요
  → App Group ID: group.kr.nock.TodoReport
 

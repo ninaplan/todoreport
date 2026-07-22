@@ -281,6 +281,10 @@ api/
 - Large: 헤더(완료율·날짜) + 진행 바 + 투두 전체 목록 (최대 8개, 중요 항목 우선)
 - 탭 → `todoreport://todo` → 투두 탭·오늘 날짜
 
+**위젯 구조 (v1.0.7~)**
+- Small/Medium/Large는 별도 위젯 3개가 아니라 단일 위젯으로 통합 (supportedFamilies: `.systemSmall`/`.systemMedium`/`.systemLarge`, `widgetFamily` 환경값으로 뷰 분기)
+- kind는 기존 Small 값(`kr.nock.TodoReport.SmallWidget`) 유지 → 기존 Small 배치 사용자 위젯 보존
+
 **v1 탭 동작 (읽기 전용)**
 - StaticConfiguration 위젯은 **영역 어디를 탭해도 앱이 열림** (할일 행 단독 체크 불가 — iOS 제약)
 - `widgetURL` 미지정 시 iOS가 **마지막 화면 그대로 복원** → v1에서 Small/Medium/Large 모두 `todoreport://todo` 지정
