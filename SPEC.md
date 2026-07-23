@@ -305,6 +305,8 @@ api/
 **관련 파일:** `Widget/WidgetDataProvider.swift`, `TodoReportWidget/*WidgetView.swift`, `App/MainTabCoordinator.swift`, `TodoReportApp.onOpenURL`
 
 #### 데일리 리포트
+- 투두 탭 상단 `DailyReportCard`: **기본 접힘** — 「데일리 리포트」 제목 + chevron만 표시. 탭 시 펼침/접힘 (chevron 180° 회전)
+- 펼침 시: 완료율·별점·하루 리뷰(`TextField`) 표시. height reveal + clipped (List 행 출렁임 방지)
 - 오늘의 한마디(하루 리뷰) 작성
 - 별점 선택 (⭐~⭐⭐⭐⭐⭐) — 기분, 성취도 등 용도는 사용자가 자유롭게 정의
 - 완료율 자동 계산
@@ -1018,6 +1020,10 @@ struct Category: Identifiable, Codable {
 | 오른쪽 스와이프 (풀스와이프) | 고정(isPinned 토글) |
 | 왼쪽 스와이프 | 내일하기 / 날짜변경 / 삭제 |
 | 길게 누르기 | 편집 모드 (제목 수정, 카테고리 변경) |
+
+**삭제 확인:**
+- **일반 할일:** 휴지통 탭·풀스와이프 모두 「이 할 일을 삭제할까요?」 alert → [삭제] / [취소] (`showSingleDeleteAlert`). 확인 시에만 `deleteTodo`
+- **반복 할일:** 기존 「반복 투두 삭제」 alert — 이 항목만 / 이후 모두 / 취소 (`showDeleteAlert`)
 
 **중요 투두 표시 (v1):** `isPinned == true`일 때 제목 옆 **「중요」** 태그 (`ImportantTodoTag`) — 핀 아이콘 대신 텍스트 배지, 포인트 컬러 배경.
 

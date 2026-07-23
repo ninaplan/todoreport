@@ -64,6 +64,11 @@
   - 조치: 가드 및 showDatePaywall/datePaywallMessage/dismissDatePaywall() 관련 코드 전체 제거
 
 ### 다음 할 일
+- 스와이프 버튼 원형화/조사 — 네이티브 `.swipeActions` 모양·간격·중간 고정 시 제목 가림
+- 필터 칩 점+이름 — 투두 탭 `FilterChip`과 달력 범례(`categoryLegendChip`) 공통 컴포넌트화 검토
+- 할일 시간·알림 목록 표시 — `scheduledTime`/`alarmOffset`은 모델·편집에만 있고 `TodoRow` 미표시 (v1.1)
+- 날짜 행 블러 — 투두 탭 상단 날짜 네비게이션 행 polish
+- 하루 리뷰 포커스 시 불필요한 밀어올림 개선 — List 키보드 회피; `isAddingTodo` 아닐 때 조건부 ignore 조사됨(미적용)
 - 인박스(날짜 없는 할일) — date 옵셔널화 + 노션 동기화「길 A」(V2-IDEAS.md)
 - 달력 UX 미세조정 — 월 이동 시 선택 해제, 폰트·말풍선 위치 (V2-IDEAS.md)
 - 노션 업로드 마이그레이션 버그 수정 — `PlannerMigrationViewModel.uploadToNotion()`에서 `plannerId`가 nil인 기존 투두가 `SyncQueueManager`의 `isPlannerNotionConnected(nil)` 가드에 걸려 조용히 스킵됨 (설계만 완료, 미적용)
@@ -73,6 +78,8 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- 일반 할일 삭제 확인 팝업 (2026-07-24): `showSingleDeleteAlert` — 스와이프/풀스와이프 삭제 전 「이 할 일을 삭제할까요?」. 반복 할일은 기존 `showDeleteAlert` 유지
+- 데일리 리포트 카드 접기/펼치기 (2026-07-24): `DailyReportCard` 기본 접힘(제목+chevron), 펼치면 완료율·별점·리뷰. height reveal + chevron 회전, 측정용 TextField는 `.focused` 분리
 - 달력 월 범위 노션 불러오기 + 범례 가로 스크롤·헤더 polish + stale 가드 개선 (2026-07-23, v1.08 재제출): `syncTodosFromNotionRange`, `enqueueRelationLinks`, `MonthCalendarView` 범례/불러오기, pull `incoming < existing`
 - 커스텀 월간 달력 + 카테고리 필터 + 안내 말풍선 (2026-07-22, v1.08): `MonthCalendarView`, `AppCalendar`, `DatePickerSheet` 교체, 위젯 Pro 죽은 코드·NetworkMonitor Swift 6 정리
 - 카테고리 팔레트 세트 9종 + 색 대비 (2026-07-23, v1.08): `CategoryPaletteSet`, `recolorCategories`, `readableForeground`/`readableText`
@@ -533,6 +540,7 @@ guard SubscriptionManager.shared.isPro else {
 탭 (텍스트/행 영역)         → 아무것도 안 함
 우로 스와이프 (풀스와이프)   → 고정(isPinned 토글)
 좌로 스와이프               → [내일하기] [날짜변경] [삭제]
+  (일반: 삭제 확인 alert / 반복: 반복 삭제 alert)
 길게 누르기                 → 편집 모드
 ```
 
