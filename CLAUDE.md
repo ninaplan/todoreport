@@ -7,13 +7,15 @@
 - v1.0.5 App Store 제출 완료 (빌드 11)
 - v1.0.6 App Store 제출 완료
 - v1.0.7 제출 예정
-- v1.08 제출 예정
+- v1.08 재제출 (2026-07-23)
 
-### v1.08 변경 내용 (제출 예정)
+### v1.08 변경 내용 (재제출)
 - 투두 날짜 선택: iOS graphical DatePicker → 커스텀 `MonthCalendarView` (캘린더 탭 재사용 염두의 독립 컴포넌트, `Shared/Components/`)
   - 날짜별 카테고리 색 점(최대 3 + "+N", 미분류 회색), 미선택 시작 → 탭 시 선택+하단 목록, 체크/목록 탭으로 이동, X는 닫기만
-  - 카테고리 필터(Menu): 전체/활성 카테고리/미분류 — View 레벨 필터링만(`filteredDotColors`/`filteredDayTodos`), TodoService 미변경, 시트 닫으면 `.all`로 초기화
-  - 시트 제목 「달력 보기」, large detent, 로컬 SwiftData만(`fetchCategoryDots` / `fetchTodos`)
+  - 카테고리 범례 필터: 그리드 아래 가로 스크롤(점+이름, 선택 시 테두리). 전체/활성 카테고리/미분류 — View 레벨만(`filteredDotColors`/`filteredDayTodos`), 시트 닫으면 `.all`
+  - 시트 제목 「달력 보기」, large detent. 기본은 로컬 SwiftData(`fetchCategoryDots` / `fetchTodos`)
+  - 노션 플래너 전용 「불러오기」(아이콘, nockOrange): `syncTodosFromNotionRange` → 백엔드 `startDate`~`endDate`. 범위 upsert 시 `enqueueRelationLinks: false`
+- pull stale 가드: `incoming < existing`만 스킵(동일 `lastEditedTime`도 반영) — 노션 수동 편집 미반영 개선
 - `AppCalendar.localized` 헬퍼 추가 — `startWeekday` 규칙 공유 (TodoView·TodoEditFormView·MonthCalendarView)
 - 투두 탭 날짜 제목 아래 「탭하면 달력을 볼 수 있어요」 1회 말풍선 (`hasSeenCalendarOpenHint`)
 - 달력 첫 날짜 선택 시 「선택한 날짜로 이동해요」 1회 말풍선 (`hasSeenCalendarMoveHint`)
@@ -62,15 +64,16 @@
   - 조치: 가드 및 showDatePaywall/datePaywallMessage/dismissDatePaywall() 관련 코드 전체 제거
 
 ### 다음 할 일
-- 달력에서 노션 과거 데이터 「이 달 불러오기」 — 백엔드 기간 조회 API(startDate~endDate) 신설 필요 (V2-IDEAS.md)
 - 인박스(날짜 없는 할일) — date 옵셔널화 + 노션 동기화「길 A」(V2-IDEAS.md)
-- 달력 UX 미세조정 — 월 이동 시 선택 해제, 필터 버튼 틴트 앱 톤 통일, 폰트·말풍선 위치
+- 달력 UX 미세조정 — 월 이동 시 선택 해제, 폰트·말풍선 위치 (V2-IDEAS.md)
 - 노션 업로드 마이그레이션 버그 수정 — `PlannerMigrationViewModel.uploadToNotion()`에서 `plannerId`가 nil인 기존 투두가 `SyncQueueManager`의 `isPlannerNotionConnected(nil)` 가드에 걸려 조용히 스킵됨 (설계만 완료, 미적용)
 - 노션 연결 시작 전 안내 팝업 추가 — 기존 "같은 워크스페이스" 인라인 문구를 조건부 alert("페이지 선택 시 주의해주세요")로 교체 (설계만 완료, 미적용)
 - 구독 상태 카드 (설정 화면) 페이월 스타일 통일
 - 리포트 스트릭 계산 범위 축소/캐싱 (365일 전체 스캔 근본 개선)
+- 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- 달력 월 범위 노션 불러오기 + 범례 가로 스크롤·헤더 polish + stale 가드 개선 (2026-07-23, v1.08 재제출): `syncTodosFromNotionRange`, `enqueueRelationLinks`, `MonthCalendarView` 범례/불러오기, pull `incoming < existing`
 - 커스텀 월간 달력 + 카테고리 필터 + 안내 말풍선 (2026-07-22, v1.08): `MonthCalendarView`, `AppCalendar`, `DatePickerSheet` 교체, 위젯 Pro 죽은 코드·NetworkMonitor Swift 6 정리
 - 카테고리 팔레트 세트 9종 + 색 대비 (2026-07-23, v1.08): `CategoryPaletteSet`, `recolorCategories`, `readableForeground`/`readableText`
 - 플래너 관리 화면 신설 + 구독 다운그레이드 버그 수정 (2026-07-11, 커밋 ab6021c → 56fb69a): 상세 내용은 아래 "구독 만료 감지" / "플래너 관리" / "노션 연결 해제" 섹션 참고
@@ -84,8 +87,8 @@
 - 노션 업로드 마이그레이션 시 plannerId가 nil인 기존 투두가 노션에 안 올라감 (원인 파악됨, 수정 미적용 — 위 "다음 할 일" 참고)
 - 콜드 스타트 시 Notion 동기화 로딩 인디케이터 미표시 (투두 탭)
 - 투두 날짜 이동 후 목적지 날짜 미표시 (간헐적)
-- 노션에서 새로 내려온 할일을 노션에서 편집 시 여러 번 새로고침해야 반영되는 지연 (relation pending·notionLastEditedTime 오염 — V2-IDEAS.md 후속 이슈)
-- 노션에서 삭제한 할일이 앱에 남을 수 있음 (pull 부재 삭제 제거의 의도된 트레이드오프 — 웹훅 필요, V2-IDEAS.md)
+- ~~노션에서 새로 내려온 할일을 노션에서 편집 시 여러 번 새로고침해야 반영되는 지연~~ → v1.08 stale 가드(`<`)로 동일 시각 편집 반영 개선. relation pending 오염 등 잔여는 V2-IDEAS.md
+- 노션에서 삭제한 할일이 앱에 남을 수 있음 (pull 부재 삭제 제거의 의도된 트레이드오프 — 웹훅 필요, **V2 백로그**)
 
 ### 주요 파일
 - SPEC.md — 앱 전체 스펙

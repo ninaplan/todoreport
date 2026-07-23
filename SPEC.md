@@ -1,7 +1,7 @@
 # 투두리포트 앱 개발 스펙
 
 > 작성일: 2026-05-26  
-> 최종 업데이트: 2026-07-23 (카테고리 팔레트 세트 · 색 대비 · 커스텀 월간 달력)  
+> 최종 업데이트: 2026-07-23 (v1.08 재제출 — 달력 노션 불러오기 · 범례 필터 · pull stale 가드)  
 > 브랜드: 노크(Nock / nock.kr)  
 > 앱명 (홈 화면): 투두리포트  
 > App Store 이름: 노션품은 투두x리포트  
@@ -679,7 +679,9 @@ SyncQueue에 작업 추가
 **Notion → 앱 pull (투두):**
 - 날짜 이동 시 pull **없음** — `fetchLocalTodos` only
 - pull 시점: 콜드 스타트 / **5분 이상** 백그라운드 후 포그라운드 / pull-to-refresh / 플래너 전환 → `syncFromNotion`
-- pull 반영 시 Notion 응답 **부재만으로 로컬 삭제하지 않음** (v1.0.7~). insert 전 `notionPageId` 재확인으로 중복 방지.
+- 달력 「불러오기」(노션 플래너): 월 범위 GET `startDate`~`endDate` → `syncTodosFromNotionRange` (자동 pull 아님)
+- pull 반영 시 Notion 응답 **부재만으로 로컬 삭제하지 않음** (v1.0.7~; 노션 삭제 전파는 V2 웹훅). insert 전 `notionPageId` 재확인으로 중복 방지.
+- Version Guard: `incoming < existing`만 stale 스킵 (동일 `notionLastEditedTime`은 반영, v1.08)
 
 > ~~로컬 사용자는 SyncQueue 없이 SwiftData만 사용.~~ → 로컬 **플래너**는 enqueue만 생략, SwiftData는 공통.
 
@@ -999,11 +1001,12 @@ struct Category: Identifiable, Codable {
 
 > 모든 날짜 자유 이동 가능 (무료).
 
-**달력 시트 (v1.08)**
-- 제목 「달력 보기」, large detent. 데이터는 로컬 SwiftData만 (`fetchCategoryDots` / `fetchTodos`) — 날짜 이동과 동일하게 Notion pull 없음
+**달력 시트 (v1.08 재제출)**
+- 제목 「달력 보기」, large detent. 기본 데이터는 로컬 SwiftData (`fetchCategoryDots` / `fetchTodos`) — 날짜 이동 시 Notion pull 없음
 - 시작 시 날짜 미선택 (`focusedDate == nil`, 「날짜를 탭하세요」). 날짜 탭 → 선택 + 하단 목록. 체크(선택 시 포인트 컬러) 또는 목록 행 탭 → 해당 날짜로 이동 후 dismiss. X는 닫기만(날짜 유지)
 - 날짜 셀: 카테고리 색 점 최대 3개 + 초과 시 "+N". 미분류만 있으면 회색 점. 주 시작은 `AppCalendar.localized` (`startWeekday`와 동일)
-- 카테고리 필터 (Menu): 전체 / 활성 카테고리 / 미분류 — View에서 점·목록만 필터. 시트 닫으면 전체로 초기화
+- 카테고리 범례 필터: 그리드 아래 가로 스크롤(점+이름, 선택 시 테두리만). 전체 / 활성 카테고리 / 미분류 — View에서 점·목록만 필터. 시트 닫으면 전체로 초기화
+- 노션 연동 플래너: 헤더 「불러오기」 아이콘 → `syncTodosFromNotionRange`(표시 월 `startDate`~`endDate`). 범위 upsert는 relation link enqueue 안 함
 - 1회 안내: 투두 탭 날짜 제목 아래 「탭하면 달력을 볼 수 있어요」(`hasSeenCalendarOpenHint`), 달력 첫 선택 시 「선택한 날짜로 이동해요」(`hasSeenCalendarMoveHint`)
 
 ### 투두 아이템 제스처
