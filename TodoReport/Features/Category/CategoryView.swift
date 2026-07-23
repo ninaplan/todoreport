@@ -225,7 +225,7 @@ private struct CategoryEditSheet: View {
                                     if viewModel.editColorHex.uppercased() == hex.uppercased() {
                                         Image(systemName: "checkmark")
                                             .font(.caption.bold())
-                                            .foregroundStyle(.white)
+                                            .foregroundStyle(Color(hex: hex).readableForeground)
                                     }
                                 }
                             }

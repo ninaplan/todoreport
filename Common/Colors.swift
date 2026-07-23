@@ -17,7 +17,7 @@ extension Color {
     // MARK: - 대비 헬퍼 (카테고리 색)
 
     /// 채움 위 글자용 휘도 임계값 — 아주 밝은 색에서만 검정, 그 외 흰색. 실기기에서 미세조정
-    private static let lightLuminanceThreshold: Double = 0.78
+    private static let lightLuminanceThreshold: Double = 0.76
     /// 라이트모드 색글자 목표 luminance 상한 — 실기기에서 조정
     private static let lightModeMaxLuminance: Double = 0.55
     /// 다크모드 색글자 목표 luminance 하한 — 실기기에서 조정
