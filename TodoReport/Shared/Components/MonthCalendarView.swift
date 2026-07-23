@@ -56,11 +56,12 @@ struct MonthCalendarView: View {
     var body: some View {
         VStack(spacing: 12) {
             VStack(spacing: 12) {
-                categoryFilterPicker
                 monthHeader
                 weekdayHeader
                 dayGrid
             }
+
+            categoryLegendRow
 
             Divider()
                 .padding(.top, 4)
@@ -123,96 +124,124 @@ struct MonthCalendarView: View {
         }
     }
 
-    /// 노션 플래너 — [◀ 월 ▶] 왼쪽 묶음 + [⟳ 불러오기] 오른쪽
+    /// 노션 플래너 — 화살표 양끝, 월 제목 헤더 중앙, 불러오기 아이콘은 제목 바로 오른쪽
     private var notionMonthHeader: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 0) {
-                Button {
-                    shiftMonth(by: -1)
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .frame(width: 44, height: 44)
-                }
-                .buttonStyle(.plain)
+        let fetchSlotWidth: CGFloat = 28
+        return HStack {
+            Button {
+                shiftMonth(by: -1)
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
 
+            Spacer(minLength: 0)
+
+            HStack(spacing: 4) {
+                Color.clear
+                    .frame(width: fetchSlotWidth, height: 44)
                 Text(monthTitle(displayedMonth))
                     .font(.headline)
-
                 Button {
-                    shiftMonth(by: 1)
+                    Task { await fetchMonthFromNotion() }
                 } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .frame(width: 44, height: 44)
+                    if isFetchingNotion {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: fetchSlotWidth, height: 44)
+                    } else {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Color.nockOrange)
+                            .frame(width: fetchSlotWidth, height: 44)
+                    }
                 }
                 .buttonStyle(.plain)
+                .disabled(isFetchingNotion)
+                .accessibilityLabel("불러오기")
             }
 
             Spacer(minLength: 0)
 
             Button {
-                Task { await fetchMonthFromNotion() }
+                shiftMonth(by: 1)
             } label: {
-                if isFetchingNotion {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(height: 44)
-                } else {
-                    Label("불러오기", systemImage: "arrow.triangle.2.circlepath")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Color.nockOrange)
-                        .labelStyle(.titleAndIcon)
-                        .frame(height: 44)
-                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
-            .disabled(isFetchingNotion)
-            .accessibilityLabel("노션에서 데이터 가져오기")
         }
     }
 
     // MARK: - Category filter
 
-    private var categoryFilterPicker: some View {
-        HStack {
-            Spacer(minLength: 0)
-            Menu {
-                Picker("카테고리", selection: $categoryFilter) {
-                    Text("전체").tag(CalendarCategoryFilter.all)
-                    ForEach(activeCategories) { category in
-                        Text(category.name).tag(CalendarCategoryFilter.category(category.id))
-                    }
-                    Text("미분류").tag(CalendarCategoryFilter.uncategorized)
-                }
-            } label: {
-                HStack(spacing: 4) {
-                    Text(categoryFilterButtonTitle)
-                        .font(.body)
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .contentShape(Rectangle())
-            }
-            .id(categoryFilterButtonTitle)
-            .fixedSize(horizontal: true, vertical: false)
-            Spacer(minLength: 0)
-        }
-        .animation(nil, value: categoryFilterButtonTitle)
+    /// 전체 + 활성 카테고리 + 미분류 (표시 순서)
+    private var allCategoryFilterOptions: [CalendarCategoryFilter] {
+        var options: [CalendarCategoryFilter] = [.all]
+        options.append(contentsOf: activeCategories.map { .category($0.id) })
+        options.append(.uncategorized)
+        return options
     }
 
-    private var categoryFilterButtonTitle: String {
-        switch categoryFilter {
+    private var categoryLegendRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(allCategoryFilterOptions, id: \.self) { option in
+                    categoryLegendChip(option)
+                }
+            }
+        }
+    }
+
+    private func categoryLegendChip(_ option: CalendarCategoryFilter) -> some View {
+        let isSelected = categoryFilter == option
+        return Button {
+            categoryFilter = option
+        } label: {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(legendDotColor(for: option))
+                    .frame(width: 8, height: 8)
+                Text(legendTitle(for: option))
+                    .font(.caption.weight(isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? .primary : .secondary)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(isSelected ? Color.primary.opacity(0.55) : Color.clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private func legendTitle(for option: CalendarCategoryFilter) -> String {
+        switch option {
         case .all:
-            return "카테고리 필터"
+            return "전체"
         case .category(let id):
             return CategoryService.shared.store.first(where: { $0.id == id })?.name ?? "카테고리"
         case .uncategorized:
             return "미분류"
+        }
+    }
+
+    private func legendDotColor(for option: CalendarCategoryFilter) -> Color {
+        switch option {
+        case .all:
+            return Color(.secondaryLabel)
+        case .category(let id):
+            return color(forCategoryId: id)
+        case .uncategorized:
+            return Color(.tertiaryLabel)
         }
     }
 
