@@ -9,34 +9,51 @@ struct CategoryView: View {
 
     var body: some View {
         List {
-            ForEach(viewModel.categories) { category in
-                CategoryRow(category: category)
-                    .contentShape(Rectangle())
-                    .onTapGesture { viewModel.openEditSheet(category) }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
-                            viewModel.requestDelete(category)
-                        } label: {
-                            Label("삭제", systemImage: "trash")
-                        }
-                        if category.isHidden {
-                            Button {
-                                viewModel.toggleHidden(category)
-                            } label: {
-                                Label("활성화", systemImage: "eye")
-                            }
-                            .tint(.blue)
-                        } else {
-                            Button {
-                                viewModel.toggleHidden(category)
-                            } label: {
-                                Label("숨기기", systemImage: "eye.slash")
-                            }
-                            .tint(.gray)
-                        }
-                    }
+            Section("색상 팔레트") {
+                CategoryPaletteSetPicker(
+                    selectedSetId: viewModel.storedPaletteSetId,
+                    onSelect: { viewModel.selectPaletteSet($0) }
+                )
+                .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
             }
-            .onMove { viewModel.moveCategory(from: $0, to: $1) }
+
+            if viewModel.categories.isEmpty && !viewModel.isLoading {
+                ContentUnavailableView(
+                    "카테고리 없음",
+                    systemImage: "tag.slash",
+                    description: Text("+ 버튼을 눌러 카테고리를 추가하세요.")
+                )
+                .listRowBackground(Color.clear)
+            } else {
+                ForEach(viewModel.categories) { category in
+                    CategoryRow(category: category)
+                        .contentShape(Rectangle())
+                        .onTapGesture { viewModel.openEditSheet(category) }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                viewModel.requestDelete(category)
+                            } label: {
+                                Label("삭제", systemImage: "trash")
+                            }
+                            if category.isHidden {
+                                Button {
+                                    viewModel.toggleHidden(category)
+                                } label: {
+                                    Label("활성화", systemImage: "eye")
+                                }
+                                .tint(.blue)
+                            } else {
+                                Button {
+                                    viewModel.toggleHidden(category)
+                                } label: {
+                                    Label("숨기기", systemImage: "eye.slash")
+                                }
+                                .tint(.gray)
+                            }
+                        }
+                }
+                .onMove { viewModel.moveCategory(from: $0, to: $1) }
+            }
         }
         .navigationTitle("카테고리 관리")
         .navigationBarTitleDisplayMode(.inline)
@@ -55,15 +72,6 @@ struct CategoryView: View {
                 .presentationDragIndicator(.visible)
         }
         .task { await viewModel.fetchCategories() }
-        .overlay {
-            if viewModel.categories.isEmpty && !viewModel.isLoading {
-                ContentUnavailableView(
-                    "카테고리 없음",
-                    systemImage: "tag.slash",
-                    description: Text("+ 버튼을 눌러 카테고리를 추가하세요.")
-                )
-            }
-        }
         .alert("카테고리 삭제", isPresented: $viewModel.showDeleteAlert) {
             Button("취소", role: .cancel) { viewModel.cancelDelete() }
             Button("삭제", role: .destructive) {
@@ -72,6 +80,53 @@ struct CategoryView: View {
         } message: {
             if let category = viewModel.deletingCategory {
                 Text(viewModel.deleteAlertMessage(for: category))
+            }
+        }
+    }
+}
+
+// MARK: - 팔레트 세트 선택
+
+private struct CategoryPaletteSetPicker: View {
+    let selectedSetId: String
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(CategoryPaletteSet.all) { set in
+                    let isSelected = set.id == selectedSetId
+                    Button {
+                        onSelect(set.id)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 3) {
+                                ForEach(set.colors.prefix(6), id: \.self) { hex in
+                                    Circle()
+                                        .fill(Color(hex: hex))
+                                        .frame(width: 10, height: 10)
+                                }
+                            }
+                            Text(set.displayName)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(isSelected ? Color.nockOrange : .primary)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color(.secondarySystemGroupedBackground))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(
+                                    isSelected ? Color.nockOrange : Color.clear,
+                                    lineWidth: 2
+                                )
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
     }
@@ -159,7 +214,7 @@ private struct CategoryEditSheet: View {
 
                 Section("색상") {
                     LazyVGrid(columns: colorColumns, spacing: 14) {
-                        ForEach(Category.colorPalette, id: \.self) { hex in
+                        ForEach(viewModel.activePaletteColors, id: \.self) { hex in
                             Button {
                                 viewModel.selectColor(hex)
                             } label: {
@@ -167,7 +222,7 @@ private struct CategoryEditSheet: View {
                                     Circle()
                                         .fill(Color(hex: hex))
                                         .frame(width: 36, height: 36)
-                                    if viewModel.editColorHex == hex {
+                                    if viewModel.editColorHex.uppercased() == hex.uppercased() {
                                         Image(systemName: "checkmark")
                                             .font(.caption.bold())
                                             .foregroundStyle(.white)

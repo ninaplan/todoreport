@@ -49,12 +49,6 @@ struct Category: Identifiable, Codable {
         self.isHidden = isHidden
     }
 
-    static let colorPalette: [String] = [
-        "#FF3B30", "#FF9500", "#FFCC00", "#34C759",
-        "#00C7BE", "#007AFF", "#5856D6", "#AF52DE",
-        "#FF2D55", "#A2845E", "#8E8E93", "#FD6845"
-    ]
-
     static let iconPalette: [String] = [
         // 업무/생산성
         "briefcase.fill", "desktopcomputer", "laptopcomputer", "doc.text.fill", "chart.line.uptrend.xyaxis",
@@ -214,6 +208,23 @@ final class CategoryService {
         let descriptor = FetchDescriptor<CategoryItem>(predicate: #Predicate { $0.id == id })
         guard let item = try context.fetch(descriptor).first else { return }
         item.isHidden.toggle()
+        try context.save()
+        await refreshStore()
+    }
+
+    /// 플래너 카테고리 colorHex만 일괄 갱신 (로컬 전용, Notion sync 없음).
+    /// archived 제외, 활성·숨김 포함. sortOrder 순으로 세트 색 순환 배정.
+    func recolorCategories(for plannerId: String, colors: [String]) async throws {
+        guard !colors.isEmpty else { return }
+        let descriptor = FetchDescriptor<CategoryItem>(
+            sortBy: [SortDescriptor(\.sortOrder)]
+        )
+        let items = try context.fetch(descriptor).filter {
+            $0.plannerId == plannerId && $0.status != .archived
+        }
+        for (index, item) in items.enumerated() {
+            item.colorHex = colors[index % colors.count]
+        }
         try context.save()
         await refreshStore()
     }

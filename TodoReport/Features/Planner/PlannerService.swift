@@ -26,6 +26,8 @@ struct Planner: Identifiable, Hashable, Codable {
     // Pro 해지 후 읽기 전용 전환 여부
     var isReadOnly: Bool
     var sortOrder: Double
+    // 카테고리 색 팔레트 세트 (로컬 전용 — SyncQueue/API 바디에 포함하지 않음)
+    var categoryPaletteSetId: String
 
     init(
         id: String = UUID().uuidString,
@@ -44,7 +46,8 @@ struct Planner: Identifiable, Hashable, Codable {
         todoPropsMapping: String? = nil,
         reportPropsMapping: String? = nil,
         isReadOnly: Bool = false,
-        sortOrder: Double = 0
+        sortOrder: Double = 0,
+        categoryPaletteSetId: String = "basic"
     ) {
         self.id = id
         self.name = name
@@ -63,6 +66,7 @@ struct Planner: Identifiable, Hashable, Codable {
         self.reportPropsMapping = reportPropsMapping
         self.isReadOnly = isReadOnly
         self.sortOrder = sortOrder
+        self.categoryPaletteSetId = categoryPaletteSetId
     }
 
     // 이 플래너에서 사용할 Notion 액세스 토큰
@@ -350,6 +354,15 @@ final class PlannerService {
             context.insert(PlannerItem.from(planner))
         }
         try context.save()
+        refreshStore()
+    }
+
+    /// 카테고리 팔레트 세트만 갱신 (로컬 SwiftData 전용)
+    func updateCategoryPaletteSetId(_ setId: String, for plannerId: String) {
+        let descriptor = FetchDescriptor<PlannerItem>(predicate: #Predicate { $0.id == plannerId })
+        guard let item = try? context.fetch(descriptor).first else { return }
+        item.categoryPaletteSetId = setId
+        try? context.save()
         refreshStore()
     }
 

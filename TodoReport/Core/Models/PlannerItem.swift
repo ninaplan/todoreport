@@ -28,6 +28,8 @@ final class PlannerItem {
     // Pro 해지 후 읽기 전용 전환 여부
     var isReadOnly: Bool = false
     var sortOrder: Double = 0
+    // 카테고리 색 팔레트 세트 (로컬 전용 — 네트워크 페이로드 미포함)
+    var categoryPaletteSetId: String = "basic"
 
     init(
         id: String = UUID().uuidString,
@@ -46,7 +48,8 @@ final class PlannerItem {
         todoPropsMapping: String? = nil,
         reportPropsMapping: String? = nil,
         isReadOnly: Bool = false,
-        sortOrder: Double = 0
+        sortOrder: Double = 0,
+        categoryPaletteSetId: String = "basic"
     ) {
         self.id = id
         self.name = name
@@ -65,6 +68,7 @@ final class PlannerItem {
         self.reportPropsMapping = reportPropsMapping
         self.isReadOnly = isReadOnly
         self.sortOrder = sortOrder
+        self.categoryPaletteSetId = categoryPaletteSetId
     }
 
     func toPlanner() -> Planner {
@@ -83,7 +87,8 @@ final class PlannerItem {
             todoPropsMapping: todoPropsMapping,
             reportPropsMapping: reportPropsMapping,
             isReadOnly: isReadOnly,
-            sortOrder: sortOrder
+            sortOrder: sortOrder,
+            categoryPaletteSetId: categoryPaletteSetId
         )
     }
 
@@ -103,6 +108,7 @@ final class PlannerItem {
         reportPropsMapping = planner.reportPropsMapping
         isReadOnly = planner.isReadOnly
         sortOrder = planner.sortOrder
+        categoryPaletteSetId = planner.categoryPaletteSetId
     }
 
     static func from(_ planner: Planner) -> PlannerItem {
@@ -121,7 +127,8 @@ final class PlannerItem {
             todoPropsMapping: planner.todoPropsMapping,
             reportPropsMapping: planner.reportPropsMapping,
             isReadOnly: planner.isReadOnly,
-            sortOrder: planner.sortOrder
+            sortOrder: planner.sortOrder,
+            categoryPaletteSetId: planner.categoryPaletteSetId
         )
     }
 }
