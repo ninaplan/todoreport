@@ -454,11 +454,17 @@ private struct FilterChip: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         Button(action: action) {
             Text(label)
                 .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? .white : color)
+                .foregroundStyle(
+                    isSelected
+                    ? color.readableForeground
+                    : color.readableText(on: colorScheme)
+                )
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .background(

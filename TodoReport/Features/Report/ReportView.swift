@@ -617,6 +617,8 @@ private struct CategoryStatsCard: View {
 private struct CategoryStatRow: View {
     let stat: CategoryStat
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         VStack(spacing: 6) {
             HStack {
@@ -631,7 +633,7 @@ private struct CategoryStatRow: View {
                     .foregroundStyle(.secondary)
                 Text("\(Int(stat.rate * 100))%")
                     .font(.caption.bold())
-                    .foregroundStyle(Color(hex: stat.colorHex))
+                    .foregroundStyle(Color(hex: stat.colorHex).readableText(on: colorScheme))
                     .frame(width: 36, alignment: .trailing)
             }
             GeometryReader { geo in

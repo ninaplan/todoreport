@@ -39,9 +39,9 @@ struct CategoryPaletteSet: Identifiable, Hashable {
             id: "pastel",
             displayName: "파스텔",
             colors: [
-                "#F5A3A3", "#F7B9A0", "#F7D6A0", "#F3E3A3",
-                "#CFE3A3", "#A9DDB4", "#A3DAD2", "#A9CCE8",
-                "#B3BEEA", "#C9B6E4", "#E3B4DD", "#EBB0C6"
+                "#E97F7F", "#F0997A", "#EEC073", "#E3CE6E",
+                "#AECB6E", "#7FC98F", "#71C3B8", "#79ADD3",
+                "#8A9AD9", "#A98FD1", "#CE8FC4", "#DB8AAA"
             ]
         ),
         CategoryPaletteSet(
@@ -57,9 +57,9 @@ struct CategoryPaletteSet: Identifiable, Hashable {
             id: "muted",
             displayName: "뮤트",
             colors: [
-                "#C98B84", "#CDA188", "#CBB58C", "#C3C395",
-                "#A9BE9E", "#93B7AE", "#9BB4C9", "#A6A6C9",
-                "#B79BC0", "#C79BB0", "#B0A08C", "#9C9C9C"
+                "#B87068", "#BC8A6C", "#B9A06C", "#A6A66E",
+                "#86A079", "#6E9E93", "#7595AF", "#8484AE",
+                "#9D7EA9", "#B0788F", "#97836B", "#7E7E7E"
             ]
         ),
         CategoryPaletteSet(
