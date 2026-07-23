@@ -350,7 +350,7 @@ final class TodoService {
         let incomingLastEditedTime = parseLastEditedTime(nt.lastEditedTime)
         if let incoming = incomingLastEditedTime,
            let existingLastEditedTime = existing.notionLastEditedTime,
-           incoming <= existingLastEditedTime {
+           incoming < existingLastEditedTime {
             print("[TodoService] ⏭️ stale 응답 skip - pageId:\(pageId) incoming:\(incoming) existing:\(existingLastEditedTime)")
             return
         }
