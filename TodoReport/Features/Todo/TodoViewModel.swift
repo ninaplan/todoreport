@@ -48,6 +48,7 @@ final class TodoViewModel {
     private(set) var isAwaitingInitialNotionLoad: Bool = false
 
     var showDeleteAlert: Bool = false
+    var showSingleDeleteAlert: Bool = false
     private(set) var pendingDeleteTodo: Todo? = nil
 
     var showRecurringEditAlert: Bool = false
@@ -357,11 +358,11 @@ final class TodoViewModel {
     }
 
     func requestDelete(_ todo: Todo) {
+        pendingDeleteTodo = todo
         if todo.recurrenceId != nil {
-            pendingDeleteTodo = todo
             showDeleteAlert = true
         } else {
-            deleteTodo(todo)
+            showSingleDeleteAlert = true
         }
     }
 
@@ -380,6 +381,16 @@ final class TodoViewModel {
     }
 
     func cancelDelete() {
+        pendingDeleteTodo = nil
+    }
+
+    func confirmSingleDelete() {
+        guard let todo = pendingDeleteTodo else { return }
+        pendingDeleteTodo = nil
+        deleteTodo(todo)
+    }
+
+    func cancelSingleDelete() {
         pendingDeleteTodo = nil
     }
 

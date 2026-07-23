@@ -269,6 +269,10 @@ struct TodoView: View {
             } message: {
                 Text("어떻게 삭제할까요?")
             }
+            .alert("이 할 일을 삭제할까요?", isPresented: $viewModel.showSingleDeleteAlert) {
+                Button("삭제", role: .destructive) { viewModel.confirmSingleDelete() }
+                Button("취소", role: .cancel) { viewModel.cancelSingleDelete() }
+            }
             .alert(viewModel.recurringEditAlertTitle, isPresented: $viewModel.showRecurringEditAlert) {
                 Button(viewModel.recurringEditSingleLabel) { viewModel.confirmRecurringEditSingle() }
                 Button(viewModel.recurringEditFutureLabel, role: .destructive) { viewModel.confirmRecurringEditFuture() }
