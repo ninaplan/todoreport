@@ -260,6 +260,53 @@ final class TodoService {
         }
     }
 
+    /// 달력 「불러오기」용 — startDate~endDate 범위 조회 후 날짜별 upsert.
+    /// `syncTodosFromNotion(for:)`와 동일하게 `dbId`+`plannerId`를 함께 넘김(캐시 scope 정합).
+    func syncTodosFromNotionRange(start: Date, end: Date) async throws {
+        let planner = PlannerService.shared.selectedPlanner
+        guard planner?.isNotionConnected == true,
+              let dbId = planner?.notionTodoDBId else { return }
+        let pid = planner?.id
+        let mapping = planner?.decodedTodoPropsMapping ?? TodoPropsMapping()
+        let token = planner?.resolvedNotionToken
+
+        var params: [String: String] = [
+            "startDate": seoulDateString(from: start),
+            "endDate": seoulDateString(from: end),
+            "dbId": dbId
+        ]
+        if let pid = pid { params["plannerId"] = pid }
+        if let v = mapping.completed { params["completedProp"] = v }
+        if let v = mapping.date      { params["dateProp"] = v }
+        if let v = mapping.isPinned  { params["isPinnedProp"] = v }
+        if let planner {
+            params.merge(CategoryNotionSync.shared.todoFetchParams(from: planner)) { _, new in new }
+        }
+
+        let notionTodos: [NotionTodoResponse] = try await APIClient.shared.get(
+            "/api/notion/todo", params: params, token: token
+        )
+        guard !Task.isCancelled else { return }
+
+        print(
+            "[TodoService] 🔄 Notion range fetch - \(params["startDate"] ?? "")~\(params["endDate"] ?? "") \(notionTodos.count)개"
+        )
+
+        var grouped: [String: [NotionTodoResponse]] = [:]
+        let fallbackKey = seoulDateString(from: start)
+        for nt in notionTodos {
+            let key = nt.date.count >= 10 ? String(nt.date.prefix(10)) : fallbackKey
+            grouped[key, default: []].append(nt)
+        }
+
+        let seoul = TimeZone(identifier: "Asia/Seoul")
+        for (dayKey, items) in grouped {
+            let dayDate = parseNotionDayOnlyDate(dayKey, calendar: .current, timeZone: seoul)
+                ?? Calendar.current.startOfDay(for: start)
+            upsertFromNotion(items, for: dayDate, plannerId: pid, enqueueRelationLinks: false)
+        }
+    }
+
     private static let localModificationProtectionInterval: TimeInterval = 60
 
     private func itemBelongsToSyncPlanner(_ item: TodoItem, plannerId: String?) -> Bool {
@@ -325,7 +372,12 @@ final class TodoService {
         }
     }
 
-    private func upsertFromNotion(_ notionTodos: [NotionTodoResponse], for date: Date, plannerId: String?) {
+    private func upsertFromNotion(
+        _ notionTodos: [NotionTodoResponse],
+        for date: Date,
+        plannerId: String?,
+        enqueueRelationLinks: Bool = true
+    ) {
         let startOfDay = Calendar.current.startOfDay(for: date)
         guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return }
 
@@ -394,6 +446,8 @@ final class TodoService {
         try? context.save()
 
         // relation 미연결 항목 → relation 전용 enqueue (일반 update와 분리)
+        // 달력 월 범위 pull은 enqueueRelationLinks=false 로 대량 PATCH 방지
+        guard enqueueRelationLinks else { return }
         let itemsToLink: [Todo] = notionTodos.compactMap { nt in
             guard let item = findExistingByNotionPageId(nt.notionPageId, plannerId: plannerId),
                   !item.notionRelationLinked else { return nil }

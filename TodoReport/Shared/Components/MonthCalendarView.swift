@@ -15,11 +15,19 @@ struct MonthCalendarView: View {
     @State private var dayTodos: [Todo] = []
     @State private var monthShiftDirection: Int = 0
     @State private var categoryFilter: CalendarCategoryFilter = .all
+    @State private var isFetchingNotion = false
+    @State private var showFetchErrorAlert = false
+    @State private var fetchErrorMessage = ""
 
     private var calendar: Calendar { AppCalendar.localized }
     private let dayCellHeight: CGFloat = 50
     private let dayGridRowSpacing: CGFloat = 8
     private let dayNumberFontSize: CGFloat = 17
+
+    private var isNotionPlanner: Bool {
+        let planner = PlannerService.shared.selectedPlanner
+        return planner?.isNotionConnected == true && planner?.notionTodoDBId != nil
+    }
 
     private var activeCategories: [Category] {
         CategoryService.shared.activeCategories
@@ -68,11 +76,26 @@ struct MonthCalendarView: View {
         .task(id: focusedDate.map { calendar.startOfDay(for: $0) }) {
             await loadDayTodos()
         }
+        .alert("불러오기 실패", isPresented: $showFetchErrorAlert) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text(fetchErrorMessage)
+        }
     }
 
     // MARK: - Header
 
+    @ViewBuilder
     private var monthHeader: some View {
+        if isNotionPlanner {
+            notionMonthHeader
+        } else {
+            localMonthHeader
+        }
+    }
+
+    /// 로컬 플래너 — 기존 레이아웃 유지 (화살표 양끝, 제목 가운데)
+    private var localMonthHeader: some View {
         HStack {
             Button {
                 shiftMonth(by: -1)
@@ -97,6 +120,57 @@ struct MonthCalendarView: View {
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    /// 노션 플래너 — [◀ 월 ▶] 왼쪽 묶음 + [⟳ 불러오기] 오른쪽
+    private var notionMonthHeader: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 0) {
+                Button {
+                    shiftMonth(by: -1)
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+
+                Text(monthTitle(displayedMonth))
+                    .font(.headline)
+
+                Button {
+                    shiftMonth(by: 1)
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                Task { await fetchMonthFromNotion() }
+            } label: {
+                if isFetchingNotion {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(height: 44)
+                } else {
+                    Label("불러오기", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Color.nockOrange)
+                        .labelStyle(.titleAndIcon)
+                        .frame(height: 44)
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(isFetchingNotion)
+            .accessibilityLabel("노션에서 데이터 가져오기")
         }
     }
 
@@ -345,6 +419,38 @@ struct MonthCalendarView: View {
         }
         let fetched = await TodoService.shared.fetchTodos(for: focusedDate)
         dayTodos = Self.sortedLikeTodoTab(fetched)
+    }
+
+    private func fetchMonthFromNotion() async {
+        guard !isFetchingNotion else { return }
+        isFetchingNotion = true
+        defer { isFetchingNotion = false }
+
+        var seoulCalendar = Calendar(identifier: .gregorian)
+        guard let seoul = TimeZone(identifier: "Asia/Seoul") else { return }
+        seoulCalendar.timeZone = seoul
+
+        guard
+            let monthStart = seoulCalendar.date(
+                from: seoulCalendar.dateComponents([.year, .month], from: displayedMonth)
+            ),
+            let nextMonth = seoulCalendar.date(byAdding: .month, value: 1, to: monthStart),
+            let monthEnd = seoulCalendar.date(byAdding: .day, value: -1, to: nextMonth)
+        else { return }
+
+        do {
+            try await TodoService.shared.syncTodosFromNotionRange(start: monthStart, end: monthEnd)
+            await CategoryService.shared.refresh()
+            dotsByDay = await TodoService.shared.fetchCategoryDots(forMonthContaining: displayedMonth)
+            await loadDayTodos()
+        } catch {
+            AppLogger.shared.warn(
+                "MonthCalendarView",
+                "노션 월 불러오기 실패 - \(error.localizedDescription)"
+            )
+            fetchErrorMessage = error.localizedDescription
+            showFetchErrorAlert = true
+        }
     }
 
     /// 투두 탭 displayedTodos와 동일: 고정(미완료) → 일반(미완료) → 완료
