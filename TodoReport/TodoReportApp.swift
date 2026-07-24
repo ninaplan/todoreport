@@ -41,6 +41,8 @@ struct TodoReportApp: App {
                 AppLogger.shared.logNewSession()
                 UNUserNotificationCenter.current().delegate = AppNotificationDelegate.shared
                 TodoNotificationManager.shared.requestPermission()
+                // 시작 ~2.5초 뒤 키보드 세션 프리웜 (즉시 실행 시 스크롤 먹통 방지)
+                KeyboardPrewarmer.scheduleAfterLaunch()
                 Task {
                     async let entitlements: Void = SubscriptionManager.shared.updatePurchasedProducts()
                     async let products: Void = SubscriptionManager.shared.loadProducts()

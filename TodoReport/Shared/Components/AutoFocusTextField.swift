@@ -46,7 +46,82 @@ struct AutoFocusTextField: View {
     }
 }
 
+// MARK: - Auto focus retry
+
+/// List 삽입·키보드 dismiss 직후 becomeFirstResponder가 실패할 수 있어 짧게 재시도.
+/// 뷰가 window에서 떨어지면 시퀀스를 즉시 취소한다. 상한 ≈2초(거부 창 커버).
+private final class AutoFocusRetrySession {
+    private(set) var isCancelled = false
+
+    func cancel() {
+        isCancelled = true
+    }
+}
+
+private enum AutoFocusRetry {
+    private static let interval: TimeInterval = 0.03
+    private static let maxAttempts = 67
+
+    /// 즉시 시도 실패 후에만 호출. 다음 런루프부터 재시도.
+    static func schedule(on view: UIView, session: AutoFocusRetrySession) {
+        DispatchQueue.main.async { [weak view] in
+            guard let view else { return }
+            attempt(view: view, session: session, remaining: maxAttempts)
+        }
+    }
+
+    private static func attempt(view: UIView, session: AutoFocusRetrySession, remaining: Int) {
+        guard !session.isCancelled, remaining > 0 else { return }
+        guard view.window != nil else {
+            session.cancel()
+            return
+        }
+
+        if view.becomeFirstResponder() || view.isFirstResponder {
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + interval) { [weak view] in
+            guard !session.isCancelled, let view else { return }
+            attempt(view: view, session: session, remaining: remaining - 1)
+        }
+    }
+}
+
 // MARK: - Single line (UITextField)
+
+/// 인스턴스당 자동 포커스 1회. 재추가는 SwiftUI `.id(epoch)`로 새 인스턴스를 만든다.
+private final class AutoFocusUITextField: UITextField {
+    var shouldAutoFocus = false
+    private var didAttemptAutoFocus = false
+    private var retrySession: AutoFocusRetrySession?
+
+    deinit {
+        retrySession?.cancel()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil {
+            retrySession?.cancel()
+            retrySession = nil
+            if isFirstResponder {
+                resignFirstResponder()
+            }
+            return
+        }
+        guard shouldAutoFocus, !didAttemptAutoFocus else { return }
+        didAttemptAutoFocus = true
+
+        // 첫 시도는 async 없이 즉시 — 실패할 때만 재시도 시퀀스.
+        if becomeFirstResponder() || isFirstResponder {
+            return
+        }
+        let session = AutoFocusRetrySession()
+        retrySession = session
+        AutoFocusRetry.schedule(on: self, session: session)
+    }
+}
 
 private struct AutoFocusSingleLineTextFieldRepresentable: UIViewRepresentable {
     @Binding var text: String
@@ -69,8 +144,8 @@ private struct AutoFocusSingleLineTextFieldRepresentable: UIViewRepresentable {
         return UIFont.preferredFont(forTextStyle: .body, compatibleWith: traitCollection)
     }
 
-    func makeUIView(context: Context) -> UITextField {
-        let tf = UITextField()
+    func makeUIView(context: Context) -> AutoFocusUITextField {
+        let tf = AutoFocusUITextField()
         tf.placeholder = placeholder
         tf.font = resolvedFont(compatibleWith: tf.traitCollection)
         tf.returnKeyType = returnKeyType
@@ -78,15 +153,11 @@ private struct AutoFocusSingleLineTextFieldRepresentable: UIViewRepresentable {
         tf.contentVerticalAlignment = contentVerticalAlignment
         tf.delegate = context.coordinator
         tf.addTarget(context.coordinator, action: #selector(Coordinator.textChanged(_:)), for: .editingChanged)
-        if autoFocus {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak tf] in
-                tf?.becomeFirstResponder()
-            }
-        }
+        tf.shouldAutoFocus = autoFocus
         return tf
     }
 
-    func updateUIView(_ tf: UITextField, context: Context) {
+    func updateUIView(_ tf: AutoFocusUITextField, context: Context) {
         if textStyle != nil {
             tf.font = resolvedFont(compatibleWith: tf.traitCollection)
         }
@@ -141,6 +212,34 @@ private struct AutoFocusSingleLineTextFieldRepresentable: UIViewRepresentable {
 
 private final class GrowingTextView: UITextView {
     var minContentHeight: CGFloat = 36
+    var shouldAutoFocus = false
+    private var didAttemptAutoFocus = false
+    private var retrySession: AutoFocusRetrySession?
+
+    deinit {
+        retrySession?.cancel()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil {
+            retrySession?.cancel()
+            retrySession = nil
+            if isFirstResponder {
+                resignFirstResponder()
+            }
+            return
+        }
+        guard shouldAutoFocus, !didAttemptAutoFocus else { return }
+        didAttemptAutoFocus = true
+
+        if becomeFirstResponder() || isFirstResponder {
+            return
+        }
+        let session = AutoFocusRetrySession()
+        retrySession = session
+        AutoFocusRetry.schedule(on: self, session: session)
+    }
 
     override var intrinsicContentSize: CGSize {
         let width = bounds.width > 0 ? bounds.width : (superview?.bounds.width ?? 0)
@@ -184,6 +283,7 @@ private struct AutoFocusMultilineTextFieldRepresentable: UIViewRepresentable {
         tv.isScrollEnabled = false
         tv.delegate = context.coordinator
         tv.text = text
+        tv.shouldAutoFocus = autoFocus
 
         let placeholderLabel = UILabel()
         placeholderLabel.text = placeholder
@@ -200,11 +300,6 @@ private struct AutoFocusMultilineTextFieldRepresentable: UIViewRepresentable {
         ])
         context.coordinator.placeholderLabel = placeholderLabel
 
-        if autoFocus {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak tv] in
-                tv?.becomeFirstResponder()
-            }
-        }
         return tv
     }
 
