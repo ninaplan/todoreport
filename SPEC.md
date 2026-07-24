@@ -1018,7 +1018,7 @@ struct Category: Identifiable, Codable {
 | 탭 (체크박스 영역) | 완료/미완료 토글 |
 | 탭 (텍스트/행 영역) | 아무것도 안 함 |
 | 오른쪽 스와이프 (풀스와이프) | 고정(isPinned 토글) |
-| 왼쪽 스와이프 | 내일하기 / 날짜변경 / 삭제 |
+| 왼쪽 스와이프 | 내일하기(`sunrise`) / 날짜변경 / 삭제 — `Label`+`.labelStyle(.iconOnly)` (화면엔 아이콘만, title은 VoiceOver용 유지) |
 | 길게 누르기 | 편집 모드 (제목 수정, 카테고리 변경) |
 
 **삭제 확인:**

@@ -64,7 +64,6 @@
   - 조치: 가드 및 showDatePaywall/datePaywallMessage/dismissDatePaywall() 관련 코드 전체 제거
 
 ### 다음 할 일
-- 스와이프 버튼 원형화/조사 — 네이티브 `.swipeActions` 모양·간격·중간 고정 시 제목 가림
 - 필터 칩 점+이름 — 투두 탭 `FilterChip`과 달력 범례(`categoryLegendChip`) 공통 컴포넌트화 검토
 - 할일 시간·알림 목록 표시 — `scheduledTime`/`alarmOffset`은 모델·편집에만 있고 `TodoRow` 미표시 (v1.1)
 - 날짜 행 블러 — 투두 탭 상단 날짜 네비게이션 행 polish
@@ -78,6 +77,7 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- 스와이프 버튼 아이콘 전용화 + 내일하기 해돋이 아이콘 (2026-07-24): `.trailing` 3개 `Label`+`.labelStyle(.iconOnly)`(title은 접근성용), 내일하기 `sunrise`. 원형 커스텀 스와이프는 V2
 - 일반 할일 삭제 확인 팝업 (2026-07-24): `showSingleDeleteAlert` — 스와이프/풀스와이프 삭제 전 「이 할 일을 삭제할까요?」. 반복 할일은 기존 `showDeleteAlert` 유지
 - 데일리 리포트 카드 접기/펼치기 (2026-07-24): `DailyReportCard` 기본 접힘(제목+chevron), 펼치면 완료율·별점·리뷰. height reveal + chevron 회전, 측정용 TextField는 `.focused` 분리
 - 달력 월 범위 노션 불러오기 + 범례 가로 스크롤·헤더 polish + stale 가드 개선 (2026-07-23, v1.08 재제출): `syncTodosFromNotionRange`, `enqueueRelationLinks`, `MonthCalendarView` 범례/불러오기, pull `incoming < existing`
@@ -539,7 +539,7 @@ guard SubscriptionManager.shared.isPro else {
 탭 (체크박스 영역)          → 완료/미완료 토글
 탭 (텍스트/행 영역)         → 아무것도 안 함
 우로 스와이프 (풀스와이프)   → 고정(isPinned 토글)
-좌로 스와이프               → [내일하기] [날짜변경] [삭제]
+좌로 스와이프               → [내일하기(sunrise)] [날짜변경] [삭제] — Label+`.labelStyle(.iconOnly)` (화면 아이콘만, title은 접근성)
   (일반: 삭제 확인 alert / 반복: 반복 삭제 alert)
 길게 누르기                 → 편집 모드
 ```
