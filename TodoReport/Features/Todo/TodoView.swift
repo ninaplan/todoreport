@@ -502,7 +502,7 @@ private struct TodoRow: View {
                 .onTapGesture { onCheckboxTap?() }
 
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
+                HStack(alignment: .top, spacing: 6) {
                     Text(todo.title)
                         .font(.body)
                         .strikethrough(todo.isCompleted)
@@ -514,6 +514,22 @@ private struct TodoRow: View {
                     if todo.isPinned {
                         ImportantTodoTag()
                     }
+
+                    if todo.scheduledTime != nil || todo.alarmOffset != nil {
+                        Spacer(minLength: 0)
+                        HStack(spacing: 4) {
+                            if todo.alarmOffset != nil {
+                                Image(systemName: "bell")
+                                    .foregroundStyle(AppTheme.shared.accent)
+                            }
+                            if let scheduledTime = todo.scheduledTime {
+                                Image(systemName: "clock")
+                                Text(scheduledTime, format: .dateTime.hour().minute())
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
                 }
 
                 if showMemo, let memo = todo.memo, !memo.isEmpty {
@@ -524,8 +540,7 @@ private struct TodoRow: View {
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .animation(.easeInOut(duration: 0.2), value: showMemo)
     }
