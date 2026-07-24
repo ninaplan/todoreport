@@ -1,6 +1,6 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-07-23 기준)
+## 현재 상황 (2026-07-24 기준)
 
 ### 앱 상태
 - v1.0.4 App Store 제출 완료
@@ -8,6 +8,15 @@
 - v1.0.6 App Store 제출 완료
 - v1.0.7 제출 예정
 - v1.08 재제출 (2026-07-23)
+
+### v1.09 후보 (2026-07-24, main 반영 · 미제출)
+- 날짜행(`DateNavigationRow`)을 ZStack 오버레이가 아니라 List/ScrollView의 `.safeAreaBar(edge: .top)` 상단 바로 배치 (투두·리포트 공통, 바 높이 40)
+- iOS 26 네이티브 `.scrollEdgeEffectStyle(.soft, for: .top)`로 날짜행 뒤 프로그레시브 블러 — 커스텀 반투명/마스크 방식 폐기
+  - **핵심:** `safeAreaInset`은 스크롤 엣지 블러를 못 받음 → `safeAreaBar`를 써야 함 (iOS 26)
+- 화살표: 원형 배경 제거, 아이콘 전용, `.system(size: 14, weight: .regular)` + 미세 그림자
+- `TodoRow` 제목–메모 간격 6
+- 스크롤 추적 코드 제거 (`arrowBgOpacity` / `scrollOffset` / `ScrollOffsetPreferenceKey` / `coordinateSpace` / `onPreferenceChange`)
+- 엣지 스와이프(`EdgeSwipeNavigationModifier`): `safeAreaBar` 도입 후 List 스크롤과 충돌 → `UIGestureRecognizerDelegate` 동시 인식 허용 + `cancelsTouchesInView`/`delaysTouchesBegan`=false. 시작 시점 속도 판단은 제거, `UIScreenEdgePanGestureRecognizer`의 「화면 끝에서 안쪽」 네이티브 필터에 의존(스크롤 우선)
 
 ### v1.08 변경 내용 (재제출)
 - 투두 날짜 선택: iOS graphical DatePicker → 커스텀 `MonthCalendarView` (캘린더 탭 재사용 염두의 독립 컴포넌트, `Shared/Components/`)
@@ -65,8 +74,7 @@
 
 ### 다음 할 일
 - 필터 칩 점+이름 — 투두 탭 `FilterChip`과 달력 범례(`categoryLegendChip`) 공통 컴포넌트화 검토
-- 할일 시간·알림 목록 표시 — `scheduledTime`/`alarmOffset`은 모델·편집에만 있고 `TodoRow` 미표시 (v1.1)
-- 날짜 행 블러 — 투두 탭 상단 날짜 네비게이션 행 polish
+- 할일 시간·알림 목록 표시 — `scheduledTime`/`alarmOffset`은 모델·편집에만 있고 `TodoRow` 미표시 (v1.1). A/C안 미결정 — 브랜치 `feature/todo-time-alarm-a`(제목 아래), `feature/todo-time-alarm-c`(제목 오른쪽) 보존. 카테고리·체크박스 디자인 후 결정
 - 하루 리뷰 포커스 시 불필요한 밀어올림 개선 — List 키보드 회피; `isAddingTodo` 아닐 때 조건부 ignore 조사됨(미적용)
 - 인박스(날짜 없는 할일) — date 옵셔널화 + 노션 동기화「길 A」(V2-IDEAS.md)
 - 달력 UX 미세조정 — 월 이동 시 선택 해제, 폰트·말풍선 위치 (V2-IDEAS.md)
@@ -77,6 +85,7 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- 날짜행 safeAreaBar 네이티브 soft 블러 + 화살표 원 제거·두께 + TodoRow 제목–메모 간격 6 + 스크롤 추적 코드 제거 (2026-07-24): 투두·리포트 공통 `.safeAreaBar`+`.scrollEdgeEffectStyle(.soft)`. 엣지 스와이프 동시 인식으로 List 스크롤 공존 (커밋 9df4661 → ba45920 → b350462)
 - 스와이프 버튼 아이콘 전용화 + 내일하기 해돋이 아이콘 (2026-07-24): `.trailing` 3개 `Label`+`.labelStyle(.iconOnly)`(title은 접근성용), 내일하기 `sunrise`. 원형 커스텀 스와이프는 V2
 - 일반 할일 삭제 확인 팝업 (2026-07-24): `showSingleDeleteAlert` — 스와이프/풀스와이프 삭제 전 「이 할 일을 삭제할까요?」. 반복 할일은 기존 `showDeleteAlert` 유지
 - 데일리 리포트 카드 접기/펼치기 (2026-07-24): `DailyReportCard` 기본 접힘(제목+chevron), 펼치면 완료율·별점·리뷰. height reveal + chevron 회전, 측정용 TextField는 `.focused` 분리
@@ -525,11 +534,13 @@ guard SubscriptionManager.shared.isPro else {
 ## 날짜 이동 (투두 탭)
 
 ```
-날짜 좌측 공간 탭 → 이전 날 (유료)
-날짜 우측 공간 탭 → 다음 날 (유료)
-날짜 텍스트 탭    → 달력 피커 (유료)
-화면 스와이프     → 금지 (투두 아이템 스와이프와 충돌)
+날짜 좌측 화살표/공간 탭 → 이전 날
+날짜 우측 화살표/공간 탭 → 다음 날
+날짜 텍스트 탭           → 달력 피커
+화면 가장자리 엣지 스와이프 → 이전/다음 날 (`edgeSwipeNavigation`, 스크롤 우선)
 ```
+
+`DateNavigationRow`는 List/ScrollView `.safeAreaBar(edge: .top)` 높이 40 + `.scrollEdgeEffectStyle(.soft, for: .top)` (리포트 탭 동일). `safeAreaInset`은 스크롤 엣지 블러를 못 받음.
 
 ---
 
@@ -861,7 +872,7 @@ Phase 5 (출시)
   (노션 연결 전 데이터 처리 방식 선택, 취소 방지, 실패 분기 처리)
 - ✅ 퀵캡처/투두 추가 시 selectedDate 주입 (날짜 이동 후 추가 시 현재 날짜 적용)
 - ✅ 데일리 리포트 페이지 제목 포맷 변경 (백엔드: `M월 d일 (요일) 리포트` — lib/format-title.ts)
-- ✅ DateNavigationRow 화살표 축소 (.system size 13, weight light)
+- ✅ DateNavigationRow: 원형 배경 제거, 아이콘 전용 `.system(size: 14, weight: .regular)` + 미세 그림자; 투두·리포트 `.safeAreaBar`+`.scrollEdgeEffectStyle(.soft)` (2026-07-24)
 - ✅ 기간 리포트 upsert 로직 수정 (백엔드: notionPageId → 날짜 범위 기반 검색으로 중복 생성·400 오류 해결)
 - ✅ 기간 리포트 저장 시트 — 노션·로컬 기존 리뷰 로드 (`fetchSavedPeriodReview`, `prepareSave`, `NotionSaveEditorView.initialComment`)
 - ✅ 기간 리포트 GET `endDate` 매칭 (백엔드 Vercel 배포) — 다른 주 리뷰 표시·수정 시 중복 페이지 생성 방지
@@ -884,7 +895,7 @@ Phase 5 (출시)
 
 ### 투두 탭 할일 시간 표시
 v1에서는 `scheduledTime` 설정·알림만 동작, **목록(`TodoRow`)에는 미표시**.
-v1.1에서 제목 아래·메모 위에 `.caption` + `.secondary`로 `hour().minute()` 표시. 메모 보기 토글과 독립.
+A안(제목 아래 통합) / C안(제목 오른쪽) 미결정 — 브랜치 `feature/todo-time-alarm-a`, `feature/todo-time-alarm-c`에 보존. 카테고리·체크박스 디자인 후 어울리는 쪽으로 결정.
 
 ---
 

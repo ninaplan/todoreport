@@ -37,8 +37,10 @@
 - 피커 폰트 회색 처리
 - 별점 명칭/아이콘 대체
 - 투두 고정 스와이프 애니메이션 개선
-- TodoRow 시간 표시 (scheduledTime 있는 항목)
+- **TodoRow 시간·알림 목록 표시** — A/C안 미결정. `feature/todo-time-alarm-a`(제목 아래 통합), `feature/todo-time-alarm-c`(제목 오른쪽) 브랜치에 보존. 카테고리·체크박스 디자인 후 어울리는 것으로 결정
 - 달력 UX 미세조정 — 월 이동 시 선택 해제, 날짜·목록 폰트, 말풍선 위치·삼각형 간격 (범례 가로 스크롤·불러오기 아이콘은 v1.08 반영)
+- **엣지 스와이프 vs 스크롤** — 유지하되 스크롤 우선(`UIScreenEdgePanGestureRecognizer` 네이티브 엣지 필터 + 동시 인식). 향후 스크롤 이슈 재발 시 엣지 감지폭(20pt) 축소 또는 엣지 스와이프 제거 검토
+- **iOS 27 주의** — `safeAreaBar` + `.scrollEdgeEffectStyle(.soft)`가 iOS 27 베타에서 투명해지는 버그 보고 있음(`.hard`는 정상). 타깃 iOS 27 전환 시 재확인
 
 ## 기술 개선
 - TodoService → DataRepository 패턴 통합

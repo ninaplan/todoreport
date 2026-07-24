@@ -950,8 +950,10 @@ struct Category: Identifiable, Codable {
 │ 수능 공부 ▼               ☰   │  ← 네비게이션 바
 ├─────────────────────────────────┤
 │                                 │
-│  ‹  📅 2026년 5월 26일  ›      │  ← 좌우 공간 탭: 하루 이동
-│     (흐릿한 화살표 힌트)        │    날짜 탭: 커스텀 월간 달력 시트
+│  ‹  📅 2026년 5월 26일  ›      │  ← List `.safeAreaBar`(높이 40) + soft 블러
+│                                 │    좌우 화살표: 아이콘 전용(원 배경 없음)
+│                                 │    날짜 탭: 커스텀 월간 달력 시트
+│                                 │    화면 가장 엣지 스와이프: 이전/다음 날
 │                                 │
 │  완료율 ████████░░ 80%         │  ← 선택된 카테고리 기준으로 계산
 │  (v2) ⏱ 집중타임 합계: 2h 30m  │
@@ -995,13 +997,19 @@ struct Category: Identifiable, Codable {
 
 | 동작 | 기능 | 유료 여부 |
 |---|---|---|
-| 날짜 좌측 공간 탭 | 이전 날 | 무료 |
-| 날짜 우측 공간 탭 | 다음 날 | 무료 |
+| 날짜 좌측 화살표/공간 탭 | 이전 날 | 무료 |
+| 날짜 우측 화살표/공간 탭 | 다음 날 | 무료 |
 | 날짜 텍스트 탭 | 커스텀 월간 달력 시트 (`DatePickerSheet` + `MonthCalendarView`) | 무료 |
-| 화면 스와이프 | ❌ 사용 안 함 | — |
-| 힌트 | 양옆 흐릿한 화살표 ‹ › | — |
+| 화면 가장자리 엣지 스와이프 | 이전/다음 날 (`edgeSwipeNavigation`, 스크롤 우선) | 무료 |
 
 > 모든 날짜 자유 이동 가능 (무료).
+
+**날짜행 UI (2026-07-24)**
+- `DateNavigationRow`를 ZStack 오버레이가 아니라 List/ScrollView의 `.safeAreaBar(edge: .top)`에 배치 (투두·리포트 공통, 바 높이 40)
+- iOS 26 네이티브 `.scrollEdgeEffectStyle(.soft, for: .top)`로 날짜행 뒤 프로그레시브 블러 — **`safeAreaInset`은 스크롤 엣지 블러를 못 받음 → `safeAreaBar` 필수**
+- 화살표: 원형 배경 제거, 아이콘 전용 `.system(size: 14, weight: .regular)` + 미세 그림자 (탭 영역 44×44 유지)
+- 예전 스크롤 추적(`arrowBgOpacity` / `ScrollOffsetPreferenceKey` 등)은 네이티브 블러 도입으로 제거
+- 엣지 스와이프: `UIGestureRecognizerDelegate` 동시 인식 + `cancelsTouchesInView`/`delaysTouchesBegan`=false. `UIScreenEdgePanGestureRecognizer` 네이티브 「화면 끝→안쪽」 필터에 의존 (스크롤 우선)
 
 **달력 시트 (v1.08 재제출)**
 - 제목 「달력 보기」, large detent. 기본 데이터는 로컬 SwiftData (`fetchCategoryDots` / `fetchTodos`) — 날짜 이동 시 Notion pull 없음
@@ -1033,8 +1041,9 @@ struct Category: Identifiable, Codable {
 ┌─────────────────────────────────┐
 │  주간 ●  월간 ○                 │  ← 기간 토글 (무료)
 ├─────────────────────────────────┤
-│  ‹🔒  5월 25일 — 5월 31일       │  ← 이번 주/월: 무료
-│       (이번 주 · 이번 달 고정)  │    ‹ 이전 기간 이동: 유료
+│  ‹🔒  5월 25일 — 5월 31일       │  ← ScrollView `.safeAreaBar`(높이 40) + soft 블러
+│       (이번 주 · 이번 달 고정)  │    이번 주/월: 무료 / ‹ 이전 기간: 유료
+│                                 │    화면 가장 엣지 스와이프: 이전/다음 기간
 ├─────────────────────────────────┤
 │  완료율 72%     별점 평균 ⭐⭐⭐⭐│  ← 무료
 │  🔥 연속 달성 5일               │
