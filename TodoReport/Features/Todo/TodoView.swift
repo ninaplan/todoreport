@@ -382,19 +382,22 @@ struct TodoView: View {
                     viewModel.requestDelete(todo)
                     hapticWarningTrigger.toggle()
                 } label: {
-                    Image(systemName: "trash")
+                    Label("삭제", systemImage: "trash")
                 }
+                .labelStyle(.iconOnly)
                 Button {
                     changingDateTodo = todo
                 } label: {
-                    Image(systemName: "calendar")
+                    Label("날짜변경", systemImage: "calendar")
                 }
+                .labelStyle(.iconOnly)
                 .tint(Color(red: 1, green: 0.584, blue: 0))
                 Button {
                     viewModel.moveToTomorrow(todo)
                 } label: {
-                    Image(systemName: "arrow.forward.folder")
+                    Label("내일하기", systemImage: "sunrise")
                 }
+                .labelStyle(.iconOnly)
                 .tint(.blue)
             }
             .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
