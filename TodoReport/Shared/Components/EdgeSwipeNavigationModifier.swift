@@ -36,6 +36,9 @@ private struct EdgeSwipeNavigationRepresentable: UIViewRepresentable {
             action: #selector(Coordinator.handleLeftEdgePan(_:))
         )
         leftRecognizer.edges = .left
+        leftRecognizer.cancelsTouchesInView = false
+        leftRecognizer.delaysTouchesBegan = false
+        leftRecognizer.delegate = context.coordinator
         view.addGestureRecognizer(leftRecognizer)
 
         let rightRecognizer = UIScreenEdgePanGestureRecognizer(
@@ -43,6 +46,9 @@ private struct EdgeSwipeNavigationRepresentable: UIViewRepresentable {
             action: #selector(Coordinator.handleRightEdgePan(_:))
         )
         rightRecognizer.edges = .right
+        rightRecognizer.cancelsTouchesInView = false
+        rightRecognizer.delaysTouchesBegan = false
+        rightRecognizer.delegate = context.coordinator
         view.addGestureRecognizer(rightRecognizer)
 
         return view
@@ -53,13 +59,20 @@ private struct EdgeSwipeNavigationRepresentable: UIViewRepresentable {
         context.coordinator.onNext = onNext
     }
 
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var onPrev: () -> Void
         var onNext: () -> Void
 
         init(onPrev: @escaping () -> Void, onNext: @escaping () -> Void) {
             self.onPrev = onPrev
             self.onNext = onNext
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            true
         }
 
         @objc func handleLeftEdgePan(_ gesture: UIScreenEdgePanGestureRecognizer) {
