@@ -1,19 +1,11 @@
 import SwiftUI
 
-struct ScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 struct DateNavigationRow: View {
     let title: String
     let onPrev: () -> Void
     let onNext: () -> Void
     var canGoNext: Bool = true
     var onTapTitle: (() -> Void)? = nil
-    var arrowBgOpacity: Double = 0
     var showTodayButton: Bool = false
     var onGoToday: (() -> Void)? = nil
 

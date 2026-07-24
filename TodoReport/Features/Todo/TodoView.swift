@@ -12,7 +12,6 @@ struct TodoView: View {
     @State private var changingDateTodo: Todo? = nil
     @State private var editingTodo: Todo? = nil
     @State private var showCategorySheet: Bool = false
-    @State private var scrollOffset: CGFloat = 56
 
     @State private var hapticImpactTrigger = false
     @State private var hapticSuccessTrigger = false
@@ -37,11 +36,6 @@ struct TodoView: View {
         return base
     }
 
-    private var arrowBgOpacity: Double {
-        let scrolled = max(0, 56 - scrollOffset)
-        return Double(min(scrolled / 30, 1))
-    }
-
     var body: some View {
         @Bindable var vm = viewModel
         NavigationStack {
@@ -61,14 +55,7 @@ struct TodoView: View {
                         )
                     }
                     .listRowSeparator(.hidden)
-                    .listRowBackground(
-                        GeometryReader { geo in
-                            Color.clear.preference(
-                                key: ScrollOffsetPreferenceKey.self,
-                                value: geo.frame(in: .named("todoScroll")).minY
-                            )
-                        }
-                    )
+                    .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
 
                     // 카테고리 필터 칩
@@ -103,7 +90,6 @@ struct TodoView: View {
                         onPrev: { viewModel.requestPreviousDay() },
                         onNext: { viewModel.requestNextDay() },
                         onTapTitle: { viewModel.requestDatePicker() },
-                        arrowBgOpacity: arrowBgOpacity,
                         showTodayButton: viewModel.canGoNextDay,
                         onGoToday: { viewModel.goToToday() }
                     )
@@ -200,10 +186,6 @@ struct TodoView: View {
                 onNext: { viewModel.requestNextDay() }
             )
             .background(Color(.systemGroupedBackground))
-            .coordinateSpace(.named("todoScroll"))
-            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { y in
-                scrollOffset = y
-            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

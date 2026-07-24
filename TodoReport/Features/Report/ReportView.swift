@@ -4,15 +4,9 @@ import Charts
 struct ReportView: View {
     @Environment(MainTabCoordinator.self) private var tabCoordinator
     @State private var viewModel = ReportViewModel()
-    @State private var reportScrollOffset: CGFloat = 52
     @State private var showReviewTodoRestrictedAlert = false
     @State private var showReviewTodoProPaywall = false
     private var isPro: Bool { SubscriptionManager.shared.isPro }
-
-    private var reportArrowBgOpacity: Double {
-        let scrolled = max(0, 52 - reportScrollOffset)
-        return Double(min(scrolled / 30, 1))
-    }
 
     var body: some View {
         @Bindable var vm = viewModel
@@ -20,16 +14,6 @@ struct ReportView: View {
             ZStack(alignment: .top) {
                 ScrollView {
                     VStack(spacing: 16) {
-                        Color.clear
-                            .frame(height: 0)
-                            .background(
-                                GeometryReader { geo in
-                                    Color.clear.preference(
-                                        key: ScrollOffsetPreferenceKey.self,
-                                        value: geo.frame(in: .named("reportScroll")).minY
-                                    )
-                                }
-                            )
                         if viewModel.isLoading || (viewModel.selectedPeriod == .weekly ? viewModel.weeklyReport == nil : viewModel.monthlyReport == nil) {
                             VStack(spacing: 8) {
                                 ProgressView()
@@ -65,18 +49,13 @@ struct ReportView: View {
                         title: viewModel.periodTitle,
                         onPrev: { viewModel.goToPreviousPeriod() },
                         onNext: { viewModel.goToNextPeriod() },
-                        canGoNext: viewModel.canGoNext,
-                        arrowBgOpacity: reportArrowBgOpacity
+                        canGoNext: viewModel.canGoNext
                     )
                     .padding(.horizontal, 16)
                     .frame(maxWidth: .infinity)
                     .frame(height: 40)
                 }
                 .scrollEdgeEffectStyle(.soft, for: .top)
-                .coordinateSpace(.named("reportScroll"))
-                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { y in
-                    reportScrollOffset = y
-                }
                 .refreshable {
                     await viewModel.fetchReportWithNotionSync()
                 }
