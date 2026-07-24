@@ -516,12 +516,26 @@ private struct TodoRow: View {
                     }
                 }
 
-                if showMemo, let memo = todo.memo, !memo.isEmpty {
-                    Text(memo)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                let hasMemo = showMemo && !(todo.memo?.isEmpty ?? true)
+                if todo.alarmOffset != nil || todo.scheduledTime != nil || hasMemo {
+                    HStack(spacing: 6) {
+                        if todo.alarmOffset != nil {
+                            Image(systemName: "bell")
+                                .foregroundStyle(AppTheme.shared.accent)
+                        }
+                        if let scheduledTime = todo.scheduledTime {
+                            Image(systemName: "clock")
+                            Text(scheduledTime, format: .dateTime.hour().minute())
+                        }
+                        if hasMemo, let memo = todo.memo {
+                            Text(memo)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
 
