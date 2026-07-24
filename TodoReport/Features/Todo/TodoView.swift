@@ -6,7 +6,6 @@ struct TodoView: View {
     @State private var dailyReportViewModel = DailyReportViewModel()
     @State private var newTodoTitle: String = ""
     @State private var isAddingTodo: Bool = false
-    @State private var showViewOptions: Bool = false
     @State private var showPlannerSheet: Bool = false
     @State private var showQuickCapture: Bool = false
     @State private var changingDateTodo: Todo? = nil
@@ -119,6 +118,11 @@ struct TodoView: View {
                     await dailyReportViewModel.fetchReport(for: viewModel.selectedDate, completionRate: viewModel.completionRate)
                 }
                 .onAppear { Task { await viewModel.onAppear() } }
+                .onChange(of: tabCoordinator.selectedTab) { _, tab in
+                    if tab != .todo {
+                        cleanupInlineAddingOnTabLeave()
+                    }
+                }
                 .onChange(of: tabCoordinator.foregroundRefreshToken) { _, _ in
                     Task {
                         await viewModel.handleForegroundRefresh()
@@ -210,21 +214,18 @@ struct TodoView: View {
                     .tint(.primary)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showViewOptions.toggle()
+                    Menu {
+                        Toggle("완료된 할일 숨기기", isOn: $vm.hideCompleted)
+                        Toggle("할일 메모 보기", isOn: $vm.showMemo)
+                        Button {
+                            showCategorySheet = true
+                        } label: {
+                            Label("카테고리 설정", systemImage: "tag")
+                        }
                     } label: {
                         Image(systemName: "ellipsis")
                     }
                     .tint(.primary)
-                    .popover(isPresented: $showViewOptions) {
-                        ViewOptionsPopover(viewModel: viewModel) {
-                            showViewOptions = false
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                showCategorySheet = true
-                            }
-                        }
-                        .presentationCompactAdaptation(.popover)
-                    }
                 }
             }
             .sheet(isPresented: $vm.showDatePicker) {
@@ -328,7 +329,6 @@ struct TodoView: View {
 
     private func resetTodoNavigationToRoot() {
         tabCoordinator.selectedTab = .todo
-        showViewOptions = false
         showPlannerSheet = false
         showQuickCapture = false
         showCategorySheet = false
@@ -337,6 +337,15 @@ struct TodoView: View {
         isAddingTodo = false
         newTodoTitle = ""
         viewModel.goToToday()
+    }
+
+    /// 탭 이탈 시 인라인 입력·first responder 잔류를 정리한다.
+    private func cleanupInlineAddingOnTabLeave() {
+        if isAddingTodo {
+            isAddingTodo = false
+            newTodoTitle = ""
+        }
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
     @ViewBuilder
@@ -520,6 +529,8 @@ private struct AddTodoRow: View {
     @Binding var newTodoTitle: String
     @Binding var isAdding: Bool
     let onAdd: () -> Void
+    /// 추가 버튼을 누를 때마다 갱신 → AutoFocusTextField가 fresh 인스턴스로 다시 만들어짐.
+    @State private var focusEpoch = UUID()
 
     var body: some View {
         if isAdding {
@@ -542,10 +553,14 @@ private struct AddTodoRow: View {
                         isAdding = false
                     }
                 )
+                .id(focusEpoch)
                 .frame(height: 36)
             }
         } else {
-            Button { isAdding = true } label: {
+            Button {
+                focusEpoch = UUID()
+                isAdding = true
+            } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "plus.circle.fill")
                         .font(.title3)
@@ -559,76 +574,6 @@ private struct AddTodoRow: View {
             }
             .buttonStyle(.plain)
         }
-    }
-}
-
-// MARK: - 보기 옵션 팝오버
-
-private struct ViewOptionsPopover: View {
-    @Bindable var viewModel: TodoViewModel
-    let onShowCategorySheet: () -> Void
-
-    var body: some View {
-        VStack(spacing: 0) {
-            optionRow(icon: "eye.slash", label: "완료된 할일 숨기기", isOn: viewModel.hideCompleted) {
-                viewModel.hideCompleted.toggle()
-            }
-            Divider()
-            optionRow(icon: "text.alignleft", label: "할일 메모 보기", isOn: viewModel.showMemo) {
-                viewModel.showMemo.toggle()
-            }
-            Divider()
-
-            Button(action: onShowCategorySheet) {
-                HStack(spacing: 12) {
-                    Image(systemName: "tag")
-                        .font(.system(size: AppConstants.IconSize.menu))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 20)
-                    Text("카테고리 설정")
-                        .font(.subheadline)
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: AppConstants.IconSize.menu).bold())
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-        .frame(minWidth: 260)
-        .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private func optionRow(icon: String, label: String, isOn: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: AppConstants.IconSize.menu))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 20)
-                Text(label)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-                Spacer()
-                checkmark(visible: isOn)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func checkmark(visible: Bool) -> some View {
-        Image(systemName: "checkmark")
-            .font(.system(size: AppConstants.IconSize.menu).bold())
-            .foregroundStyle(AppTheme.shared.accent)
-            .opacity(visible ? 1 : 0)
-            .frame(width: 16)
     }
 }
 
