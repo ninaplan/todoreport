@@ -97,8 +97,19 @@ struct TodoView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                 }
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    Color.clear.frame(height: 56)
+                .safeAreaBar(edge: .top, spacing: 0) {
+                    DateNavigationRow(
+                        title: formattedDate,
+                        onPrev: { viewModel.requestPreviousDay() },
+                        onNext: { viewModel.requestNextDay() },
+                        onTapTitle: { viewModel.requestDatePicker() },
+                        arrowBgOpacity: arrowBgOpacity,
+                        showTodayButton: viewModel.canGoNextDay,
+                        onGoToday: { viewModel.goToToday() }
+                    )
+                    .padding(.horizontal, 16)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     Color.clear.frame(height: 100)
@@ -116,6 +127,7 @@ struct TodoView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .scrollEdgeEffectStyle(.soft, for: .top)
                 .refreshable {
                     await viewModel.refreshFromNotion()
                     await dailyReportViewModel.fetchReport(for: viewModel.selectedDate, completionRate: viewModel.completionRate)
@@ -156,17 +168,6 @@ struct TodoView: View {
 
                 } // inner ZStack
 
-                DateNavigationRow(
-                    title: formattedDate,
-                    onPrev: { viewModel.requestPreviousDay() },
-                    onNext: { viewModel.requestNextDay() },
-                    onTapTitle: { viewModel.requestDatePicker() },
-                    arrowBgOpacity: arrowBgOpacity,
-                    showTodayButton: viewModel.canGoNextDay,
-                    onGoToday: { viewModel.goToToday() }
-                )
-                .padding(.horizontal, 16)
-
                 if showCalendarOpenHint {
                     Color.clear
                         .contentShape(Rectangle())
@@ -179,7 +180,7 @@ struct TodoView: View {
 
                     VStack(spacing: 0) {
                         Color.clear
-                            .frame(height: 48)
+                            .frame(height: 36)
                         calendarOpenHintBubble
                         Spacer(minLength: 0)
                     }
@@ -501,7 +502,7 @@ private struct TodoRow: View {
                 .contentShape(Rectangle())
                 .onTapGesture { onCheckboxTap?() }
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     Text(todo.title)
                         .font(.body)

@@ -58,9 +58,21 @@ struct ReportView: View {
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.top, 52)
                     .padding(.bottom, 32)
                 }
+                .safeAreaBar(edge: .top, spacing: 0) {
+                    DateNavigationRow(
+                        title: viewModel.periodTitle,
+                        onPrev: { viewModel.goToPreviousPeriod() },
+                        onNext: { viewModel.goToNextPeriod() },
+                        canGoNext: viewModel.canGoNext,
+                        arrowBgOpacity: reportArrowBgOpacity
+                    )
+                    .padding(.horizontal, 16)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+                }
+                .scrollEdgeEffectStyle(.soft, for: .top)
                 .coordinateSpace(.named("reportScroll"))
                 .onPreferenceChange(ScrollOffsetPreferenceKey.self) { y in
                     reportScrollOffset = y
@@ -68,15 +80,6 @@ struct ReportView: View {
                 .refreshable {
                     await viewModel.fetchReportWithNotionSync()
                 }
-
-                DateNavigationRow(
-                    title: viewModel.periodTitle,
-                    onPrev: { viewModel.goToPreviousPeriod() },
-                    onNext: { viewModel.goToNextPeriod() },
-                    canGoNext: viewModel.canGoNext,
-                    arrowBgOpacity: reportArrowBgOpacity
-                )
-                .padding(.horizontal, 16)
             }
             .edgeSwipeNavigation(
                 onPrev: { viewModel.goToPreviousPeriod() },

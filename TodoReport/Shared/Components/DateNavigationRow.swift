@@ -52,17 +52,11 @@ struct DateNavigationRow: View {
 
     private func navButton(systemName: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(Color(.systemFill))
-                    .frame(width: 32, height: 32)
-                    .opacity(arrowBgOpacity)
-                Image(systemName: systemName)
-                    .font(.system(size: 13, weight: .light))
-                    .foregroundStyle(enabled ? .primary : Color(.quaternaryLabel))
-            }
-            .frame(width: 44, height: 44)
-            .animation(.easeInOut(duration: 0.2), value: arrowBgOpacity)
+            Image(systemName: systemName)
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(enabled ? .primary : Color(.quaternaryLabel))
+                .shadow(color: .black.opacity(0.12), radius: 1, x: 0, y: 0)
+                .frame(width: 44, height: 44)
         }
         .buttonStyle(.plain)
         .contentShape(Rectangle())
