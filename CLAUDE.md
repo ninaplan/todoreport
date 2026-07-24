@@ -17,6 +17,8 @@
 - `TodoRow` 제목–메모 간격 6
 - 스크롤 추적 코드 제거 (`arrowBgOpacity` / `scrollOffset` / `ScrollOffsetPreferenceKey` / `coordinateSpace` / `onPreferenceChange`)
 - 엣지 스와이프(`EdgeSwipeNavigationModifier`): `safeAreaBar` 도입 후 List 스크롤과 충돌 → `UIGestureRecognizerDelegate` 동시 인식 허용 + `cancelsTouchesInView`/`delaysTouchesBegan`=false. 시작 시점 속도 판단은 제거, `UIScreenEdgePanGestureRecognizer`의 「화면 끝에서 안쪽」 네이티브 필터에 의존(스크롤 우선)
+- 투두 ⋯ 보기 옵션: `.popover` → 네이티브 `Menu` (완료 숨기기·메모 보기 Toggle + 카테고리 설정)
+- 인라인/FAB 키보드 자동 포커스 개선: 고정 0.35초 딜레이 제거, `focusEpoch`로 인스턴스당 1회 포커스, 실패 시 ~2초 재시도(window 이탈 시 취소), 앱 시작 ~2.5초 후 `KeyboardPrewarmer` 프리웜, 탭 이탈 시 인라인 입력·first responder 정리
 
 ### v1.08 변경 내용 (재제출)
 - 투두 날짜 선택: iOS graphical DatePicker → 커스텀 `MonthCalendarView` (캘린더 탭 재사용 염두의 독립 컴포넌트, `Shared/Components/`)
@@ -85,6 +87,7 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- 더보기 Menu + 키보드 자동 포커스 개선 (2026-07-24): ⋯ `.popover`→`Menu`; AutoFocus 0.35s 딜레이 제거·epoch 1회 포커스·재시도(~2초)·window 이탈 취소; `KeyboardPrewarmer`(런치+2.5s); 탭 이탈 시 인라인 입력 정리
 - 날짜행 safeAreaBar 네이티브 soft 블러 + 화살표 원 제거·두께 + TodoRow 제목–메모 간격 6 + 스크롤 추적 코드 제거 (2026-07-24): 투두·리포트 공통 `.safeAreaBar`+`.scrollEdgeEffectStyle(.soft)`. 엣지 스와이프 동시 인식으로 List 스크롤 공존 (커밋 9df4661 → ba45920 → b350462)
 - 스와이프 버튼 아이콘 전용화 + 내일하기 해돋이 아이콘 (2026-07-24): `.trailing` 3개 `Label`+`.labelStyle(.iconOnly)`(title은 접근성용), 내일하기 `sunrise`. 원형 커스텀 스와이프는 V2
 - 일반 할일 삭제 확인 팝업 (2026-07-24): `showSingleDeleteAlert` — 스와이프/풀스와이프 삭제 전 「이 할 일을 삭제할까요?」. 반복 할일은 기존 `showDeleteAlert` 유지
@@ -100,6 +103,7 @@
 - [해결 완료, 2026-07-07] 원인이 두 가지였음: 1) 네트워크 에러와 API 에러를 구분 안 하고 동일하게 retryCount를 증가시켜 오프라인 중 재시도 예산이 소진되면 clearFailedItems()가 데이터를 삭제 2) processing 상태에서 앱 종료 등으로 중단되면 영구 고아 상태가 되어 어떤 재시도 로직에도 안 걸림. 해결: NetworkMonitor.swift(NWPathMonitor) 신규 추가로 재연결 자동 감지, SyncQueueProcessor.swift에 isNetworkUnavailable() 판별 추가로 네트워크 에러는 retryCount 미증가, SyncQueueManager.swift init()에 recoverStuckProcessingItems() 추가로 앱 시작 시 processing 고아 항목을 pending으로 자동 복구. 실기기 비행모드 테스트로 검증 완료.
 
 ### 알려진 버그
+- 투두 리스트 상단에서 다른 탭 갔다 복귀 직후 잠깐 스크롤이 안 되는 증상 (곧 회복). soft top edge(`.scrollEdgeEffectStyle`) 유력 — 실험으로 해당 modifier 제거 시 소실 확인, UI 유지 위해 원복. 후속 완화 검토
 - 노션 업로드 마이그레이션 시 plannerId가 nil인 기존 투두가 노션에 안 올라감 (원인 파악됨, 수정 미적용 — 위 "다음 할 일" 참고)
 - 콜드 스타트 시 Notion 동기화 로딩 인디케이터 미표시 (투두 탭)
 - 투두 날짜 이동 후 목적지 날짜 미표시 (간헐적)
@@ -521,12 +525,12 @@ guard SubscriptionManager.shared.isPro else {
 ```
 투두 탭:
 좌측: 플래너 이름 ▼ (탭 → 플래너 전환)
-우측: ☰ (탭 → 슬라이드 다운 보기 옵션)
+우측: ⋯ (탭 → 네이티브 Menu 보기 옵션)
 
-보기 옵션 (슬라이드 다운):
-- ✓ 완료 숨기기 (토글)
-- ✓ 카테고리별로 보기 (토글)
-- 정렬 옵션 › (하위 뷰)
+보기 옵션 (Menu):
+- ✓ 완료된 할일 숨기기 (토글)
+- ✓ 할일 메모 보기 (토글)
+- 카테고리 설정 (시트)
 ```
 
 ---
@@ -644,7 +648,7 @@ guard let value = optional else { return }
 - **운영 Q&A (사용자 가이드):** `SPEC.md` §6 멀티 플래너 — 「멀티 플래너 + 노션 DB (Q&A · 가이드)」 참고.
 - **개발 시:** `isNotionConnected`만으로 리포트 저장 가능 여부 판단하지 말 것 — `notionReportDBId`·`resolvedNotionToken` 유효성도 필요 (향후 UX 개선 후보).
 
-**AutoFocusTextField — Dynamic Type + 한글 IME**
+**AutoFocusTextField — Dynamic Type + 한글 IME + 자동 포커스**
 
 투두 인라인 입력 등 한글 조합이 필요한 곳은 SwiftUI `TextField` 대신 `AutoFocusTextField`(UIKit)를 쓴다.
 고정 `UIFont.systemFont(ofSize:)`를 쓰면 인접 SwiftUI `Text(.body)`보다 작아 보이므로, 본문 입력은 `textStyle: .body`로 맞춘다.
@@ -657,7 +661,13 @@ AutoFocusTextField(text: $title, placeholder: "새 투두", font: .systemFont(of
 AutoFocusTextField(text: $title, placeholder: "새 투두", textStyle: .body)
 ```
 
-편집 시트 제목 등 본문보다 큰 필드는 `textStyle: .title3` 등으로 지정한다 (`TodoEditFormView` 제목).
+편집 시트 제목 등 본문보다 큰 필드는 `textStyle: .title3` 등으로 지정한다 (`TodoEditFormView` 제목). `autoFocus: false`면 등장 시 자동 포커스 없음.
+
+**자동 포커스 동작 (2026-07-24):**
+- 인스턴스당 1회: `didMoveToWindow`에서 즉시 `becomeFirstResponder`, 실패 시 ~2초(0.03s×67) 재시도. window 이탈·deinit 시 재시도 취소.
+- 인라인 「투두 추가」는 `focusEpoch`(UUID) + `.id(epoch)`로 추가마다 fresh 인스턴스 — 탭 전환 재부착만으로는 자동 포커스 안 함.
+- 콜드 스타트: `KeyboardPrewarmer.scheduleAfterLaunch()`(루트 onAppear, ~2.5초 뒤)로 키보드 세션 프리웜. 즉시 프리웜은 메인 스레드 ~1초 블로킹으로 시작 직후 스크롤 먹통을 유발해 지연 실행.
+- 탭 이탈(`selectedTab != .todo`): `isAdding` 해제 + `resignFirstResponder`로 first responder 잔류 방지.
 
 **SwiftUI View에서 live 데이터 읽기 — stale 스냅샷 주의**
 
