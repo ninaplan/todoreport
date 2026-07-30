@@ -60,20 +60,7 @@ final class SubscriptionManager {
 
     var expirationDateText: String? {
         guard let expirationDate else { return nil }
-        let formatter = DateFormatter()
-        formatter.locale = .autoupdatingCurrent
-        // 한국어는 기존 "yyyy.MM.dd" 표기 유지, 그 외 언어는 "MMM d, yyyy" 등 현지 표기 사용
-        let isKorean = Locale.autoupdatingCurrent.language.languageCode?.identifier == "ko"
-        if isKorean {
-            formatter.dateFormat = "yyyy.MM.dd"
-        } else {
-            formatter.dateFormat = DateFormatter.dateFormat(
-                fromTemplate: "yMMMd",
-                options: 0,
-                locale: .autoupdatingCurrent
-            )
-        }
-        return formatter.string(from: expirationDate)
+        return AppDateFormat.expirationDate(expirationDate)
     }
 
     var monthlyProduct: Product? { product(for: Self.monthlyProductId) }

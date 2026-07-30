@@ -326,36 +326,11 @@ private struct ExpandableCompletionCard: View {
         let cal = Calendar.current
         let days = cal.dateComponents([.day], from: range.lowerBound, to: range.upperBound).day ?? 1
         if days <= 1 {
-            return Self.makeDailyHeaderFormatter().string(from: range.lowerBound)
+            return AppDateFormat.reportDailyHeader(range.lowerBound)
         } else {
             let end = cal.date(byAdding: .day, value: -1, to: range.upperBound) ?? range.lowerBound
-            let fmt = Self.makeShortDateFormatter()
-            return "\(fmt.string(from: range.lowerBound)) ~ \(fmt.string(from: end))"
+            return AppDateFormat.reportShortRange(from: range.lowerBound, to: end)
         }
-    }
-
-    private static func makeDailyHeaderFormatter() -> DateFormatter {
-        let f = DateFormatter()
-        f.locale = .autoupdatingCurrent
-        // 한국어는 요일 풀네임(EEEE) 유지, 그 외 언어는 축약 요일(E) + 월 약어(MMM) 사용
-        let isKorean = Locale.autoupdatingCurrent.language.languageCode?.identifier == "ko"
-        f.dateFormat = DateFormatter.dateFormat(
-            fromTemplate: isKorean ? "yMdEEEE" : "yMMMdE",
-            options: 0,
-            locale: .autoupdatingCurrent
-        )
-        return f
-    }
-
-    private static func makeShortDateFormatter() -> DateFormatter {
-        let f = DateFormatter()
-        f.locale = .autoupdatingCurrent
-        f.dateFormat = DateFormatter.dateFormat(
-            fromTemplate: "yMd",
-            options: 0,
-            locale: .autoupdatingCurrent
-        )
-        return f
     }
 
     var body: some View {
@@ -633,17 +608,6 @@ private struct ReviewTimelineCard: View {
 
     @State private var isExpanded = false
 
-    private static func makeDateFormatter() -> DateFormatter {
-        let f = DateFormatter()
-        f.locale = .autoupdatingCurrent
-        f.dateFormat = DateFormatter.dateFormat(
-            fromTemplate: "MdE",
-            options: 0,
-            locale: .autoupdatingCurrent
-        )
-        return f
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
@@ -696,7 +660,7 @@ private struct ReviewTimelineCard: View {
     }
 
     private func timelineRow(_ entry: ReviewTimelineEntry) -> some View {
-        ReviewTimelineRow(entry: entry, dateFmt: Self.makeDateFormatter()) {
+        ReviewTimelineRow(entry: entry) {
             openTodoFromReview(on: entry.date)
         }
     }
@@ -710,14 +674,13 @@ private struct ReviewTimelineCard: View {
 
 private struct ReviewTimelineRow: View {
     let entry: ReviewTimelineEntry
-    let dateFmt: DateFormatter
     let onOpenTodo: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Button(action: onOpenTodo) {
                 HStack(spacing: 6) {
-                    Text(dateFmt.string(from: entry.date))
+                    Text(AppDateFormat.reviewTimeline(entry.date))
                         .font(.caption.bold())
                         .foregroundStyle(.primary)
                     if entry.rating > 0 {
