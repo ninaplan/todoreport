@@ -49,7 +49,7 @@ enum AppDateFormat {
     private static let nonKoTodoNavigation: DateFormatter = makeTemplateFormatter("MMMdE")
     private static let nonKoReportDailyHeader: DateFormatter = makeTemplateFormatter("yMMMdE")
     private static let nonKoReportShort: DateFormatter = makeTemplateFormatter("yMd")
-    private static let nonKoReviewTimeline: DateFormatter = makeTemplateFormatter("MdE")
+    private static let nonKoReviewTimeline: DateFormatter = makeTemplateFormatter("MMMdE")
     private static let nonKoExpiration: DateFormatter = makeTemplateFormatter("yMMMd")
 
     private static func makeTemplateFormatter(_ template: String) -> DateFormatter {
@@ -66,7 +66,6 @@ enum AppDateFormat {
     // MARK: - Public API
 
     /// 투두 날짜행 base. ko: `7월 30일` / `7월 30일 (목)`. 그 외: 기존 `MMMdE`.
-    /// 오늘·어제·내일 래퍼에는 `includeWeekday: false`.
     static func todoNavigationBase(_ date: Date, includeWeekday: Bool) -> String {
         if isKorean {
             return includeWeekday
@@ -92,7 +91,7 @@ enum AppDateFormat {
         return "\(nonKoReportShort.string(from: start)) ~ \(nonKoReportShort.string(from: end))"
     }
 
-    /// 리뷰 타임라인 행. ko: `7월 30일 (목)`. 그 외: 기존 `MdE`.
+    /// 리뷰 타임라인 행. ko: `7월 30일 (목)`. 그 외: `MMMdE` (`Mon, Jul 27`).
     static func reviewTimeline(_ date: Date) -> String {
         if isKorean {
             return koMonthDayWeekday.string(from: date)

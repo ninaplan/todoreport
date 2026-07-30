@@ -25,19 +25,11 @@ struct TodoView: View {
     private var formattedDate: String {
         let cal = Calendar.current
         let date = viewModel.selectedDate
-        if cal.isDateInToday(date) {
-            let base = AppDateFormat.todoNavigationBase(date, includeWeekday: false)
-            return String(localized: "오늘, \(base)")
-        }
-        if cal.isDateInYesterday(date) {
-            let base = AppDateFormat.todoNavigationBase(date, includeWeekday: false)
-            return String(localized: "어제, \(base)")
-        }
-        if cal.isDateInTomorrow(date) {
-            let base = AppDateFormat.todoNavigationBase(date, includeWeekday: false)
-            return String(localized: "내일, \(base)")
-        }
-        return AppDateFormat.todoNavigationBase(date, includeWeekday: true)
+        let base = AppDateFormat.todoNavigationBase(date, includeWeekday: true)
+        if cal.isDateInToday(date)     { return String(localized: "오늘, \(base)") }
+        if cal.isDateInYesterday(date) { return String(localized: "어제, \(base)") }
+        if cal.isDateInTomorrow(date)  { return String(localized: "내일, \(base)") }
+        return base
     }
 
     var body: some View {
