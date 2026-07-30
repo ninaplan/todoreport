@@ -118,6 +118,8 @@ struct MonthCalendarView: View {
                 .padding(.vertical, 8)
                 .background(Color.black, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
+        // overlay가 28pt 버튼 폭을 제안해도 말풍선 고유 크기(최대 190)로 렌더
+        .fixedSize()
     }
 
     // MARK: - Header
