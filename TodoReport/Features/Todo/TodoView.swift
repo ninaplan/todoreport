@@ -247,8 +247,26 @@ struct TodoView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Toggle("완료된 할일 숨기기", isOn: $vm.hideCompleted)
-                        Toggle("할일 메모 보기", isOn: $vm.showMemo)
+                        Button {
+                            vm.hideCompleted.toggle()
+                        } label: {
+                            Label {
+                                Text("완료된 할일 숨기기")
+                            } icon: {
+                                Image(systemName: "checkmark")
+                                    .opacity(vm.hideCompleted ? 1 : 0)
+                            }
+                        }
+                        Button {
+                            vm.showMemo.toggle()
+                        } label: {
+                            Label {
+                                Text("할일 메모 보기")
+                            } icon: {
+                                Image(systemName: "checkmark")
+                                    .opacity(vm.showMemo ? 1 : 0)
+                            }
+                        }
                         Button {
                             showCategorySheet = true
                         } label: {
@@ -515,19 +533,8 @@ private struct CategoryFilterBar: View {
                     }
                 }
             }
-            .padding(.leading, 24)
-            .padding(.trailing, 48)  // 그라데이션 영역 확보
+            .padding(.horizontal, 24)
             .padding(.vertical, 4)
-        }
-        // 우측 페이드 아웃 (스크롤 힌트)
-        .overlay(alignment: .trailing) {
-            LinearGradient(
-                colors: [.clear, Color(.systemGroupedBackground)],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .frame(width: 48)
-            .allowsHitTesting(false)
         }
         .sensoryFeedback(.selection, trigger: selectedId)
     }
