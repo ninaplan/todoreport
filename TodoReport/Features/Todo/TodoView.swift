@@ -17,21 +17,27 @@ struct TodoView: View {
     @State private var hapticWarningTrigger = false
     @State private var showCalendarOpenHint = false
     @AppStorage("hasSeenCalendarOpenHint") private var hasSeenCalendarOpenHint = false
-
-    private static let dateFmt: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "ko_KR")
-        f.dateFormat = "M월 d일 EEEE"
-        return f
-    }()
+    @State private var showDailyReportExpandHint = false
+    @State private var allChipColorHex: String = AllChipColorStore.hex(
+        for: PlannerService.shared.selectedPlanner?.id
+    )
 
     private var formattedDate: String {
         let cal = Calendar.current
         let date = viewModel.selectedDate
-        let base = Self.dateFmt.string(from: date)
-        if cal.isDateInToday(date)     { return "오늘, \(base)" }
-        if cal.isDateInYesterday(date) { return "어제, \(base)" }
-        if cal.isDateInTomorrow(date)  { return "내일, \(base)" }
+        let formatter = DateFormatter()
+        formatter.locale = .autoupdatingCurrent
+        // 한국어는 요일 풀네임(EEEE) 유지, 그 외 언어는 축약 요일(E) + 월 약어(MMM) 사용
+        let isKorean = Locale.autoupdatingCurrent.language.languageCode?.identifier == "ko"
+        formatter.dateFormat = DateFormatter.dateFormat(
+            fromTemplate: isKorean ? "MdEEEE" : "MMMdE",
+            options: 0,
+            locale: .autoupdatingCurrent
+        )
+        let base = formatter.string(from: date)
+        if cal.isDateInToday(date)     { return String(localized: "오늘, \(base)") }
+        if cal.isDateInYesterday(date) { return String(localized: "어제, \(base)") }
+        if cal.isDateInTomorrow(date)  { return String(localized: "내일, \(base)") }
         return base
     }
 
@@ -50,7 +56,8 @@ struct TodoView: View {
                             completionRate: viewModel.completionRate,
                             displayRate: viewModel.filteredCompletionRate,
                             displayCompleted: viewModel.filteredCompletedCount,
-                            displayTotal: viewModel.filteredTotalCount
+                            displayTotal: viewModel.filteredTotalCount,
+                            onFirstAppear: { triggerDailyReportExpandHint() }
                         )
                     }
                     .listRowSeparator(.hidden)
@@ -62,7 +69,8 @@ struct TodoView: View {
                         Section {
                             CategoryFilterBar(
                                 categories: viewModel.activeCategories,
-                                selectedId: $viewModel.selectedCategoryFilter
+                                selectedId: $viewModel.selectedCategoryFilter,
+                                allChipColor: Color(hex: allChipColorHex)
                             )
                         }
                         .listRowSeparator(.hidden)
@@ -78,6 +86,9 @@ struct TodoView: View {
                             todoRows(for: viewModel.filteredTodos)
                             addTodoRow
                                 .id("addTodoRow")
+                            if viewModel.filteredTodos.isEmpty {
+                                emptyTodoListHint
+                            }
                         }
                     }
                     .listRowBackground(Color.clear)
@@ -117,10 +128,15 @@ struct TodoView: View {
                     await viewModel.refreshFromNotion()
                     await dailyReportViewModel.fetchReport(for: viewModel.selectedDate, completionRate: viewModel.completionRate)
                 }
-                .onAppear { Task { await viewModel.onAppear() } }
+                .onAppear {
+                    refreshAllChipColor()
+                    Task { await viewModel.onAppear() }
+                }
                 .onChange(of: tabCoordinator.selectedTab) { _, tab in
                     if tab != .todo {
                         cleanupInlineAddingOnTabLeave()
+                    } else {
+                        refreshAllChipColor()
                     }
                 }
                 .onChange(of: tabCoordinator.foregroundRefreshToken) { _, _ in
@@ -141,6 +157,7 @@ struct TodoView: View {
                     tabCoordinator.clearPendingTodoDate()
                 }
                 .onChange(of: PlannerService.shared.selectedPlannerId) { _, _ in
+                    refreshAllChipColor()
                     dailyReportViewModel.switchReport()
                     Task {
                         await viewModel.switchPlanner()
@@ -172,6 +189,21 @@ struct TodoView: View {
                         Color.clear
                             .frame(height: 36)
                         calendarOpenHintBubble
+                        Spacer(minLength: 0)
+                    }
+                    .allowsHitTesting(false)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+
+                if showDailyReportExpandHint {
+                    VStack(spacing: 0) {
+                        Color.clear
+                            .frame(height: 78)
+                        HStack {
+                            Spacer()
+                            dailyReportExpandHintBubble
+                                .padding(.trailing, 28)
+                        }
                         Spacer(minLength: 0)
                     }
                     .allowsHitTesting(false)
@@ -295,7 +327,7 @@ struct TodoView: View {
             } message: {
                 Text("이 플래너는 읽기 전용입니다. Pro 구독 시 다시 활성화됩니다.")
             }
-            .sheet(isPresented: $showCategorySheet) {
+            .sheet(isPresented: $showCategorySheet, onDismiss: refreshAllChipColor) {
                 NavigationStack {
                     CategoryView()
                 }
@@ -325,6 +357,55 @@ struct TodoView: View {
         .frame(maxWidth: .infinity)
     }
 
+    private func triggerDailyReportExpandHint() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showDailyReportExpandHint = true
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(3))
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showDailyReportExpandHint = false
+                }
+            }
+        }
+    }
+
+    private var dailyReportExpandHintBubble: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            Image(systemName: "triangle.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(Color.black)
+                .offset(y: 2)
+
+            Text("탭하면 리포트를 펼쳐볼 수 있어요")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.black, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+    }
+
+    private var emptyTodoListHint: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "arrow.clockwise")
+                .font(.system(size: 20, weight: .regular))
+                .foregroundStyle(.secondary)
+            VStack(spacing: 2) {
+                Text("목록이 안 보이나요?")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text("위에서 아래로 당겨 새로고침해보세요")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.top, 24)
+        .padding(.bottom, 12)
+    }
+
     // MARK: - 투두 행 빌더 (공통 스와이프 액션 포함)
 
     private func resetTodoNavigationToRoot() {
@@ -346,6 +427,10 @@ struct TodoView: View {
             newTodoTitle = ""
         }
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    private func refreshAllChipColor() {
+        allChipColorHex = AllChipColorStore.hex(for: PlannerService.shared.selectedPlanner?.id)
     }
 
     @ViewBuilder
@@ -412,11 +497,12 @@ struct TodoView: View {
 private struct CategoryFilterBar: View {
     let categories: [Category]
     @Binding var selectedId: String?
+    let allChipColor: Color
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                FilterChip(label: "전체", color: AppTheme.shared.accent, isSelected: selectedId == nil) {
+                FilterChip(label: String(localized: "전체"), color: allChipColor, isSelected: selectedId == nil) {
                     selectedId = nil
                 }
                 ForEach(categories) { category in
@@ -646,7 +732,7 @@ private struct PlannerSelectionSheet: View {
                 .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showPaywall) {
-            PaywallView(message: "멀티 플래너는 Pro 기능이에요")
+            PaywallView(message: String(localized: "멀티 플래너는 Pro 기능이에요"))
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }

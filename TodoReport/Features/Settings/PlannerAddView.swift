@@ -7,7 +7,7 @@ struct PlannerAddView: View {
     @State private var showNotionWorkspaceInfoAlert = false
 
     private static let notionWorkspaceInfoMessage =
-        "같은 워크스페이스에 여러 플래너를 연결할 수 있어요. 노션 연결 화면에서 기존에 허용했던 페이지는 체크 해제하지 말고, 새로 쓸 페이지만 추가로 체크해주세요."
+        String(localized: "같은 워크스페이스에 여러 플래너를 연결할 수 있어요. 노션 연결 화면에서 기존에 허용했던 페이지는 체크 해제하지 말고, 새로 쓸 페이지만 추가로 체크해주세요.")
 
     private var isDBPickerStep: Bool {
         viewModel.step == .selectTodoDB || viewModel.step == .selectReportDB
@@ -101,11 +101,11 @@ struct PlannerAddView: View {
 
     private var navTitle: String {
         switch viewModel.step {
-        case .chooseMode, .notionOAuth, .loadingDatabases: return "플래너 추가"
-        case .selectTodoDB:             return "투두 DB 선택"
-        case .mapTodoProps:             return "투두 속성 연결"
-        case .selectReportDB:           return "리포트 DB 선택"
-        case .mapReportProps:           return "리포트 속성 연결"
+        case .chooseMode, .notionOAuth, .loadingDatabases: return String(localized: "플래너 추가")
+        case .selectTodoDB:             return String(localized: "투두 DB 선택")
+        case .mapTodoProps:             return String(localized: "투두 속성 연결")
+        case .selectReportDB:           return String(localized: "리포트 DB 선택")
+        case .mapReportProps:           return String(localized: "리포트 속성 연결")
         }
     }
 
@@ -200,8 +200,8 @@ struct PlannerAddView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Text("처음 연결할 때는 시간이 걸릴 수 있습니다.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Spacer()
         }

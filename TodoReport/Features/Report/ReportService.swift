@@ -173,7 +173,7 @@ final class ReportService {
         while weekStart < end {
             guard let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) else { break }
             let actualEnd = min(weekEnd, end)
-            let label = "\(weekIndex)주차"
+            let label = String(localized: "\(weekIndex)주차")
 
             let weekTodos = todos.filter { $0.date >= weekStart && $0.date < actualEnd }
             let rate = weekTodos.isEmpty ? 0 : Double(weekTodos.filter { $0.isCompleted }.count) / Double(weekTodos.count)

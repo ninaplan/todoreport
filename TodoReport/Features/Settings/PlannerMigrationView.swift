@@ -125,13 +125,15 @@ struct PlannerMigrationView: View {
 
     private var navTitle: String {
         switch viewModel.step {
-        case .idle, .oauthRequired:         return "노션 로그인"
-        case .selectTodoDB:                 return "투두 DB 선택"
-        case .mapTodoProps:                 return "투두 속성 연결"
-        case .selectReportDB:               return "리포트 DB 선택"
-        case .mapReportProps:               return "리포트 속성 연결"
+        case .idle, .oauthRequired:         return String(localized: "노션 로그인")
+        case .selectTodoDB:                 return String(localized: "투두 DB 선택")
+        case .mapTodoProps:                 return String(localized: "투두 속성 연결")
+        case .selectReportDB:               return String(localized: "리포트 DB 선택")
+        case .mapReportProps:               return String(localized: "리포트 속성 연결")
         case .running, .completed, .failed(_):
-            return viewModel.mode == .uploadToNotion ? "노션에 올리기" : "노션 가져오기"
+            return viewModel.mode == .uploadToNotion
+                ? String(localized: "노션에 올리기")
+                : String(localized: "노션 가져오기")
         }
     }
 
@@ -156,8 +158,8 @@ struct PlannerMigrationView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Text("Notion 앱에서 승인 후 돌아오세요")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -340,8 +342,8 @@ struct PlannerMigrationView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                 Text("앱을 닫지 마세요")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
     }

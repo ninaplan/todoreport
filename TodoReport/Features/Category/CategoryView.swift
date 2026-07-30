@@ -2,19 +2,27 @@ import SwiftUI
 
 struct CategoryView: View {
     @State private var viewModel: CategoryViewModel
+    @State private var allChipColorHex: String
+    private let plannerId: String?
 
     init(plannerId: String? = nil) {
+        self.plannerId = plannerId
         _viewModel = State(initialValue: CategoryViewModel(plannerId: plannerId))
+        let pid = plannerId ?? PlannerService.shared.selectedPlanner?.id
+        _allChipColorHex = State(initialValue: AllChipColorStore.hex(for: pid))
+    }
+
+    private var resolvedPlannerId: String? {
+        plannerId ?? PlannerService.shared.selectedPlanner?.id
     }
 
     var body: some View {
         List {
-            Section("색상 팔레트") {
-                CategoryPaletteSetPicker(
-                    selectedSetId: viewModel.storedPaletteSetId,
-                    onSelect: { viewModel.selectPaletteSet($0) }
-                )
-                .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+            Section("전체 칩 색상") {
+                ColorSwatchPicker(selectedHex: allChipColorHex) { hex in
+                    allChipColorHex = hex
+                    AllChipColorStore.set(hex, for: resolvedPlannerId)
+                }
             }
 
             if viewModel.categories.isEmpty && !viewModel.isLoading {
@@ -57,6 +65,7 @@ struct CategoryView: View {
         }
         .navigationTitle("카테고리 관리")
         .navigationBarTitleDisplayMode(.inline)
+        .sensoryFeedback(.selection, trigger: allChipColorHex)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -85,49 +94,45 @@ struct CategoryView: View {
     }
 }
 
-// MARK: - 팔레트 세트 선택
+// MARK: - 색상 스와치 + ColorPicker
 
-private struct CategoryPaletteSetPicker: View {
-    let selectedSetId: String
+private struct ColorSwatchPicker: View {
+    let selectedHex: String
     let onSelect: (String) -> Void
 
+    private let columns = Array(repeating: GridItem(.flexible()), count: 6)
+
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(CategoryPaletteSet.all) { set in
-                    let isSelected = set.id == selectedSetId
+        VStack(alignment: .leading, spacing: 0) {
+            LazyVGrid(columns: columns, spacing: 14) {
+                ForEach(Category.baseColors, id: \.self) { hex in
                     Button {
-                        onSelect(set.id)
+                        onSelect(hex)
                     } label: {
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(spacing: 3) {
-                                ForEach(set.colors.prefix(6), id: \.self) { hex in
-                                    Circle()
-                                        .fill(Color(hex: hex))
-                                        .frame(width: 10, height: 10)
-                                }
+                        ZStack {
+                            Circle()
+                                .fill(Color(hex: hex))
+                                .frame(width: 36, height: 36)
+                            if selectedHex.uppercased() == hex.uppercased() {
+                                Image(systemName: "checkmark")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(Color(hex: hex).readableForeground)
                             }
-                            Text(set.displayName)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(isSelected ? Color.nockOrange : .primary)
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color(.secondarySystemGroupedBackground))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .strokeBorder(
-                                    isSelected ? Color.nockOrange : Color.clear,
-                                    lineWidth: 2
-                                )
-                        )
                     }
                     .buttonStyle(.plain)
                 }
             }
+            .padding(.vertical, 4)
+
+            ColorPicker(
+                "직접 선택",
+                selection: Binding(
+                    get: { Color(hex: selectedHex) },
+                    set: { onSelect($0.hexString) }
+                ),
+                supportsOpacity: false
+            )
         }
     }
 }
@@ -179,7 +184,6 @@ private struct CategoryEditSheet: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isNameFocused: Bool
 
-    private let colorColumns = Array(repeating: GridItem(.flexible()), count: 6)
     private let iconColumns  = Array(repeating: GridItem(.flexible()), count: 5)
 
     var body: some View {
@@ -213,26 +217,9 @@ private struct CategoryEditSheet: View {
                 }
 
                 Section("색상") {
-                    LazyVGrid(columns: colorColumns, spacing: 14) {
-                        ForEach(viewModel.activePaletteColors, id: \.self) { hex in
-                            Button {
-                                viewModel.selectColor(hex)
-                            } label: {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color(hex: hex))
-                                        .frame(width: 36, height: 36)
-                                    if viewModel.editColorHex.uppercased() == hex.uppercased() {
-                                        Image(systemName: "checkmark")
-                                            .font(.caption.bold())
-                                            .foregroundStyle(Color(hex: hex).readableForeground)
-                                    }
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
+                    ColorSwatchPicker(selectedHex: viewModel.editColorHex) { hex in
+                        viewModel.selectColor(hex)
                     }
-                    .padding(.vertical, 4)
                 }
 
                 Section("아이콘") {

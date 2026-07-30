@@ -14,9 +14,9 @@ enum StreakCriteria: String, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .allPinnedCompleted: return "중요 할 일 모두 완료"
-        case .allCompleted: return "전체 할 일 완료"
-        case .anyCompleted: return "할 일 1개 이상 완료"
+        case .allPinnedCompleted: return String(localized: "중요 할 일 모두 완료")
+        case .allCompleted: return String(localized: "전체 할 일 완료")
+        case .anyCompleted: return String(localized: "할 일 1개 이상 완료")
         }
     }
 

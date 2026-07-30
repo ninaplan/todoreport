@@ -253,6 +253,23 @@ struct SettingsView: View {
                 guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
                 UIApplication.shared.open(url)
             } label: {
+                LabeledContent("언어") {
+                    HStack(spacing: 4) {
+                        Text(currentLanguageDisplayName)
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                UIApplication.shared.open(url)
+            } label: {
                 LabeledContent("알림") {
                     HStack(spacing: 4) {
                         Text(notificationAuthStatus.displayText)
@@ -277,6 +294,15 @@ struct SettingsView: View {
         } footer: {
             Text("리포트의 연속 달성은 어제까지 기준으로 계산됩니다.")
         }
+    }
+
+    private var currentLanguageDisplayName: String {
+        let code = Locale.current.language.languageCode?.identifier
+            ?? Locale.preferredLanguages.first.flatMap {
+                Locale.Language(identifier: $0).languageCode?.identifier
+            }
+            ?? "ko"
+        return Locale.current.localizedString(forLanguageCode: code) ?? code
     }
 
     // MARK: - 계정 삭제
@@ -534,9 +560,9 @@ struct SupportMailView: UIViewControllerRepresentable {
 private extension UNAuthorizationStatus {
     var displayText: String {
         switch self {
-        case .authorized, .provisional, .ephemeral: return "허용됨"
-        case .denied:                                return "거부됨"
-        default:                                     return "설정 안 됨"
+        case .authorized, .provisional, .ephemeral: return String(localized: "허용됨")
+        case .denied:                                return String(localized: "거부됨")
+        default:                                     return String(localized: "설정 안 됨")
         }
     }
 }

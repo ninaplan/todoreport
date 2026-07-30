@@ -4,6 +4,10 @@ import SwiftUI
 enum ReportPeriod: String, CaseIterable {
     case weekly  = "주간"
     case monthly = "월간"
+
+    var localizedTitle: LocalizedStringKey {
+        LocalizedStringKey(rawValue)
+    }
 }
 
 @Observable
@@ -142,7 +146,7 @@ final class ReportViewModel {
 
     func prepareSave() {
         guard isPro else {
-            paywallMessage = "노션에 리포트 저장하기는 Pro 기능이에요"
+            paywallMessage = String(localized: "노션에 리포트 저장하기는 Pro 기능이에요")
             showPaywall = true
             return
         }
@@ -401,26 +405,23 @@ final class ReportViewModel {
     }
 
     private func formatWeeklyPeriod(_ interval: DateInterval) -> String {
-        let startComps = calendar.dateComponents([.year, .month, .day], from: interval.start)
-        let endDate    = calendar.date(byAdding: .day, value: -1, to: interval.end) ?? interval.end
-        let endComps   = calendar.dateComponents([.year, .month, .day], from: endDate)
-
-        let year = startComps.year ?? 0
-        let sm   = startComps.month ?? 0
-        let sd   = startComps.day ?? 0
-        let em   = endComps.month ?? 0
-        let ed   = endComps.day ?? 0
-
-        if sm == em {
-            return "\(year)년 \(sm)월 \(sd)일 — \(ed)일"
-        } else {
-            return "\(year)년 \(sm)월 \(sd)일 — \(em)월 \(ed)일"
-        }
+        let endDate = calendar.date(byAdding: .day, value: -1, to: interval.end) ?? interval.end
+        let formatter = DateIntervalFormatter()
+        formatter.locale = .autoupdatingCurrent
+        formatter.dateStyle = .long
+        formatter.timeStyle = .none
+        return formatter.string(from: interval.start, to: endDate)
     }
 
     private func formatMonthlyPeriod(_ interval: DateInterval) -> String {
-        let comps = calendar.dateComponents([.year, .month], from: interval.start)
-        return "\(comps.year ?? 2026)년 \(comps.month ?? 1)월"
+        let formatter = DateFormatter()
+        formatter.locale = .autoupdatingCurrent
+        formatter.dateFormat = DateFormatter.dateFormat(
+            fromTemplate: "yMMMM",
+            options: 0,
+            locale: .autoupdatingCurrent
+        )
+        return formatter.string(from: interval.start)
     }
 
     private func reviewEntries(from timeline: [ReviewTimelineEntry]) -> [PeriodReportChartData.ReviewEntry] {

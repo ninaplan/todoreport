@@ -213,7 +213,7 @@ private struct SettingsDBPickerRow: View {
     var body: some View {
         if isLoading {
             HStack {
-                Text(label)
+                Text(LocalizedStringKey(label))
                 Spacer()
                 ProgressView()
                     .scaleEffect(0.8)
@@ -233,7 +233,7 @@ private struct SettingsDBPickerRow: View {
                 }
             } label: {
                 HStack {
-                    Text(label)
+                    Text(LocalizedStringKey(label))
                         .foregroundStyle(.primary)
                     Spacer()
                     if let title = selectedTitle {
@@ -282,7 +282,7 @@ private struct SettingsPropMappingRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 24)
             HStack(spacing: 6) {
-                Text(label)
+                Text(LocalizedStringKey(label))
                 if isRequired {
                     SettingsSmallTag(text: "필수")
                 }
@@ -318,8 +318,8 @@ private struct SettingsOptionalPropRow: View {
 
     private var displayLabel: String {
         switch mode {
-        case .appOnly:  return "앱에만 저장"
-        case .existing: return selection ?? "선택 안 함"
+        case .appOnly:  return String(localized: "앱에만 저장")
+        case .existing: return selection ?? String(localized: "선택 안 함")
         }
     }
 
@@ -330,7 +330,7 @@ private struct SettingsOptionalPropRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 24)
             HStack(spacing: 6) {
-                Text(label)
+                Text(LocalizedStringKey(label))
                 if isRecommended {
                     SettingsSmallTag(text: "권장")
                 }
@@ -373,7 +373,7 @@ private struct SettingsOptionalPropRow: View {
             .buttonStyle(.plain)
         }
         if let hint, candidates.isEmpty {
-            Text(hint)
+            Text(LocalizedStringKey(hint))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.leading, 28)
@@ -385,7 +385,7 @@ private struct SettingsOptionalPropRow: View {
 // MARK: - 태그
 
 private struct SettingsSmallTag: View {
-    let text: String
+    let text: LocalizedStringKey
 
     var body: some View {
         Text(text)

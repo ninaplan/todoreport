@@ -49,6 +49,22 @@ struct Category: Identifiable, Codable {
         self.isHidden = isHidden
     }
 
+    static let baseColors: [String] = [
+        "#FF3B30", "#FFCC00", "#34C759", "#00C7BE",
+        "#007AFF", "#5856D6", "#AF52DE", "#FF2D55",
+        "#A2845E", "#8E8E93", "#FD6845", "#000000"
+    ]
+
+    /// 미사용 색 우선. 기본색이 모두 쓰이면 baseColors 내 랜덤.
+    static func pickColor(used: Set<String>) -> String {
+        let usedNormalized = Set(used.map { $0.uppercased() })
+        let unused = baseColors.filter { !usedNormalized.contains($0.uppercased()) }
+        if let pick = unused.randomElement() {
+            return pick
+        }
+        return baseColors.randomElement() ?? baseColors[0]
+    }
+
     static let iconPalette: [String] = [
         // 업무/생산성
         "briefcase.fill", "desktopcomputer", "laptopcomputer", "doc.text.fill", "chart.line.uptrend.xyaxis",

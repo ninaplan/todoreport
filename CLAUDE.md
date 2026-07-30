@@ -177,6 +177,10 @@
 7. **alert 상태 프로퍼티는 cancel/confirm 메서드 쌍으로 구현**
    → `showXxxAlert`, `xxxItem` 프로퍼티가 있으면 반드시 `cancelXxx()` / `confirmXxx()` 메서드도 함께 정의
    → View에서 alert 상태 프로퍼티 직접 수정 금지
+8. **버전 제출 시 What's New·번역은 사용자가 요청하지 않아도 항상 함께 갱신한다**
+   → 새 버전을 App Store에 제출할 때(빌드 번호 올리거나 CLAUDE.md에 새 "v1.x.x 변경 내용" 섹션이 추가될 때)마다 `WhatsNewData.swift`에 해당 릴리즈 항목을 반드시 추가
+   → 새 문자열은 하드코딩 금지 — `String(localized:)`로 감싸고 `Localizable.xcstrings`에 영어 번역까지 바로 채워 넣을 것 (사용자가 "영어도 해줘"라고 다시 말하지 않아도 됨)
+   → 사용자에게 확인 없이 진행 가능한 항목: What's New 문구 자체의 번역 추가. 단, 코드 로직 변경이 필요하면 기존 원칙대로 먼저 확인
 
 ---
 

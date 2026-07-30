@@ -45,19 +45,22 @@ enum RecurrenceRule: Codable, Equatable {
 
     var displayName: String {
         switch self {
-        case .daily:            return "매일"
-        case .weekdays:         return "평일(월~금)"
-        case .weekends:         return "주말(토~일)"
-        case .weekly(let d):    return "매주 \(weekdayLabel(d))"
-        case .biweekly(let d):  return "격주 \(weekdayLabel(d))"
-        case .monthly:          return "매월"
-        case .yearly:           return "매년"
+        case .daily:            return String(localized: "매일")
+        case .weekdays:         return String(localized: "평일(월~금)")
+        case .weekends:         return String(localized: "주말(토~일)")
+        case .weekly(let d):    return String(localized: "매주 \(weekdayLabel(d))")
+        case .biweekly(let d):  return String(localized: "격주 \(weekdayLabel(d))")
+        case .monthly:          return String(localized: "매월")
+        case .yearly:           return String(localized: "매년")
         }
     }
 
     private func weekdayLabel(_ indices: [Int]) -> String {
         let names = ["일", "월", "화", "수", "목", "금", "토"]
-        return indices.sorted().compactMap { $0 < names.count ? names[$0] : nil }.joined(separator: "·")
+        return indices.sorted().compactMap { index -> String? in
+            guard index < names.count else { return nil }
+            return String(localized: String.LocalizationValue(names[index]))
+        }.joined(separator: "·")
     }
 
     // MARK: - Codable

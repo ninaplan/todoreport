@@ -109,8 +109,12 @@ struct MediumWidgetView: View {
 
     private var todayString: String {
         let fmt = DateFormatter()
-        fmt.dateFormat = "M월 d일 (E)"
-        fmt.locale = Locale(identifier: "ko_KR")
+        fmt.locale = .autoupdatingCurrent
+        fmt.dateFormat = DateFormatter.dateFormat(
+            fromTemplate: "MdE",
+            options: 0,
+            locale: .autoupdatingCurrent
+        )
         return fmt.string(from: .now)
     }
 }

@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct PropMappingList<R: View, O: View>: View {
-    private let subtitle: String
-    private let ctaTitle: String
+    private let subtitle: LocalizedStringKey
+    private let ctaTitle: LocalizedStringKey
     private let ctaEnabled: Bool
     private let isLoading: Bool
     private let onCTA: () -> Void
@@ -11,8 +11,8 @@ struct PropMappingList<R: View, O: View>: View {
     private let optionalContent: O
 
     init(
-        subtitle: String,
-        ctaTitle: String,
+        subtitle: LocalizedStringKey,
+        ctaTitle: LocalizedStringKey,
         ctaEnabled: Bool,
         isLoading: Bool = false,
         onCTA: @escaping () -> Void,

@@ -107,9 +107,9 @@ struct Planner: Identifiable, Hashable, Codable {
 
     var deleteConfirmationMessage: String {
         if isNotionConnected {
-            return "노션에 저장된 데이터는 그대로 있어요. 앱에서 연결만 완전히 제거하며, 다시 사용하려면 재연동이 필요해요."
+            return String(localized: "노션에 저장된 데이터는 그대로 있어요. 앱에서 연결만 완전히 제거하며, 다시 사용하려면 재연동이 필요해요.")
         }
-        return "로컬에만 저장된 데이터라 삭제하면 복구할 수 없어요."
+        return String(localized: "로컬에만 저장된 데이터라 삭제하면 복구할 수 없어요.")
     }
 }
 
@@ -140,13 +140,18 @@ final class PlannerService {
     // MARK: - 디폴트 이름 생성
 
     static let defaultNamePool: [String] = [
-        "내 플래너", "나의 할 일", "오늘의 투두", "일상 기록", "할 일 모음", "나만의 계획"
+        String(localized: "내 플래너"),
+        String(localized: "나의 할 일"),
+        String(localized: "오늘의 투두"),
+        String(localized: "일상 기록"),
+        String(localized: "할 일 모음"),
+        String(localized: "나만의 계획")
     ]
 
     func generateDefaultName() -> String {
         let existing = Set(store.map { $0.name })
         let candidates = Self.defaultNamePool.filter { !existing.contains($0) }
-        return candidates.randomElement() ?? "내 플래너 \(store.count + 1)"
+        return candidates.randomElement() ?? String(localized: "내 플래너 \(store.count + 1)")
     }
 
     // MARK: - Setup (앱 최초 실행 시 기본 플래너 생성 + 기존 데이터 backfill)

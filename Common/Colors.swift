@@ -14,6 +14,15 @@ extension Color {
         self.init(red: r, green: g, blue: b)
     }
 
+    /// RGB를 `#RRGGBB` 문자열로 변환 (ColorPicker → 저장용).
+    var hexString: String {
+        guard let c = rgbComponents else { return "#000000" }
+        let r = Int((c.r * 255).rounded())
+        let g = Int((c.g * 255).rounded())
+        let b = Int((c.b * 255).rounded())
+        return String(format: "#%02X%02X%02X", r, g, b)
+    }
+
     // MARK: - 대비 헬퍼 (카테고리 색)
 
     /// 채움 위 글자용 휘도 임계값 — 아주 밝은 색에서만 검정, 그 외 흰색. 실기기에서 미세조정

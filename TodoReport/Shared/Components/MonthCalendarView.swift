@@ -18,6 +18,8 @@ struct MonthCalendarView: View {
     @State private var isFetchingNotion = false
     @State private var showFetchErrorAlert = false
     @State private var fetchErrorMessage = ""
+    @State private var showNotionFetchHint = false
+    @AppStorage("hasSeenCalendarNotionFetchHint") private var hasSeenCalendarNotionFetchHint = false
 
     private var calendar: Calendar { AppCalendar.localized }
     private let dayCellHeight: CGFloat = 50
@@ -81,6 +83,40 @@ struct MonthCalendarView: View {
             Button("확인", role: .cancel) {}
         } message: {
             Text(fetchErrorMessage)
+        }
+        .onAppear {
+            guard isNotionPlanner, !hasSeenCalendarNotionFetchHint else { return }
+            hasSeenCalendarNotionFetchHint = true
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showNotionFetchHint = true
+            }
+            Task {
+                try? await Task.sleep(for: .seconds(3))
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showNotionFetchHint = false
+                    }
+                }
+            }
+        }
+    }
+
+    private var notionFetchHintBubble: some View {
+        VStack(spacing: 0) {
+            Image(systemName: "triangle.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(Color.black)
+                .offset(y: 2)
+
+            Text("탭하면 이 달의 데이터를 노션에서 다시 불러와요")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 190)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.black, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
     }
 
@@ -162,6 +198,14 @@ struct MonthCalendarView: View {
                 .buttonStyle(.plain)
                 .disabled(isFetchingNotion)
                 .accessibilityLabel("불러오기")
+                .overlay(alignment: .bottom) {
+                    if showNotionFetchHint {
+                        notionFetchHintBubble
+                            .offset(y: 44)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                            .zIndex(1)
+                    }
+                }
             }
 
             Spacer(minLength: 0)
@@ -226,11 +270,12 @@ struct MonthCalendarView: View {
     private func legendTitle(for option: CalendarCategoryFilter) -> String {
         switch option {
         case .all:
-            return "전체"
+            return String(localized: "전체")
         case .category(let id):
-            return CategoryService.shared.store.first(where: { $0.id == id })?.name ?? "카테고리"
+            return CategoryService.shared.store.first(where: { $0.id == id })?.name
+                ?? String(localized: "카테고리")
         case .uncategorized:
-            return "미분류"
+            return String(localized: "미분류")
         }
     }
 
@@ -535,8 +580,12 @@ struct MonthCalendarView: View {
 
     private func monthTitle(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ko_KR")
-        formatter.dateFormat = "yyyy년 M월"
+        formatter.locale = .autoupdatingCurrent
+        formatter.dateFormat = DateFormatter.dateFormat(
+            fromTemplate: "yMMMM",
+            options: 0,
+            locale: .autoupdatingCurrent
+        )
         return formatter.string(from: date)
     }
 

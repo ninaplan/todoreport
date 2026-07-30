@@ -39,7 +39,7 @@ struct PaywallView: View {
             : subscriptionManager.monthlyIntroOfferText
     }
 
-    private var ctaTitle: String {
+    private var ctaTitle: LocalizedStringKey {
         selectedIntroOfferText != nil ? "7일 무료로 시작하기" : "구독 시작하기"
     }
 
@@ -254,7 +254,7 @@ struct PaywallView: View {
             PaywallPlanCard(
                 title: "연간",
                 priceText: subscriptionManager.yearlyProduct?.displayPrice
-                    ?? (subscriptionManager.isLoadingProducts ? "로딩 중..." : "---"),
+                    ?? (subscriptionManager.isLoadingProducts ? String(localized: "로딩 중...") : "---"),
                 unit: "/년",
                 subtitle: yearlyPlanSubtitle,
                 discountBadge: "43% 할인",
@@ -269,9 +269,9 @@ struct PaywallView: View {
             PaywallPlanCard(
                 title: "월간",
                 priceText: subscriptionManager.monthlyProduct?.displayPrice
-                    ?? (subscriptionManager.isLoadingProducts ? "로딩 중..." : "---"),
+                    ?? (subscriptionManager.isLoadingProducts ? String(localized: "로딩 중...") : "---"),
                 unit: "/월",
-                subtitle: "언제든 해지 가능",
+                subtitle: String(localized: "언제든 해지 가능"),
                 discountBadge: nil,
                 isSelected: viewModel.selectedProductId == SubscriptionManager.monthlyProductId,
                 cardBackground: cardBackground,
@@ -334,7 +334,7 @@ struct PaywallView: View {
     private var yearlyPlanSubtitle: String? {
         guard let monthlyEquivalent = yearlyMonthlyEquivalentText,
               let savings = yearlySavingsAmountText else { return nil }
-        return "월 \(monthlyEquivalent) 꼴 · \(savings)"
+        return String(localized: "월 \(monthlyEquivalent) 꼴 · \(savings)")
     }
 
     private var yearlyMonthlyEquivalentText: String? {
@@ -349,7 +349,7 @@ struct PaywallView: View {
         let savings = monthly.price * 12 - yearly.price
         guard savings > 0 else { return nil }
         let formatted = formatCurrency(savings, using: yearly)
-        return "연 \(formatted) 절약"
+        return String(localized: "연 \(formatted) 절약")
     }
 
     private func formatCurrency(_ amount: Decimal, using product: Product) -> String {
@@ -363,8 +363,8 @@ struct PaywallView: View {
 // MARK: - ProFeatureRow
 
 private struct ProFeatureRow: View {
-    let title: String
-    let description: String
+    let title: LocalizedStringKey
+    let description: LocalizedStringKey
     let isComingSoon: Bool
     let primaryText: Color
     let secondaryText: Color
@@ -408,7 +408,7 @@ private struct ProFeatureRow: View {
 // MARK: - Free Feature Chips
 
 private struct FreeFeatureChip: View {
-    let label: String
+    let label: LocalizedStringKey
     let primaryText: Color
     let secondaryText: Color
 
@@ -446,11 +446,11 @@ private struct InboxComingSoonChip: View {
 // MARK: - PaywallPlanCard
 
 private struct PaywallPlanCard: View {
-    let title: String
+    let title: LocalizedStringKey
     let priceText: String
-    let unit: String
+    let unit: LocalizedStringKey
     let subtitle: String?
-    let discountBadge: String?
+    let discountBadge: LocalizedStringKey?
     let isSelected: Bool
     let cardBackground: Color
     let dividerColor: Color

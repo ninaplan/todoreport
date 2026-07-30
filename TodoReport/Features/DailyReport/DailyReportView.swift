@@ -8,10 +8,13 @@ struct DailyReportCard: View {
     let displayRate: Double         // UI 표시용 (필터 반영)
     let displayCompleted: Int
     let displayTotal: Int
+    /// 최초 1회, 리포트 카드가 처음 나타났을 때 호출 (화살표 안내 말풍선은 List 밖 상위 뷰에서 표시)
+    var onFirstAppear: (() -> Void)? = nil
 
     @State private var isExpanded = false
     @State private var expandedContentHeight: CGFloat = 0
     @FocusState private var isReviewFocused: Bool
+    @AppStorage("hasSeenDailyReportExpandHint_v2") private var hasSeenDailyReportExpandHint = false
 
     var body: some View {
         // 헤더는 레이아웃상 고정. 하단만 height 0↔측정값 + clipped로 아래로 reveal.
@@ -65,6 +68,11 @@ struct DailyReportCard: View {
             guard !focused, viewModel.hasUnsavedReview else { return }
             Task { await viewModel.saveReport() }
         }
+        .onAppear {
+            guard !hasSeenDailyReportExpandHint else { return }
+            hasSeenDailyReportExpandHint = true
+            onFirstAppear?()
+        }
     }
 
     // MARK: - 헤더 (접기/펼치기)
@@ -79,8 +87,9 @@ struct DailyReportCard: View {
                     .foregroundStyle(.primary)
                 Spacer()
                 Image(systemName: "chevron.down")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(.primary)
+                    .shadow(color: .black.opacity(0.12), radius: 1, x: 0, y: 0)
                     .rotationEffect(.degrees(isExpanded ? 180 : 0))
                     .animation(.spring(response: 0.4, dampingFraction: 0.85), value: isExpanded)
             }

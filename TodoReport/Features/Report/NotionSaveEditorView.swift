@@ -53,13 +53,13 @@ struct NotionSaveEditorView: View {
     }
 
     private var reviewSectionTitle: String {
-        reportPeriod == .weekly ? "주간 리뷰" : "월간 리뷰"
+        reportPeriod == .weekly ? String(localized: "주간 리뷰") : String(localized: "월간 리뷰")
     }
 
     private var reviewPlaceholder: String {
         reportPeriod == .weekly
-            ? "이번 주를 돌아보며 적어보세요"
-            : "이번 달을 돌아보며 적어보세요"
+            ? String(localized: "이번 주를 돌아보며 적어보세요")
+            : String(localized: "이번 달을 돌아보며 적어보세요")
     }
 
     private var notificationEnabledBinding: Binding<Bool> {
@@ -174,7 +174,7 @@ struct NotionSaveEditorView: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private func statItem(value: String, label: String, color: Color) -> some View {
+    private func statItem(value: String, label: LocalizedStringKey, color: Color) -> some View {
         VStack(spacing: 4) {
             Text(value)
                 .font(.title3.bold())
@@ -254,7 +254,7 @@ struct NotionSaveEditorView: View {
                             if reportPeriod == .weekly {
                                 Picker("요일", selection: $weeklyNotificationWeekday) {
                                     ForEach(ReportNotificationSettings.weekdayShortLabels, id: \.value) { option in
-                                        Text(option.label).tag(option.value)
+                                        Text(LocalizedStringKey(option.label)).tag(option.value)
                                     }
                                 }
                                 .labelsHidden()
@@ -306,14 +306,14 @@ struct NotionSaveEditorView: View {
     private var notificationFooterGuide: String {
         switch reportPeriod {
         case .weekly:
-            return "매주 선택한 요일·시간에 지난 주 리포트 저장을 알려드립니다."
+            return String(localized: "매주 선택한 요일·시간에 지난 주 리포트 저장을 알려드립니다.")
         case .monthly:
             let timing = MonthlyReportNotificationTiming(rawValue: monthlyNotificationTimingRaw) ?? .firstDay
             switch timing {
             case .firstDay:
-                return "매월 1일 선택한 시간에 지난 달 리포트 저장을 알려드립니다."
+                return String(localized: "매월 1일 선택한 시간에 지난 달 리포트 저장을 알려드립니다.")
             case .lastDay:
-                return "매월 말일 선택한 시간에 이번 달 리포트 저장을 알려드립니다."
+                return String(localized: "매월 말일 선택한 시간에 이번 달 리포트 저장을 알려드립니다.")
             }
         }
     }

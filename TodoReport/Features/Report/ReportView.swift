@@ -4,8 +4,6 @@ import Charts
 struct ReportView: View {
     @Environment(MainTabCoordinator.self) private var tabCoordinator
     @State private var viewModel = ReportViewModel()
-    @State private var showReviewTodoRestrictedAlert = false
-    @State private var showReviewTodoProPaywall = false
     private var isPro: Bool { SubscriptionManager.shared.isPro }
 
     var body: some View {
@@ -71,7 +69,7 @@ struct ReportView: View {
                 ToolbarItem(placement: .principal) {
                     Picker("기간", selection: $vm.selectedPeriod) {
                         ForEach(ReportPeriod.allCases, id: \.self) { period in
-                            Text(period.rawValue).tag(period)
+                            Text(period.localizedTitle).tag(period)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -138,17 +136,6 @@ struct ReportView: View {
             } message: {
                 Text(viewModel.notionSaveError ?? "")
             }
-            .alert("투두 화면 이동", isPresented: $showReviewTodoRestrictedAlert) {
-                Button("Pro 알아보기") { showReviewTodoProPaywall = true }
-                Button("확인", role: .cancel) {}
-            } message: {
-                Text("어제·오늘·내일만 투두 화면으로 이동할 수 있어요. 다른 날은 Pro에서 확인할 수 있습니다.")
-            }
-            .sheet(isPresented: $showReviewTodoProPaywall) {
-                PaywallView(message: "다른 날 투두 확인은 Pro 기능이에요")
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.visible)
-            }
         }
     }
 
@@ -195,10 +182,7 @@ struct ReportView: View {
             values: report.dailyRatings.map(\.rating)
         )
         CategoryStatsCard(stats: report.categoryStats)
-        ReviewTimelineCard(
-            entries: report.reviewTimeline,
-            onRestrictedDateTap: { showReviewTodoRestrictedAlert = true }
-        )
+        ReviewTimelineCard(entries: report.reviewTimeline)
         NotionSaveButton(
             isSavingToNotion: viewModel.isSavingToNotion,
             isNotionConnected: viewModel.isNotionConnected,
@@ -242,10 +226,7 @@ struct ReportView: View {
             values: report.dailyRatings.map(\.rating)
         )
         CategoryStatsCard(stats: report.categoryStats)
-        ReviewTimelineCard(
-            entries: report.reviewTimeline,
-            onRestrictedDateTap: { showReviewTodoRestrictedAlert = true }
-        )
+        ReviewTimelineCard(entries: report.reviewTimeline)
         NotionSaveButton(
             isSavingToNotion: viewModel.isSavingToNotion,
             isNotionConnected: viewModel.isNotionConnected,
@@ -279,7 +260,7 @@ private struct SummaryCard: View {
             )
             Divider().frame(height: 48)
             summaryItem(
-                value: "\(streakDays)일",
+                value: String(localized: "\(streakDays)일"),
                 label: "연속 달성",
                 prefix: "🔥",
                 color: .primary
@@ -291,7 +272,7 @@ private struct SummaryCard: View {
 
     private func summaryItem(
         value: String,
-        label: String,
+        label: LocalizedStringKey,
         prefix: String = "",
         symbolName: String? = nil,
         symbolColor: Color = .primary,
@@ -321,7 +302,7 @@ private struct SummaryCard: View {
 // MARK: - 완료율 막대 그래프 (막대 탭으로 해당 기간 투두 목록)
 
 private struct ExpandableCompletionCard: View {
-    let title: String
+    let title: LocalizedStringKey
     let labels: [String]
     let values: [Double]
     let todos: [ReportTodoEntry]
@@ -345,25 +326,37 @@ private struct ExpandableCompletionCard: View {
         let cal = Calendar.current
         let days = cal.dateComponents([.day], from: range.lowerBound, to: range.upperBound).day ?? 1
         if days <= 1 {
-            return Self.dailyHeaderFmt.string(from: range.lowerBound)
+            return Self.makeDailyHeaderFormatter().string(from: range.lowerBound)
         } else {
             let end = cal.date(byAdding: .day, value: -1, to: range.upperBound) ?? range.lowerBound
-            return "\(Self.shortDateFmt.string(from: range.lowerBound)) ~ \(Self.shortDateFmt.string(from: end))"
+            let fmt = Self.makeShortDateFormatter()
+            return "\(fmt.string(from: range.lowerBound)) ~ \(fmt.string(from: end))"
         }
     }
 
-    private static let dailyHeaderFmt: DateFormatter = {
+    private static func makeDailyHeaderFormatter() -> DateFormatter {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ko_KR")
-        f.dateFormat = "yyyy.MM.dd EEEE"
+        f.locale = .autoupdatingCurrent
+        // 한국어는 요일 풀네임(EEEE) 유지, 그 외 언어는 축약 요일(E) + 월 약어(MMM) 사용
+        let isKorean = Locale.autoupdatingCurrent.language.languageCode?.identifier == "ko"
+        f.dateFormat = DateFormatter.dateFormat(
+            fromTemplate: isKorean ? "yMdEEEE" : "yMMMdE",
+            options: 0,
+            locale: .autoupdatingCurrent
+        )
         return f
-    }()
+    }
 
-    private static let shortDateFmt: DateFormatter = {
+    private static func makeShortDateFormatter() -> DateFormatter {
         let f = DateFormatter()
-        f.dateFormat = "yyyy.MM.dd"
+        f.locale = .autoupdatingCurrent
+        f.dateFormat = DateFormatter.dateFormat(
+            fromTemplate: "yMd",
+            options: 0,
+            locale: .autoupdatingCurrent
+        )
         return f
-    }()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -481,7 +474,7 @@ private struct ExpandableCompletionCard: View {
 // MARK: - 별점 꺾은선 그래프
 
 private struct RatingLineChart: View {
-    let title: String
+    let title: LocalizedStringKey
     let labels: [String]
     let values: [Double]
 
@@ -637,16 +630,19 @@ private struct CategoryStatRow: View {
 
 private struct ReviewTimelineCard: View {
     let entries: [ReviewTimelineEntry]
-    var onRestrictedDateTap: (() -> Void)?
 
     @State private var isExpanded = false
 
-    private static let dateFmt: DateFormatter = {
+    private static func makeDateFormatter() -> DateFormatter {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ko_KR")
-        f.dateFormat = "M월 d일 (E)"
+        f.locale = .autoupdatingCurrent
+        f.dateFormat = DateFormatter.dateFormat(
+            fromTemplate: "MdE",
+            options: 0,
+            locale: .autoupdatingCurrent
+        )
         return f
-    }()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -655,7 +651,13 @@ private struct ReviewTimelineCard: View {
                     .font(.subheadline.bold())
                 Spacer()
                 if !entries.isEmpty {
-                    Text(isExpanded ? "접기" : "\(entries.count)일 보기")
+                    Group {
+                        if isExpanded {
+                            Text("접기")
+                        } else {
+                            Text("\(entries.count)일 보기")
+                        }
+                    }
                         .font(.caption)
                         .foregroundStyle(AppTheme.shared.accent)
                 }
@@ -694,17 +696,13 @@ private struct ReviewTimelineCard: View {
     }
 
     private func timelineRow(_ entry: ReviewTimelineEntry) -> some View {
-        ReviewTimelineRow(entry: entry, dateFmt: Self.dateFmt) {
+        ReviewTimelineRow(entry: entry, dateFmt: Self.makeDateFormatter()) {
             openTodoFromReview(on: entry.date)
         }
     }
 
     private func openTodoFromReview(on date: Date) {
-        if TodoDateAccess.canView(date: date, isPro: SubscriptionManager.shared.isPro) {
-            MainTabCoordinator.shared.openTodo(on: date)
-        } else {
-            onRestrictedDateTap?()
-        }
+        MainTabCoordinator.shared.openTodo(on: date)
     }
 }
 
@@ -752,8 +750,8 @@ private struct NotionSaveButton: View {
     private var isActive: Bool { !isSavingToNotion && isNotionConnected && isPro }
 
     private var buttonLabel: String {
-        if isSavingToNotion { return "저장 중..." }
-        return "노션에 리포트 저장하기"
+        if isSavingToNotion { return String(localized: "저장 중...") }
+        return String(localized: "노션에 리포트 저장하기")
     }
 
     var body: some View {

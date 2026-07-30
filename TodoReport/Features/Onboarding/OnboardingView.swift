@@ -67,10 +67,10 @@ struct OnboardingView: View {
     private var notionNavTitle: String {
         switch viewModel.step {
         case .plannerName:    return ""
-        case .selectTodoDB:   return "투두 DB 선택"
-        case .mapTodoProps:   return "투두 속성 연결"
-        case .selectReportDB: return "리포트 DB 선택"
-        case .mapReportProps: return "리포트 속성 연결"
+        case .selectTodoDB:   return String(localized: "투두 DB 선택")
+        case .mapTodoProps:   return String(localized: "투두 속성 연결")
+        case .selectReportDB: return String(localized: "리포트 DB 선택")
+        case .mapReportProps: return String(localized: "리포트 속성 연결")
         default:              return ""
         }
     }
@@ -322,6 +322,11 @@ private struct InitialFetchLoadingView: View {
                         Text("최근 7일치 투두와 리포트를 불러옵니다")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
+                        Text("이전 데이터는 해당 날짜에서 아래로 당겨 새로고침하면 볼 수 있어요")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
                     }
                 }
                 VStack(spacing: 8) {

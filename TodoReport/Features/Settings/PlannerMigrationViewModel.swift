@@ -446,7 +446,7 @@ final class PlannerMigrationViewModel {
 
         if totalCount == 0 {
             guard !Task.isCancelled else { return }
-            await MainActor.run { completionMessage = "업로드할 데이터가 없어요"; step = .completed }
+            await MainActor.run { completionMessage = String(localized: "업로드할 데이터가 없어요"); step = .completed }
             return
         }
 
@@ -480,11 +480,11 @@ final class PlannerMigrationViewModel {
 
         if !reportItems.isEmpty && reportFailCount == reportItems.count {
             await MainActor.run {
-                step = .failed("리포트 업로드에 실패했어요.\n인터넷 연결을 확인해주세요.\n투두는 연결 후 자동으로 업로드됩니다.")
+                step = .failed(String(localized: "리포트 업로드에 실패했어요.\n인터넷 연결을 확인해주세요.\n투두는 연결 후 자동으로 업로드됩니다."))
             }
             return
         }
-        await MainActor.run { completionMessage = "모든 데이터가 Notion에 업로드됐어요"; step = .completed }
+        await MainActor.run { completionMessage = String(localized: "모든 데이터가 Notion에 업로드됐어요"); step = .completed }
     }
 
     // MARK: - Notion → 앱 가져오기
@@ -492,7 +492,7 @@ final class PlannerMigrationViewModel {
     private func importFromNotion() async {
         // 1. 로컬 삭제 전에 먼저 노션 연결 검증 — 실패 시 로컬 데이터 보존
         guard await verifyNotionConnection() else {
-            await MainActor.run { step = .failed("노션에 연결할 수 없어요.\n인터넷 연결을 확인해주세요.") }
+            await MainActor.run { step = .failed(String(localized: "노션에 연결할 수 없어요.\n인터넷 연결을 확인해주세요.")) }
             return
         }
 
@@ -515,7 +515,7 @@ final class PlannerMigrationViewModel {
         // 3. 날짜 범위 계산 (최근 7일)
         let calendar = Calendar.current
         guard let start = calendar.date(byAdding: .day, value: -7, to: .now) else {
-            await MainActor.run { step = .failed("날짜 범위 계산 실패") }
+            await MainActor.run { step = .failed(String(localized: "날짜 범위 계산 실패")) }
             return
         }
         let today = calendar.startOfDay(for: .now)
@@ -536,7 +536,7 @@ final class PlannerMigrationViewModel {
             guard !Task.isCancelled else { return }
             guard await verifyNotionConnection() else {
                 await MainActor.run {
-                    step = .failed("노션 연결이 끊겼어요.\n인터넷 연결 후 다시 시도해주세요.")
+                    step = .failed(String(localized: "노션 연결이 끊겼어요.\n인터넷 연결 후 다시 시도해주세요."))
                 }
                 return
             }
@@ -546,7 +546,7 @@ final class PlannerMigrationViewModel {
         }
 
         guard !Task.isCancelled else { return }
-        await MainActor.run { completionMessage = "Notion 데이터를 앱으로 가져왔어요"; step = .completed }
+        await MainActor.run { completionMessage = String(localized: "Notion 데이터를 앱으로 가져왔어요"); step = .completed }
     }
 }
 

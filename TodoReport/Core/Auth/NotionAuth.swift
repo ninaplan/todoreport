@@ -70,7 +70,7 @@ final class NotionAuthManager: NSObject, ObservableObject, ASWebAuthenticationPr
 
                 guard let callbackURL else {
                     self.isLoading = false
-                    self.errorMessage = "인증 응답을 받지 못했어요"
+                    self.errorMessage = String(localized: "인증 응답을 받지 못했어요")
                     print("[NotionAuth] ❌ 콜백 URL 없음")
                     return
                 }
@@ -84,7 +84,7 @@ final class NotionAuthManager: NSObject, ObservableObject, ASWebAuthenticationPr
 
         if !session.start() {
             isLoading = false
-            errorMessage = "인증 세션을 시작할 수 없어요"
+            errorMessage = String(localized: "인증 세션을 시작할 수 없어요")
             authSession = nil
             print("[NotionAuth] ❌ ASWebAuthenticationSession.start() 실패")
         }
@@ -131,7 +131,7 @@ final class NotionAuthManager: NSObject, ObservableObject, ASWebAuthenticationPr
             guard let token = params["access_token"],
                   let workspaceId = params["workspace_id"],
                   let workspaceName = params["workspace_name"] else {
-                errorMessage = "인증 응답 파싱 실패"
+                errorMessage = String(localized: "인증 응답 파싱 실패")
                 isLoading = false
                 print("[NotionAuth] ❌ 콜백 파싱 실패 - url: \(url)")
                 return

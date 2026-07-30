@@ -2,11 +2,11 @@ import SwiftUI
 
 enum NotionDBPickerHint {
     static let missingDatabaseRefresh =
-        "찾는 데이터베이스가 목록에 없으면 우상단 새로고침 버튼을 눌러 다시 불러오세요."
+        String(localized: "찾는 데이터베이스가 목록에 없으면 우상단 새로고침 버튼을 눌러 다시 불러오세요.")
 }
 
 struct NotionDBPickerView: View {
-    let subtitle: String
+    let subtitle: LocalizedStringKey
     let databases: [NotionDatabase]
     let selectedId: String?
     let isLoading: Bool
@@ -28,8 +28,8 @@ struct NotionDBPickerView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                             Text("처음 연결할 때는 시간이 걸릴 수 있습니다.")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                         }
                         Spacer()
@@ -46,7 +46,7 @@ struct NotionDBPickerView: View {
                                 .foregroundStyle(.secondary)
                             Text("처음 불러올 때는 1분 정도 걸릴 수 있습니다. 잠시 후 다시 시도해 주세요.")
                                 .font(.footnote)
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                         }
                         Button {
@@ -70,9 +70,9 @@ struct NotionDBPickerView: View {
                                 .padding(.horizontal, 24)
                                 .padding(.top, 8)
 
-                            Text(NotionDBPickerHint.missingDatabaseRefresh)
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
+                            Text(LocalizedStringKey(NotionDBPickerHint.missingDatabaseRefresh))
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                                 .frame(maxWidth: .infinity)
                                 .padding(.horizontal, 24)

@@ -127,7 +127,7 @@ struct OnboardingWelcomeView: View {
     }
 
     private func primaryCapsuleButton(
-        title: String,
+        title: LocalizedStringKey,
         background: Color,
         foreground: Color,
         isLoading: Bool,

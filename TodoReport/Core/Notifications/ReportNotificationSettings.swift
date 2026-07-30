@@ -6,8 +6,8 @@ enum MonthlyReportNotificationTiming: String, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .firstDay: return "1일"
-        case .lastDay: return "말일"
+        case .firstDay: return String(localized: "1일")
+        case .lastDay: return String(localized: "말일")
         }
     }
 }
@@ -89,6 +89,7 @@ enum ReportNotificationSettings {
 
     static func weekdayLabel(for value: Int, short: Bool = false) -> String {
         let options = short ? weekdayShortLabels : weekdayLabels
-        return options.first(where: { $0.value == value })?.label ?? "월"
+        let key = options.first(where: { $0.value == value })?.label ?? "월"
+        return String(localized: String.LocalizationValue(key))
     }
 }

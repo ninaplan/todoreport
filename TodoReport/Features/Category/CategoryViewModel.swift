@@ -75,7 +75,6 @@ final class CategoryViewModel {
 
     /// 현재 플래너 카테고리가 쓰는 색만 모아 미사용 우선 랜덤.
     private func pickDefaultColor() -> String {
-        let palette = CategoryPaletteSet.set(id: activePaletteSetId)
         let pid = plannerId ?? PlannerService.shared.selectedPlanner?.id
         let used: Set<String>
         if let pid {
@@ -83,7 +82,7 @@ final class CategoryViewModel {
         } else {
             used = Set(categories.map(\.colorHex))
         }
-        return palette.pickColor(used: used)
+        return Category.pickColor(used: used)
     }
 
     func deleteAlertMessage(for category: Category) -> String {

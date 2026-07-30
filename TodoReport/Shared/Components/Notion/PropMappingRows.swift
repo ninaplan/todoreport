@@ -33,8 +33,8 @@ func propTypeIcon(for type: String?, label: String? = nil) -> String {
 }
 
 struct FlowSmallTag: View {
-    let text: String
-    init(_ text: String) { self.text = text }
+    let text: LocalizedStringKey
+    init(_ text: LocalizedStringKey) { self.text = text }
 
     var body: some View {
         Text(text)
@@ -56,7 +56,7 @@ struct RequiredPropRow: View {
             Image(systemName: propTypeIcon(for: props.first?.type, label: label))
                 .foregroundStyle(.secondary)
                 .frame(width: 20)
-            Text(label)
+            Text(LocalizedStringKey(label))
             FlowSmallTag("필수")
             Spacer()
             Menu {
@@ -93,7 +93,7 @@ struct OptionalPropMenu: View {
                 Image(systemName: propTypeIcon(for: props.first?.type, label: label))
                     .foregroundStyle(.secondary)
                     .frame(width: 20)
-                Text(label)
+                Text(LocalizedStringKey(label))
                 Spacer()
                 Menu {
                     Button {
@@ -124,13 +124,21 @@ struct OptionalPropMenu: View {
                         Button("Notion에 생성하기", action: onCreateTap)
                     }
                 } label: {
-                    Text(selection ?? (mode == .appOnly ? "앱에만 저장" : "선택"))
-                        .foregroundStyle(.secondary)
+                    Group {
+                        if let selection {
+                            Text(selection)
+                        } else if mode == .appOnly {
+                            Text("앱에만 저장")
+                        } else {
+                            Text("선택")
+                        }
+                    }
+                    .foregroundStyle(.secondary)
                 }
                 .tint(Color(.label))
             }
             if let hint, props.isEmpty {
-                Text(hint)
+                Text(LocalizedStringKey(hint))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 28)
