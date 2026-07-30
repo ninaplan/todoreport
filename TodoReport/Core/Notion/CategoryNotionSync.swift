@@ -210,12 +210,21 @@ final class CategoryNotionSync {
             archivedNames: archivedNames,
             usedOptionIds: usedOptionIds
         )
+        // archived 제외 — 보관 색까지 피하면 12색이 빨리 소진됨
+        var usedColors = Set(
+            plannerItems
+                .filter { $0.status != .archived }
+                .map(\.colorHex)
+        )
         for (offset, option) in toImport.enumerated() {
+            let colorHex = Category.pickColor(used: usedColors)
+            usedColors.insert(colorHex)
             importNotionOnlyOption(
                 option,
                 plannerId: plannerId,
                 plannerItems: plannerItems,
-                sortOrder: plannerItems.count + offset
+                sortOrder: plannerItems.count + offset,
+                colorHex: colorHex
             )
             usedOptionIds.insert(option.id)
         }
@@ -419,7 +428,8 @@ final class CategoryNotionSync {
         _ option: NotionCategoryOption,
         plannerId: String,
         plannerItems: [CategoryItem],
-        sortOrder: Int
+        sortOrder: Int,
+        colorHex: String
     ) {
         let name = option.name.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
@@ -428,6 +438,7 @@ final class CategoryNotionSync {
         }) { return }
         let category = Category(
             name: option.name,
+            colorHex: colorHex,
             plannerId: plannerId,
             notionOptionId: option.id,
             notionOptionName: option.name
