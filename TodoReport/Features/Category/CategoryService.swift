@@ -228,23 +228,6 @@ final class CategoryService {
         await refreshStore()
     }
 
-    /// 플래너 카테고리 colorHex만 일괄 갱신 (로컬 전용, Notion sync 없음).
-    /// archived 제외, 활성·숨김 포함. sortOrder 순으로 세트 색 순환 배정.
-    func recolorCategories(for plannerId: String, colors: [String]) async throws {
-        guard !colors.isEmpty else { return }
-        let descriptor = FetchDescriptor<CategoryItem>(
-            sortBy: [SortDescriptor(\.sortOrder)]
-        )
-        let items = try context.fetch(descriptor).filter {
-            $0.plannerId == plannerId && $0.status != .archived
-        }
-        for (index, item) in items.enumerated() {
-            item.colorHex = colors[index % colors.count]
-        }
-        try context.save()
-        await refreshStore()
-    }
-
     func reorderActiveCategories(_ ordered: [Category]) {
         Task {
             do {

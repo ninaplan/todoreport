@@ -10,7 +10,7 @@ final class CategoryViewModel {
     var isSheetPresented: Bool = false
     var isSaving: Bool = false
     var editName: String = ""
-    var editColorHex: String = CategoryPaletteSet.set(id: CategoryPaletteSet.defaultId).colors[0]
+    var editColorHex: String = Category.baseColors[0]
     var editIcon: String = "tag.fill"
     private var userDidSelectIcon: Bool = false
 
@@ -19,8 +19,6 @@ final class CategoryViewModel {
 
     var showNotionNameChangeAlert: Bool = false
 
-    private(set) var storedPaletteSetId: String = CategoryPaletteSet.defaultId
-
     private var editingId: String? = nil
     private let service = CategoryService.shared
     private let plannerId: String?
@@ -28,16 +26,9 @@ final class CategoryViewModel {
     init(plannerId: String? = nil) {
         self.plannerId = plannerId
         updateNotionSyncVisibility()
-        syncStoredPaletteSetId()
     }
 
     var isEditing: Bool { editingId != nil }
-
-    var activePaletteSetId: String { storedPaletteSetId }
-
-    var activePaletteColors: [String] {
-        CategoryPaletteSet.set(id: activePaletteSetId).colors
-    }
 
     private func currentPlanner() -> Planner? {
         let pid = plannerId ?? PlannerService.shared.selectedPlanner?.id
@@ -49,28 +40,6 @@ final class CategoryViewModel {
         PlannerService.shared.reloadFromStore()
         let planner = currentPlanner()
         isNotionCategorySyncEnabled = planner.map { CategoryNotionSync.shared.isSelectSyncEnabled(for: $0) } ?? false
-    }
-
-    private func syncStoredPaletteSetId() {
-        storedPaletteSetId = currentPlanner()?.categoryPaletteSetId ?? CategoryPaletteSet.defaultId
-    }
-
-    func selectPaletteSet(_ setId: String) {
-        guard let set = CategoryPaletteSet.all.first(where: { $0.id == setId }) else { return }
-        guard let pid = plannerId ?? PlannerService.shared.selectedPlanner?.id else { return }
-        PlannerService.shared.updateCategoryPaletteSetId(setId, for: pid)
-        storedPaletteSetId = setId
-        Task {
-            do {
-                try await service.recolorCategories(for: pid, colors: set.colors)
-                categories = await service.fetchCategories(for: pid)
-            } catch {
-                AppLogger.shared.warn(
-                    "CategoryViewModel",
-                    "팔레트 재배색 실패 - planner:\(pid) set:\(setId) \(error.localizedDescription)"
-                )
-            }
-        }
     }
 
     /// 현재 플래너 카테고리가 쓰는 색만 모아 미사용 우선 랜덤.
@@ -102,7 +71,6 @@ final class CategoryViewModel {
 
     func fetchCategories() async {
         updateNotionSyncVisibility()
-        syncStoredPaletteSetId()
         isLoading = true
         let pid = plannerId ?? PlannerService.shared.selectedPlanner?.id
         if let pid {
@@ -130,7 +98,6 @@ final class CategoryViewModel {
     func openAddSheet() {
         editingId = nil
         editName = ""
-        syncStoredPaletteSetId()
         editColorHex = pickDefaultColor()
         editIcon = "tag.fill"
         userDidSelectIcon = false

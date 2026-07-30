@@ -28,7 +28,8 @@ final class PlannerItem {
     // Pro 해지 후 읽기 전용 전환 여부
     var isReadOnly: Bool = false
     var sortOrder: Double = 0
-    // 카테고리 색 팔레트 세트 (로컬 전용 — 네트워크 페이로드 미포함)
+    // 팔레트 세트 기능은 2026-07-30 제거됨. SwiftData 경량 마이그레이션 리스크 때문에
+    // 저장 필드만 유지. 다음 메이저 스키마 변경 시 함께 제거. → docs/archive/
     var categoryPaletteSetId: String = "basic"
 
     init(
@@ -48,8 +49,7 @@ final class PlannerItem {
         todoPropsMapping: String? = nil,
         reportPropsMapping: String? = nil,
         isReadOnly: Bool = false,
-        sortOrder: Double = 0,
-        categoryPaletteSetId: String = "basic"
+        sortOrder: Double = 0
     ) {
         self.id = id
         self.name = name
@@ -68,7 +68,6 @@ final class PlannerItem {
         self.reportPropsMapping = reportPropsMapping
         self.isReadOnly = isReadOnly
         self.sortOrder = sortOrder
-        self.categoryPaletteSetId = categoryPaletteSetId
     }
 
     func toPlanner() -> Planner {
@@ -87,8 +86,7 @@ final class PlannerItem {
             todoPropsMapping: todoPropsMapping,
             reportPropsMapping: reportPropsMapping,
             isReadOnly: isReadOnly,
-            sortOrder: sortOrder,
-            categoryPaletteSetId: categoryPaletteSetId
+            sortOrder: sortOrder
         )
     }
 
@@ -108,7 +106,6 @@ final class PlannerItem {
         reportPropsMapping = planner.reportPropsMapping
         isReadOnly = planner.isReadOnly
         sortOrder = planner.sortOrder
-        categoryPaletteSetId = planner.categoryPaletteSetId
     }
 
     static func from(_ planner: Planner) -> PlannerItem {
@@ -127,8 +124,7 @@ final class PlannerItem {
             todoPropsMapping: planner.todoPropsMapping,
             reportPropsMapping: planner.reportPropsMapping,
             isReadOnly: planner.isReadOnly,
-            sortOrder: planner.sortOrder,
-            categoryPaletteSetId: planner.categoryPaletteSetId
+            sortOrder: planner.sortOrder
         )
     }
 }
