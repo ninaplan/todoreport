@@ -77,7 +77,7 @@ struct TodoView: View {
                             todoRows(for: viewModel.filteredTodos)
                             addTodoRow
                                 .id("addTodoRow")
-                            if viewModel.filteredTodos.isEmpty {
+                            if viewModel.emptyStateKind == .notionPullHint {
                                 emptyTodoListHint
                             }
                         }

@@ -232,6 +232,7 @@ final class TodoService {
 
     /// Notion에서 해당 날짜 투두를 pull한다.
     /// - Returns: `true` 성공, `false` 실패, `nil` 스킵(미연동·취소 등) — pull 흐름은 기존과 동일하고 결과만 전달한다.
+    @discardableResult
     func syncTodosFromNotion(for date: Date) async -> Bool? {
         let planner = PlannerService.shared.selectedPlanner
         guard planner?.isNotionConnected == true,

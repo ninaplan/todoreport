@@ -46,12 +46,8 @@ final class TodoViewModel {
     var showDatePicker: Bool = false
     private(set) var isNotionSyncing: Bool = false
     private(set) var isAwaitingInitialNotionLoad: Bool = false
-    /// 마지막 Notion 일별 pull 결과. `nil`이면 이번 세션에서 아직 기록된 pull이 없음.
+    /// 마지막 Notion 일별 pull 결과. `nil`이면 아직 기록된 pull 없음, `false`면 실패.
     private(set) var lastNotionPullSucceeded: Bool?
-    /// pull 대상 날짜(그날 00:00).
-    private(set) var lastNotionPullDay: Date?
-    /// pull이 끝난 시각(벽시계).
-    private(set) var lastNotionPullAt: Date?
 
     var showDeleteAlert: Bool = false
     var showSingleDeleteAlert: Bool = false
@@ -62,6 +58,26 @@ final class TodoViewModel {
 
     var showsTodoListLoading: Bool {
         filteredTodos.isEmpty && (isLoading || isAwaitingInitialNotionLoad)
+    }
+
+    /// 빈 목록 UI 분기. View는 이 값으로만 표시를 가른다.
+    var emptyStateKind: TodoEmptyStateKind {
+        guard filteredTodos.isEmpty else { return .notEmpty }
+
+        // 완료 숨김·카테고리 필터로만 비는 경우
+        if !todosForSelectedDate.isEmpty { return .plain }
+
+        guard PlannerService.shared.selectedPlanner?.isNotionConnected == true else {
+            return .plain
+        }
+
+        // quiet 포함 진행 중 — 안내 숨김 (로딩 UI는 showsTodoListLoading이 별도 담당)
+        if notionSyncTask != nil { return .plain }
+
+        // 명시적 pull 실패만 새로고침 안내
+        if lastNotionPullSucceeded == false { return .notionPullHint }
+
+        return .plain
     }
 
     // MARK: - Computed
@@ -221,7 +237,7 @@ final class TodoViewModel {
             }
             await syncNotionCategoriesIfNeeded()
             if let succeeded = await service.syncTodosFromNotion(for: targetDate) {
-                recordNotionPull(succeeded: succeeded, for: targetDate)
+                recordNotionPull(succeeded: succeeded)
             }
             guard !Task.isCancelled else { return }
             guard Calendar.current.isDate(selectedDate, inSameDayAs: targetDate) else { return }
@@ -233,10 +249,8 @@ final class TodoViewModel {
     }
 
     @MainActor
-    private func recordNotionPull(succeeded: Bool, for day: Date) {
+    private func recordNotionPull(succeeded: Bool) {
         lastNotionPullSucceeded = succeeded
-        lastNotionPullDay = Calendar.current.startOfDay(for: day)
-        lastNotionPullAt = Date()
     }
 
     @MainActor
