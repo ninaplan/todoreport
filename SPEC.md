@@ -322,11 +322,8 @@ api/
 #### 카테고리 관리
 - SwiftData 저장 (플래너별 `plannerId`)
 - 카테고리 추가/편집/삭제/숨김/숨김 해제/순서 변경 (구 "보관/복원")
-- **기본값:** 색상은 활성 팔레트 세트에서 미사용 우선 랜덤, 아이콘 `tag.fill`
-- **색 팔레트 세트 9종** (`CategoryPaletteSet`: 기본·웜·쿨·파스텔·비비드·뮤트·뉴트럴·캔디·빈티지) — 전부 무료
-  - 플래너별 `categoryPaletteSetId` 로컬 저장 (`PlannerItem` / `PlannerService.updateCategoryPaletteSetId`)
-  - 세트 선택 시 `CategoryService.recolorCategories`로 해당 플래너 카테고리 자동 재배색 (sortOrder 순 순환)
-  - 편집 시트 색상 그리드는 활성 세트 12색만 표시
+- **기본값:** 색상은 `Category.baseColors` 기본 12색에서 미사용 우선 랜덤, 아이콘 `tag.fill`
+- **색상 선택:** 편집 시트 그리드는 `Category.baseColors` 12색 + `ColorPicker` 직접 선택
 - 아이콘 선택 (SF Symbol 팔레트)
 - **대비:** `Color.readableForeground`(채움 위 글자 — 아주 밝은 색만 검정) / `readableText(on:)`(배경 위 색글자 — 라이트·다크 밝기 보정). 칩 선택 글자·미선택 색글자·리포트 카테고리 %에 적용. 배지·스와치 체크마크 아이콘은 흰색 고정
 - 투두 목록·카테고리별 보기·리포트 달성률에서 배지 표시

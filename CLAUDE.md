@@ -32,7 +32,7 @@
 - 달력 첫 날짜 선택 시 「선택한 날짜로 이동해요」 1회 말풍선 (`hasSeenCalendarMoveHint`)
 - 위젯 미사용 Pro 잠금 죽은 코드 정리 (`ProLockedWidgetView`, `isPro` App Group 배관)
 - `NetworkMonitor` Swift 6 동시성 경고 제거 (`handleConnectivityChange` MainActor 분리)
-- 카테고리 색 팔레트 세트 9종 (`CategoryPaletteSet`: basic·warm·cool·pastel·vivid·muted·neutral·candy·vintage) — 전부 무료
+- 카테고리 색 팔레트 세트 9종 (`CategoryPaletteSet`: basic·warm·cool·pastel·vivid·muted·neutral·candy·vintage) — 전부 무료 → **2026-07-30 제거됨**(UI 미사용 판단, `docs/archive/` 보관). `PlannerItem.categoryPaletteSetId` 저장 필드만 경량 마이그레이션 리스크로 유지
   - 플래너별 `categoryPaletteSetId` 로컬 저장 (`PlannerItem`)
   - 세트 선택 시 `recolorCategories`로 해당 플래너 카테고리 자동 재배색
 - 카테고리 색 대비 헬퍼 (`Common/Colors.swift`: `readableForeground` / `readableText(on:)`) — 칩 선택 글자·미선택 색글자·리포트 % 가독성
@@ -94,7 +94,7 @@
 - 데일리 리포트 카드 접기/펼치기 (2026-07-24): `DailyReportCard` 기본 접힘(제목+chevron), 펼치면 완료율·별점·리뷰. height reveal + chevron 회전, 측정용 TextField는 `.focused` 분리
 - 달력 월 범위 노션 불러오기 + 범례 가로 스크롤·헤더 polish + stale 가드 개선 (2026-07-23, v1.08 재제출): `syncTodosFromNotionRange`, `enqueueRelationLinks`, `MonthCalendarView` 범례/불러오기, pull `incoming < existing`
 - 커스텀 월간 달력 + 카테고리 필터 + 안내 말풍선 (2026-07-22, v1.08): `MonthCalendarView`, `AppCalendar`, `DatePickerSheet` 교체, 위젯 Pro 죽은 코드·NetworkMonitor Swift 6 정리
-- 카테고리 팔레트 세트 9종 + 색 대비 (2026-07-23, v1.08): `CategoryPaletteSet`, `recolorCategories`, `readableForeground`/`readableText`
+- 카테고리 팔레트 세트 9종 + 색 대비 (2026-07-23, v1.08): `CategoryPaletteSet`, `recolorCategories` → **2026-07-30 제거됨**(UI 미사용). 색 대비 `readableForeground`/`readableText`는 유지
 - 플래너 관리 화면 신설 + 구독 다운그레이드 버그 수정 (2026-07-11, 커밋 ab6021c → 56fb69a): 상세 내용은 아래 "구독 만료 감지" / "플래너 관리" / "노션 연결 해제" 섹션 참고
 - NotionWorkspaceConnection 1·2단계 (2026-07-10, 커밋 15c9a98): 워크스페이스 단위 토큰 공유 + revoke 안전장치(마지막 참조 플래너가 아니면 revoke 스킵)
 - Notion 동기화 Version Guard (2026-07-08): notionLastEditedTime 필드, push 성공 시 저장, pull upsert Version Guard, debounce pull 큐 대기. V2 Tombstone은 미해결(유령 항목 부활 케이스).
@@ -332,7 +332,7 @@ struct Category: Identifiable, Codable {
 - **삭제** → 노션 옵션도 삭제 (`remove-select-option`)
 - **보관** → 앱만 숨김, 노션 유지, 재실행 후 자동 활성화 없음
 
-**색 팔레트 (로컬):** `CategoryPaletteSet` 9세트, 플래너별 `categoryPaletteSetId`. 세트 변경 시 `recolorCategories`. 대비는 `readableForeground` / `readableText(on:)` (`Common/Colors.swift`).
+**색상 (로컬):** 기본값은 `Category.baseColors` 12색에서 미사용 우선 랜덤. 대비는 `readableForeground` / `readableText(on:)` (`Common/Colors.swift`). (옛 팔레트 세트 기능은 2026-07-30 제거 — `docs/archive/`)
 
 ---
 
