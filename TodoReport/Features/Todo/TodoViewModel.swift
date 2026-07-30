@@ -46,6 +46,12 @@ final class TodoViewModel {
     var showDatePicker: Bool = false
     private(set) var isNotionSyncing: Bool = false
     private(set) var isAwaitingInitialNotionLoad: Bool = false
+    /// 마지막 Notion 일별 pull 결과. `nil`이면 이번 세션에서 아직 기록된 pull이 없음.
+    private(set) var lastNotionPullSucceeded: Bool?
+    /// pull 대상 날짜(그날 00:00).
+    private(set) var lastNotionPullDay: Date?
+    /// pull이 끝난 시각(벽시계).
+    private(set) var lastNotionPullAt: Date?
 
     var showDeleteAlert: Bool = false
     var showSingleDeleteAlert: Bool = false
@@ -214,7 +220,9 @@ final class TodoViewModel {
                 isNotionSyncing = true
             }
             await syncNotionCategoriesIfNeeded()
-            await service.syncTodosFromNotion(for: targetDate)
+            if let succeeded = await service.syncTodosFromNotion(for: targetDate) {
+                recordNotionPull(succeeded: succeeded, for: targetDate)
+            }
             guard !Task.isCancelled else { return }
             guard Calendar.current.isDate(selectedDate, inSameDayAs: targetDate) else { return }
             let fetched = await service.fetchTodos(for: targetDate)
@@ -222,6 +230,13 @@ final class TodoViewModel {
         }
         notionSyncTask = task
         await task.value
+    }
+
+    @MainActor
+    private func recordNotionPull(succeeded: Bool, for day: Date) {
+        lastNotionPullSucceeded = succeeded
+        lastNotionPullDay = Calendar.current.startOfDay(for: day)
+        lastNotionPullAt = Date()
     }
 
     @MainActor
