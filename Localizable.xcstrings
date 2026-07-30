@@ -1065,7 +1065,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tomorrow, %@"
+            "value" : "Tomorrow · %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내일 · %@"
           }
         }
       }
@@ -2522,7 +2528,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Yesterday, %@"
+            "value" : "Yesterday · %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "어제 · %@"
           }
         }
       }
@@ -2723,7 +2735,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Today, %@"
+            "value" : "Today · %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오늘 · %@"
           }
         }
       }
