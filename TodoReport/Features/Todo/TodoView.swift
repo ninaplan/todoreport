@@ -256,6 +256,7 @@ struct TodoView: View {
                                     .opacity(vm.hideCompleted ? 1 : 0)
                             }
                         }
+                        .accessibilityAddTraits(vm.hideCompleted ? .isSelected : [])
                         Button {
                             vm.showMemo.toggle()
                         } label: {
@@ -266,6 +267,7 @@ struct TodoView: View {
                                     .opacity(vm.showMemo ? 1 : 0)
                             }
                         }
+                        .accessibilityAddTraits(vm.showMemo ? .isSelected : [])
                         Button {
                             showCategorySheet = true
                         } label: {
