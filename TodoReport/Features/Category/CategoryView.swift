@@ -3,6 +3,8 @@ import SwiftUI
 struct CategoryView: View {
     @State private var viewModel: CategoryViewModel
     @State private var allChipColorHex: String
+    @State private var showAllChipColorSheet = false
+    @Environment(\.editMode) private var editMode
     private let plannerId: String?
 
     init(plannerId: String? = nil) {
@@ -16,15 +18,10 @@ struct CategoryView: View {
         plannerId ?? PlannerService.shared.selectedPlanner?.id
     }
 
+    private var isEditing: Bool { editMode?.wrappedValue.isEditing == true }
+
     var body: some View {
         List {
-            Section("전체 칩 색상") {
-                ColorSwatchPicker(selectedHex: allChipColorHex) { hex in
-                    allChipColorHex = hex
-                    AllChipColorStore.set(hex, for: resolvedPlannerId)
-                }
-            }
-
             if viewModel.categories.isEmpty && !viewModel.isLoading {
                 ContentUnavailableView(
                     "카테고리 없음",
@@ -33,41 +30,27 @@ struct CategoryView: View {
                 )
                 .listRowBackground(Color.clear)
             } else {
-                ForEach(viewModel.categories) { category in
-                    CategoryRow(category: category)
+                Section {
+                    allChipRow
                         .contentShape(Rectangle())
-                        .onTapGesture { viewModel.openEditSheet(category) }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button(role: .destructive) {
-                                viewModel.requestDelete(category)
-                            } label: {
-                                Label("삭제", systemImage: "trash")
-                            }
-                            if category.isHidden {
-                                Button {
-                                    viewModel.toggleHidden(category)
-                                } label: {
-                                    Label("활성화", systemImage: "eye")
-                                }
-                                .tint(.blue)
-                            } else {
-                                Button {
-                                    viewModel.toggleHidden(category)
-                                } label: {
-                                    Label("숨기기", systemImage: "eye.slash")
-                                }
-                                .tint(.gray)
-                            }
+                        .onTapGesture {
+                            guard !isEditing else { return }
+                            showAllChipColorSheet = true
                         }
+
+                    ForEach(viewModel.categories) { category in
+                        categoryListRow(category)
+                    }
+                    .onMove { viewModel.moveCategory(from: $0, to: $1) }
                 }
-                .onMove { viewModel.moveCategory(from: $0, to: $1) }
             }
         }
         .navigationTitle("카테고리 관리")
         .navigationBarTitleDisplayMode(.inline)
         .sensoryFeedback(.selection, trigger: allChipColorHex)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                EditButton()
                 Button {
                     viewModel.openAddSheet()
                 } label: {
@@ -80,6 +63,17 @@ struct CategoryView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showAllChipColorSheet) {
+            AllChipColorSheet(
+                selectedHex: allChipColorHex,
+                onSelect: { hex in
+                    allChipColorHex = hex
+                    AllChipColorStore.set(hex, for: resolvedPlannerId)
+                }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
         .task { await viewModel.fetchCategories() }
         .alert("카테고리 삭제", isPresented: $viewModel.showDeleteAlert) {
             Button("취소", role: .cancel) { viewModel.cancelDelete() }
@@ -90,6 +84,108 @@ struct CategoryView: View {
             if let category = viewModel.deletingCategory {
                 Text(viewModel.deleteAlertMessage(for: category))
             }
+        }
+    }
+
+    private var allChipRow: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(Color(hex: allChipColorHex))
+                .frame(width: 32, height: 32)
+            Text("전체")
+                .font(.body)
+                .foregroundStyle(.primary)
+            Spacer()
+            if !isEditing {
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func categoryListRow(_ category: Category) -> some View {
+        HStack(spacing: 10) {
+            if isEditing {
+                Button {
+                    viewModel.requestDelete(category)
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+            }
+
+            CategoryRow(
+                category: category,
+                isEditing: isEditing,
+                onToggleHidden: { viewModel.toggleHidden(category) }
+            )
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard !isEditing else { return }
+                viewModel.openEditSheet(category)
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                viewModel.requestDelete(category)
+            } label: {
+                Label("삭제", systemImage: "trash")
+            }
+            if category.isHidden {
+                Button {
+                    viewModel.toggleHidden(category)
+                } label: {
+                    Label("활성화", systemImage: "eye")
+                }
+                .tint(.blue)
+            } else {
+                Button {
+                    viewModel.toggleHidden(category)
+                } label: {
+                    Label("숨기기", systemImage: "eye.slash")
+                }
+                .tint(.gray)
+            }
+        }
+    }
+}
+
+// MARK: - 전체 칩 색상 시트
+
+private struct AllChipColorSheet: View {
+    @State private var selectedHex: String
+    let onSelect: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    init(selectedHex: String, onSelect: @escaping (String) -> Void) {
+        _selectedHex = State(initialValue: selectedHex)
+        self.onSelect = onSelect
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("색상") {
+                    ColorSwatchPicker(selectedHex: selectedHex) { hex in
+                        selectedHex = hex
+                        onSelect(hex)
+                    }
+                }
+            }
+            .navigationTitle("전체 칩 색상")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("확인") { dismiss() }
+                        .toolbarPrimaryActionStyle()
+                }
+            }
+            .sensoryFeedback(.selection, trigger: selectedHex)
         }
     }
 }
@@ -125,6 +221,10 @@ private struct ColorSwatchPicker: View {
             }
             .padding(.vertical, 4)
 
+            Divider()
+                .padding(.top, 16)
+                .padding(.bottom, 12)
+
             ColorPicker(
                 "직접 선택",
                 selection: Binding(
@@ -159,6 +259,8 @@ struct CategoryBadge: View {
 
 private struct CategoryRow: View {
     let category: Category
+    let isEditing: Bool
+    let onToggleHidden: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -169,9 +271,18 @@ private struct CategoryRow: View {
                 .font(.body)
                 .foregroundStyle(category.isHidden ? .secondary : .primary)
             Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption.bold())
-                .foregroundStyle(.tertiary)
+            if isEditing {
+                Button(action: onToggleHidden) {
+                    Image(systemName: category.isHidden ? "eye.slash" : "eye")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(.tertiary)
+            }
         }
         .padding(.vertical, 2)
     }
