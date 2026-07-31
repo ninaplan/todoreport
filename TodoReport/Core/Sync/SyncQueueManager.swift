@@ -418,7 +418,7 @@ final class SyncQueueManager {
             fmt.timeZone = TimeZone(identifier: "Asia/Seoul")
             body["scheduledTime"] = fmt.string(from: st)
         }
-        if let ao = todo.alarmOffset { body["alarmOffset"] = ao }
+        // alarmOffset은 로컬 전용(SwiftData + 알림). 노션 속성 매핑 없음 → payload에 넣지 않음
         if let memo = todo.memo { body["memo"] = memo }
         if let v = planner.notionTodoDBId ?? ctx.legacyTodoDBId { body["dbId"] = v }
         if let v = mapping.completed ?? ctx.legacyTodo?.completed { body["completedProp"] = v }
