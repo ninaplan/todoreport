@@ -40,6 +40,16 @@
         }
       }
     },
+    "%@, 알림 있음" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, Alarm set"
+          }
+        }
+      }
+    },
     "%lld" : {
       "localizations" : {
         "en" : {
@@ -2273,6 +2283,16 @@
         }
       }
     },
+    "설정 시간 보기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Time"
+          }
+        }
+      }
+    },
     "설정 안 됨" : {
       "localizations" : {
         "en" : {
@@ -2846,12 +2866,12 @@
         }
       }
     },
-    "완료된 할일 숨기기" : {
+    "완료된 할일 보기" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hide Completed Todos"
+            "value" : "Show Completed"
           }
         }
       }
@@ -4082,7 +4102,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Show Todo Notes"
+            "value" : "Show Notes"
           }
         }
       }

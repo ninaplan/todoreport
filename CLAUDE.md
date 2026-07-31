@@ -17,7 +17,7 @@
 - `TodoRow` 제목–메모 간격 6
 - 스크롤 추적 코드 제거 (`arrowBgOpacity` / `scrollOffset` / `ScrollOffsetPreferenceKey` / `coordinateSpace` / `onPreferenceChange`)
 - 엣지 스와이프(`EdgeSwipeNavigationModifier`): `safeAreaBar` 도입 후 List 스크롤과 충돌 → `UIGestureRecognizerDelegate` 동시 인식 허용 + `cancelsTouchesInView`/`delaysTouchesBegan`=false. 시작 시점 속도 판단은 제거, `UIScreenEdgePanGestureRecognizer`의 「화면 끝에서 안쪽」 네이티브 필터에 의존(스크롤 우선)
-- 투두 ⋯ 보기 옵션: `.popover` → 네이티브 `Menu` (완료 숨기기·메모 보기 Toggle + 카테고리 설정)
+- 투두 ⋯ 보기 옵션: 네이티브 `Menu` — Section① Toggle 3개(완료된 할일 보기 / 할일 메모 보기 / 설정 시간 보기, 시스템 체크마크) + Section② 카테고리 설정 Button(`tag`). `hideCompleted`는 View에서 뒤집어 「체크 = 보인다」로 통일. `showScheduledTime` 기본 true(키 없을 때). TodoRow trailing에 시각·종(`alarmOffset`) 표시
 - 인라인/FAB 키보드 자동 포커스 개선: 고정 0.35초 딜레이 제거, `focusEpoch`로 인스턴스당 1회 포커스, 실패 시 ~2초 재시도(window 이탈 시 취소), 앱 시작 ~2.5초 후 `KeyboardPrewarmer` 프리웜, 탭 이탈 시 인라인 입력·first responder 정리
 
 ### v1.08 변경 내용 (재제출)
@@ -76,7 +76,7 @@
 
 ### 다음 할 일
 - 필터 칩 점+이름 — 투두 탭 `FilterChip`과 달력 범례(`categoryLegendChip`) 공통 컴포넌트화 검토
-- 할일 시간·알림 목록 표시 — `scheduledTime`/`alarmOffset`은 모델·편집에만 있고 `TodoRow` 미표시 (v1.1). A/C안 미결정 — 브랜치 `feature/todo-time-alarm-a`(제목 아래), `feature/todo-time-alarm-c`(제목 오른쪽) 보존. 카테고리·체크박스 디자인 후 결정
+- ~~할일 시간·알림 목록 표시~~ — TodoRow trailing에 `scheduledTime` + `bell`(alarmOffset) 표시 + 더보기 「설정 시간 보기」토글 완료. A/C 실험 브랜치 폐기
 - 하루 리뷰 포커스 시 불필요한 밀어올림 개선 — List 키보드 회피; `isAddingTodo` 아닐 때 조건부 ignore 조사됨(미적용)
 - 인박스(날짜 없는 할일) — date 옵셔널화 + 노션 동기화「길 A」(V2-IDEAS.md)
 - 달력 UX 미세조정 — 월 이동 시 선택 해제, 폰트·말풍선 위치 (V2-IDEAS.md)
@@ -181,6 +181,21 @@
    → 새 버전을 App Store에 제출할 때(빌드 번호 올리거나 CLAUDE.md에 새 "v1.x.x 변경 내용" 섹션이 추가될 때)마다 `WhatsNewData.swift`에 해당 릴리즈 항목을 반드시 추가
    → 새 문자열은 하드코딩 금지 — `String(localized:)`로 감싸고 `Localizable.xcstrings`에 영어 번역까지 바로 채워 넣을 것 (사용자가 "영어도 해줘"라고 다시 말하지 않아도 됨)
    → 사용자에게 확인 없이 진행 가능한 항목: What's New 문구 자체의 번역 추가. 단, 코드 로직 변경이 필요하면 기존 원칙대로 먼저 확인
+
+---
+
+## 로컬라이제이션 (필수 체크)
+
+사용자에게 보이는 문자열을 추가·수정한 작업에서는 커밋 전에 항상 확인할 것.
+
+- 신규 문자열 → `Localizable.xcstrings`에 en 번역까지 함께 등록
+- 기존 문구 수정 → 키가 바뀐 것이므로 en 번역을 새 키에 다시 등록하고, 더 이상 쓰이지 않는 옛 키는 삭제
+- 한글 하드코딩 금지. 접근성 라벨(`accessibilityLabel`)도 예외 없음
+- 날짜·시각·숫자·통화는 지역 설정 기반 포맷터 사용. 형식 문자열 하드코딩 금지
+- 영어 문구는 iOS 표준 톤으로 간결하게. 같은 메뉴/화면 안에서는 길이와 어투를 맞출 것
+- 작업 보고 시 추가·수정·삭제한 문자열 키 목록을 함께 알릴 것
+
+> String Catalog: `Localizable.xcstrings` (`sourceLanguage: ko`, 지원 `ko`/`en`). SwiftUI는 문자열 리터럴이 곧 키이므로, 한글 문구를 바꾸면 기존 en 번역이 끊기고 고아 키가 남는다.
 
 ---
 
@@ -532,10 +547,17 @@ guard SubscriptionManager.shared.isPro else {
 우측: ⋯ (탭 → 네이티브 Menu 보기 옵션)
 
 보기 옵션 (Menu):
-- ✓ 완료된 할일 숨기기 (토글)
-- ✓ 할일 메모 보기 (토글)
-- 카테고리 설정 (시트)
+  Section 1 — Toggle 3개 (시스템 체크마크, 「체크 = 보인다」통일)
+  - ✓ 완료된 할일 보기   ← hideCompleted를 View에서 뒤집어 바인딩
+  - ✓ 할일 메모 보기     ← showMemo
+  - ✓ 설정 시간 보기     ← showScheduledTime (기본 true, UserDefaults 키 없을 때)
+  Section 2
+  - 카테고리 설정        ← Button, systemImage "tag" (시트)
 ```
+
+**보기 옵션 규칙:** 앞으로 보기 on/off는 `Toggle`로만 추가한다. 아이콘+동작 문구 `Button`은 시도 후 되돌림 — iOS 메뉴 아이콘 슬롯이 1개라 체크마크와 충돌하고, 문구가 「동작」인지 「상태」인지 헷갈림.
+
+**TodoRow 설정 시간:** `showScheduledTime`이 켜지고 `scheduledTime`이 있을 때 행 trailing에 `[종(bell.fill, alarmOffset 있을 때만)] [시각]` 표시. 핀(`ImportantTodoTag`)은 제목 옆, 시간은 trailing으로 분리. 시각은 지역 설정 포맷(`.dateTime.hour().minute()`).
 
 ---
 
@@ -859,7 +881,7 @@ Phase 5 (출시)
 - ✅ 리포트 탭 하루 리뷰 더보기/접기 (ReviewTimelineRow: GeometryReader 높이 비교로 잘림 감지)
 - ✅ 하루 리뷰 탭 시 투두 목록(DayTodoDetailView) 이동 제거 (더보기와 충돌)
 - ✅ 시간 지정 + 투두 알림 (TodoNotificationManager, TodoEditFormView)
-- 🔜 투두 탭 목록 시간 표시 (`TodoRow`, `scheduledTime`) — v1.1 (v1: 편집 시트만)
+- ✅ 투두 탭 목록 시간·종 표시 (`TodoRow` trailing, `showScheduledTime` 토글)
 - 🔜 반복 투두 (RecurrenceRule, RecurringTodoManager, TodoEditFormView 반복 섹션) — v2로 연기
 - ✅ Notion relation 자동 연결 개선 (NotionRelationLinker: 14일 윈도우, max 10개, 성공 후에만 linked 세팅)
 - ✅ SyncQueueProcessor: create 완료 후 자동 relation enqueue
@@ -908,8 +930,7 @@ Phase 5 (출시)
 ## v1.1 백로그
 
 ### 투두 탭 할일 시간 표시
-v1에서는 `scheduledTime` 설정·알림만 동작, **목록(`TodoRow`)에는 미표시**.
-A안(제목 아래 통합) / C안(제목 오른쪽) 미결정 — 브랜치 `feature/todo-time-alarm-a`, `feature/todo-time-alarm-c`에 보존. 카테고리·체크박스 디자인 후 어울리는 쪽으로 결정.
+**구현됨:** 더보기 「설정 시간 보기」+ TodoRow trailing 시각·종 표시 (C안). A/C 실험 브랜치 폐기.
 
 ---
 

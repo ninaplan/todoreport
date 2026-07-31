@@ -238,32 +238,23 @@ struct TodoView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button {
-                            vm.hideCompleted.toggle()
-                        } label: {
-                            Label {
-                                Text("완료된 할일 숨기기")
-                            } icon: {
-                                Image(systemName: "checkmark")
-                                    .opacity(vm.hideCompleted ? 1 : 0)
-                            }
+                        Section {
+                            Toggle(
+                                "완료된 할일 보기",
+                                isOn: Binding(
+                                    get: { !vm.hideCompleted },
+                                    set: { vm.hideCompleted = !$0 }
+                                )
+                            )
+                            Toggle("할일 메모 보기", isOn: $vm.showMemo)
+                            Toggle("설정 시간 보기", isOn: $vm.showScheduledTime)
                         }
-                        .accessibilityAddTraits(vm.hideCompleted ? .isSelected : [])
-                        Button {
-                            vm.showMemo.toggle()
-                        } label: {
-                            Label {
-                                Text("할일 메모 보기")
-                            } icon: {
-                                Image(systemName: "checkmark")
-                                    .opacity(vm.showMemo ? 1 : 0)
+                        Section {
+                            Button {
+                                showCategorySheet = true
+                            } label: {
+                                Label("카테고리 설정", systemImage: "tag")
                             }
-                        }
-                        .accessibilityAddTraits(vm.showMemo ? .isSelected : [])
-                        Button {
-                            showCategorySheet = true
-                        } label: {
-                            Label("카테고리 설정", systemImage: "tag")
                         }
                     } label: {
                         Image(systemName: "ellipsis")
@@ -447,10 +438,15 @@ struct TodoView: View {
     @ViewBuilder
     private func todoRows(for todos: [Todo]) -> some View {
         ForEach(todos) { todo in
-            TodoRow(todo: todo, showMemo: viewModel.showMemo, onCheckboxTap: {
-                viewModel.toggleTodo(todo)
-                hapticSuccessTrigger.toggle()
-            })
+            TodoRow(
+                todo: todo,
+                showMemo: viewModel.showMemo,
+                showScheduledTime: viewModel.showScheduledTime,
+                onCheckboxTap: {
+                    viewModel.toggleTodo(todo)
+                    hapticSuccessTrigger.toggle()
+                }
+            )
             .contentShape(Rectangle())
             .onLongPressGesture(minimumDuration: 0.4) {
                 editingTodo = todo
@@ -567,6 +563,7 @@ private struct FilterChip: View {
 private struct TodoRow: View {
     let todo: Todo
     let showMemo: Bool
+    let showScheduledTime: Bool
     var onCheckboxTap: (() -> Void)? = nil
 
     var body: some View {
@@ -602,10 +599,44 @@ private struct TodoRow: View {
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(0)
 
-            Spacer()
+            if showScheduledTime, let scheduledTime = todo.scheduledTime {
+                scheduledTimeTrailing(scheduledTime)
+                    .padding(.top, 2)
+                    .layoutPriority(1)
+            }
         }
         .animation(.easeInOut(duration: 0.2), value: showMemo)
+        .animation(.easeInOut(duration: 0.2), value: showScheduledTime)
+    }
+
+    @ViewBuilder
+    private func scheduledTimeTrailing(_ scheduledTime: Date) -> some View {
+        let hasAlarm = todo.alarmOffset != nil
+        HStack(spacing: 4) {
+            if hasAlarm {
+                Image(systemName: "bell.fill")
+                    .font(.caption2)
+                    .accessibilityHidden(true)
+            }
+            Text(scheduledTime, format: .dateTime.hour().minute())
+                .font(.caption)
+                .monospacedDigit()
+        }
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(scheduledTimeAccessibilityLabel(time: scheduledTime, hasAlarm: hasAlarm))
+    }
+
+    private func scheduledTimeAccessibilityLabel(time: Date, hasAlarm: Bool) -> String {
+        let timeText = time.formatted(date: .omitted, time: .shortened)
+        if hasAlarm {
+            return String(localized: "\(timeText), 알림 있음")
+        }
+        return timeText
     }
 }
 

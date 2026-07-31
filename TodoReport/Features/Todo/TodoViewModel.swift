@@ -17,6 +17,15 @@ final class TodoViewModel {
     var showMemo: Bool = UserDefaults.standard.bool(forKey: "todoShowMemo") {
         didSet { UserDefaults.standard.set(showMemo, forKey: "todoShowMemo") }
     }
+    var showScheduledTime: Bool = {
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: "todoShowScheduledTime") == nil {
+            return true
+        }
+        return defaults.bool(forKey: "todoShowScheduledTime")
+    }() {
+        didSet { UserDefaults.standard.set(showScheduledTime, forKey: "todoShowScheduledTime") }
+    }
     var selectedCategoryFilter: String? = nil  // nil = 전체
 
     var selectedDate: Date = .now {

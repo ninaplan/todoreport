@@ -231,8 +231,8 @@ api/
   - [알림] 토글 ON → 알림 시간 선택 (정시/5분 전/10분 전/30분 전/1시간 전/1일 전)
 - 노션 날짜 속성에 시간 포함 저장 ("2026-06-03T07:00:00+09:00")
 - 시간 없는 기존 투두는 날짜만 유지 (하위 호환)
-- **v1:** 편집/캡처 시트에서만 시간 설정·표시. 투두 탭 목록에는 시간 미표시
-- **v1.1:** `scheduledTime`이 있는 할일 — 투두 탭 `TodoRow`에 시간 표시 (아래 12절 백로그)
+- **v1:** 편집/캡처 시트에서 시간 설정. 투두 탭 목록은 더보기 「설정 시간 보기」토글(기본 켜짐)로 trailing 시각·종 표시
+- **구현됨:** `scheduledTime`이 있는 할일 — `TodoRow` trailing에 시각 표시 (`alarmOffset` 있으면 `bell.fill`)
 
 #### 투두 알림
 - UNUserNotificationCenter 사용
@@ -889,11 +889,15 @@ struct Category: Identifiable, Codable {
 
 ```
 ⋯ Menu
-├ ✓ 완료된 할일 숨기기     ← Toggle
-├ ✓ 할일 메모 보기         ← Toggle (기본값: 꺼짐)
-└ 카테고리 설정            ← 시트 present
+├ Section 1 — Toggle 3개 (시스템 체크마크, 「체크 = 보인다」통일)
+│  ├ ✓ 완료된 할일 보기   ← hideCompleted를 View에서 뒤집어 바인딩
+│  ├ ✓ 할일 메모 보기     ← showMemo (기본값: 꺼짐)
+│  └ ✓ 설정 시간 보기     ← showScheduledTime (기본값: 켜짐, 키 없을 때)
+└ Section 2
+   └ 카테고리 설정        ← Button, systemImage "tag" (시트)
 ```
 
+> 보기 on/off는 `Toggle`로만 추가. 아이콘+동작 문구 Button은 체크마크 슬롯 충돌·문구 혼동으로 폐기.
 > 카테고리 필터는 투두 목록 상단 칩으로 이동. 보기 옵션에서 제거.
 
 > **[확정] 카테고리 필터 칩 스타일 (탭바 방식)**
@@ -918,11 +922,11 @@ struct Category: Identifiable, Codable {
 
 > 메모가 없는 투두는 켜짐 상태에서도 추가 줄이 표시되지 않음.
 
-> **v1.1 예정 — 할일 시간 표시 (목록)**
-> - `scheduledTime != nil`일 때만 표시. **할일 메모 보기 토글과 무관** (시간은 항상 표시)
-> - 위치: 제목 아래 · 메모 위 (`.caption` + `.secondary`, `hour().minute()` 포맷)
-> - 예: `○ 아침 달리기` → 다음 줄 `07:00` / 메모 켜짐 시 `07:00` → `속성 매핑`
-> - v1에서는 목록에 시간 없음 (편집 시트에서만 확인)
+**설정 시간 보기 동작:**
+- 기본값: 켜짐 (`todoShowScheduledTime` 키 없을 때 true)
+- 켜고 `scheduledTime != nil`일 때 행 trailing에 `[종(alarmOffset 있을 때만)] [시각]` 표시
+- 위치: 제목·핀(leading)과 분리된 행 trailing. 제목 말줄임, 시간은 `fixedSize`
+- 시각: 지역 설정 포맷(`.dateTime.hour().minute()`). 메모 토글과 독립
 
 정렬 옵션 › 탭 시:
 
@@ -1233,7 +1237,7 @@ struct Category: Identifiable, Codable {
 | **할일 보관 (인박스)** | v2 | v1 미구현. 인박스 UX와 함께 구현 (카테고리 숨김과는 별개). → `V2-IDEAS.md` |
 | 리포트 알림 원탭 저장 (알림 액션) | v1.2 | v1은 리마인더만. v1.2에서 「앱으로 가기」「바로 저장하기」액션 추가 |
 | 노션 저장 시트 UX (알림·저장 분리) | v1.1 | v1: 툴바 저장=노션 저장, 알림은 `@AppStorage` 즉시 반영. v1.1: 취소=알림 되돌리기, 확인=알림만 저장, 「노션에 저장하기」를 리뷰 카드 하단으로 이동 검토 |
-| 투두 탭 할일 시간 표시 | v1.1 | v1: 목록 미표시. v1.1: `TodoRow` 제목 아래 `scheduledTime` (`caption`/`secondary`, 메모 토글 독립). 선택: `alarmOffset` 있을 때 `bell` 아이콘 |
+| 투두 탭 할일 시간 표시 | **구현됨** | 더보기 「설정 시간 보기」+ `TodoRow` trailing `[종?][시각]` (C안). `showScheduledTime` 기본 true. A/C 실험 브랜치 폐기 |
 | 리포트 자동 저장 (BGTask) | v2 | iOS 백그라운드 제약. v1.2 알림 액션 저장으로 1차 해결 후 검토 |
 | 연간 리포트 진입 위치 | 미결정 | A: 리포트 탭 하단 버튼 / B: 설정 탭 / C: 네비게이션 바 메뉴 |
 
@@ -1555,8 +1559,9 @@ SyncQueue에 createTodo 추가
 |---|---|---|---|
 | 선택된 날짜 | **유지** | 메모리 | 같은 날 두 플래너 비교가 자연스러움 |
 | 카테고리 필터 | **"전체"로 초기화** | 메모리 | 플래너마다 카테고리가 다를 수 있음 |
-| 완료 숨기기 | **유지 (전역)** | UserDefaults | 취향 설정, 플래너별 다를 필요 없음 |
+| 완료 숨기기 (`hideCompleted`) | **유지 (전역)** | UserDefaults | 취향 설정. UI는 「완료된 할일 보기」로 뒤집어 표시 |
 | 할일 메모 보기 | **유지 (전역)** | UserDefaults | 취향 설정, 플래너별 다를 필요 없음 |
+| 설정 시간 보기 | **유지 (전역)** | UserDefaults (`todoShowScheduledTime`, 기본 true) | 취향 설정, 플래너별 다를 필요 없음 |
 | 정렬 옵션 | **유지 (전역)** | UserDefaults | 취향 설정, 플래너별 다를 필요 없음 |
 
 ---
