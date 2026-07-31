@@ -1321,7 +1321,7 @@ enum RecurrenceRule: Codable {
 | title | 제목 | title | Notion 페이지 제목 |
 | isCompleted | 완료 | checkbox | |
 | date + scheduledTime | 날짜 | date | scheduledTime 있으면 시간 포함 ISO 8601로 저장 |
-| alarmOffset | — | — | 로컬 전용, UNUserNotificationCenter 알림 시간 |
+| alarmOffset | — | — | 로컬 전용, UNUserNotificationCenter 알림 시간. iCloud 백업·복원·재예약은 V2 백로그 (`V2-IDEAS.md`) |
 | recurrence | — | — | 로컬 전용, 반복 규칙 |
 | memo | 메모 | text | **없는 사용자 있음 → NotionSchemaManager 자동 추가** |
 | — | 데일리 리포트 | relation | SyncQueue가 자동 연결 (15절 참고) |

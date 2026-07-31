@@ -78,6 +78,7 @@
 - 필터 칩 점+이름 — 투두 탭 `FilterChip`과 달력 범례(`categoryLegendChip`) 공통 컴포넌트화 검토
 - ~~할일 시간·알림 목록 표시~~ — TodoRow trailing에 `scheduledTime` + `bell`(alarmOffset) 표시 + 더보기 「설정 시간 보기」토글 완료. A/C 실험 브랜치 폐기
 - 앱 전체 안내문 문체 통일 (해요체 → 합쇼체). `Localizable.xcstrings` 전수 점검 필요. 문자열이 많아 별도 커밋으로 진행
+- 로컬 저장 사용자 iCloud 백업 + alarmOffset 복원·재예약 (V2-IDEAS.md)
 - 하루 리뷰 포커스 시 불필요한 밀어올림 개선 — List 키보드 회피; `isAddingTodo` 아닐 때 조건부 ignore 조사됨(미적용)
 - 인박스(날짜 없는 할일) — date 옵셔널화 + 노션 동기화「길 A」(V2-IDEAS.md)
 - 달력 UX 미세조정 — 월 이동 시 선택 해제, 폰트·말풍선 위치 (V2-IDEAS.md)
