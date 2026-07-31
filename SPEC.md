@@ -1700,7 +1700,7 @@ v1 출시 — 노션에 자동 저장되는 투두 & 데일리 리포트. 지금
 
 ### 20-4. English (U.S.) 로컬라이제이션 (App Store)
 
-> 앱 UI 영어는 **v2** (String Catalog). App Store 메타는 출시 시점에 미리 등록 가능.  
+> 앱 UI 영어는 String Catalog로 반영 중 (CLAUDE.md 로컬라이제이션 규칙). App Store 메타는 출시 시점에 등록.  
 > 영어 이름에는 `x` 미사용 (`&`, `for Notion` 패턴).
 
 | 필드 | 문구 |
@@ -1808,12 +1808,11 @@ v1 출시 — 노션에 자동 저장되는 투두 & 데일리 리포트. 지금
 - **해결 3:** `PlannerNotionSettingsView` 완료 Picker·상단고정 Menu → `selectCompletedProperty(id:name:)` / `selectIsPinnedProperty(id:name:)` 즉시 호출
 - 관련: `TodoPropsMappingAutoFill.swift`, `PlannerNotionSettingsViewModel.swift`, `PlannerNotionSettingsView.swift`
 
-### 영어 로컬라이제이션 (v2)
-- 현재: 앱 전체 한국어 하드코딩, `Localizable.strings` 없음
-- 목표: Xcode String Catalog(`.xcstrings`) 도입, 한국어/영어 지원
-- 작업 범위: 전체 View의 `Text("한국어")` → `String(localized:)` 교체 + 영어 번역
-- v1: 설정 탭 언어 선택 **미노출** (시스템 언어 따름). v2에서 설정 항목 추가 검토
-- 타겟 사용자 반응 확인 후 v2에서 진행
+### 영어 로컬라이제이션
+- 현재: String Catalog `Localizable.xcstrings` (`sourceLanguage: ko`, `ko`/`en` 지원)
+- 프로세스: CLAUDE.md 「로컬라이제이션 (필수 체크)」 — 문구 추가·수정 시 en 동시 등록, 고아 키 삭제
+- 잔여: 화면별 번역 누락·어투 통일 점검 (진행 중)
+- 설정 탭 언어 선택: v1 미노출 (시스템 언어 따름). 별도 설정 항목은 추후 검토
 
 ### 별점/기분 속성 옵션 매핑
 - 현재: iOS DayRating(⭐~⭐⭐⭐⭐⭐)을 Notion select 옵션값으로 그대로 전송
