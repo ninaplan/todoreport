@@ -157,9 +157,10 @@ struct TodoEditFormView: View {
                 .tint(AppTheme.shared.accent)
                 .environment(\.calendar, localizedCalendar)
             }
+        }
 
-            // 알림 (시간 설정 시에만 표시)
-            if scheduledTime != nil {
+        if scheduledTime != nil {
+            Section {
                 Picker("알림", selection: Binding(
                     get: { alarmPickerSelection },
                     set: { value in
@@ -216,9 +217,10 @@ struct TodoEditFormView: View {
                     .onChange(of: customAlarmNumber) { _, _ in updateCustomAlarm() }
                     .onChange(of: customAlarmUnit) { _, _ in updateCustomAlarm() }
                 }
+            } footer: {
+                Text("알림은 이 기기에만 저장됩니다. 앱을 다시 설치하거나 기기를 바꾸면 다시 설정해 주세요.")
             }
         }
-
     }
 
     // MARK: - Private

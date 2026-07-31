@@ -2453,6 +2453,16 @@
         }
       }
     },
+    "알림은 이 기기에만 저장됩니다. 앱을 다시 설치하거나 기기를 바꾸면 다시 설정해 주세요." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alarms are saved on this device only. You'll need to set them again after reinstalling or switching devices."
+          }
+        }
+      }
+    },
     "앱 저장소를 여는 데 실패했습니다.\n앱을 완전히 종료한 뒤 다시 실행해 주세요.\n문제가 계속되면 개발팀에 문의해 주세요." : {
       "localizations" : {
         "en" : {
