@@ -18,6 +18,9 @@ struct AutoFocusTextField: View {
     var onReturn: (() -> Bool)? = nil
     /// 포커스를 잃는 모든 경우에 호출 (Return으로 resign + 외부 탭).
     var onDismiss: (() -> Void)? = nil
+    /// 키보드 액세서리 버튼 제목. nil이면 액세서리 없음.
+    var keyboardAccessoryTitle: String? = nil
+    var onKeyboardAccessory: (() -> Void)? = nil
 
     var body: some View {
         switch axis {
@@ -40,7 +43,9 @@ struct AutoFocusTextField: View {
                 contentVerticalAlignment: contentVerticalAlignment,
                 autoFocus: autoFocus,
                 onReturn: onReturn,
-                onDismiss: onDismiss
+                onDismiss: onDismiss,
+                keyboardAccessoryTitle: keyboardAccessoryTitle,
+                onKeyboardAccessory: onKeyboardAccessory
             )
         }
     }
@@ -133,6 +138,8 @@ private struct AutoFocusSingleLineTextFieldRepresentable: UIViewRepresentable {
     var autoFocus: Bool = true
     var onReturn: (() -> Bool)? = nil
     var onDismiss: (() -> Void)? = nil
+    var keyboardAccessoryTitle: String? = nil
+    var onKeyboardAccessory: (() -> Void)? = nil
 
     private func resolvedFont(compatibleWith traitCollection: UITraitCollection) -> UIFont {
         if let textStyle {
@@ -154,6 +161,8 @@ private struct AutoFocusSingleLineTextFieldRepresentable: UIViewRepresentable {
         tf.delegate = context.coordinator
         tf.addTarget(context.coordinator, action: #selector(Coordinator.textChanged(_:)), for: .editingChanged)
         tf.shouldAutoFocus = autoFocus
+        tf.text = text
+        applyAccessory(to: tf, context: context)
         return tf
     }
 
@@ -165,27 +174,67 @@ private struct AutoFocusSingleLineTextFieldRepresentable: UIViewRepresentable {
         if tf.markedTextRange == nil, tf.text != text { tf.text = text }
         context.coordinator.onReturn = onReturn
         context.coordinator.onDismiss = onDismiss
+        context.coordinator.onKeyboardAccessory = onKeyboardAccessory
+        applyAccessory(to: tf, context: context)
+    }
+
+    private func applyAccessory(to tf: AutoFocusUITextField, context: Context) {
+        guard let keyboardAccessoryTitle else {
+            tf.inputAccessoryView = nil
+            return
+        }
+        if let existing = tf.inputAccessoryView as? UIToolbar,
+           existing.items?.contains(where: { $0.title == keyboardAccessoryTitle }) == true {
+            return
+        }
+        let toolbar = UIToolbar()
+        toolbar.sizeToFit()
+        let flex = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+        let button = UIBarButtonItem(
+            title: keyboardAccessoryTitle,
+            style: .plain,
+            target: context.coordinator,
+            action: #selector(Coordinator.accessoryTapped)
+        )
+        toolbar.items = [flex, button]
+        tf.inputAccessoryView = toolbar
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, onReturn: onReturn, onDismiss: onDismiss)
+        Coordinator(
+            text: $text,
+            onReturn: onReturn,
+            onDismiss: onDismiss,
+            onKeyboardAccessory: onKeyboardAccessory
+        )
     }
 
     final class Coordinator: NSObject, UITextFieldDelegate {
         @Binding var text: String
         var onReturn: (() -> Bool)?
         var onDismiss: (() -> Void)?
+        var onKeyboardAccessory: (() -> Void)?
 
-        init(text: Binding<String>, onReturn: (() -> Bool)?, onDismiss: (() -> Void)?) {
+        init(
+            text: Binding<String>,
+            onReturn: (() -> Bool)?,
+            onDismiss: (() -> Void)?,
+            onKeyboardAccessory: (() -> Void)?
+        ) {
             _text = text
             self.onReturn = onReturn
             self.onDismiss = onDismiss
+            self.onKeyboardAccessory = onKeyboardAccessory
         }
 
         @objc func textChanged(_ tf: UITextField) {
             if tf.markedTextRange == nil {
                 text = tf.text ?? ""
             }
+        }
+
+        @objc func accessoryTapped() {
+            onKeyboardAccessory?()
         }
 
         func textFieldShouldReturn(_ tf: UITextField) -> Bool {
