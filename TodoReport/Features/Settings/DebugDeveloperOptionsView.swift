@@ -49,14 +49,33 @@ struct DebugDeveloperOptionsSection: View {
                     inputURL = ""
                 }
                 .foregroundStyle(.secondary)
+
+                Button("업데이트 팝업·안내 다시 보기") {
+                    resetWhatsNewAndHints()
+                }
             } header: {
                 Text("개발자 옵션")
             } footer: {
-                Text("URL을 변경한 뒤에는 앱을 완전히 종료한 후 다시 실행해야 적용됩니다.")
+                Text("URL을 변경한 뒤에는 앱을 완전히 종료한 후 다시 실행해야 적용됩니다. 업데이트 팝업은 앱을 백그라운드에 두었다가 다시 열면 표시됩니다. 안내 말풍선은 탭을 이동했다가 돌아오거나 앱을 다시 열면 표시됩니다.")
             }
         }
         .onAppear {
             refreshQueueCounts()
+        }
+    }
+
+    private static let whatsNewAndHintKeys = [
+        "lastSeenWhatsNewVersion",
+        "hasSeenInlineEditHint",
+        "hasSeenCalendarOpenHint",
+        "hasSeenCalendarMoveHint",
+        "hasSeenCalendarNotionFetchHint",
+        "hasSeenDailyReportExpandHint_v2",
+    ]
+
+    private func resetWhatsNewAndHints() {
+        for key in Self.whatsNewAndHintKeys {
+            UserDefaults.standard.removeObject(forKey: key)
         }
     }
 
