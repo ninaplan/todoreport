@@ -1,6 +1,6 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-07-24 기준)
+## 현재 상황 (2026-08-01 기준)
 
 ### 앱 상태
 - v1.0.4 App Store 제출 완료
@@ -8,8 +8,9 @@
 - v1.0.6 App Store 제출 완료
 - v1.0.7 제출 예정
 - v1.08 재제출 (2026-07-23)
+- v1.09 제출 예정 (빌드 17, main 반영)
 
-### v1.09 후보 (2026-07-24, main 반영 · 미제출)
+### v1.09 변경 내용 (제출 예정)
 - 날짜행(`DateNavigationRow`)을 ZStack 오버레이가 아니라 List/ScrollView의 `.safeAreaBar(edge: .top)` 상단 바로 배치 (투두·리포트 공통, 바 높이 40)
 - iOS 26 네이티브 `.scrollEdgeEffectStyle(.soft, for: .top)`로 날짜행 뒤 프로그레시브 블러 — 커스텀 반투명/마스크 방식 폐기
   - **핵심:** `safeAreaInset`은 스크롤 엣지 블러를 못 받음 → `safeAreaBar`를 써야 함 (iOS 26)
@@ -17,8 +18,26 @@
 - `TodoRow` 제목–메모 간격 6
 - 스크롤 추적 코드 제거 (`arrowBgOpacity` / `scrollOffset` / `ScrollOffsetPreferenceKey` / `coordinateSpace` / `onPreferenceChange`)
 - 엣지 스와이프(`EdgeSwipeNavigationModifier`): `safeAreaBar` 도입 후 List 스크롤과 충돌 → `UIGestureRecognizerDelegate` 동시 인식 허용 + `cancelsTouchesInView`/`delaysTouchesBegan`=false. 시작 시점 속도 판단은 제거, `UIScreenEdgePanGestureRecognizer`의 「화면 끝에서 안쪽」 네이티브 필터에 의존(스크롤 우선)
-- 투두 ⋯ 보기 옵션: 네이티브 `Menu` — Section① Toggle 3개(완료된 할일 보기 / 할일 메모 보기 / 설정 시간 보기, 시스템 체크마크) + Section② 카테고리 설정 Button(`tag`). `hideCompleted`는 View에서 뒤집어 「체크 = 보인다」로 통일. `showScheduledTime` 기본 true(키 없을 때). TodoRow trailing에 시각·종(`alarmOffset`) 표시
+- 투두 ⋯ 보기 옵션: 네이티브 `Menu` — Section① Toggle 3개(완료된 할일 보기 / 할일 메모 보기 / 설정 시간 보기, 시스템 체크마크) + Section② 카테고리 설정 Button(`tag`). `hideCompleted`는 View에서 뒤집어 「체크 = 보인다」로 통일. `showScheduledTime` 기본 true(키 없을 때)
 - 인라인/FAB 키보드 자동 포커스 개선: 고정 0.35초 딜레이 제거, `focusEpoch`로 인스턴스당 1회 포커스, 실패 시 ~2초 재시도(window 이탈 시 취소), 앱 시작 ~2.5초 후 `KeyboardPrewarmer` 프리웜, 탭 이탈 시 인라인 입력·first responder 정리
+- 투두 행 UI 개편 — 「중요」 태그(`ImportantTodoTag`) 제거, 고정은 제목 옆 `pin.fill`(accent). `ImportantTodoTag.swift` 삭제
+- 시간 표시를 행 오른쪽 끝 태그로 (시계 + 시각 + 종 `bell`, 배경 `secondarySystemGroupedBackground`, `primary.opacity(0.62)`). 색은 `TodoScheduledTimeTagStyle` 한곳에서 관리
+- 완료 체크박스 `accent.opacity(0.55)` 채움
+- 제목 탭 → 인라인 수정 (`TodoInlineTitleEditor`, 생성 시 초기 제목 주입). 키보드 툴바 「자세히」로 편집 화면 진입
+- 롱프레스 컨텍스트 메뉴 신설 (편집 / 고정 / 내일로 / 날짜 변경 / 삭제). 스와이프와 항목 중복은 의도된 설계
+- 스와이프·메뉴 액션을 `TodoRowAction.swift` 공용 카탈로그로 분리 — 새 액션은 배열에만 추가. 사용자 커스텀 UI는 미구현(구조만 준비)
+- 세로 정렬 — 기준선(`firstTextBaseline`) 정렬 폐기, `defaultMinListRowHeight = 0` + 본문 폰트 줄 높이 기준. 줄 수와 무관하게 여백 일정
+- 접근성 라벨에 「고정됨 / 완료됨 / 시각」 추가
+- 스와이프 라벨: 「내일하기」→「내일로」, 「날짜변경」→「날짜 변경」
+- What's New v1.0.9 (6항목) + 팝업 할일 행 미리보기(`WhatsNewTodoRowPreview`) + 인라인 수정 1회 말풍선(`hasSeenInlineEditHint`)
+- 업데이트 팝업: 항목 체크는 무채색·확인 버튼만 primary 대비. 미리보기는 제목 아래. 카드 배경 `secondarySystemFill`+separator
+- 안내 말풍선: 투두 탭 선택·업데이트 팝업 미표시일 때만 표시·`hasSeen*` 기록. DEBUG 「업데이트 팝업·안내 다시 보기」로 키 일괄 초기화
+
+**v1.09 버그 수정:**
+- 날짜 변경 시 `scheduledTime`이 옛 날짜에 남아 노션 반영·알림이 어긋나던 문제 — `TodoScheduledTime` 헬퍼. 시:분 유지·연월일만 이동. 경로: 내일로 / 날짜 변경 / 편집 시트 / 편집 폼 날짜 피커 / `performSaveTodoEdit`
+- 숨긴 카테고리 할일이 저장·완료 직후 다시 나타나던 문제 — `loadTodosFromStore` 단일 진입점, `excludingHiddenCategoryTodos`
+- 인라인 편집 진입 시 제목이 비던 문제 — `focusEpoch` 이중 갱신으로 필드가 즉시 교체되던 것
+- Return 시 저장이 두 번 실행되던 문제 — `didCommit` 가드
 
 ### v1.08 변경 내용 (재제출)
 - 투두 날짜 선택: iOS graphical DatePicker → 커스텀 `MonthCalendarView` (캘린더 탭 재사용 염두의 독립 컴포넌트, `Shared/Components/`)
@@ -75,8 +94,15 @@
   - 조치: 가드 및 showDatePaywall/datePaywallMessage/dismissDatePaywall() 관련 코드 전체 제거
 
 ### 다음 할 일
+- 탭 반응 지연 3건 — 완료 체크 `withAnimation(0.3)` 래핑, `pinTodo`의 `Task.sleep(200ms)`, 인라인 편집 진입 시 키보드 첫 표시 비용
+- 카테고리 칩 보기/숨기기 토글 (더보기 메뉴)
+- 카테고리 숨기기 시 해당 할일도 숨길지 사용자 선택 — 기본값은 「할일은 계속 보이기」. 기존 동작 변경이라 릴리스 노트 필요
+- 할일마다 카테고리 색·아이콘 표시 (사용자 요청)
+- 알림 메시지에 설정 시각 표시
+- 노션 자료 미수신 빈 화면 / 오프라인 안내 메시지 — 이전 세션에 시도했다 되돌린 건, 이력 확인 필요
+- 위젯이 숨긴 카테고리를 거르지 않음 (`WidgetDataProvider`가 `TodoService.fetchTodos` 직접 호출)
 - 필터 칩 점+이름 — 투두 탭 `FilterChip`과 달력 범례(`categoryLegendChip`) 공통 컴포넌트화 검토
-- ~~할일 시간·알림 목록 표시~~ — TodoRow trailing에 `scheduledTime` + `bell`(alarmOffset) 표시 + 더보기 「설정 시간 보기」토글 완료. A/C 실험 브랜치 폐기
+- ~~할일 시간·알림 목록 표시~~ — TodoRow trailing 시간 태그 + 더보기 「설정 시간 보기」토글 완료. A/C 실험 브랜치 폐기
 - 앱 전체 안내문 문체 통일 (해요체 → 합쇼체). `Localizable.xcstrings` 전수 점검 필요. 문자열이 많아 별도 커밋으로 진행
 - 로컬 저장 사용자 iCloud 백업 + alarmOffset 복원·재예약 (V2-IDEAS.md)
 - 하루 리뷰 포커스 시 불필요한 밀어올림 개선 — List 키보드 회피; `isAddingTodo` 아닐 때 조건부 ignore 조사됨(미적용)
@@ -89,9 +115,10 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- 투두 행 UI·인라인 수정·컨텍스트 메뉴 + scheduledTime/숨김 카테고리 버그 + What's New v1.0.9 (2026-08-01)
 - 더보기 Menu + 키보드 자동 포커스 개선 (2026-07-24): ⋯ `.popover`→`Menu`; AutoFocus 0.35s 딜레이 제거·epoch 1회 포커스·재시도(~2초)·window 이탈 취소; `KeyboardPrewarmer`(런치+2.5s); 탭 이탈 시 인라인 입력 정리
 - 날짜행 safeAreaBar 네이티브 soft 블러 + 화살표 원 제거·두께 + TodoRow 제목–메모 간격 6 + 스크롤 추적 코드 제거 (2026-07-24): 투두·리포트 공통 `.safeAreaBar`+`.scrollEdgeEffectStyle(.soft)`. 엣지 스와이프 동시 인식으로 List 스크롤 공존 (커밋 9df4661 → ba45920 → b350462)
-- 스와이프 버튼 아이콘 전용화 + 내일하기 해돋이 아이콘 (2026-07-24): `.trailing` 3개 `Label`+`.labelStyle(.iconOnly)`(title은 접근성용), 내일하기 `sunrise`. 원형 커스텀 스와이프는 V2
+- 스와이프 버튼 아이콘 전용화 + 내일로(해돋이) 아이콘 (2026-07-24, 라벨은 v1.09에서 「내일로」로 변경): `.trailing` 3개 `Label`+`.labelStyle(.iconOnly)`(title은 접근성용), `sunrise`. 원형 커스텀 스와이프는 V2
 - 일반 할일 삭제 확인 팝업 (2026-07-24): `showSingleDeleteAlert` — 스와이프/풀스와이프 삭제 전 「이 할 일을 삭제할까요?」. 반복 할일은 기존 `showDeleteAlert` 유지
 - 데일리 리포트 카드 접기/펼치기 (2026-07-24): `DailyReportCard` 기본 접힘(제목+chevron), 펼치면 완료율·별점·리뷰. height reveal + chevron 회전, 측정용 TextField는 `.focused` 분리
 - 달력 월 범위 노션 불러오기 + 범례 가로 스크롤·헤더 polish + stale 가드 개선 (2026-07-23, v1.08 재제출): `syncTodosFromNotionRange`, `enqueueRelationLinks`, `MonthCalendarView` 범례/불러오기, pull `incoming < existing`
@@ -102,15 +129,15 @@
 - Notion 동기화 Version Guard (2026-07-08): notionLastEditedTime 필드, push 성공 시 저장, pull upsert Version Guard, debounce pull 큐 대기. V2 Tombstone은 미해결(유령 항목 부활 케이스).
 - 오프라인 동기화 큐 손실 버그 완전 해결 (2026-07-07): NetworkMonitor.swift 신규 생성(NWPathMonitor 기반 재연결 자동 감지), SyncQueueProcessor.swift에 네트워크 에러 전용 분기 추가(retryCount 미증가, 오프라인 중 무한 재귀 방지), SyncQueueManager.swift에 recoverStuckProcessingItems() 추가(processing 고아 상태 앱 시작 시 자동 복구). 개발자 옵션에 동기화 큐 상태(pending/processing/failed 개수) 디버그 UI 추가.
 - [해결 확인됨, 2026-07-07 실기기 테스트 완료] AutoFocusTextField가 @FocusState 없이 UIViewRepresentable로 UITextField/UITextView를 직접 감싸고 becomeFirstResponder()를 수동 호출하는 방식으로 구조 변경되어 있음을 확인. markedTextRange == nil 체크로 IME 조합 중 텍스트 동기화를 막아 문제 해결됨. 실기기 한글 입력 테스트 완료.
-- [해결 완료, 2026-07-07] 원인이 두 가지였음: 1) 네트워크 에러와 API 에러를 구분 안 하고 동일하게 retryCount를 증가시켜 오프라인 중 재시도 예산이 소진되면 clearFailedItems()가 데이터를 삭제 2) processing 상태에서 앱 종료 등으로 중단되면 영구 고아 상태가 되어 어떤 재시도 로직에도 안 걸림. 해결: NetworkMonitor.swift(NWPathMonitor) 신규 추가로 재연결 자동 감지, SyncQueueProcessor.swift에 isNetworkUnavailable() 판별 추가로 네트워크 에러는 retryCount 미증가, SyncQueueManager.swift init()에 recoverStuckProcessingItems() 추가로 앱 시작 시 processing 고아 항목을 pending으로 자동 복구. 실기기 비행모드 테스트로 검증 완료.
+- [해결 완료, 2026-07-07] 원인이 두 가지였음: 1) 네트워크 에러와 API 에러를 구분 안 하고 동일하게 retryCount를 증가시켜 오프라인 중 재시도 예산이 소진되면 clearFailedItems()가 데이터를 삭제 2) processing 상태에서 앱 종료 등으로 중단되면 영구 고아 상태가 되어 어떤 재시도 로직에도 안 걸림. 해결: NetworkMonitor.swift(NWPathMonitor) 신규 생성으로 재연결 자동 감지, SyncQueueProcessor.swift에 isNetworkUnavailable() 판별 추가로 네트워크 에러는 retryCount 미증가, SyncQueueManager.swift init()에 recoverStuckProcessingItems() 추가로 앱 시작 시 processing 고아 항목을 pending으로 자동 복구. 실기기 비행모드 테스트로 검증 완료.
 
 ### 알려진 버그
 - 투두 리스트 상단에서 다른 탭 갔다 복귀 직후 잠깐 스크롤이 안 되는 증상 (곧 회복). soft top edge(`.scrollEdgeEffectStyle`) 유력 — 실험으로 해당 modifier 제거 시 소실 확인, UI 유지 위해 원복. 후속 완화 검토
 - 노션 업로드 마이그레이션 시 plannerId가 nil인 기존 투두가 노션에 안 올라감 (원인 파악됨, 수정 미적용 — 위 "다음 할 일" 참고)
 - 콜드 스타트 시 Notion 동기화 로딩 인디케이터 미표시 (투두 탭)
 - 투두 날짜 이동 후 목적지 날짜 미표시 (간헐적)
-- ~~노션에서 새로 내려온 할일을 노션에서 편집 시 여러 번 새로고침해야 반영되는 지연~~ → v1.08 stale 가드(`<`)로 동일 시각 편집 반영 개선. relation pending 오염 등 잔여는 V2-IDEAS.md
 - 노션에서 삭제한 할일이 앱에 남을 수 있음 (pull 부재 삭제 제거의 의도된 트레이드오프 — 웹훅 필요, **V2 백로그**)
+- (해결됨, v1.08) 노션 수동 편집이 여러 번 refresh해야 반영되던 지연 — stale 가드(`incoming < existing`). relation pending 등 잔여는 V2-IDEAS.md
 
 ### 주요 파일
 - SPEC.md — 앱 전체 스펙
@@ -566,7 +593,7 @@ guard SubscriptionManager.shared.isPro else {
 
 **보기 옵션 규칙:** 앞으로 보기 on/off는 `Toggle`로만 추가한다. 아이콘+동작 문구 `Button`은 시도 후 되돌림 — iOS 메뉴 아이콘 슬롯이 1개라 체크마크와 충돌하고, 문구가 「동작」인지 「상태」인지 헷갈림.
 
-**TodoRow 설정 시간:** `showScheduledTime`이 켜지고 `scheduledTime`이 있을 때 행 trailing에 `[종(bell.fill, alarmOffset 있을 때만)] [시각]` 표시. 핀(`ImportantTodoTag`)은 제목 옆, 시간은 trailing으로 분리. 시각은 지역 설정 포맷(`.dateTime.hour().minute()`).
+**TodoRow 설정 시간:** `showScheduledTime`이 켜지고 `scheduledTime`이 있을 때 행 trailing에 시간 태그(`[시계] [시각] [종(bell, alarmOffset 있을 때만)]`) 표시. 배경 `secondarySystemGroupedBackground`, 글자 `primary.opacity(0.62)` — `TodoScheduledTimeTagStyle`. 고정은 제목 옆 `pin.fill`(accent). 시각은 지역 설정 포맷(`.dateTime.hour().minute()`).
 
 ---
 
@@ -587,11 +614,11 @@ guard SubscriptionManager.shared.isPro else {
 
 ```
 탭 (체크박스 영역)          → 완료/미완료 토글
-탭 (텍스트/행 영역)         → 아무것도 안 함
+탭 (제목)                   → 인라인 제목 수정 (`TodoInlineTitleEditor`)
 우로 스와이프 (풀스와이프)   → 고정(isPinned 토글)
-좌로 스와이프               → [내일하기(sunrise)] [날짜변경] [삭제] — Label+`.labelStyle(.iconOnly)` (화면 아이콘만, title은 접근성)
+좌로 스와이프               → [내일로(sunrise)] [날짜 변경] [삭제] — Label+`.labelStyle(.iconOnly)` (화면 아이콘만, title은 접근성)
   (일반: 삭제 확인 alert / 반복: 반복 삭제 alert)
-길게 누르기                 → 편집 모드
+길게 누르기                 → 컨텍스트 메뉴 (편집 / 고정 / 내일로 / 날짜 변경 / 삭제) — `TodoRowAction` 카탈로그
 ```
 
 ---
