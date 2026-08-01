@@ -58,7 +58,9 @@ struct MonthCalendarView: View {
     var body: some View {
         VStack(spacing: 12) {
             VStack(spacing: 12) {
+                // 불러오기 말풍선이 dayGrid(오늘 원) 아래로 깔리지 않도록 헤더를 위에 그림
                 monthHeader
+                    .zIndex(1)
                 weekdayHeader
                 dayGrid
             }

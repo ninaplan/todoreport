@@ -12,6 +12,8 @@ final class MainTabCoordinator {
 
     var selectedTab: Tab = .todo
     var pendingTodoDate: Date?
+    /// 루트 업데이트 팝업 시트 표시 중 (투두 안내 말풍선 가드용)
+    var isWhatsNewPopupPresented: Bool = false
     /// 설정 탭 NavigationStack 초기화 트리거 (위젯 진입 등)
     private(set) var settingsStackResetToken: Int = 0
     /// 5분+ 백그라운드 복귀 시 투두 탭 루트 리셋 트리거

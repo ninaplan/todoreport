@@ -7,20 +7,30 @@ struct WhatsNewPopupView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
-                Image(systemName: release.symbolName)
-                    .font(.system(size: 40, weight: .semibold))
-                    .foregroundStyle(AppTheme.shared.accent)
-                    .padding(.top, 8)
+                if release.showsTodoRowPreview {
+                    Text("v\(release.id) 업데이트")
+                        .font(.title2.weight(.bold))
+                        .padding(.top, 8)
 
-                Text("v\(release.id) 업데이트")
-                    .font(.title2.weight(.bold))
+                    WhatsNewTodoRowPreview()
+                } else {
+                    Image(systemName: release.symbolName)
+                        .font(.system(size: 40, weight: .semibold))
+                        .foregroundStyle(AppTheme.shared.accent)
+                        .padding(.top, 8)
 
-                VStack(alignment: .leading, spacing: 12) {
+                    Text("v\(release.id) 업데이트")
+                        .font(.title2.weight(.bold))
+                }
+
+                VStack(alignment: .leading, spacing: 18) {
                     ForEach(release.items, id: \.self) { item in
                         HStack(alignment: .top, spacing: 10) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.body)
-                                .foregroundStyle(AppTheme.shared.accent)
+                            Image(systemName: "checkmark")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 16, alignment: .center)
+                                .padding(.top, 3)
                             Text(item)
                                 .font(.body)
                                 .foregroundStyle(.primary)
@@ -35,10 +45,10 @@ struct WhatsNewPopupView: View {
                 Button(action: onDismiss) {
                     Text("확인")
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(.systemBackground))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(AppTheme.shared.accent)
+                        .background(Color.primary)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(.plain)

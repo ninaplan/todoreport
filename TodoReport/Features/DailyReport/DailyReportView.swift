@@ -14,7 +14,6 @@ struct DailyReportCard: View {
     @State private var isExpanded = false
     @State private var expandedContentHeight: CGFloat = 0
     @FocusState private var isReviewFocused: Bool
-    @AppStorage("hasSeenDailyReportExpandHint_v2") private var hasSeenDailyReportExpandHint = false
 
     var body: some View {
         // 헤더는 레이아웃상 고정. 하단만 height 0↔측정값 + clipped로 아래로 reveal.
@@ -69,8 +68,6 @@ struct DailyReportCard: View {
             Task { await viewModel.saveReport() }
         }
         .onAppear {
-            guard !hasSeenDailyReportExpandHint else { return }
-            hasSeenDailyReportExpandHint = true
             onFirstAppear?()
         }
     }

@@ -27,9 +27,14 @@ struct TodoReportApp: App {
                                 }
                             }
                         }
+                        .onChange(of: showWhatsNewPopup) { _, presented in
+                            MainTabCoordinator.shared.isWhatsNewPopupPresented = presented
+                        }
                 } else {
                     OnboardingView {
                         markLatestWhatsNewAsSeen()
+                        // 신규 설치자 — 인라인 수정 말풍선 생략
+                        UserDefaults.standard.set(true, forKey: "hasSeenInlineEditHint")
                         onboardingCompleted = true
                     }
                 }
@@ -90,6 +95,7 @@ struct TodoReportApp: App {
                     await SubscriptionManager.shared.updatePurchasedProducts()
                     evaluateSubscriptionState()
                 }
+                presentWhatsNewPopupIfNeeded()
                 ReportNotificationManager.shared.rescheduleAll()
                 Task { @MainActor in SyncQueueManager.shared.processIfConnected() }
                 Task { @MainActor in NotionRelationLinker.shared.linkMissing() }
@@ -123,6 +129,7 @@ struct TodoReportApp: App {
         guard let latest = whatsNewReleases.first, latest.showsPopup else { return }
         guard lastSeenWhatsNewVersion != latest.id else { return }
         showWhatsNewPopup = true
+        MainTabCoordinator.shared.isWhatsNewPopupPresented = true
     }
 
     private func markLatestWhatsNewAsSeen() {
