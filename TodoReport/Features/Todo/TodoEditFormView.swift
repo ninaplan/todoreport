@@ -73,6 +73,12 @@ struct TodoEditFormView: View {
                     .labelsHidden()
                     .tint(AppTheme.shared.accent)
                     .environment(\.calendar, localizedCalendar)
+                    .onChange(of: date) { _, newDate in
+                        scheduledTime = TodoScheduledTime.aligning(
+                            scheduledTime,
+                            toDay: newDate
+                        )
+                    }
             }
 
             // 시간

@@ -250,8 +250,7 @@ final class TodoViewModel {
             }
             guard !Task.isCancelled else { return }
             guard Calendar.current.isDate(selectedDate, inSameDayAs: targetDate) else { return }
-            let fetched = await service.fetchTodos(for: targetDate)
-            applyTodosUpdate(fetched, animated: quiet || initialLoad)
+            await loadTodosFromStore(for: targetDate, animated: quiet || initialLoad)
         }
         notionSyncTask = task
         await task.value
@@ -269,22 +268,23 @@ final class TodoViewModel {
         if shouldShowLoading { isLoading = true }
         defer { isLoading = false }
 
+        guard !Task.isCancelled else { return }
+        guard Calendar.current.isDate(selectedDate, inSameDayAs: date) else { return }
+        await loadTodosFromStore(for: date, animated: false)
+    }
+
+    /// 저장소 → `todos` 반영의 단일 진입점. `fetchTodos` 결과를 직접 대입하지 않는다.
+    @MainActor
+    private func loadTodosFromStore(for date: Date, animated: Bool) async {
         let fetched = await service.fetchTodos(for: date)
         guard !Task.isCancelled else { return }
         guard Calendar.current.isDate(selectedDate, inSameDayAs: date) else { return }
-        applyTodosUpdate(fetched, animated: false)
+        applyTodosUpdate(fetched, animated: animated)
     }
 
     @MainActor
     private func applyTodosUpdate(_ incoming: [Todo], animated: Bool) {
-        var filtered = incoming
-        let hiddenCategoryIds = CategoryService.shared.store
-            .filter { $0.isHidden }
-            .map(\.id)
-        filtered = filtered.filter { todo in
-            guard let categoryId = todo.categoryId else { return true }
-            return !hiddenCategoryIds.contains(categoryId)
-        }
+        let filtered = excludingHiddenCategoryTodos(incoming)
 
         guard TodoListDiff.hasChanges(current: todos, incoming: filtered) else {
             validateCategoryFilter()
@@ -305,11 +305,14 @@ final class TodoViewModel {
         }
     }
 
-    private func filterHiddenCategoryTodos() {
-        let hiddenCategoryIds = CategoryService.shared.store
-            .filter { $0.isHidden }
-            .map(\.id)
-        todos = todos.filter { todo in
+    /// 숨긴 카테고리 할일 제외 — 목록 반영 시 유일한 필터.
+    private func excludingHiddenCategoryTodos(_ todos: [Todo]) -> [Todo] {
+        let hiddenCategoryIds = Set(
+            CategoryService.shared.store
+                .filter(\.isHidden)
+                .map(\.id)
+        )
+        return todos.filter { todo in
             guard let categoryId = todo.categoryId else { return true }
             return !hiddenCategoryIds.contains(categoryId)
         }
@@ -355,7 +358,9 @@ final class TodoViewModel {
         notionSyncTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 200_000_000)
             guard let index = todos.firstIndex(where: { $0.id == todo.id }) else { return }
-            todos[index].isPinned.toggle()
+            withAnimation(.easeInOut(duration: 0.3)) {
+                todos[index].isPinned.toggle()
+            }
             todos[index].markLocallyModified()
             let updated = todos[index]
             try? await service.updateTodo(updated)
@@ -481,7 +486,7 @@ final class TodoViewModel {
             try? await RecurringTodoEditHandler.applySingleOnly(
                 original: info.original, updated: info.updated, changeType: info.changeType
             )
-            todos = await service.fetchTodos(for: selectedDate)
+            await replaceTodosFromStore()
         }
     }
 
@@ -492,7 +497,7 @@ final class TodoViewModel {
             try? await RecurringTodoEditHandler.applyFromNowOn(
                 original: info.original, updated: info.updated, changeType: info.changeType
             )
-            todos = await service.fetchTodos(for: selectedDate)
+            await replaceTodosFromStore()
         }
     }
 
@@ -507,15 +512,13 @@ final class TodoViewModel {
 
     @MainActor
     private func replaceTodosFromStore() async {
-        todos = await service.fetchTodos(for: selectedDate)
-        validateCategoryFilter()
-        updateWidget()
+        await loadTodosFromStore(for: selectedDate, animated: false)
     }
 
     func moveToTomorrow(_ todo: Todo) {
         guard let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) else { return }
         var moved = todo
-        moved.date = nextDay
+        TodoScheduledTime.applyingDateChange(to: &moved, newDate: nextDay)
         todos.removeAll { $0.id == todo.id }
         cancelInFlightFetches()
         Task {
@@ -526,9 +529,9 @@ final class TodoViewModel {
 
     func changeTodoDate(_ todo: Todo, to newDate: Date) {
         var updated = todo
-        updated.date = newDate
+        TodoScheduledTime.applyingDateChange(to: &updated, newDate: newDate)
         updated.markLocallyModified()
-        if Calendar.current.isDate(newDate, inSameDayAs: selectedDate) {
+        if Calendar.current.isDate(updated.date, inSameDayAs: selectedDate) {
             if let index = todos.firstIndex(where: { $0.id == todo.id }) {
                 todos[index] = updated
             }
@@ -551,7 +554,7 @@ final class TodoViewModel {
                     try? await RecurringTodoEditHandler.applyFromNowOn(
                         original: original, updated: updated, changeType: changeType
                     )
-                    todos = await service.fetchTodos(for: selectedDate)
+                    await replaceTodosFromStore()
                 }
             } else {
                 pendingRecurringEdit = RecurringEditPendingInfo(
@@ -564,13 +567,30 @@ final class TodoViewModel {
         performSaveTodoEdit(updated)
     }
 
+    /// 인라인 제목 수정 — 기존 `saveTodoEdit` Offline-First 경로 재사용.
+    func updateTodoTitle(_ todo: Todo, title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard trimmed != todo.title else { return }
+        var updated = todo
+        updated.title = trimmed
+        saveTodoEdit(updated)
+    }
+
     func cancelReadOnlyAlert() {
         showReadOnlyAlert = false
+    }
+
+    var showTodoSaveFailedAlert: Bool = false
+
+    func cancelTodoSaveFailedAlert() {
+        showTodoSaveFailedAlert = false
     }
 
     private func performSaveTodoEdit(_ updated: Todo) {
         guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
         var touched = updated
+        TodoScheduledTime.applyingDateChange(to: &touched, newDate: touched.date)
         touched.markLocallyModified()
         let isSameDay = Calendar.current.isDate(touched.date, inSameDayAs: selectedDate)
         if isSameDay {
@@ -585,9 +605,15 @@ final class TodoViewModel {
             TodoNotificationManager.shared.cancel(for: touched.id)
         }
         cancelInFlightFetches()
+        // 낙관적 UI → SwiftData 쓰기 → 스토어 재조회 (CacheManager 경로 없음)
         Task {
-            try? await service.updateTodo(touched)
-            await replaceTodosFromStore()
+            do {
+                try await service.updateTodo(touched)
+                await replaceTodosFromStore()
+            } catch {
+                await replaceTodosFromStore()
+                showTodoSaveFailedAlert = true
+            }
         }
     }
 
