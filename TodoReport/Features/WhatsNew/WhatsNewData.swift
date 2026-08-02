@@ -5,11 +5,10 @@ let whatsNewReleases: [WhatsNewRelease] = [
         id: "1.0.9",
         symbolName: "hand.tap",
         items: [
-            String(localized: "할 일 이름을 탭해서 바로 수정"),
-            String(localized: "할 일을 길게 눌러 편집·고정·날짜 변경·삭제 메뉴 열기"),
-            String(localized: "데일리 리포트 카드 접기·펼치기 추가"),
-            String(localized: "고정한 할 일은 핀으로, 설정 시간과 알림은 오른쪽에 표시"),
-            String(localized: "⋯ 메뉴에서 완료된 할 일·메모·설정 시간 표시를 켜고 끄기"),
+            String(localized: "할 일 이름을 탭해서 바로 수정, 길게 누르면 편집·고정·날짜·삭제 메뉴"),
+            String(localized: "카테고리 색상을 원하는 색으로 직접 선택"),
+            String(localized: "데일리 리포트 카드 접기·펼치기"),
+            String(localized: "할 일 목록에 핀·설정 시간·알림 표시 (⋯ 메뉴에서 켜고 끄기)"),
             String(localized: "날짜를 옮길 때 설정 시간과 알림도 함께 이동하도록 수정")
         ],
         showsPopup: true,

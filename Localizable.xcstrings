@@ -531,6 +531,16 @@
         }
       }
     },
+    "카테고리 색상을 원하는 색으로 직접 선택" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick any color for a category"
+          }
+        }
+      }
+    },
     "노션 플래너에서 원하는 달의 데이터만 다시 불러오기 가능" : {
       "localizations" : {
         "en" : {
@@ -1514,6 +1524,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Daily Report"
+          }
+        }
+      }
+    },
+    "데일리 리포트 카드 접기·펼치기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapse or expand the daily report card"
           }
         }
       }
@@ -4063,6 +4083,16 @@
         }
       }
     },
+    "할 일 목록에 핀·설정 시간·알림 표시 (⋯ 메뉴에서 켜고 끄기)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show pins, scheduled times, and reminders in the list (toggle in the ⋯ menu)"
+          }
+        }
+      }
+    },
     "할 일 목록을 불러오는 중" : {
       "localizations" : {
         "en" : {
@@ -4389,6 +4419,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "할 일 이름을 탭해서 바로 수정"
+          }
+        }
+      }
+    },
+    "할 일 이름을 탭해서 바로 수정, 길게 누르면 편집·고정·날짜·삭제 메뉴" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap a to-do title to edit it, or press and hold for edit, pin, date, and delete"
           }
         }
       }

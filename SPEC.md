@@ -323,7 +323,7 @@ api/
 - SwiftData 저장 (플래너별 `plannerId`)
 - 카테고리 추가/편집/삭제/숨김/숨김 해제/순서 변경 (구 "보관/복원")
 - **기본값:** 색상은 `Category.baseColors` 기본 12색에서 미사용 우선 랜덤, 아이콘 `tag.fill`
-- **색상 선택:** 편집 시트 그리드는 `Category.baseColors` 12색 + `ColorPicker` 직접 선택
+- **색상 선택:** 편집 시트 그리드는 `Category.baseColors` 12색 + `ColorPicker` 직접 선택 (v1.09 — 1.08 팔레트 세트 대체)
 - 아이콘 선택 (SF Symbol 팔레트)
 - **대비:** `Color.readableForeground`(채움 위 글자 — 아주 밝은 색만 검정) / `readableText(on:)`(배경 위 색글자 — 라이트·다크 밝기 보정). 칩 선택 글자·미선택 색글자·리포트 카테고리 %에 적용. 배지·스와치 체크마크 아이콘은 흰색 고정
 - 투두 목록·카테고리별 보기·리포트 달성률에서 배지 표시
