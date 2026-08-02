@@ -1021,35 +1021,33 @@ private struct TodoRow: View {
                     onOpenDetail: { onOpenDetailFromInline?($0) }
                 )
                 .id(todo.id)
+
+                if todo.isPinned {
+                    Image(systemName: "pin.fill")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.shared.accent)
+                        .opacity(todo.isCompleted ? completedCheckboxOpacity : 1)
+                        .frame(height: firstLineHeight)
+                        .layoutPriority(1)
+                        .accessibilityHidden(true)
+                }
+
+                if showScheduledTime, todo.scheduledTime != nil {
+                    Spacer(minLength: 0)
+                }
             } else {
+                // layoutPriority(0)+Spacer면 제목이 먼저 압축되고 Spacer가 빈 폭을 가져가
+                // 일찍 줄바꿈됨 → 제목이 태그 앞까지 maxWidth를 쓰게 한다.
                 titleLabel
                     .lineLimit(2)
                     .truncationMode(.tail)
                     .fixedSize(horizontal: false, vertical: true)
-                    .layoutPriority(0)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         onStartInlineEdit?()
                     }
                     .animation(.easeInOut(duration: 0.15), value: todo.isCompleted)
-            }
-
-            // 인라인 편집 중에는 제목이 TextField라 핀을 옆에 따로 둔다.
-            if isInlineEditing, todo.isPinned {
-                Image(systemName: "pin.fill")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.shared.accent)
-                    .opacity(todo.isCompleted ? completedCheckboxOpacity : 1)
-                    .frame(height: firstLineHeight)
-                    .layoutPriority(1)
-                    .accessibilityHidden(true)
-            }
-
-            // 제목·핀 | 남는 공간 | 시간 태그(trailing)
-            if showScheduledTime, todo.scheduledTime != nil {
-                Spacer(minLength: 0)
-            } else if !isInlineEditing {
-                Spacer(minLength: 0)
             }
 
             if showScheduledTime, let scheduledTime = todo.scheduledTime {
@@ -1075,7 +1073,8 @@ private struct TodoRow: View {
                 AppTheme.shared.accent.opacity(todo.isCompleted ? completedCheckboxOpacity : 1)
             )
 
-        return title + Text(" ") + pin
+        // 일반 공백은 줄바꿈 가능 → NBSP로 마지막 글자와 핀을 한 덩어리로 유지
+        return title + Text("\u{00A0}") + pin
     }
 
     @ViewBuilder
