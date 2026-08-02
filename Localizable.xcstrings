@@ -1,7 +1,12 @@
 {
   "sourceLanguage" : "ko",
   "strings" : {
-    "" : {},
+    "" : {
+      "shouldTranslate" : false
+    },
+    " " : {
+      "shouldTranslate" : false
+    },
     "/년" : {
       "localizations" : {
         "en" : {
@@ -182,6 +187,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "+%lld"
+          }
+        }
+      }
+    },
+    "⋯ 메뉴에서 완료된 할 일·메모·설정 시간 표시를 켜고 끄기" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show or hide completed to-dos, memos, and scheduled times from the ⋯ menu"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⋯ 메뉴에서 완료된 할 일·메모·설정 시간 표시를 켜고 끄기"
           }
         }
       }
@@ -521,76 +543,6 @@
         }
       }
     },
-    "카테고리 색상 팔레트 9종 추가" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Added 9 new category color palettes"
-          }
-        }
-      }
-    },
-    "카테고리 색상을 원하는 색으로 직접 선택" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pick any color for a category"
-          }
-        }
-      }
-    },
-    "노션 플래너에서 원하는 달의 데이터만 다시 불러오기 가능" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reload just the month you need from your Notion planner"
-          }
-        }
-      }
-    },
-    "노션에서 수정한 내용이 더 빠르게 반영되도록 동기화 개선" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Improved sync so Notion edits reflect faster"
-          }
-        }
-      }
-    },
-    "투두 날짜 선택 화면을 새로운 달력 디자인으로 변경 (카테고리 색상 점·필터 지원)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Redesigned the date picker with a new calendar view (category color dots & filters)"
-          }
-        }
-      }
-    },
-    "노션에 리포트 저장하기는 Pro 기능이에요" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Saving reports to Notion is a Pro feature"
-          }
-        }
-      }
-    },
-    "멀티 플래너는 Pro 기능이에요" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Multiple planners is a Pro feature"
-          }
-        }
-      }
-    },
     "같은 워크스페이스 멀티 플래너 연동 끊김 수정" : {
       "localizations" : {
         "en" : {
@@ -711,6 +663,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "고객지원"
+          }
+        }
+      }
+    },
+    "고정" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "고정"
+          }
+        }
+      }
+    },
+    "고정 해제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unpin"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "고정 해제"
+          }
+        }
+      }
+    },
+    "고정됨" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pinned"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "고정됨"
+          }
+        }
+      }
+    },
+    "고정한 할 일은 핀으로, 설정 시간과 알림은 오른쪽에 표시" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pinned to-dos show a pin; scheduled time and reminders move to the right"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "고정한 할 일은 핀으로, 설정 시간과 알림은 오른쪽에 표시"
           }
         }
       }
@@ -1026,6 +1043,22 @@
         }
       }
     },
+    "날짜를 옮길 때 설정 시간과 알림도 함께 이동하도록 수정" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fixed scheduled times and reminders not following a to-do's new date"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "날짜를 옮길 때 설정 시간과 알림도 함께 이동하도록 수정"
+          }
+        }
+      }
+    },
     "날짜를 탭하세요" : {
       "localizations" : {
         "en" : {
@@ -1074,6 +1107,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "내일 · %@"
+          }
+        }
+      }
+    },
+    "내일로" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Do Tomorrow"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내일로"
           }
         }
       }
@@ -1248,6 +1297,16 @@
         }
       }
     },
+    "노션 플래너에서 원하는 달의 데이터만 다시 불러오기 가능" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reload just the month you need from your Notion planner"
+          }
+        }
+      }
+    },
     "노션 플래너와 연결하기" : {
       "localizations" : {
         "en" : {
@@ -1274,6 +1333,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Save Report to Notion"
+          }
+        }
+      }
+    },
+    "노션에 리포트 저장하기는 Pro 기능이에요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saving reports to Notion is a Pro feature"
           }
         }
       }
@@ -1384,6 +1453,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Also Save to Notion"
+          }
+        }
+      }
+    },
+    "노션에서 수정한 내용이 더 빠르게 반영되도록 동기화 개선" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Improved sync so Notion edits reflect faster"
           }
         }
       }
@@ -1534,6 +1613,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Collapse or expand the daily report card"
+          }
+        }
+      }
+    },
+    "데일리 리포트 카드 접기·펼치기 추가" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapse the daily report card for a longer list"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "데일리 리포트 카드 접기·펼치기 추가"
           }
         }
       }
@@ -1848,22 +1944,22 @@
         }
       }
     },
+    "멀티 플래너는 Pro 기능이에요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Multiple planners is a Pro feature"
+          }
+        }
+      }
+    },
     "메모" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notes"
-          }
-        }
-      }
-    },
-    "모든 데이터가 Notion에 업로드됐어요" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All data has been uploaded to Notion"
           }
         }
       }
@@ -1878,22 +1974,22 @@
         }
       }
     },
+    "모든 데이터가 Notion에 업로드됐어요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All data has been uploaded to Notion"
+          }
+        }
+      }
+    },
     "목록이 안 보이나요?" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "List not showing up?"
-          }
-        }
-      }
-    },
-    "위에서 아래로 당겨 새로고침해보세요" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Try pulling down to refresh"
           }
         }
       }
@@ -1924,6 +2020,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Uncategorized"
+          }
+        }
+      }
+    },
+    "미완료" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Completed"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "미완료"
           }
         }
       }
@@ -2065,6 +2177,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Loading..."
+          }
+        }
+      }
+    },
+    "블로그 글 쓰기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Write blog post"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "블로그 글 쓰기"
           }
         }
       }
@@ -2862,12 +2990,44 @@
         }
       }
     },
+    "완료 토글" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toggle Completion"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "완료 토글"
+          }
+        }
+      }
+    },
     "완료된 할일 보기" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Show Completed"
+          }
+        }
+      }
+    },
+    "완료됨" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "완료됨"
           }
         }
       }
@@ -2962,6 +3122,16 @@
         }
       }
     },
+    "위에서 아래로 당겨 새로고침해보세요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try pulling down to refresh"
+          }
+        }
+      }
+    },
     "위젯 무제한 사용" : {
       "localizations" : {
         "en" : {
@@ -2972,22 +3142,22 @@
         }
       }
     },
-    "위젯이 이전 날짜에 멈춰 있다면 위젯을 삭제 후 다시 추가해 주세요" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "If your widget is stuck on a past date, remove it and add it again"
-          }
-        }
-      }
-    },
     "위젯을 개선해 모든 크기를 사용할 수 있도록 변경 (중간·큰 크기 위젯이 비어 보이면 삭제 후 다시 추가)" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Improved widgets so every size works correctly (if medium/large widgets look empty, remove and re-add them)"
+          }
+        }
+      }
+    },
+    "위젯이 이전 날짜에 멈춰 있다면 위젯을 삭제 후 다시 추가해 주세요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If your widget is stuck on a past date, remove it and add it again"
           }
         }
       }
@@ -3062,6 +3232,16 @@
         }
       }
     },
+    "이름" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        }
+      }
+    },
     "이후 항목 모두 삭제" : {
       "localizations" : {
         "en" : {
@@ -3072,22 +3252,32 @@
         }
       }
     },
+    "인증 세션을 시작할 수 없어요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't start the authentication session"
+          }
+        }
+      }
+    },
+    "인증 응답을 받지 못했어요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Didn't receive an authentication response"
+          }
+        }
+      }
+    },
     "일" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sun"
-          }
-        }
-      }
-    },
-    "이름" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Name"
           }
         }
       }
@@ -3182,32 +3372,12 @@
         }
       }
     },
-    "인증 세션을 시작할 수 없어요" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn't start the authentication session"
-          }
-        }
-      }
-    },
     "인증 응답 파싱 실패" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Failed to parse the authentication response"
-          }
-        }
-      }
-    },
-    "인증 응답을 받지 못했어요" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Didn't receive an authentication response"
           }
         }
       }
@@ -3258,6 +3428,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This planner is read-only. Subscribe to Pro to reactivate it."
+          }
+        }
+      }
+    },
+    "자세히" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Details"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "자세히"
           }
         }
       }
@@ -3602,6 +3788,26 @@
         }
       }
     },
+    "카테고리 색상 팔레트 9종 추가" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added 9 new category color palettes"
+          }
+        }
+      }
+    },
+    "카테고리 색상을 원하는 색으로 직접 선택" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick any color for a category"
+          }
+        }
+      }
+    },
     "카테고리 설정" : {
       "localizations" : {
         "en" : {
@@ -3768,6 +3974,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Manage Todos"
+          }
+        }
+      }
+    },
+    "투두 날짜 선택 화면을 새로운 달력 디자인으로 변경 (카테고리 색상 점·필터 지원)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redesigned the date picker with a new calendar view (category color dots & filters)"
           }
         }
       }
@@ -4103,6 +4319,82 @@
         }
       }
     },
+    "할 일 이름을 탭하면 바로 수정할 수 있어요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap a to-do title to edit it"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "할 일 이름을 탭하면 바로 수정할 수 있어요"
+          }
+        }
+      }
+    },
+    "할 일 이름을 탭해서 바로 수정" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap a to-do title to edit it in place"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "할 일 이름을 탭해서 바로 수정"
+          }
+        }
+      }
+    },
+    "할 일 이름을 탭해서 바로 수정, 길게 누르면 편집·고정·날짜·삭제 메뉴" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap a to-do title to edit it, or press and hold for edit, pin, date, and delete"
+          }
+        }
+      }
+    },
+    "할 일 저장에 실패했습니다. 다시 시도해 주세요." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't save this to-do. Please try again."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "할 일 저장에 실패했습니다. 다시 시도해 주세요."
+          }
+        }
+      }
+    },
+    "할 일을 길게 눌러 편집·고정·날짜 변경·삭제 메뉴 열기" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Press and hold a to-do for edit, pin, date, and delete"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "할 일을 길게 눌러 편집·고정·날짜 변경·삭제 메뉴 열기"
+          }
+        }
+      }
+    },
     "할일 메모 보기" : {
       "localizations" : {
         "en" : {
@@ -4259,288 +4551,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Activate"
-          }
-        }
-      }
-    },
-    "고정" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pin"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "고정"
-          }
-        }
-      }
-    },
-    "고정 해제" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unpin"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "고정 해제"
-          }
-        }
-      }
-    },
-    "고정됨" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pinned"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "고정됨"
-          }
-        }
-      }
-    },
-    "내일로" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Do Tomorrow"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "내일로"
-          }
-        }
-      }
-    },
-    "자세히" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Details"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "자세히"
-          }
-        }
-      }
-    },
-    "완료 토글" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Toggle Completion"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "완료 토글"
-          }
-        }
-      }
-    },
-    "완료됨" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Completed"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "완료됨"
-          }
-        }
-      }
-    },
-    "미완료" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not Completed"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "미완료"
-          }
-        }
-      }
-    },
-    "할 일 저장에 실패했습니다. 다시 시도해 주세요." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn't save this to-do. Please try again."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "할 일 저장에 실패했습니다. 다시 시도해 주세요."
-          }
-        }
-      }
-    },
-    "할 일 이름을 탭해서 바로 수정" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap a to-do title to edit it in place"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "할 일 이름을 탭해서 바로 수정"
-          }
-        }
-      }
-    },
-    "할 일 이름을 탭해서 바로 수정, 길게 누르면 편집·고정·날짜·삭제 메뉴" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap a to-do title to edit it, or press and hold for edit, pin, date, and delete"
-          }
-        }
-      }
-    },
-    "할 일을 길게 눌러 편집·고정·날짜 변경·삭제 메뉴 열기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Press and hold a to-do for edit, pin, date, and delete"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "할 일을 길게 눌러 편집·고정·날짜 변경·삭제 메뉴 열기"
-          }
-        }
-      }
-    },
-    "데일리 리포트 카드 접기·펼치기 추가" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Collapse the daily report card for a longer list"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "데일리 리포트 카드 접기·펼치기 추가"
-          }
-        }
-      }
-    },
-    "고정한 할 일은 핀으로, 설정 시간과 알림은 오른쪽에 표시" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pinned to-dos show a pin; scheduled time and reminders move to the right"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "고정한 할 일은 핀으로, 설정 시간과 알림은 오른쪽에 표시"
-          }
-        }
-      }
-    },
-    "⋯ 메뉴에서 완료된 할 일·메모·설정 시간 표시를 켜고 끄기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show or hide completed to-dos, memos, and scheduled times from the ⋯ menu"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "⋯ 메뉴에서 완료된 할 일·메모·설정 시간 표시를 켜고 끄기"
-          }
-        }
-      }
-    },
-    "날짜를 옮길 때 설정 시간과 알림도 함께 이동하도록 수정" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fixed scheduled times and reminders not following a to-do's new date"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "날짜를 옮길 때 설정 시간과 알림도 함께 이동하도록 수정"
-          }
-        }
-      }
-    },
-    "블로그 글 쓰기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Write blog post"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "블로그 글 쓰기"
-          }
-        }
-      }
-    },
-    "할 일 이름을 탭하면 바로 수정할 수 있어요" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap a to-do title to edit it"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "할 일 이름을 탭하면 바로 수정할 수 있어요"
           }
         }
       }
