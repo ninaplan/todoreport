@@ -1022,10 +1022,7 @@ private struct TodoRow: View {
                 )
                 .id(todo.id)
             } else {
-                Text(todo.title)
-                    .font(.body)
-                    .strikethrough(todo.isCompleted)
-                    .foregroundStyle(todo.isCompleted ? .secondary : .primary)
+                titleLabel
                     .lineLimit(2)
                     .truncationMode(.tail)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1037,7 +1034,8 @@ private struct TodoRow: View {
                     .animation(.easeInOut(duration: 0.15), value: todo.isCompleted)
             }
 
-            if todo.isPinned {
+            // 인라인 편집 중에는 제목이 TextField라 핀을 옆에 따로 둔다.
+            if isInlineEditing, todo.isPinned {
                 Image(systemName: "pin.fill")
                     .font(.caption)
                     .foregroundStyle(AppTheme.shared.accent)
@@ -1060,6 +1058,24 @@ private struct TodoRow: View {
                     .layoutPriority(1)
             }
         }
+    }
+
+    /// 일반 표시: 핀을 제목 Text 뒤에 붙여 줄바꿈 시에도 글자 옆에 붙게 한다.
+    private var titleLabel: Text {
+        let title = Text(todo.title)
+            .font(.body)
+            .strikethrough(todo.isCompleted)
+            .foregroundStyle(todo.isCompleted ? Color.secondary : Color.primary)
+
+        guard todo.isPinned else { return title }
+
+        let pin = Text(Image(systemName: "pin.fill"))
+            .font(.caption)
+            .foregroundStyle(
+                AppTheme.shared.accent.opacity(todo.isCompleted ? completedCheckboxOpacity : 1)
+            )
+
+        return title + Text(" ") + pin
     }
 
     @ViewBuilder
