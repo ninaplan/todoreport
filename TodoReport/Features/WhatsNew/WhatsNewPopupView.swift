@@ -40,6 +40,10 @@ struct WhatsNewPopupView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
+                if let notice = release.notice {
+                    WhatsNewNoticeBanner(text: notice)
+                }
+
                 Spacer(minLength: 0)
 
                 Button(action: onDismiss) {

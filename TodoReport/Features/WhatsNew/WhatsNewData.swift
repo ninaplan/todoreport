@@ -13,7 +13,8 @@ let whatsNewReleases: [WhatsNewRelease] = [
             String(localized: "날짜를 옮길 때 설정 시간과 알림도 함께 이동하도록 수정")
         ],
         showsPopup: true,
-        showsTodoRowPreview: true
+        showsTodoRowPreview: true,
+        notice: String(localized: "위젯이 이전 날짜에 멈춰 있다면 위젯을 삭제 후 다시 추가해 주세요")
     ),
     WhatsNewRelease(
         id: "1.0.8",

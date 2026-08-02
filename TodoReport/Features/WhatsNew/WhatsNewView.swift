@@ -72,6 +72,11 @@ private struct WhatsNewReleaseSection: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
+
+                    if let notice = release.notice {
+                        WhatsNewNoticeBanner(text: notice)
+                            .padding(.top, 4)
+                    }
                 }
                 .padding(.leading, itemsLeadingInset)
             }
