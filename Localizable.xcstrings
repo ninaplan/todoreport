@@ -2952,6 +2952,16 @@
         }
       }
     },
+    "위젯이 이전 날짜에 멈춰 있다면 위젯을 삭제 후 다시 추가해 주세요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If your widget is stuck on a past date, remove it and add it again"
+          }
+        }
+      }
+    },
     "위젯을 개선해 모든 크기를 사용할 수 있도록 변경 (중간·큰 크기 위젯이 비어 보이면 삭제 후 다시 추가)" : {
       "localizations" : {
         "en" : {
