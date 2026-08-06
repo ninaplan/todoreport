@@ -84,7 +84,9 @@ struct MediumWidgetView: View {
                     Spacer(minLength: 0)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .widgetURL(URL(string: "todoreport://todo"))
         .containerBackground(.background, for: .widget)
