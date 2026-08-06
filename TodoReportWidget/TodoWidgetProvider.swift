@@ -69,10 +69,25 @@ struct TodoTimelineProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<WidgetTimelineEntry>) -> Void) {
-        let entry = WidgetTimelineEntry(date: .now, data: readWidgetData())
-        // 앱이 직접 reloadAllTimelines()를 호출하므로 긴 간격으로 설정
-        let nextRefresh = Calendar.current.date(byAdding: .minute, value: 30, to: .now) ?? .now
-        completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
+        let calendar = Calendar.current
+        let snapshot = readWidgetData()
+        // 앱이 열리기 전엔 스냅샷이 갱신되지 않음 → 오늘이 아니면 빈 상태로 표시
+        let todayData: WidgetSnapshotData? = {
+            guard let snapshot, calendar.isDateInToday(snapshot.date) else { return nil }
+            return snapshot
+        }()
+
+        let now = Date.now
+        let entryNow = WidgetTimelineEntry(date: now, data: todayData)
+
+        // 자정이 지나면 어제 목록을 지우고 플레이스홀더로 전환 (앱 실행 불필요)
+        let startOfTomorrow = calendar.date(
+            byAdding: .day, value: 1,
+            to: calendar.startOfDay(for: now)
+        ) ?? now
+        let entryMidnight = WidgetTimelineEntry(date: startOfTomorrow, data: nil)
+
+        completion(Timeline(entries: [entryNow, entryMidnight], policy: .after(startOfTomorrow)))
     }
 }
 
