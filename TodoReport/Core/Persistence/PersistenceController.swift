@@ -20,7 +20,12 @@ final class PersistenceController {
             SyncQueueItem.self
         ])
 
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let config: ModelConfiguration
+        if let sharedConfig = AppGroupStore.makeConfiguration(allowsSave: true) {
+            config = sharedConfig
+        } else {
+            config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        }
 
         do {
             container = try ModelContainer(for: schema, configurations: config)

@@ -1,37 +1,7 @@
-import SwiftData
 import Foundation
 
-@Model
-final class TodoItem {
-    @Attribute(.unique) var id: String
-    var title: String
-    var memo: String?
-    var isCompleted: Bool
-    var isPinned: Bool
-    var date: Date
-    var createdAt: Date
-    var completedAt: Date?
-    var notionCreatedAt: Date?
-    var notionLastEditedTime: Date?
-    var categoryId: String?
-    var categoryName: String?
-    var notionPageId: String
-    var plannerId: String?
-    var scheduledTime: Date?
-    var alarmOffset: Int?
-    var recurrenceData: Data?
-    var recurrenceId: String?
-    var recurrenceEndDate: Date?
-    var recurrenceCount: Int?
-    var notionRelationLinked: Bool = false
-    var localModifiedAt: Date?
-
-    var decodedRecurrence: RecurrenceRule? {
-        guard let data = recurrenceData else { return nil }
-        return try? JSONDecoder().decode(RecurrenceRule.self, from: data)
-    }
-
-    init(
+extension TodoItem {
+    convenience init(
         id: String = UUID().uuidString,
         title: String,
         memo: String? = nil,
@@ -52,26 +22,32 @@ final class TodoItem {
         recurrenceCount: Int? = nil,
         notionRelationLinked: Bool = false
     ) {
-        self.id = id
-        self.title = title
-        self.memo = memo
-        self.isCompleted = isCompleted
-        self.isPinned = isPinned
-        self.date = date
-        self.createdAt = .now
-        self.completedAt = completedAt
-        self.notionCreatedAt = notionCreatedAt
-        self.notionLastEditedTime = notionLastEditedTime
-        self.categoryId = categoryId
-        self.notionPageId = notionPageId
-        self.plannerId = plannerId
-        self.scheduledTime = scheduledTime
-        self.alarmOffset = alarmOffset
-        self.recurrenceData = recurrenceRule.flatMap { try? JSONEncoder().encode($0) }
-        self.recurrenceId = recurrenceId
-        self.recurrenceEndDate = recurrenceEndDate
-        self.recurrenceCount = recurrenceCount
-        self.notionRelationLinked = notionRelationLinked
+        self.init(
+            id: id,
+            title: title,
+            memo: memo,
+            isCompleted: isCompleted,
+            isPinned: isPinned,
+            date: date,
+            completedAt: completedAt,
+            notionCreatedAt: notionCreatedAt,
+            notionLastEditedTime: notionLastEditedTime,
+            categoryId: categoryId,
+            notionPageId: notionPageId,
+            plannerId: plannerId,
+            scheduledTime: scheduledTime,
+            alarmOffset: alarmOffset,
+            recurrenceData: recurrenceRule.flatMap { try? JSONEncoder().encode($0) },
+            recurrenceId: recurrenceId,
+            recurrenceEndDate: recurrenceEndDate,
+            recurrenceCount: recurrenceCount,
+            notionRelationLinked: notionRelationLinked
+        )
+    }
+
+    var decodedRecurrence: RecurrenceRule? {
+        guard let data = recurrenceData else { return nil }
+        return try? JSONDecoder().decode(RecurrenceRule.self, from: data)
     }
 
     func toTodo() -> Todo {
@@ -124,7 +100,7 @@ final class TodoItem {
             categoryId: todo.categoryId,
             notionPageId: todo.notionPageId, plannerId: todo.plannerId,
             scheduledTime: todo.scheduledTime, alarmOffset: todo.alarmOffset,
-            recurrenceRule: todo.recurrenceRule,
+            recurrenceData: todo.recurrenceRule.flatMap { try? JSONEncoder().encode($0) },
             recurrenceId: todo.recurrenceId,
             recurrenceEndDate: todo.recurrenceEndDate,
             recurrenceCount: todo.recurrenceCount,

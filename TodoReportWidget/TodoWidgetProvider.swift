@@ -2,7 +2,6 @@ import WidgetKit
 import SwiftUI
 
 // MARK: - 위젯 내부 공유 모델 (Widget Extension 타겟 전용)
-// WidgetDataProvider.swift(메인 앱)와 동일한 JSON 구조 — UserDefaults로 공유
 
 struct WidgetTimelineEntry: TimelineEntry {
     let date: Date
@@ -23,16 +22,6 @@ struct WidgetTodoItem: Codable, Identifiable {
     let title: String
     let isCompleted: Bool
     let isPinned: Bool
-}
-
-// MARK: - App Group 읽기
-
-private let appGroupId = "group.kr.nock.TodoReport"
-private let entryKey   = "widgetEntry"
-
-private func readWidgetData() -> WidgetSnapshotData? {
-    guard let data = UserDefaults(suiteName: appGroupId)?.data(forKey: entryKey) else { return nil }
-    return try? JSONDecoder().decode(WidgetSnapshotData.self, from: data)
 }
 
 // MARK: - Placeholder 데이터
@@ -64,30 +53,24 @@ struct TodoTimelineProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (WidgetTimelineEntry) -> Void) {
-        let data = context.isPreview ? placeholderData() : readWidgetData()
+        let data = context.isPreview ? placeholderData() : WidgetStoreReader.loadTodaySnapshot()
         completion(WidgetTimelineEntry(date: .now, data: data))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<WidgetTimelineEntry>) -> Void) {
-        let calendar = Calendar.current
-        let snapshot = readWidgetData()
-        // 앱이 열리기 전엔 스냅샷이 갱신되지 않음 → 오늘이 아니면 빈 상태로 표시
-        let todayData: WidgetSnapshotData? = {
-            guard let snapshot, calendar.isDateInToday(snapshot.date) else { return nil }
-            return snapshot
-        }()
-
         let now = Date.now
-        let entryNow = WidgetTimelineEntry(date: now, data: todayData)
+        let data = WidgetStoreReader.loadTodaySnapshot()
+        let entry = WidgetTimelineEntry(date: now, data: data)
 
-        // 자정이 지나면 어제 목록을 지우고 플레이스홀더로 전환 (앱 실행 불필요)
+        let calendar = Calendar.current
         let startOfTomorrow = calendar.date(
             byAdding: .day, value: 1,
             to: calendar.startOfDay(for: now)
-        ) ?? now
-        let entryMidnight = WidgetTimelineEntry(date: startOfTomorrow, data: nil)
+        ) ?? now.addingTimeInterval(24 * 60 * 60)
+        let periodicRefresh = now.addingTimeInterval(4 * 60 * 60)
+        let nextRefresh = min(startOfTomorrow, periodicRefresh)
 
-        completion(Timeline(entries: [entryNow, entryMidnight], policy: .after(startOfTomorrow)))
+        completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
     }
 }
 

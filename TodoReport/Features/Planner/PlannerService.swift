@@ -163,11 +163,15 @@ final class PlannerService {
         }
 
         migrateGlobalNotionContextIfNeeded()
-        let savedId = UserDefaults.standard.string(forKey: "selectedPlannerId")
-        if let savedId, store.contains(where: { $0.id == savedId }) {
+        AppGroupUserDefaults.syncTodoHideCompletedFromStandard()
+        if let savedId = AppGroupUserDefaults.selectedPlannerId(),
+           store.contains(where: { $0.id == savedId }) {
             selectedPlannerId = savedId
         } else {
             selectedPlannerId = store.first?.id ?? ""
+            if !selectedPlannerId.isEmpty {
+                AppGroupUserDefaults.setSelectedPlannerId(selectedPlannerId)
+            }
         }
         backfillPlannerId(selectedPlannerId)
     }
@@ -343,7 +347,7 @@ final class PlannerService {
 
     func selectPlanner(_ planner: Planner) {
         selectedPlannerId = planner.id
-        UserDefaults.standard.set(planner.id, forKey: "selectedPlannerId")
+        AppGroupUserDefaults.setSelectedPlannerId(planner.id)
     }
 
     func savePlanner(_ planner: Planner) async throws {
@@ -427,7 +431,7 @@ final class PlannerService {
         refreshStore()
         if selectedPlannerId != keepPlannerId {
             selectedPlannerId = keepPlannerId
-            UserDefaults.standard.set(keepPlannerId, forKey: "selectedPlannerId")
+            AppGroupUserDefaults.setSelectedPlannerId(keepPlannerId)
         }
     }
 

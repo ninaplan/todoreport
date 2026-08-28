@@ -10,7 +10,7 @@ final class TodoViewModel {
     var isViewOptionsVisible: Bool = false
     var hideCompleted: Bool = UserDefaults.standard.bool(forKey: "todoHideCompleted") {
         didSet {
-            UserDefaults.standard.set(hideCompleted, forKey: "todoHideCompleted")
+            AppGroupUserDefaults.setTodoHideCompleted(hideCompleted)
             updateWidget()
         }
     }

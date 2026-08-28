@@ -2,14 +2,6 @@ import Foundation
 import SwiftData
 import Observation
 
-// MARK: - Status
-
-enum CategoryStatus: String, Codable {
-    case active
-    case archived
-    case completed
-}
-
 // MARK: - Model
 
 struct Category: Identifiable, Codable {
