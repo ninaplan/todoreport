@@ -1,6 +1,6 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-08-01 기준)
+## 현재 상황 (2026-08-30 기준)
 
 ### 앱 상태
 - v1.0.4 App Store 제출 완료
@@ -9,6 +9,16 @@
 - v1.0.7 제출 예정
 - v1.08 재제출 (2026-07-23)
 - v1.09 제출 예정 (빌드 17, main 반영)
+- v1.10 제출 완료 (빌드 19, 2026-08-30)
+
+### v1.10 변경 내용 (제출 완료)
+- 위젯이 App Group 공유 컨테이너의 SwiftData를 직접 읽도록 구조 변경 — 기존엔 앱이 UserDefaults 스냅샷을 미리 저장해둬야만 위젯이 갱신됐고, 앱을 안 열면 위젯이 날짜가 지나도 절대 안 바뀌던 근본 문제였음. 이번에 해결.
+- SwiftData 저장 위치를 앱 전용 컨테이너 → App Group 공유 컨테이너로 안전 마이그레이션 (`AppGroupStore.swift` — 기존 파일 있으면 그대로, 없으면 복사, 실패 시 폴백)
+- TodoItem/PlannerItem 등 SwiftData 모델을 `Common/Models/`로 분리해서 위젯 타겟도 같은 모델 공유 (도메인 매핑은 `*+Mapping.swift`로 앱 전용 분리 유지)
+- `selectedPlannerId`, `hideCompleted` 설정을 `AppGroupUserDefaults`로 앱-위젯 간 동기화
+- 위젯의 자정 강제 빈 화면(placeholder) 로직 제거 — 매 타임라인 갱신마다 실제 데이터 기반으로 조회
+- 미디엄 위젯 콘텐츠 쏠림 수정
+- 앱 내 업데이트 내역(WhatsNew) 버전 표기를 실제 앱스토어 버전(두 자리, 예: "1.10")에 맞춰 통일 — 기존엔 "1.0.9"처럼 세 자리로 따로 표기해서 실제 버전이랑 안 맞았음. 아이콘도 전부 `rectangle.stack`으로 통일.
 
 ### v1.09 변경 내용 (제출 예정)
 - 날짜행(`DateNavigationRow`)을 ZStack 오버레이가 아니라 List/ScrollView의 `.safeAreaBar(edge: .top)` 상단 바로 배치 (투두·리포트 공통, 바 높이 40)
@@ -60,7 +70,7 @@
 - 날짜 이동 시 자동 노션 재조회 제거 (local-only 원칙 복원)
 - 포그라운드 복귀 노션 pull을 5분 이상 백그라운드일 때만 실행
 - 위젯 3종(Small/Medium/Large)을 사이즈별 분기하는 단일 위젯으로 통합 (kind는 기존 Small 값 유지 → 기존 Small 배치 사용자 보존, Medium/Large 배치자는 재추가 필요). 앱아이콘 롱프레스 빠른 선택창에서 S만 활성화되던 문제 해결
-- 위젯에 지난 날짜 할일이 남던 문제 수정: refreshTodayFromStore()가 정의만 되고 호출되지 않던 것을 앱 활성화(scenePhase .active) 시 호출하도록 연결
+- 위젯에 지난 날짜 할일이 남던 문제 수정: refreshTodayFromStore()가 정의만 되고 호출되지 않던 것을 앱 활성화(scenePhase .active) 시 호출하도록 연결 (v1.10에서 App Group SwiftData 직접 읽기로 근본 해결 — 앱 미실행 시에도 자정 이후 갱신)
 - 업데이트 안내 팝업 자동 표시 완성: showsPopup 플래그가 소비되지 않던 것을 연결 (WhatsNewPopupView 신설, MainTabView 분기 sheet, lastSeenWhatsNewVersion로 1회 표시, 온보딩 완료 시 선저장으로 신규 설치자 제외)
 
 ### v1.0.6 변경 내용 (제출 완료)
@@ -114,6 +124,7 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- v1.10 위젯 App Group SwiftData 직접 읽기·앱 미실행 시 자동 갱신 + WhatsNew 버전 표기 통일 (2026-08-30)
 - 투두 행 UI·인라인 수정·컨텍스트 메뉴 + scheduledTime/숨김 카테고리 버그 + What's New v1.0.9 (2026-08-01)
 - 더보기 Menu + 키보드 자동 포커스 개선 (2026-07-24): ⋯ `.popover`→`Menu`; AutoFocus 0.35s 딜레이 제거·epoch 1회 포커스·재시도(~2초)·window 이탈 취소; `KeyboardPrewarmer`(런치+2.5s); 탭 이탈 시 인라인 입력 정리
 - 날짜행 safeAreaBar 네이티브 soft 블러 + 화살표 원 제거·두께 + TodoRow 제목–메모 간격 6 + 스크롤 추적 코드 제거 (2026-07-24): 투두·리포트 공통 `.safeAreaBar`+`.scrollEdgeEffectStyle(.soft)`. 엣지 스와이프 동시 인식으로 List 스크롤 공존 (커밋 9df4661 → ba45920 → b350462)
@@ -904,7 +915,7 @@ Phase 5 (출시)
 - ✅ TodoViewModel.updateWidget() — 투두 fetch/toggle/add/delete 후 자동 갱신, `hideCompleted` 설정 변경 시 (`didSet`)
 - ✅ 위젯 전체 무료 (Pro 게이팅 없음). v1.0.7에서 Small/Medium/Large를 단일 위젯으로 통합(kind=Small 유지), widgetFamily로 분기. v1.08에서 isPro 배관·ProLockedWidgetView 제거 완료
 - ✅ `todoreport://todo` 딥링크, 설정 탭 NavigationStack 재진입 시 루트 초기화
-- ✅ `refreshTodayFromStore()` — 앱 활성화(scenePhase .active) 시 호출해 위젯을 오늘 데이터로 갱신 (v1.0.7에서 호출 연결)
+- ✅ `refreshTodayFromStore()` — v1.0.7에서 앱 활성화(scenePhase .active) 시 호출 연결. v1.10에서 위젯이 App Group SwiftData를 직접 읽어 앱 미실행 시에도 자동 갱신 (이 경로는 보조 유지)
 - ⚠️ App Groups capability: 두 타겟 모두 Xcode > Signing & Capabilities에서 수동 활성화 필요
  → App Group ID: group.kr.nock.TodoReport
 

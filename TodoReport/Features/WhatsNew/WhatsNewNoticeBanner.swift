@@ -13,7 +13,7 @@ struct WhatsNewNoticeBanner: View {
 
             Text(text)
                 .font(.subheadline)
-                .foregroundStyle(.primary)
+                .foregroundStyle(Color(.secondaryLabel))
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

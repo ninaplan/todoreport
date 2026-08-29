@@ -524,6 +524,7 @@
       }
     },
     "v%@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1964,22 +1965,22 @@
         }
       }
     },
-    "목" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Thu"
-          }
-        }
-      }
-    },
     "모든 데이터가 Notion에 업로드됐어요" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "All data has been uploaded to Notion"
+          }
+        }
+      }
+    },
+    "목" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thu"
           }
         }
       }
@@ -3132,22 +3133,22 @@
         }
       }
     },
-    "위젯 실시간 반영하도록 개선" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Widgets now update in real time"
-          }
-        }
-      }
-    },
     "위젯 무제한 사용" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unlimited widget use"
+          }
+        }
+      }
+    },
+    "위젯 실시간 반영하도록 개선" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Widgets now update in real time"
           }
         }
       }
@@ -3242,26 +3243,6 @@
         }
       }
     },
-    "이름" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Name"
-          }
-        }
-      }
-    },
-    "이후 항목 모두 삭제" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete This and Future Items"
-          }
-        }
-      }
-    },
     "인증 세션을 시작할 수 없어요" : {
       "localizations" : {
         "en" : {
@@ -3272,22 +3253,22 @@
         }
       }
     },
-    "인증 응답을 받지 못했어요" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Didn't receive an authentication response"
-          }
-        }
-      }
-    },
     "일" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sun"
+          }
+        }
+      }
+    },
+    "이름" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
           }
         }
       }
@@ -3362,6 +3343,16 @@
         }
       }
     },
+    "이후 항목 모두 삭제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete This and Future Items"
+          }
+        }
+      }
+    },
     "인덱스" : {
       "localizations" : {
         "en" : {
@@ -3388,6 +3379,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Failed to parse the authentication response"
+          }
+        }
+      }
+    },
+    "인증 응답을 받지 못했어요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Didn't receive an authentication response"
           }
         }
       }
