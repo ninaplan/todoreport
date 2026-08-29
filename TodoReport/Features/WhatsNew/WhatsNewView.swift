@@ -108,9 +108,9 @@ private struct WhatsNewReleaseSection: View {
     private var releaseHeader: some View {
         Button(action: onToggle) {
             HStack(alignment: .center, spacing: 0) {
-                Text("v\(release.id)")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
+                Text(release.id)
+                    .font(.headline.weight(.regular))
+                    .foregroundStyle(.primary.opacity(0.85))
 
                 Spacer(minLength: 8)
 
@@ -123,7 +123,7 @@ private struct WhatsNewReleaseSection: View {
             }
         }
         .buttonStyle(.plain)
-        .disabled(!isCollapsible)
+        .allowsHitTesting(isCollapsible)
     }
 
     private var releaseIcon: some View {

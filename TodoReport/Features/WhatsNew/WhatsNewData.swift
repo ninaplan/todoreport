@@ -2,16 +2,16 @@ import Foundation
 
 let whatsNewReleases: [WhatsNewRelease] = [
     WhatsNewRelease(
-        id: "1.0.10",
-        symbolName: "widget.small",
+        id: "1.10",
+        symbolName: "rectangle.stack",
         items: [
             String(localized: "위젯 실시간 반영하도록 개선")
         ],
         showsPopup: false
     ),
     WhatsNewRelease(
-        id: "1.0.9",
-        symbolName: "hand.tap",
+        id: "1.09",
+        symbolName: "rectangle.stack",
         items: [
             String(localized: "할 일 이름을 탭해서 바로 수정, 길게 누르면 편집·고정·날짜·삭제 메뉴"),
             String(localized: "카테고리 색상을 원하는 색으로 직접 선택"),
@@ -24,8 +24,8 @@ let whatsNewReleases: [WhatsNewRelease] = [
         notice: String(localized: "위젯이 이전 날짜에 멈춰 있다면 위젯을 삭제 후 다시 추가해 주세요")
     ),
     WhatsNewRelease(
-        id: "1.0.8",
-        symbolName: "calendar",
+        id: "1.08",
+        symbolName: "rectangle.stack",
         items: [
             String(localized: "투두 날짜 선택 화면을 새로운 달력 디자인으로 변경 (카테고리 색상 점·필터 지원)"),
             String(localized: "노션 플래너에서 원하는 달의 데이터만 다시 불러오기 가능"),
@@ -35,8 +35,8 @@ let whatsNewReleases: [WhatsNewRelease] = [
         showsPopup: true
     ),
     WhatsNewRelease(
-        id: "1.0.7",
-        symbolName: "checkmark.circle",
+        id: "1.07",
+        symbolName: "rectangle.stack",
         items: [
             String(localized: "위젯을 개선해 모든 크기를 사용할 수 있도록 변경 (중간·큰 크기 위젯이 비어 보이면 삭제 후 다시 추가)"),
             String(localized: "할일을 다른 날짜로 옮길 때 중복 표시되던 문제 수정"),
@@ -46,7 +46,7 @@ let whatsNewReleases: [WhatsNewRelease] = [
         showsPopup: true
     ),
     WhatsNewRelease(
-        id: "1.0.6",
+        id: "1.06",
         symbolName: "rectangle.stack",
         items: [
             String(localized: "플래너 관리 화면 추가 (순서 변경·삭제)"),
@@ -57,8 +57,8 @@ let whatsNewReleases: [WhatsNewRelease] = [
         showsPopup: true
     ),
     WhatsNewRelease(
-        id: "1.0.5",
-        symbolName: "arrow.triangle.2.circlepath",
+        id: "1.05",
+        symbolName: "rectangle.stack",
         items: [
             String(localized: "노션 동기화 안정성 개선"),
             String(localized: "오프라인 편집 내용이 노션에 반영되지 않던 문제 수정")
@@ -66,8 +66,8 @@ let whatsNewReleases: [WhatsNewRelease] = [
         showsPopup: false
     ),
     WhatsNewRelease(
-        id: "1.0.4",
-        symbolName: "bookmark",
+        id: "1.04",
+        symbolName: "rectangle.stack",
         items: [
             String(localized: "날짜 이동 제한 해제"),
             String(localized: "화면 모드 설정 추가"),
@@ -76,8 +76,8 @@ let whatsNewReleases: [WhatsNewRelease] = [
         showsPopup: false
     ),
     WhatsNewRelease(
-        id: "1.0.3",
-        symbolName: "bookmark",
+        id: "1.03",
+        symbolName: "rectangle.stack",
         items: [
             String(localized: "화면 가장자리 스와이프로 날짜·기간 이동 가능"),
             String(localized: "별점 다시 탭하면 선택 취소 가능"),
@@ -86,8 +86,8 @@ let whatsNewReleases: [WhatsNewRelease] = [
         showsPopup: false
     ),
     WhatsNewRelease(
-        id: "1.0.2",
-        symbolName: "bookmark",
+        id: "1.02",
+        symbolName: "rectangle.stack",
         items: [
             String(localized: "할일 시간 동기화 오류 수정"),
             String(localized: "투두 목록 스크롤 시 버튼 가림 현상 수정")
@@ -95,8 +95,8 @@ let whatsNewReleases: [WhatsNewRelease] = [
         showsPopup: false
     ),
     WhatsNewRelease(
-        id: "1.0.1",
-        symbolName: "bookmark",
+        id: "1.01",
+        symbolName: "rectangle.stack",
         items: [
             String(localized: "날짜 이동 속도 개선"),
             String(localized: "날짜·카테고리 동기화 오류 다수 수정")
@@ -105,7 +105,7 @@ let whatsNewReleases: [WhatsNewRelease] = [
     ),
     WhatsNewRelease(
         id: "1.0",
-        symbolName: "flag",
+        symbolName: "rectangle.stack",
         items: [
             String(localized: "투두x리포트 출시")
         ],
