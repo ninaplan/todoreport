@@ -3132,6 +3132,16 @@
         }
       }
     },
+    "위젯 실시간 반영하도록 개선" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Widgets now update in real time"
+          }
+        }
+      }
+    },
     "위젯 무제한 사용" : {
       "localizations" : {
         "en" : {

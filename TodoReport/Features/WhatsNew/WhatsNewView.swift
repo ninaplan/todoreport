@@ -67,7 +67,8 @@ private struct WhatsNewReleaseSection: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(release.items, id: \.self) { item in
                         Text(item)
-                            .foregroundStyle(.primary)
+                            .font(.subheadline)
+                            .foregroundStyle(Color(.secondaryLabel))
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)

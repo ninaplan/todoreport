@@ -2,6 +2,14 @@ import Foundation
 
 let whatsNewReleases: [WhatsNewRelease] = [
     WhatsNewRelease(
+        id: "1.0.10",
+        symbolName: "widget.small",
+        items: [
+            String(localized: "위젯 실시간 반영하도록 개선")
+        ],
+        showsPopup: false
+    ),
+    WhatsNewRelease(
         id: "1.0.9",
         symbolName: "hand.tap",
         items: [
