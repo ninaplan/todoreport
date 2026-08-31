@@ -16,72 +16,55 @@ enum AppGroupStore {
         ])
     }
 
-    static func resolvedStoreURL() -> URL? {
-        migrateStoreIfNeeded()
-    }
+    // MARK: - Widget (read-only, never creates store files)
 
-    static func makeConfiguration(allowsSave: Bool) -> ModelConfiguration? {
-        guard let url = resolvedStoreURL() else { return nil }
+    /// 위젯 전용: 공유 스토어 파일이 이미 있을 때만 구성을 반환한다. 없으면 nil.
+    static func makeWidgetConfiguration(allowsSave: Bool = false) -> ModelConfiguration? {
+        guard let url = existingSharedStoreURL() else { return nil }
         return ModelConfiguration(schema: schema, url: url, allowsSave: allowsSave)
     }
 
-    // MARK: - Migration
+    // MARK: - Main app (may create empty shared store; never copies legacy files)
 
-    private static func migrateStoreIfNeeded() -> URL? {
-        guard let groupContainer = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: AppGroupConstants.suiteName
-        ) else {
+    /// 메인 앱 전용: App Group 공유 스토어 URL로 구성을 반환한다. 파일이 없으면 ModelContainer가 빈 스토어를 생성한다.
+    static func makeAppConfiguration(allowsSave: Bool = true) -> ModelConfiguration? {
+        guard let url = appSharedStoreURL() else {
             logger.error("App Group 컨테이너 URL을 가져오지 못함")
-            return privateLegacyStoreURL()
+            guard let legacyURL = privateLegacyStoreURL() else { return nil }
+            return ModelConfiguration(schema: schema, url: legacyURL, allowsSave: allowsSave)
         }
-
-        let sharedStoreURL = groupContainer.appendingPathComponent(AppGroupConstants.storeFileName)
-
-        if fileExists(at: sharedStoreURL) {
-            return sharedStoreURL
-        }
-
-        guard let legacyURL = privateLegacyStoreURL(), fileExists(at: legacyURL) else {
-            return sharedStoreURL
-        }
-
-        do {
-            try copyStoreFiles(from: legacyURL, to: sharedStoreURL)
-            logger.info("SwiftData 스토어를 App Group으로 마이그레이션 완료")
-            return sharedStoreURL
-        } catch {
-            logger.error("App Group 스토어 복사 실패, 앱 전용 스토어로 폴백: \(error.localizedDescription, privacy: .public)")
-            return legacyURL
-        }
+        return ModelConfiguration(schema: schema, url: url, allowsSave: allowsSave)
     }
 
-    private static func privateLegacyStoreURL() -> URL? {
+    // MARK: - Store URLs
+
+    /// App Group에 이미 존재하는 공유 스토어 URL. 없으면 nil (파일 생성 안 함).
+    static func existingSharedStoreURL() -> URL? {
+        guard let url = appGroupSharedStoreURL(), fileExists(at: url) else { return nil }
+        return url
+    }
+
+    /// 메인 앱이 사용할 공유 스토어 URL. App Group 불가 시 legacy private URL을 반환한다.
+    static func appSharedStoreURL() -> URL? {
+        appGroupSharedStoreURL() ?? privateLegacyStoreURL()
+    }
+
+    static func privateLegacyStoreURL() -> URL? {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
             .appendingPathComponent(AppGroupConstants.legacyStoreFileName)
     }
 
-    private static func fileExists(at url: URL) -> Bool {
+    static func legacyStoreExists() -> Bool {
+        guard let url = privateLegacyStoreURL() else { return false }
+        return fileExists(at: url)
+    }
+
+    static func fileExists(at url: URL) -> Bool {
         FileManager.default.fileExists(atPath: url.path)
     }
 
-    private static func copyStoreFiles(from sourceStoreURL: URL, to destinationStoreURL: URL) throws {
-        let fileManager = FileManager.default
-        let destinationDirectory = destinationStoreURL.deletingLastPathComponent()
-        try fileManager.createDirectory(at: destinationDirectory, withIntermediateDirectories: true)
-
-        let sourceFileName = sourceStoreURL.lastPathComponent
-        let destinationFileName = destinationStoreURL.lastPathComponent
-        let sourceDirectory = sourceStoreURL.deletingLastPathComponent()
-
-        for suffix in ["", "-shm", "-wal"] {
-            let sourceURL = sourceDirectory.appendingPathComponent(sourceFileName + suffix)
-            guard fileManager.fileExists(atPath: sourceURL.path) else { continue }
-
-            let destinationURL = destinationDirectory.appendingPathComponent(destinationFileName + suffix)
-            if fileManager.fileExists(atPath: destinationURL.path) {
-                try fileManager.removeItem(at: destinationURL)
-            }
-            try fileManager.copyItem(at: sourceURL, to: destinationURL)
-        }
+    private static func appGroupSharedStoreURL() -> URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: AppGroupConstants.suiteName)?
+            .appendingPathComponent(AppGroupConstants.storeFileName)
     }
 }

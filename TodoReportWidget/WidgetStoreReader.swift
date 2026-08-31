@@ -3,7 +3,7 @@ import SwiftData
 
 enum WidgetStoreReader {
     private static let container: ModelContainer? = {
-        guard let configuration = AppGroupStore.makeConfiguration(allowsSave: false) else { return nil }
+        guard let configuration = AppGroupStore.makeWidgetConfiguration(allowsSave: false) else { return nil }
         return try? ModelContainer(for: AppGroupStore.schema, configurations: configuration)
     }()
 
