@@ -15,6 +15,16 @@ private struct HealEntityOutcome {
     let saveStatus: HealSaveStatus
 }
 
+private struct PlannerMergeResult {
+    let count: Int
+    let ids: [String]
+}
+
+private struct ReassignOutcome {
+    let count: Int
+    let saveStatus: HealSaveStatus
+}
+
 final class PersistenceController {
     static let shared = PersistenceController()
 
@@ -74,7 +84,14 @@ final class PersistenceController {
     // MARK: - Legacy heal (idempotent merge by id)
 
     private func healLegacyStoreIfNeeded(into sharedContainer: ModelContainer, schema: Schema) {
-        guard AppGroupStore.legacyStoreExists(),
+        let legacyExists = AppGroupStore.legacyStoreExists()
+        logger.info("[Persistence] heal 진입: legacyStoreExists=\(legacyExists)")
+        AppLogger.shared.info("Persistence", "heal 진입: legacyStoreExists=\(legacyExists)")
+
+        // 진단: legacy 경로에 파일이 없을 때 실제 저장 위치 확인용 (오류신고 첨부)
+        logStoreDirectoryDiagnostics()
+
+        guard legacyExists,
               let legacyURL = AppGroupStore.privateLegacyStoreURL(),
               let sharedURL = AppGroupStore.appSharedStoreURL(),
               legacyURL.path != sharedURL.path
@@ -83,15 +100,17 @@ final class PersistenceController {
         let legacyConfig = ModelConfiguration(schema: schema, url: legacyURL, allowsSave: false)
         guard let legacyContainer = try? ModelContainer(for: schema, configurations: legacyConfig) else {
             logger.error("[Persistence] legacy 스토어 읽기 전용 열기 실패")
+            AppLogger.shared.error("Persistence", "legacy 스토어 읽기 전용 열기 실패")
             return
         }
 
         let legacyContext = ModelContext(legacyContainer)
         let sharedContext = sharedContainer.mainContext
 
+        let plannerMerge = mergePlanners(from: legacyContext, into: sharedContext)
         let plannerOutcome = saveMergedEntity(
             "planners",
-            inserted: mergePlanners(from: legacyContext, into: sharedContext),
+            inserted: plannerMerge.count,
             into: sharedContext
         )
         let connectionMerge = mergeNotionConnections(from: legacyContext, into: sharedContext)
@@ -134,10 +153,81 @@ final class PersistenceController {
         let anyActivity = outcomes.contains { outcome in
             outcome.1.inserted > 0 || outcome.1.skipped > 0 || outcome.1.saveStatus == .failure
         }
-        guard anyActivity else { return }
-
         let summary = outcomes.map { healOutcomeLabel(entity: $0.0, outcome: $0.1) }.joined(separator: " ")
-        logger.info("[Persistence] legacy→shared 치유 병합 완료: \(summary, privacy: .public)")
+        if anyActivity {
+            logger.info("[Persistence] legacy→shared 치유 병합 완료: \(summary, privacy: .public)")
+        }
+        // 오류신고용: 병합 0건이어도 summary를 남겨 heal이 돌았는지 확인 가능하게 함
+        AppLogger.shared.info("Persistence", "legacy→shared 치유 병합 완료: \(summary)")
+
+        // 이번 실행 병합 여부와 무관 — legacy가 있으면 항상 가짜 플래너 정리 시도 (멱등)
+        reconcileFakePlannersIfNeeded(from: legacyContext, into: sharedContext)
+    }
+
+    /// Application Support / App Group 컨테이너 내용을 1단계 깊이까지 나열 (경로 진단용)
+    private func logStoreDirectoryDiagnostics() {
+        let fm = FileManager.default
+
+        if let appSupportURL = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            logDirectoryContents(label: "Application Support", at: appSupportURL)
+        } else {
+            AppLogger.shared.error("Persistence", "Application Support 경로를 가져오지 못함")
+            logger.error("[Persistence] Application Support 경로를 가져오지 못함")
+        }
+
+        if let groupURL = fm.containerURL(forSecurityApplicationGroupIdentifier: AppGroupConstants.suiteName) {
+            logDirectoryContents(label: "App Group", at: groupURL)
+        } else {
+            AppLogger.shared.error("Persistence", "App Group 컨테이너 경로를 가져오지 못함")
+            logger.error("[Persistence] App Group 컨테이너 경로를 가져오지 못함")
+        }
+    }
+
+    private func logDirectoryContents(label: String, at url: URL) {
+        let pathMessage = "\(label) 경로: \(url.path)"
+        AppLogger.shared.info("Persistence", pathMessage)
+        logger.info("[Persistence] \(pathMessage, privacy: .public)")
+
+        let fm = FileManager.default
+        let entries: [URL]
+        do {
+            entries = try fm.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: []
+            )
+        } catch {
+            let errorMessage = "\(label) 내용물 조회 실패: \(error.localizedDescription)"
+            AppLogger.shared.error("Persistence", errorMessage)
+            logger.error("[Persistence] \(errorMessage, privacy: .public)")
+            return
+        }
+
+        let names = entries.map(\.lastPathComponent).sorted()
+        let listMessage = "\(label) 내용물: \(names.isEmpty ? "(비어 있음)" : names.joined(separator: ", "))"
+        AppLogger.shared.info("Persistence", listMessage)
+        logger.info("[Persistence] \(listMessage, privacy: .public)")
+
+        for entry in entries {
+            let isDirectory = (try? entry.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+            guard isDirectory else { continue }
+
+            do {
+                let children = try fm.contentsOfDirectory(
+                    at: entry,
+                    includingPropertiesForKeys: nil,
+                    options: []
+                )
+                let childNames = children.map(\.lastPathComponent).sorted()
+                let childMessage = "\(label)/\(entry.lastPathComponent): \(childNames.isEmpty ? "(비어 있음)" : childNames.joined(separator: ", "))"
+                AppLogger.shared.info("Persistence", childMessage)
+                logger.info("[Persistence] \(childMessage, privacy: .public)")
+            } catch {
+                let childError = "\(label)/\(entry.lastPathComponent) 조회 실패: \(error.localizedDescription)"
+                AppLogger.shared.error("Persistence", childError)
+                logger.error("[Persistence] \(childError, privacy: .public)")
+            }
+        }
     }
 
     private func saveMergedEntity(
@@ -154,9 +244,9 @@ final class PersistenceController {
             try shared.save()
             return HealEntityOutcome(inserted: inserted, skipped: skipped, saveStatus: .success)
         } catch {
-            logger.error(
-                "[Persistence] legacy→shared \(entityName) 저장 실패 (\(inserted)건): \(error.localizedDescription, privacy: .public)"
-            )
+            let message = "legacy→shared \(entityName) 저장 실패 (\(inserted)건): \(error.localizedDescription)"
+            logger.error("[Persistence] \(message, privacy: .public)")
+            AppLogger.shared.error("Persistence", message)
             shared.rollback()
             return HealEntityOutcome(inserted: inserted, skipped: skipped, saveStatus: .failure)
         }
@@ -179,13 +269,13 @@ final class PersistenceController {
         return "\(entity)=\(outcome.inserted)(\(status))"
     }
 
-    private func mergePlanners(from legacy: ModelContext, into shared: ModelContext) -> Int {
+    private func mergePlanners(from legacy: ModelContext, into shared: ModelContext) -> PlannerMergeResult {
         guard let legacyItems = try? legacy.fetch(FetchDescriptor<PlannerItem>()),
               let sharedItems = try? shared.fetch(FetchDescriptor<PlannerItem>())
-        else { return 0 }
+        else { return PlannerMergeResult(count: 0, ids: []) }
 
         let existingIds = Set(sharedItems.map(\.id))
-        var merged = 0
+        var mergedIds: [String] = []
 
         for source in legacyItems where !existingIds.contains(source.id) {
             let copy = PlannerItem(
@@ -209,9 +299,212 @@ final class PersistenceController {
             )
             copy.categoryPaletteSetId = source.categoryPaletteSetId
             shared.insert(copy)
-            merged += 1
+            mergedIds.append(source.id)
         }
-        return merged
+        return PlannerMergeResult(count: mergedIds.count, ids: mergedIds)
+    }
+
+    // MARK: - Fake planner reconciliation (v1.10 bug cleanup)
+
+    /// legacy∩shared 플래너 id로 원본을 판별한다.
+    /// 이번 실행 병합 여부와 무관 — 1.11에서 이미 복구된 기기에서도 동작한다.
+    private func reconcileFakePlannersIfNeeded(from legacy: ModelContext, into shared: ModelContext) {
+        guard let legacyPlanners = try? legacy.fetch(FetchDescriptor<PlannerItem>()),
+              let sharedPlanners = try? shared.fetch(FetchDescriptor<PlannerItem>())
+        else {
+            logger.error("[Persistence] 가짜 플래너 정리 실패: PlannerItem 조회 실패")
+            AppLogger.shared.error("Persistence", "가짜 플래너 정리 실패: PlannerItem 조회 실패")
+            return
+        }
+
+        let legacyIds = Set(legacyPlanners.map(\.id))
+        let sharedIds = Set(sharedPlanners.map(\.id))
+        let originalIds = legacyIds.intersection(sharedIds)
+
+        logger.info("[Persistence] 가짜 플래너 정리: legacy∩shared=\(originalIds.count)")
+        AppLogger.shared.info("Persistence", "가짜 플래너 정리: legacy∩shared=\(originalIds.count)")
+
+        let originalId: String
+        switch originalIds.count {
+        case 0:
+            logger.info("[Persistence] 가짜 플래너 정리 스킵: legacy∩shared 플래너 0개")
+            AppLogger.shared.info("Persistence", "가짜 플래너 정리 스킵: legacy∩shared 플래너 0개")
+            return
+        case 1:
+            guard let id = originalIds.first else { return }
+            originalId = id
+        default:
+            let skipMessage = "가짜 플래너 정리 스킵: legacy∩shared 플래너 \(originalIds.count)개 (2개 이상, 애매한 케이스)"
+            logger.info("[Persistence] \(skipMessage, privacy: .public)")
+            AppLogger.shared.info("Persistence", skipMessage)
+            return
+        }
+
+        let fakePlanners = sharedPlanners.filter { $0.id != originalId }
+        guard !fakePlanners.isEmpty else {
+            let message = "가짜 플래너 정리: 후보 없음 (originalId=\(originalId))"
+            logger.info("[Persistence] \(message, privacy: .public)")
+            AppLogger.shared.info("Persistence", message)
+            return
+        }
+
+        let foundMessage = "가짜 플래너 후보 \(fakePlanners.count)개 발견 (originalId=\(originalId))"
+        logger.info("[Persistence] \(foundMessage, privacy: .public)")
+        AppLogger.shared.info("Persistence", foundMessage)
+
+        for fakePlanner in fakePlanners {
+            let fakeId = fakePlanner.id
+            let todoOutcome = reassignTodos(from: fakeId, to: originalId, in: shared)
+            let reportOutcome = reassignDailyReports(from: fakeId, to: originalId, in: shared)
+            let categoryOutcome = reassignCategories(from: fakeId, to: originalId, in: shared)
+            let queueOutcome = reassignSyncQueueItems(from: fakeId, to: originalId, in: shared)
+
+            let reassignMessage = """
+            가짜 플래너 재할당 완료 fakeId=\(fakeId): \
+            todos=\(todoOutcome.count)(\(reassignStatusLabel(todoOutcome.saveStatus))), \
+            reports=\(reportOutcome.count)(\(reassignStatusLabel(reportOutcome.saveStatus))), \
+            categories=\(categoryOutcome.count)(\(reassignStatusLabel(categoryOutcome.saveStatus))), \
+            syncQueue=\(queueOutcome.count)(\(reassignStatusLabel(queueOutcome.saveStatus)))
+            """
+            logger.info("[Persistence] \(reassignMessage, privacy: .public)")
+            AppLogger.shared.info("Persistence", reassignMessage)
+        }
+
+        let currentSelected = AppGroupUserDefaults.selectedPlannerId()
+        if currentSelected != originalId {
+            AppGroupUserDefaults.setSelectedPlannerId(originalId)
+            let message = "selectedPlannerId 변경: \(currentSelected ?? "nil") → \(originalId)"
+            logger.info("[Persistence] \(message, privacy: .public)")
+            AppLogger.shared.info("Persistence", message)
+        } else {
+            let message = "selectedPlannerId 유지 (이미 originalId=\(originalId))"
+            logger.info("[Persistence] \(message, privacy: .public)")
+            AppLogger.shared.info("Persistence", message)
+        }
+    }
+
+    private func reassignStatusLabel(_ status: HealSaveStatus) -> String {
+        switch status {
+        case .skipped: return "없음"
+        case .success: return "성공"
+        case .failure: return "실패"
+        }
+    }
+
+    private func reassignTodos(from fakePlannerId: String, to originalId: String, in shared: ModelContext) -> ReassignOutcome {
+        guard let allItems = try? shared.fetch(FetchDescriptor<TodoItem>()) else {
+            let message = "TodoItem 재할당 실패: 조회 실패 (fakeId=\(fakePlannerId))"
+            logger.error("[Persistence] \(message, privacy: .public)")
+            AppLogger.shared.error("Persistence", message)
+            return ReassignOutcome(count: 0, saveStatus: .failure)
+        }
+
+        let toReassign = allItems.filter { $0.plannerId == fakePlannerId }
+        guard !toReassign.isEmpty else {
+            return ReassignOutcome(count: 0, saveStatus: .skipped)
+        }
+
+        for item in toReassign {
+            item.plannerId = originalId
+        }
+
+        do {
+            try shared.save()
+            return ReassignOutcome(count: toReassign.count, saveStatus: .success)
+        } catch {
+            let message = "TodoItem 재할당 저장 실패 (\(toReassign.count)건, fakeId=\(fakePlannerId)): \(error.localizedDescription)"
+            logger.error("[Persistence] \(message, privacy: .public)")
+            AppLogger.shared.error("Persistence", message)
+            shared.rollback()
+            return ReassignOutcome(count: toReassign.count, saveStatus: .failure)
+        }
+    }
+
+    private func reassignDailyReports(from fakePlannerId: String, to originalId: String, in shared: ModelContext) -> ReassignOutcome {
+        guard let allItems = try? shared.fetch(FetchDescriptor<DailyReportItem>()) else {
+            let message = "DailyReportItem 재할당 실패: 조회 실패 (fakeId=\(fakePlannerId))"
+            logger.error("[Persistence] \(message, privacy: .public)")
+            AppLogger.shared.error("Persistence", message)
+            return ReassignOutcome(count: 0, saveStatus: .failure)
+        }
+
+        let toReassign = allItems.filter { $0.plannerId == fakePlannerId }
+        guard !toReassign.isEmpty else {
+            return ReassignOutcome(count: 0, saveStatus: .skipped)
+        }
+
+        for item in toReassign {
+            item.plannerId = originalId
+        }
+
+        do {
+            try shared.save()
+            return ReassignOutcome(count: toReassign.count, saveStatus: .success)
+        } catch {
+            let message = "DailyReportItem 재할당 저장 실패 (\(toReassign.count)건, fakeId=\(fakePlannerId)): \(error.localizedDescription)"
+            logger.error("[Persistence] \(message, privacy: .public)")
+            AppLogger.shared.error("Persistence", message)
+            shared.rollback()
+            return ReassignOutcome(count: toReassign.count, saveStatus: .failure)
+        }
+    }
+
+    private func reassignCategories(from fakePlannerId: String, to originalId: String, in shared: ModelContext) -> ReassignOutcome {
+        guard let allItems = try? shared.fetch(FetchDescriptor<CategoryItem>()) else {
+            let message = "CategoryItem 재할당 실패: 조회 실패 (fakeId=\(fakePlannerId))"
+            logger.error("[Persistence] \(message, privacy: .public)")
+            AppLogger.shared.error("Persistence", message)
+            return ReassignOutcome(count: 0, saveStatus: .failure)
+        }
+
+        let toReassign = allItems.filter { $0.plannerId == fakePlannerId }
+        guard !toReassign.isEmpty else {
+            return ReassignOutcome(count: 0, saveStatus: .skipped)
+        }
+
+        for item in toReassign {
+            item.plannerId = originalId
+        }
+
+        do {
+            try shared.save()
+            return ReassignOutcome(count: toReassign.count, saveStatus: .success)
+        } catch {
+            let message = "CategoryItem 재할당 저장 실패 (\(toReassign.count)건, fakeId=\(fakePlannerId)): \(error.localizedDescription)"
+            logger.error("[Persistence] \(message, privacy: .public)")
+            AppLogger.shared.error("Persistence", message)
+            shared.rollback()
+            return ReassignOutcome(count: toReassign.count, saveStatus: .failure)
+        }
+    }
+
+    private func reassignSyncQueueItems(from fakePlannerId: String, to originalId: String, in shared: ModelContext) -> ReassignOutcome {
+        guard let allItems = try? shared.fetch(FetchDescriptor<SyncQueueItem>()) else {
+            let message = "SyncQueueItem 재할당 실패: 조회 실패 (fakeId=\(fakePlannerId))"
+            logger.error("[Persistence] \(message, privacy: .public)")
+            AppLogger.shared.error("Persistence", message)
+            return ReassignOutcome(count: 0, saveStatus: .failure)
+        }
+
+        let toReassign = allItems.filter { $0.plannerId == fakePlannerId }
+        guard !toReassign.isEmpty else {
+            return ReassignOutcome(count: 0, saveStatus: .skipped)
+        }
+
+        for item in toReassign {
+            item.plannerId = originalId
+        }
+
+        do {
+            try shared.save()
+            return ReassignOutcome(count: toReassign.count, saveStatus: .success)
+        } catch {
+            let message = "SyncQueueItem 재할당 저장 실패 (\(toReassign.count)건, fakeId=\(fakePlannerId)): \(error.localizedDescription)"
+            logger.error("[Persistence] \(message, privacy: .public)")
+            AppLogger.shared.error("Persistence", message)
+            shared.rollback()
+            return ReassignOutcome(count: toReassign.count, saveStatus: .failure)
+        }
     }
 
     private struct NotionConnectionMergeResult {
