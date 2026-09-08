@@ -200,6 +200,7 @@ struct TodoView: View {
             onPrev: { viewModel.requestPreviousDay() },
             onNext: { viewModel.requestNextDay() }
         )
+        .tapToDismissKeyboard()
     }
 
     private var todoScrollList: some View {
@@ -488,12 +489,13 @@ struct TodoView: View {
 
     /// 탭 이탈 시 인라인 입력·first responder 잔류를 정리한다.
     private func cleanupInlineAddingOnTabLeave() {
+        // resign 먼저 → AddTodoRow.onDismiss가 초안을 저장한 뒤 isAdding을 내린다.
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         if isAddingTodo {
             isAddingTodo = false
             newTodoTitle = ""
         }
         inlineEditingTodoId = nil
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
     private func refreshAllChipColor() {
@@ -1152,6 +1154,10 @@ private struct AddTodoRow: View {
                         return true  // 포커스 유지 → textFieldShouldReturn이 tf.text="" 처리
                     },
                     onDismiss: {
+                        let trimmed = newTodoTitle.trimmingCharacters(in: .whitespaces)
+                        if !trimmed.isEmpty {
+                            onAdd()
+                        }
                         isAdding = false
                     }
                 )
