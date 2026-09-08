@@ -1,85 +1,70 @@
 import SwiftUI
 import UIKit
 
+// MARK: - First responder
+
+extension UIView {
+    /// 이 뷰 서브트리에서 현재 first responder를 재귀적으로 찾는다.
+    func firstResponderInHierarchy() -> UIView? {
+        if isFirstResponder { return self }
+        for subview in subviews {
+            if let found = subview.firstResponderInHierarchy() {
+                return found
+            }
+        }
+        return nil
+    }
+}
+
+// MARK: - Tap catcher (glass pane)
+
+/// `isActive`일 때만 탭을 가로채 키보드를 내린다.
+/// 비활성·first responder(편집 중 텍스트필드) 위는 hitTest nil로 아래로 통과시킨다.
+private final class TapCatcherView: UIView {
+    var isActive: Bool = false
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard isActive, bounds.contains(point) else { return nil }
+
+        if let responder = window?.firstResponderInHierarchy() {
+            let frameInSelf = responder.convert(responder.bounds, to: self)
+            if frameInSelf.contains(point) {
+                return nil
+            }
+        }
+
+        return self
+    }
+}
+
 // MARK: - UIViewRepresentable
 
-/// 화면을 덮는 투명 호스트. 자체는 터치를 받지 않고(아래 뷰로 통과),
-/// 윈도우에 탭 제스처를 붙여 first responder를 내려 기존 onDismiss 체인을 탄다.
-private struct TapToDismissKeyboardRepresentable: UIViewRepresentable {
+private struct TapCatcherRepresentable: UIViewRepresentable {
+    var isActive: Bool
+
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
 
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView()
+    func makeUIView(context: Context) -> TapCatcherView {
+        let view = TapCatcherView()
         view.backgroundColor = .clear
-        view.isUserInteractionEnabled = false
+        view.isUserInteractionEnabled = true
+
+        let tap = UITapGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleTap)
+        )
+        view.addGestureRecognizer(tap)
         return view
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {
-        context.coordinator.attach(to: uiView)
+    func updateUIView(_ uiView: TapCatcherView, context: Context) {
+        uiView.isActive = isActive
     }
 
-    static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
-        coordinator.detach()
-    }
-
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
-        private weak var attachedWindow: UIWindow?
-        private lazy var tapRecognizer: UITapGestureRecognizer = {
-            let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-            tap.cancelsTouchesInView = false
-            tap.delegate = self
-            return tap
-        }()
-
-        func attach(to view: UIView) {
-            if let window = view.window {
-                install(on: window)
-                return
-            }
-            DispatchQueue.main.async { [weak self, weak view] in
-                guard let self, let window = view?.window else { return }
-                self.install(on: window)
-            }
-        }
-
-        private func install(on window: UIWindow) {
-            if attachedWindow === window { return }
-            detach()
-            window.addGestureRecognizer(tapRecognizer)
-            attachedWindow = window
-        }
-
-        func detach() {
-            tapRecognizer.view?.removeGestureRecognizer(tapRecognizer)
-            attachedWindow = nil
-        }
-
-        func gestureRecognizer(
-            _ gestureRecognizer: UIGestureRecognizer,
-            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
-        ) -> Bool {
-            true
-        }
-
-        /// 텍스트필드·텍스트뷰 자체 탭은 커서 이동/포커스 유지 — resign 하지 않음.
-        func gestureRecognizer(
-            _ gestureRecognizer: UIGestureRecognizer,
-            shouldReceive touch: UITouch
-        ) -> Bool {
-            var view = touch.view
-            while let current = view {
-                if current is UITextField || current is UITextView {
-                    return false
-                }
-                view = current.superview
-            }
-            return true
-        }
-
-        @objc private func handleTap() {
+    final class Coordinator: NSObject {
+        @objc func handleTap() {
             UIApplication.shared.sendAction(
                 #selector(UIResponder.resignFirstResponder),
                 to: nil,
@@ -93,15 +78,17 @@ private struct TapToDismissKeyboardRepresentable: UIViewRepresentable {
 // MARK: - ViewModifier
 
 private struct TapToDismissKeyboardModifier: ViewModifier {
+    var isActive: Bool
+
     func body(content: Content) -> some View {
         content.overlay {
-            TapToDismissKeyboardRepresentable()
+            TapCatcherRepresentable(isActive: isActive)
         }
     }
 }
 
 extension View {
-    func tapToDismissKeyboard() -> some View {
-        modifier(TapToDismissKeyboardModifier())
+    func tapToDismissKeyboard(isActive: Bool) -> some View {
+        modifier(TapToDismissKeyboardModifier(isActive: isActive))
     }
 }

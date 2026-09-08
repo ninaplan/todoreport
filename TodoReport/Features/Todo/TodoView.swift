@@ -200,7 +200,7 @@ struct TodoView: View {
             onPrev: { viewModel.requestPreviousDay() },
             onNext: { viewModel.requestNextDay() }
         )
-        .tapToDismissKeyboard()
+        .tapToDismissKeyboard(isActive: inlineEditingTodoId != nil || isAddingTodo)
     }
 
     private var todoScrollList: some View {
