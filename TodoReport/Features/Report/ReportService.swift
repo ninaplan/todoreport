@@ -647,7 +647,7 @@ final class ReportService {
     // MARK: - 집계 헬퍼
 
     private func buildCategoryStats(todos: [TodoItem], categories: [CategoryItem]) -> [CategoryStat] {
-        // 카테고리 없는 투두도 "미분류"로 포함
+        let activeCategoryIds = Set(categories.map(\.id))
         var stats: [CategoryStat] = categories.compactMap { category in
             let catTodos = todos.filter { $0.categoryId == category.id }
             guard !catTodos.isEmpty else { return nil }
@@ -661,8 +661,26 @@ final class ReportService {
                 total: total
             )
         }
-        // 완료율 내림차순 정렬
+
         stats.sort { $0.rate > $1.rate }
+
+        // categoryId nil · 숨김/삭제된 카테고리 등 활성 목록 밖 할일 → 미분류 (항상 맨 아래)
+        let uncategorizedTodos = todos.filter { todo in
+            guard let categoryId = todo.categoryId else { return true }
+            return !activeCategoryIds.contains(categoryId)
+        }
+        if !uncategorizedTodos.isEmpty {
+            let completed = uncategorizedTodos.filter { $0.isCompleted }.count
+            let total = uncategorizedTodos.count
+            stats.append(CategoryStat(
+                name: String(localized: "미분류"),
+                colorHex: "#8E8E93",
+                rate: Double(completed) / Double(total),
+                completed: completed,
+                total: total
+            ))
+        }
+
         return stats
     }
 
