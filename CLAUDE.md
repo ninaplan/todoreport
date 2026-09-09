@@ -1,6 +1,6 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-08-30 기준)
+## 현재 상황 (2026-09-09 기준)
 
 ### 앱 상태
 - v1.0.4 App Store 제출 완료
@@ -10,6 +10,14 @@
 - v1.08 재제출 (2026-07-23)
 - v1.09 제출 예정 (빌드 17, main 반영)
 - v1.10 제출 완료 (빌드 19, 2026-08-30)
+- v1.13 TestFlight 테스트 중 (빌드 25, 2026-09-09) — 아직 App Store 제출 아님
+
+### v1.13 변경 내용 (TestFlight 테스트 중)
+- 리포트 탭 카테고리별 달성률에 「미분류」(`#8E8E93`) 통계 추가, 활성 카테고리 정렬 후 맨 뒤 고정, % 텍스트는 카테고리색 대신 `Color.primary.opacity(0.62)`
+- 인라인 입력(할일 제목 수정 / 새 투두 추가 / 하루 리뷰) 중 화면 빈 공간 탭 시 저장·종료 — `TapToDismissKeyboardModifier.swift` 신설. hitTest에서 window의 first responder(`UITextField`/`UITextView`만 인정, List의 `CellHostingView` 등 컨테이너는 제외)를 직접 판단해 자동으로 모든 입력창에 적용. 포커스된 뷰 자체는 통과시켜 커서 유지
+- 새 투두 추가 중 포커스 이탈 시(빈 공간 탭 등) 리턴키와 동일하게 글자 있으면 자동 추가되도록 개선
+- TodoRow 여백 조정: 메모 없을 때 세로 padding 4(있을 때 8), 체크박스–텍스트 간격 12→8, `AddTodoRow`도 동일하게 통일
+- 보류: 메모 인라인 수정(스코프 미정), 할일 드래그 정렬(미착수)
 
 ### v1.10 변경 내용 (제출 완료)
 - 위젯이 App Group 공유 컨테이너의 SwiftData를 직접 읽도록 구조 변경 — 기존엔 앱이 UserDefaults 스냅샷을 미리 저장해둬야만 위젯이 갱신됐고, 앱을 안 열면 위젯이 날짜가 지나도 절대 안 바뀌던 근본 문제였음. 이번에 해결.
@@ -114,7 +122,7 @@
 - ~~할일 시간·알림 목록 표시~~ — TodoRow trailing 시간 태그 + 더보기 「설정 시간 보기」토글 완료. A/C 실험 브랜치 폐기
 - 앱 전체 안내문 문체 통일 (해요체 → 합쇼체). `Localizable.xcstrings` 전수 점검 필요. 문자열이 많아 별도 커밋으로 진행
 - 로컬 저장 사용자 iCloud 백업 + alarmOffset 복원·재예약 (V2-IDEAS.md)
-- 하루 리뷰 포커스 시 불필요한 밀어올림 개선 — List 키보드 회피; `isAddingTodo` 아닐 때 조건부 ignore 조사됨(미적용)
+- 하루 리뷰·인라인 편집 시 불필요 밀어올림 + soft 블러 침범 — 원인: List 기본 키보드 회피 + 상시 `safeAreaInset` bottom 100; soft 페이드 높이 공식 API 없음(바 40pt보다 아래로 번짐). 조건부 `.ignoresSafeArea(.keyboard)`는 조사만·미적용(이후 인라인 제목 편집 추가로 그대로 쓰기 어려움). 대안(조건부 ignore / 수동 scrollTo / inset 축소 / `.hard` 등) 정리됨(미적용)
 - 인박스(날짜 없는 할일) — date 옵셔널화 + 노션 동기화「길 A」(V2-IDEAS.md)
 - 달력 UX 미세조정 — 월 이동 시 선택 해제, 폰트·말풍선 위치 (V2-IDEAS.md)
 - 노션 업로드 마이그레이션 버그 수정 — `PlannerMigrationViewModel.uploadToNotion()`에서 `plannerId`가 nil인 기존 투두가 `SyncQueueManager`의 `isPlannerNotionConnected(nil)` 가드에 걸려 조용히 스킵됨 (설계만 완료, 미적용)
@@ -124,6 +132,7 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- v1.13 TestFlight (빌드 25, 2026-09-09): 리포트 미분류 통계 + 인라인 입력 빈 공간 탭 종료(`TapToDismissKeyboardModifier`) + 새 투두 포커스 이탈 시 자동 추가 + TodoRow 여백 조정. CHANGELOG는 App Store 제출 때 몰아서
 - v1.10 위젯 App Group SwiftData 직접 읽기·앱 미실행 시 자동 갱신 + WhatsNew 버전 표기 통일 (2026-08-30)
 - 투두 행 UI·인라인 수정·컨텍스트 메뉴 + scheduledTime/숨김 카테고리 버그 + What's New v1.0.9 (2026-08-01)
 - 더보기 Menu + 키보드 자동 포커스 개선 (2026-07-24): ⋯ `.popover`→`Menu`; AutoFocus 0.35s 딜레이 제거·epoch 1회 포커스·재시도(~2초)·window 이탈 취소; `KeyboardPrewarmer`(런치+2.5s); 탭 이탈 시 인라인 입력 정리
