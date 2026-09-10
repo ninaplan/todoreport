@@ -13,10 +13,10 @@
 - v1.13 TestFlight 테스트 중 (빌드 25, 2026-09-09) — 아직 App Store 제출 아님
 
 ### 인박스 진행 (2026-09-10)
-- **완료:** `TodoItem`/`Todo.date` 옵셔널화 + 위젯 SwiftData Predicate 수정(커밋 `ed99bdf`·`aeed0c4`). 백엔드 `GET/POST /api/notion/todo/inbox` 배포됨(`todoreport-backend` `486bbce`)
-- **준비만 됨(미사용):** iOS `createInbox` SyncQueue 배관 — `TodoService+Inbox`, `SyncQueueManager.enqueueInboxTodoCreate`, `NotionAPIClient` inbox POST, Processor relation 스킵. UI·ViewModel에서 아직 호출하지 않음
-- **되돌림(폐기):** FAB 롱프레스 / 시스템 alert 방식 인박스 빠른입력 UI — 방향 전환으로 세션 중 restore
-- **다음 세션:** `+` 버튼 기존 동작 유지. 상세입력 폼에 「날짜 제거」. 신규 생성 시 `date == nil`이면 인박스 생성 경로 분기. 기존 노션 연결 항목의 날짜 제거 시 노션 date 속성 비우기 — 먼저 일반 PATCH 라우트가 `date: null` 처리 가능한지 조사
+- **완료:** `TodoItem`/`Todo.date` 옵셔널화 + 위젯 Predicate(`ed99bdf`·`aeed0c4`). 백엔드 `GET/POST /api/notion/todo/inbox` 배포(`todoreport-backend` `486bbce`). 편집 화면 「날짜 제거」→ 노션 date 속성 비움(`bb4992d` SyncQueue·AnyEncodable + 백엔드 PATCH). `+`에서 날짜 없이 저장 → 인박스 생성 UI 연결(`f6de244`, POST `/api/notion/todo/inbox`)
+- **근본 원인 해결:** 날짜 제거가 로컬만 반영되던 문제 — 백엔드 PATCH 인코더 · `SyncQueueManager`(update payload `date: null`) · `NotionAPIClient.AnyEncodable`(NSNull) 3곳
+- **되돌림(폐기):** FAB 롱프레스 / 시스템 alert 방식 인박스 빠른입력 UI
+- **다음 세션:** 인박스 항목을 보여주는 화면(목록/탭) — 생성·날짜 제거까지는 됨, 앱에서 모아 보는 UI는 아직 없음
 
 ### v1.13 변경 내용 (TestFlight 테스트 중)
 - 리포트 탭 카테고리별 달성률에 「미분류」(`#8E8E93`) 통계 추가, 활성 카테고리 정렬 후 맨 뒤 고정, % 텍스트는 카테고리색 대신 `Color.primary.opacity(0.62)`
@@ -129,7 +129,7 @@
 - 앱 전체 안내문 문체 통일 (해요체 → 합쇼체). `Localizable.xcstrings` 전수 점검 필요. 문자열이 많아 별도 커밋으로 진행
 - 로컬 저장 사용자 iCloud 백업 + alarmOffset 복원·재예약 (V2-IDEAS.md)
 - 하루 리뷰·인라인 편집 시 불필요 밀어올림 + soft 블러 침범 — 원인: List 기본 키보드 회피 + 상시 `safeAreaInset` bottom 100; soft 페이드 높이 공식 API 없음(바 40pt보다 아래로 번짐). 조건부 `.ignoresSafeArea(.keyboard)`는 조사만·미적용(이후 인라인 제목 편집 추가로 그대로 쓰기 어려움). 대안(조건부 ignore / 수동 scrollTo / inset 축소 / `.hard` 등) 정리됨(미적용)
-- **인박스(날짜 없는 할일)** — 로컬 date 옵셔널·백엔드 inbox 라우트·iOS SyncQueue 배관(미사용)까지 준비. 다음: 상세폼 「날짜 제거」+ 생성/업데이트 분기 + PATCH `date:null` 조사 (위 「인박스 진행」)
+- **인박스 목록 UI** — 날짜 제거·인박스 생성은 완료. 앱에서 인박스 항목을 모아 보는 화면(목록/탭)은 미구현 (위 「인박스 진행」)
 - 달력 UX 미세조정 — 월 이동 시 선택 해제, 폰트·말풍선 위치 (V2-IDEAS.md)
 - 노션 업로드 마이그레이션 버그 수정 — `PlannerMigrationViewModel.uploadToNotion()`에서 `plannerId`가 nil인 기존 투두가 `SyncQueueManager`의 `isPlannerNotionConnected(nil)` 가드에 걸려 조용히 스킵됨 (설계만 완료, 미적용)
 - 노션 연결 시작 전 안내 팝업 추가 — 기존 "같은 워크스페이스" 인라인 문구를 조건부 alert("페이지 선택 시 주의해주세요")로 교체 (설계만 완료, 미적용)
@@ -138,7 +138,8 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
-- 인박스 기반 작업 (2026-09-10): `TodoItem.date` 옵셔널화 + 위젯 Predicate 수정. 백엔드 `/api/notion/todo/inbox` 배포. iOS `createInbox` SyncQueue 배관 커밋(미사용). FAB 롱프레스 빠른입력 UI는 방향 전환으로 폐기
+- 인박스 UI·동기화 (2026-09-10): 편집 「날짜 제거」→ 노션 date 비움, `+` 날짜 없이 저장 → 인박스 생성. SyncQueue update `date:null` + AnyEncodable NSNull + 백엔드 PATCH. 인박스 목록 화면은 미구현
+- 인박스 기반 작업 (2026-09-10 전반): `TodoItem.date` 옵셔널화 + 위젯 Predicate. 백엔드 inbox 라우트·iOS SyncQueue 배관. FAB 롱프레스 빠른입력 UI 폐기
 - v1.13 TestFlight (빌드 25, 2026-09-09): 리포트 미분류 통계 + 인라인 입력 빈 공간 탭 종료(`TapToDismissKeyboardModifier`) + 새 투두 포커스 이탈 시 자동 추가 + TodoRow 여백 조정. CHANGELOG는 App Store 제출 때 몰아서
 - v1.10 위젯 App Group SwiftData 직접 읽기·앱 미실행 시 자동 갱신 + WhatsNew 버전 표기 통일 (2026-08-30)
 - 투두 행 UI·인라인 수정·컨텍스트 메뉴 + scheduledTime/숨김 카테고리 버그 + What's New v1.0.9 (2026-08-01)
@@ -1044,10 +1045,9 @@ v2에서 처음부터 설계 재검토 후 구현 권장.
 v1.5는 투두 DB **select/status 옵션** 단위 동기화. 별도 카테고리 DB + relation 매핑은 v2 검토.
 
 ### 할일 보관 (인박스) — 진행 중 (길 A)
-- **완료:** 로컬 `date` 옵셔널, 위젯 Predicate, 백엔드 `GET/POST /api/notion/todo/inbox`(배포)
-- **준비(미사용):** iOS SyncQueue `createInbox` + `TodoService+Inbox`
+- **완료:** 로컬 `date` 옵셔널, 위젯 Predicate, 백엔드 inbox 라우트, 편집 「날짜 제거」→ 노션 date 비움, `+` 날짜 없이 저장 → 인박스 생성
+- **다음:** 인박스 목록/탭 UI (앱에서 날짜 없는 항목을 모아 보기)
 - **폐기:** FAB 롱프레스/alert 빠른입력 UI
-- **다음:** 상세폼 「날짜 제거」, 신규 nil→인박스 생성 분기, 기존 페이지 날짜 비우기(PATCH `date:null` 조사부터)
 카테고리 보관과 별개. 상세 → `V2-IDEAS.md`
 
 ---

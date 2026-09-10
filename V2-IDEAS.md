@@ -4,9 +4,10 @@
 - 할일 보관 기능 — 인박스(수집함)와 함께 구현. 카테고리 보관과 별개
 - 인박스/수집함 — 날짜 선택이 선택사항인 투두 (**길 A 진행 중**, 2026-09-10)
   - **완료:** `TodoItem.date`/`Todo.date` 옵셔널화, 위젯 Predicate, 백엔드 `GET/POST /api/notion/todo/inbox` 배포
-  - **준비(미사용):** iOS `createInbox` SyncQueue 배관 (`TodoService+Inbox` 등). UI에서 아직 미호출
+  - **완료:** 편집 화면 「날짜 제거」→ 노션 date 속성 비움 (백엔드 PATCH + SyncQueue update `date:null` + AnyEncodable NSNull)
+  - **완료:** `+` 버튼에서 날짜 없이 저장 → 인박스 생성 (`addInboxTodo` → POST `/api/notion/todo/inbox`)
   - **폐기:** FAB 롱프레스 / 시스템 alert 빠른입력 UI (방향 전환)
-  - **다음 세션:** `+`는 기존 유지 · 상세폼 「날짜 제거」 · 신규 `date==nil`→인박스 생성 분기 · 기존 노션 항목 날짜 비우기(일반 PATCH가 `date:null` 가능한지 조사부터)
+  - **다음 세션 우선:** 인박스 항목을 보여주는 화면(목록/탭) — 생성·날짜 제거까지는 됨, 앱에서 모아 보는 UI는 아직 없음
   - ~~길 B~~ — 채택하지 않음 (노션 의미 불일치)
 - 할일 순서 수동 편집 (드래그)
 - 반복 투두 변경/취소 처리 (alert 플로우)
