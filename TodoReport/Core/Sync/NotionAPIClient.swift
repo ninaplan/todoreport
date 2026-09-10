@@ -10,6 +10,8 @@ final class NotionAPIClient {
             switch (entityType, action) {
             case ("todo", "create"):
                 return try await syncTodoCreate(payload: payload, planner: planner)
+            case ("todo", "createInbox"):
+                return try await syncInboxTodoCreate(payload: payload, planner: planner)
             case ("todo", "update"):
                 return try await syncTodoUpdate(entityId: entityId, payload: payload, planner: planner)
             case ("todo", "delete"):
@@ -33,6 +35,16 @@ final class NotionAPIClient {
     private func syncTodoCreate(payload: Data, planner: Planner) async throws -> SyncResult {
         let body = decodePayload(payload)
         let path = "/api/notion/todo"
+        let token = planner.resolvedNotionToken
+        print("[Sync] 📤 요청 - path:\(path) body:\(jsonLog(body))")
+        print("[Sync] 📤 payload: \(body)")
+        let response: CreateResponse = try await APIClient.shared.post(path, body: AnyEncodable(body), token: token)
+        return SyncResult(pageId: response.id, lastEditedTime: parseLastEditedTime(response.lastEditedTime))
+    }
+
+    private func syncInboxTodoCreate(payload: Data, planner: Planner) async throws -> SyncResult {
+        let body = decodePayload(payload)
+        let path = "/api/notion/todo/inbox"
         let token = planner.resolvedNotionToken
         print("[Sync] 📤 요청 - path:\(path) body:\(jsonLog(body))")
         print("[Sync] 📤 payload: \(body)")

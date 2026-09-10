@@ -87,10 +87,14 @@ final class SyncQueueProcessor {
                         payload: item.payload,
                         planner: planner
                     )
-                    if item.action == "create", item.entityType == "todo",
+                    if item.entityType == "todo",
+                       item.action == "create" || item.action == "createInbox",
                        let pageId = syncResult.pageId {
                         updateNotionPageId(localId: item.entityId, notionPageId: pageId)
-                        enqueueTodoUpdateForRelation(localId: item.entityId)
+                        // 인박스는 날짜·데일리리포트 relation 없음
+                        if item.action == "create" {
+                            enqueueTodoUpdateForRelation(localId: item.entityId)
+                        }
                     }
                     if item.action == "update", item.entityType == "todo",
                        payloadRequestsDailyReportLink(item.payload) {
@@ -132,8 +136,10 @@ final class SyncQueueProcessor {
                     print("[Processor] ❌ 실패 - \(item.entityId) retryCount:\(item.retryCount)")
                     AppLogger.shared.error("Processor", "동기화 실패 - \(item.entityId) retryCount:\(item.retryCount) isFinalFailure:\(isFinalFailure) error:\(error.localizedDescription)")
 
-                    // create 최종 실패 시 같은 localId의 update 아이템도 함께 failed 처리
-                    if isFinalFailure, item.action == "create", item.entityType == "todo" {
+                    // create/createInbox 최종 실패 시 같은 localId의 update 아이템도 함께 failed 처리
+                    if isFinalFailure,
+                       item.entityType == "todo",
+                       item.action == "create" || item.action == "createInbox" {
                         failRelatedUpdates(localId: item.entityId)
                     }
                 }

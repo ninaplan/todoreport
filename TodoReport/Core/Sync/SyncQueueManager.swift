@@ -37,16 +37,24 @@ final class SyncQueueManager {
                 payload: payload, plannerId: todo.plannerId)
     }
 
+    /// 인박스(날짜 없음) 전용 생성. 기존 create/encodedTodoBaseBody와 분리.
+    func enqueueInboxTodoCreate(_ todo: Todo) {
+        guard let payload = encodedInboxTodoCreatePayload(todo) else { return }
+        print("[SyncQueue] 📥 enqueue createInbox - \(todo.title)")
+        enqueue(action: "createInbox", entityType: "todo", entityId: todo.id,
+                payload: payload, plannerId: todo.plannerId)
+    }
+
     func enqueueTodoUpdate(_ todo: Todo) {
         guard !todo.notionPageId.isEmpty else {
             let lid = todo.id
 
-            // 1) pending/processing create가 있으면 페이로드를 최신 상태로 갱신
+            // 1) pending/processing create·createInbox가 있으면 페이로드를 최신 상태로 갱신
             //    "processing" 포함: create가 전송 중일 때도 payload를 최신으로 유지
             let pendingCreateDesc = FetchDescriptor<SyncQueueItem>(
                 predicate: #Predicate<SyncQueueItem> { item in
                     item.entityId == lid &&
-                    item.action == "create" &&
+                    (item.action == "create" || item.action == "createInbox") &&
                     (item.status == "pending" || item.status == "processing")
                 }
             )
@@ -54,14 +62,20 @@ final class SyncQueueManager {
                 guard isPlannerNotionConnected(todo.plannerId) else {
                     context.delete(existing)
                     try? context.save()
-                    print("[SyncQueue] 🗑️ pending create 삭제 - Notion 미연결 plannerId:\(todo.plannerId ?? "nil")")
+                    print("[SyncQueue] 🗑️ pending \(existing.action) 삭제 - Notion 미연결 plannerId:\(todo.plannerId ?? "nil")")
                     return
                 }
-                guard let payload = encodedTodoCreatePayload(todo) else { return }
+                let payload: Data?
+                if existing.action == "createInbox" {
+                    payload = encodedInboxTodoCreatePayload(todo)
+                } else {
+                    payload = encodedTodoCreatePayload(todo)
+                }
+                guard let payload else { return }
                 existing.payload = payload
                 existing.createdAt = .now
                 try? context.save()
-                print("[SyncQueue] 🔄 pending create 페이로드 갱신 - \(lid) status:\(existing.status)")
+                print("[SyncQueue] 🔄 pending \(existing.action) 페이로드 갱신 - \(lid) status:\(existing.status)")
                 return
             }
 
@@ -193,8 +207,8 @@ final class SyncQueueManager {
         let descriptor = FetchDescriptor<SyncQueueItem>(
             predicate: #Predicate<SyncQueueItem> { item in
                 item.entityId == localId &&
-                item.action == "create" &&
-                item.status == "pending"
+                (item.action == "create" || item.action == "createInbox") &&
+                (item.status == "pending" || item.status == "processing")
             }
         )
         return (try? context.fetch(descriptor))?.isEmpty == false
@@ -370,6 +384,28 @@ final class SyncQueueManager {
     private func encodedTodoCreatePayload(_ todo: Todo) -> Data? {
         guard let body = encodedTodoBaseBody(todo: todo, includeReportFields: true) else { return nil }
         print("[Payload:create] plannerId:\(todo.plannerId ?? "nil") date:\(body["date"] ?? "")")
+        return try? JSONSerialization.data(withJSONObject: body)
+    }
+
+    /// 인박스 POST `/api/notion/todo/inbox`용. date·리포트 relation 필드 없음.
+    private func encodedInboxTodoCreatePayload(_ todo: Todo) -> Data? {
+        guard let ctx = TodoPayloadContext(todo: todo) else { return nil }
+        let planner = ctx.planner
+        let mapping = ctx.mapping
+
+        var body: [String: Any] = [
+            "title": todo.title,
+            "isCompleted": todo.isCompleted,
+            "isPinned": todo.isPinned,
+        ]
+        body["plannerId"] = ctx.planner.id
+        if let memo = todo.memo { body["memo"] = memo }
+        if let v = planner.notionTodoDBId ?? ctx.legacyTodoDBId { body["dbId"] = v }
+        if let v = mapping.completed ?? ctx.legacyTodo?.completed { body["completedProp"] = v }
+        if let v = mapping.memo ?? ctx.legacyTodo?.memo { body["memoProp"] = v }
+        if let v = mapping.isPinned ?? ctx.legacyTodo?.isPinned { body["isPinnedProp"] = v }
+        CategoryNotionSync.shared.appendToPayload(&body, todo: todo, planner: planner)
+        print("[Payload:createInbox] plannerId:\(ctx.planner.id)")
         return try? JSONSerialization.data(withJSONObject: body)
     }
 
