@@ -382,7 +382,8 @@ final class SyncQueueManager {
     }
 
     private func encodedTodoCreatePayload(_ todo: Todo) -> Data? {
-        guard let body = encodedTodoBaseBody(todo: todo, includeReportFields: true) else { return nil }
+        // 신규 생성은 date 필수. 날짜 없는 생성은 encodedInboxTodoCreatePayload 사용.
+        guard let body = encodedTodoBaseBody(todo: todo, includeReportFields: true, allowNilDate: false) else { return nil }
         print("[Payload:create] plannerId:\(todo.plannerId ?? "nil") date:\(body["date"] ?? "")")
         return try? JSONSerialization.data(withJSONObject: body)
     }
@@ -410,7 +411,8 @@ final class SyncQueueManager {
     }
 
     private func encodedTodoUpdatePayload(_ todo: Todo) -> Data? {
-        guard let body = encodedTodoBaseBody(todo: todo, includeReportFields: false) else { return nil }
+        // 기존 항목 수정: date == nil → JSON null(날짜 제거). 신규 생성과 분리.
+        guard let body = encodedTodoBaseBody(todo: todo, includeReportFields: false, allowNilDate: true) else { return nil }
         print("[Payload:update] plannerId:\(todo.plannerId ?? "nil") date:\(body["date"] ?? "")")
         return try? JSONSerialization.data(withJSONObject: body)
     }
@@ -437,20 +439,31 @@ final class SyncQueueManager {
         return try? JSONSerialization.data(withJSONObject: body)
     }
 
-    private func encodedTodoBaseBody(todo: Todo, includeReportFields: Bool) -> [String: Any]? {
+    /// - Parameter allowNilDate: true면 `todo.date == nil`을 JSON null로 직렬화(날짜 제거). false면 date 필수(생성 경로).
+    private func encodedTodoBaseBody(todo: Todo, includeReportFields: Bool, allowNilDate: Bool) -> [String: Any]? {
         guard let ctx = TodoPayloadContext(todo: todo) else { return nil }
-        guard let date = todo.date else { return nil }
+
+        let datePayload: Any
+        if let date = todo.date {
+            datePayload = seoulDateString(from: date)
+        } else if allowNilDate {
+            datePayload = NSNull()
+        } else {
+            return nil
+        }
+
         let planner = ctx.planner
         let mapping = ctx.mapping
 
         var body: [String: Any] = [
             "title": todo.title,
-            "date": seoulDateString(from: date),
+            "date": datePayload,
             "isCompleted": todo.isCompleted,
             "isPinned": todo.isPinned,
         ]
         body["plannerId"] = ctx.planner.id
-        if let st = todo.scheduledTime {
+        // 날짜 없을 때 scheduledTime만 보내는 건 의미 없음 → date가 있을 때만 포함
+        if todo.date != nil, let st = todo.scheduledTime {
             let fmt = ISO8601DateFormatter()
             fmt.formatOptions = [.withInternetDateTime, .withColonSeparatorInTimeZone]
             fmt.timeZone = TimeZone(identifier: "Asia/Seoul")

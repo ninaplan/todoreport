@@ -142,6 +142,7 @@ private struct AnyEncodable: Encodable {
             case let v as Bool:    try container.encode(v, forKey: codingKey)
             case let v as Int:     try container.encode(v, forKey: codingKey)
             case let v as Double:  try container.encode(v, forKey: codingKey)
+            case is NSNull:        try container.encodeNil(forKey: codingKey)
             default: break
             }
         }
