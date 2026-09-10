@@ -13,8 +13,9 @@ final class LocalRepository: DataRepository {
     func fetchTodos(for date: Date) async throws -> [Todo] {
         let startOfDay = Calendar.current.startOfDay(for: date)
         guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return [] }
+        let distantPast = Date.distantPast
         let descriptor = FetchDescriptor<TodoItem>(
-            predicate: #Predicate { $0.date >= startOfDay && $0.date < endOfDay },
+            predicate: #Predicate { ($0.date ?? distantPast) >= startOfDay && ($0.date ?? distantPast) < endOfDay },
             sortBy: [SortDescriptor(\.createdAt)]
         )
         return try context.fetch(descriptor).map { $0.toTodo() }

@@ -10,7 +10,7 @@ enum TodoListDiff {
             && lhs.memo == rhs.memo
             && lhs.isCompleted == rhs.isCompleted
             && lhs.isPinned == rhs.isPinned
-            && Calendar.current.isDate(lhs.date, inSameDayAs: rhs.date)
+            && optionalSameDay(lhs.date, rhs.date)
             && lhs.categoryId == rhs.categoryId
             && lhs.notionPageId == rhs.notionPageId
             && lhs.scheduledTime == rhs.scheduledTime
@@ -71,5 +71,14 @@ enum TodoListDiff {
             if left.id != right.id || !contentEqual(left, right) { return false }
         }
         return true
+    }
+
+    private static func optionalSameDay(_ lhs: Date?, _ rhs: Date?) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil): return true
+        case (let left?, let right?):
+            return Calendar.current.isDate(left, inSameDayAs: right)
+        default: return false
+        }
     }
 }

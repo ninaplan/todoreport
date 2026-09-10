@@ -153,7 +153,7 @@ private struct TodoBody: Encodable {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"
         fmt.locale = Locale(identifier: "en_US_POSIX")
-        self.date = fmt.string(from: todo.date)
+        self.date = fmt.string(from: todo.date ?? .now)
         self.categoryId = todo.categoryId
         self.dbId = dbId
         self.completedProp = mapping.completed

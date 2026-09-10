@@ -24,7 +24,9 @@ final class RecurringTodoManager {
         for item in sources {
             guard let rid = item.recurrenceId else { continue }
             if let existing = seriesMap[rid] {
-                if item.date < existing.date { seriesMap[rid] = item }
+                if (item.date ?? .distantFuture) < (existing.date ?? .distantFuture) {
+                    seriesMap[rid] = item
+                }
             } else {
                 seriesMap[rid] = item
             }
@@ -37,11 +39,14 @@ final class RecurringTodoManager {
             let existingDates = Set(
                 allItems
                     .filter { $0.recurrenceId == recurrenceId }
-                    .map { cal.startOfDay(for: $0.date) }
+                    .compactMap { item -> Date? in
+                        item.date.map { cal.startOfDay(for: $0) }
+                    }
             )
 
             // 생성 대상 날짜 계산
-            let targetDates = rule.dates(in: today...twoWeeksLater, origin: origin.date)
+            guard let originDate = origin.date else { continue }
+            let targetDates = rule.dates(in: today...twoWeeksLater, origin: originDate)
 
             for targetDate in targetDates {
                 // 이미 존재하면 스킵
@@ -53,13 +58,16 @@ final class RecurringTodoManager {
                 if let maxCount = origin.recurrenceCount {
                     let occurrencesSoFar = allItems.filter {
                         $0.recurrenceId == recurrenceId &&
-                        cal.startOfDay(for: $0.date) <= targetDate
+                        ($0.date.map { cal.startOfDay(for: $0) } ?? .distantFuture) <= targetDate
                     }.count
                     if occurrencesSoFar >= maxCount { continue }
                 }
 
                 // 새 TodoItem 생성
-                let timeComps = cal.dateComponents([.hour, .minute], from: origin.scheduledTime ?? origin.date)
+                let timeComps = cal.dateComponents(
+                    [.hour, .minute],
+                    from: origin.scheduledTime ?? originDate
+                )
                 let newDate: Date
                 if origin.scheduledTime != nil {
                     var dc = cal.dateComponents([.year, .month, .day], from: targetDate)
@@ -103,7 +111,7 @@ final class RecurringTodoManager {
         let allItems = (try? context.fetch(FetchDescriptor<TodoItem>())) ?? []
         let toDelete = allItems.filter {
             $0.recurrenceId == seriesId &&
-            Calendar.current.startOfDay(for: $0.date) >= fromDay &&
+            ($0.date.map { Calendar.current.startOfDay(for: $0) } ?? .distantPast) >= fromDay &&
             $0.id != excludingId
         }
         let deletions: [(notionPageId: String, plannerId: String?)] = toDelete.compactMap {

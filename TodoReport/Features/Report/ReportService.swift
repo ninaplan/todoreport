@@ -112,7 +112,10 @@ final class ReportService {
         for i in 0..<7 {
             guard let dayStart = calendar.date(byAdding: .day, value: i, to: start),
                   let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { continue }
-            let dayTodos = todos.filter { $0.date >= dayStart && $0.date < dayEnd }
+            let dayTodos = todos.filter {
+                guard let date = $0.date else { return false }
+                return date >= dayStart && date < dayEnd
+            }
             let rate = dayTodos.isEmpty ? 0 : Double(dayTodos.filter { $0.isCompleted }.count) / Double(dayTodos.count)
             dailyRates.append(DailyRate(weekday: weekdays[i], rate: rate))
 
@@ -129,8 +132,11 @@ final class ReportService {
         let streak = calculateStreak(plannerId: plannerId, calendar: calendar)
 
         let todoEntries = todos
+            .compactMap { item -> ReportTodoEntry? in
+                guard let date = item.date else { return nil }
+                return ReportTodoEntry(id: item.id, title: item.title, date: date, isCompleted: item.isCompleted)
+            }
             .sorted { $0.date < $1.date }
-            .map { ReportTodoEntry(id: $0.id, title: $0.title, date: $0.date, isCompleted: $0.isCompleted) }
 
         let reviewTimeline = reports
             .filter { !$0.review.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -175,7 +181,10 @@ final class ReportService {
             let actualEnd = min(weekEnd, end)
             let label = String(localized: "\(weekIndex)주차")
 
-            let weekTodos = todos.filter { $0.date >= weekStart && $0.date < actualEnd }
+            let weekTodos = todos.filter {
+                guard let date = $0.date else { return false }
+                return date >= weekStart && date < actualEnd
+            }
             let rate = weekTodos.isEmpty ? 0 : Double(weekTodos.filter { $0.isCompleted }.count) / Double(weekTodos.count)
             weeklyRates.append(WeeklyRate(label: label, rate: rate))
 
@@ -208,8 +217,11 @@ final class ReportService {
         }
 
         let todoEntries = todos
+            .compactMap { item -> ReportTodoEntry? in
+                guard let date = item.date else { return nil }
+                return ReportTodoEntry(id: item.id, title: item.title, date: date, isCompleted: item.isCompleted)
+            }
             .sorted { $0.date < $1.date }
-            .map { ReportTodoEntry(id: $0.id, title: $0.title, date: $0.date, isCompleted: $0.isCompleted) }
 
         let reviewTimeline = reports
             .filter { !$0.review.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -616,8 +628,9 @@ final class ReportService {
     private func fetchTodos(in range: Range<Date>, plannerId: String?) -> [TodoItem] {
         let start = range.lowerBound
         let end = range.upperBound
+        let distantPast = Date.distantPast
         let descriptor = FetchDescriptor<TodoItem>(
-            predicate: #Predicate { $0.date >= start && $0.date < end }
+            predicate: #Predicate { ($0.date ?? distantPast) >= start && ($0.date ?? distantPast) < end }
         )
         let all = (try? context.fetch(descriptor)) ?? []
         guard let pid = plannerId else { return all }
@@ -705,7 +718,10 @@ final class ReportService {
 
         for _ in 0..<365 {
             guard let nextDate = calendar.date(byAdding: .day, value: 1, to: checkDate) else { break }
-            let dayTodos = todos.filter { $0.date >= checkDate && $0.date < nextDate }
+            let dayTodos = todos.filter {
+                guard let date = $0.date else { return false }
+                return date >= checkDate && date < nextDate
+            }
             guard criteria.isDaySatisfied(todos: dayTodos) else { break }
             streak += 1
             guard let prevDate = calendar.date(byAdding: .day, value: -1, to: checkDate) else { break }

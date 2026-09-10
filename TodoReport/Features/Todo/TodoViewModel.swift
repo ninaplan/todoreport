@@ -106,7 +106,10 @@ final class TodoViewModel {
     }
 
     private var todosForSelectedDate: [Todo] {
-        todos.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
+        todos.filter {
+            guard let date = $0.date else { return false }
+            return Calendar.current.isDate(date, inSameDayAs: selectedDate)
+        }
     }
 
     var displayedTodos: [Todo] {
@@ -419,8 +422,12 @@ final class TodoViewModel {
         guard let todo = pendingDeleteTodo else { return }
         guard let rid = todo.recurrenceId else { pendingDeleteTodo = nil; return }
         pendingDeleteTodo = nil
-        todos.removeAll { $0.recurrenceId == rid && $0.date >= todo.date }
-        Task { try? await service.deleteFutureItems(recurrenceId: rid, from: todo.date) }
+        todos.removeAll {
+            guard $0.recurrenceId == rid, let left = $0.date, let right = todo.date else { return false }
+            return left >= right
+        }
+        guard let fromDate = todo.date else { return }
+        Task { try? await service.deleteFutureItems(recurrenceId: rid, from: fromDate) }
     }
 
     func cancelDelete() {
@@ -531,7 +538,8 @@ final class TodoViewModel {
         var updated = todo
         TodoScheduledTime.applyingDateChange(to: &updated, newDate: newDate)
         updated.markLocallyModified()
-        if Calendar.current.isDate(updated.date, inSameDayAs: selectedDate) {
+        if let updatedDate = updated.date,
+           Calendar.current.isDate(updatedDate, inSameDayAs: selectedDate) {
             if let index = todos.firstIndex(where: { $0.id == todo.id }) {
                 todos[index] = updated
             }
@@ -590,9 +598,11 @@ final class TodoViewModel {
     private func performSaveTodoEdit(_ updated: Todo) {
         guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
         var touched = updated
-        TodoScheduledTime.applyingDateChange(to: &touched, newDate: touched.date)
+        if let date = touched.date {
+            TodoScheduledTime.applyingDateChange(to: &touched, newDate: date)
+        }
         touched.markLocallyModified()
-        let isSameDay = Calendar.current.isDate(touched.date, inSameDayAs: selectedDate)
+        let isSameDay = touched.date.map { Calendar.current.isDate($0, inSameDayAs: selectedDate) } ?? false
         if isSameDay {
             if let index = todos.firstIndex(where: { $0.id == touched.id }) {
                 todos[index] = touched

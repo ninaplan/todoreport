@@ -9,7 +9,7 @@ struct Todo: Identifiable, Codable {
     var memo: String?
     var isCompleted: Bool
     var isPinned: Bool
-    var date: Date
+    var date: Date?
     var createdAt: Date
     var completedAt: Date?
     var notionCreatedAt: Date?
@@ -33,7 +33,7 @@ struct Todo: Identifiable, Codable {
         memo: String? = nil,
         isCompleted: Bool = false,
         isPinned: Bool = false,
-        date: Date = .now,
+        date: Date? = .now,
         createdAt: Date = .now,
         completedAt: Date? = nil,
         notionCreatedAt: Date? = nil,
@@ -96,9 +96,10 @@ final class TodoService {
         let startOfDay = Calendar.current.startOfDay(for: date)
         guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return [] }
         let plannerId = PlannerService.shared.selectedPlanner?.id
+        let distantPast = Date.distantPast
         do {
             let descriptor = FetchDescriptor<TodoItem>(
-                predicate: #Predicate { $0.date >= startOfDay && $0.date < endOfDay },
+                predicate: #Predicate { ($0.date ?? distantPast) >= startOfDay && ($0.date ?? distantPast) < endOfDay },
                 sortBy: [SortDescriptor(\.createdAt)]
             )
             let items = try context.fetch(descriptor).map { $0.toTodo() }
@@ -118,9 +119,10 @@ final class TodoService {
             return [:]
         }
         let plannerId = PlannerService.shared.selectedPlanner?.id
+        let distantPast = Date.distantPast
         do {
             let descriptor = FetchDescriptor<TodoItem>(
-                predicate: #Predicate { $0.date >= monthStart && $0.date < monthEnd },
+                predicate: #Predicate { ($0.date ?? distantPast) >= monthStart && ($0.date ?? distantPast) < monthEnd },
                 sortBy: [SortDescriptor(\.createdAt)]
             )
             var items = try context.fetch(descriptor)
@@ -130,7 +132,8 @@ final class TodoService {
 
             var buckets: [Date: (ids: [String], seen: Set<String>, hasUncategorized: Bool)] = [:]
             for item in items {
-                let day = calendar.startOfDay(for: item.date)
+                guard let itemDate = item.date else { continue }
+                let day = calendar.startOfDay(for: itemDate)
                 var bucket = buckets[day] ?? (ids: [], seen: [], hasUncategorized: false)
                 if let categoryId = item.categoryId {
                     if !bucket.seen.contains(categoryId) {
@@ -165,7 +168,9 @@ final class TodoService {
         guard (try context.fetch(descriptor)).isEmpty else { return }
         context.insert(TodoItem.from(t))
         try context.save()
-        ensureDailyReport(for: t.date)
+        if let date = t.date {
+            ensureDailyReport(for: date)
+        }
         print("[TodoService] 💾 saveTodo - id:\(t.id) scheduledTime:\(String(describing: t.scheduledTime)) alarmOffset:\(String(describing: t.alarmOffset))")
         TodoNotificationManager.shared.schedule(for: t)
         let captured = t
@@ -176,14 +181,23 @@ final class TodoService {
         let id = todo.id
         let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == id })
         guard let item = try context.fetch(descriptor).first else { return }
-        let dateChanged = !Calendar.current.isDate(item.date, inSameDayAs: todo.date)
+        let dateChanged: Bool = {
+            switch (item.date, todo.date) {
+            case (nil, nil): return false
+            case (let left?, let right?):
+                return !Calendar.current.isDate(left, inSameDayAs: right)
+            default: return true
+            }
+        }()
         item.update(from: todo)
         item.localModifiedAt = .now
         if dateChanged {
             item.notionRelationLinked = false
         }
         try context.save()
-        ensureDailyReport(for: todo.date)
+        if let date = todo.date {
+            ensureDailyReport(for: date)
+        }
         print("[TodoService] ✏️ updateTodo - id:\(todo.id) scheduledTime:\(String(describing: todo.scheduledTime)) alarmOffset:\(String(describing: todo.alarmOffset))")
         TodoNotificationManager.shared.schedule(for: todo)
         let captured = item.toTodo()
@@ -211,7 +225,7 @@ final class TodoService {
         let allItems = try context.fetch(FetchDescriptor<TodoItem>())
         let toDelete = allItems.filter {
             $0.recurrenceId == recurrenceId &&
-            Calendar.current.startOfDay(for: $0.date) >= fromDate
+            ($0.date.map { Calendar.current.startOfDay(for: $0) } ?? .distantPast) >= fromDate
         }
         let deletions: [(notionPageId: String, plannerId: String?)] = toDelete.compactMap {
             guard !$0.notionPageId.isEmpty else { return nil }
@@ -405,11 +419,12 @@ final class TodoService {
 
             // 2순위: notionPageId 없는 로컬 항목 중 title + date + plannerId 기준 매칭
             let title = nt.title
+            let distantPast = Date.distantPast
             let byTitleDate = FetchDescriptor<TodoItem>(
                 predicate: #Predicate {
                     $0.title == title &&
-                    $0.date >= startOfDay &&
-                    $0.date < endOfDay &&
+                    ($0.date ?? distantPast) >= startOfDay &&
+                    ($0.date ?? distantPast) < endOfDay &&
                     $0.notionPageId == ""
                 }
             )
@@ -568,9 +583,12 @@ final class TodoService {
 
     /// pageId 매칭 기존 항목 — Notion date·scheduledTime 반영, 날짜 변경 시 relation 리셋
     private func applyNotionDate(to existing: TodoItem, from notionDateString: String) {
-        let parsed = parseNotionTodoDate(notionDateString, fallback: existing.date)
+        let parsed = parseNotionTodoDate(notionDateString, fallback: existing.date ?? Calendar.current.startOfDay(for: .now))
         let cal = Calendar.current
-        let dateChanged = !cal.isDate(existing.date, inSameDayAs: parsed.date)
+        let dateChanged: Bool = {
+            guard let existingDate = existing.date else { return true }
+            return !cal.isDate(existingDate, inSameDayAs: parsed.date)
+        }()
         let hadScheduledTime = existing.scheduledTime != nil
         let scheduledTimeChanged = !notionScheduledTimesEqual(existing.scheduledTime, parsed.scheduledTime)
 

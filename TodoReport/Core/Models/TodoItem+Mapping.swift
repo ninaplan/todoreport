@@ -7,7 +7,7 @@ extension TodoItem {
         memo: String? = nil,
         isCompleted: Bool = false,
         isPinned: Bool = false,
-        date: Date = .now,
+        date: Date? = .now,
         completedAt: Date? = nil,
         notionCreatedAt: Date? = nil,
         notionLastEditedTime: Date? = nil,

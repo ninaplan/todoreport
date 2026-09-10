@@ -23,7 +23,7 @@ final class NotionRelationLinker {
         let pending = allItems.filter {
             !$0.notionRelationLinked &&
             !$0.notionPageId.isEmpty &&
-            $0.date >= cutoff &&
+            ($0.date ?? .distantPast) >= cutoff &&
             connectedPlannerIds.contains($0.plannerId ?? "")
         }
         .prefix(10)

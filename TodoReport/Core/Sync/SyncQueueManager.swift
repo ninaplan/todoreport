@@ -381,9 +381,10 @@ final class SyncQueueManager {
 
     private func encodedTodoRelationLinkPayload(_ todo: Todo) -> Data? {
         guard let ctx = TodoPayloadContext(todo: todo) else { return nil }
+        guard let date = todo.date else { return nil }
         var body: [String: Any] = [
             "linkDailyReport": true,
-            "date": seoulDateString(from: todo.date),
+            "date": seoulDateString(from: date),
         ]
         body["plannerId"] = ctx.planner.id
         if let st = todo.scheduledTime {
@@ -402,12 +403,13 @@ final class SyncQueueManager {
 
     private func encodedTodoBaseBody(todo: Todo, includeReportFields: Bool) -> [String: Any]? {
         guard let ctx = TodoPayloadContext(todo: todo) else { return nil }
+        guard let date = todo.date else { return nil }
         let planner = ctx.planner
         let mapping = ctx.mapping
 
         var body: [String: Any] = [
             "title": todo.title,
-            "date": seoulDateString(from: todo.date),
+            "date": seoulDateString(from: date),
             "isCompleted": todo.isCompleted,
             "isPinned": todo.isPinned,
         ]

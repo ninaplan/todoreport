@@ -653,7 +653,7 @@ private struct TodoViewSheetsModifier: ViewModifier {
                 .presentationDragIndicator(.visible)
             }
             .sheet(item: $changingDateTodo) { todo in
-                TodoDateChangeSheet(initialDate: todo.date) { newDate in
+                TodoDateChangeSheet(initialDate: todo.date ?? Calendar.current.startOfDay(for: .now)) { newDate in
                     viewModel.changeTodoDate(todo, to: newDate)
                     hapticSuccessTrigger.toggle()
                 }
@@ -1474,7 +1474,10 @@ private struct TodoEditSheet: View {
                         set: { draft.memo = $0.isEmpty ? nil : $0 }
                     ),
                     categoryId: $draft.categoryId,
-                    date: $draft.date,
+                    date: Binding(
+                        get: { draft.date ?? Calendar.current.startOfDay(for: .now) },
+                        set: { draft.date = $0 }
+                    ),
                     showDatePicker: $showDatePicker,
                     scheduledTime: $draft.scheduledTime,
                     alarmOffset: $draft.alarmOffset,
@@ -1505,7 +1508,9 @@ private struct TodoEditSheet: View {
                         guard !trimmed.isEmpty else { return }
                         var saved = draft
                         saved.title = trimmed
-                        TodoScheduledTime.applyingDateChange(to: &saved, newDate: draft.date)
+                        if let date = draft.date {
+                            TodoScheduledTime.applyingDateChange(to: &saved, newDate: date)
+                        }
                         onSave(saved)
                         dismiss()
                     }
