@@ -4,7 +4,7 @@ struct TodoEditFormView: View {
     @Binding var title: String
     @Binding var memo: String
     @Binding var categoryId: String?
-    @Binding var date: Date
+    @Binding var date: Date?
     @Binding var showDatePicker: Bool
     @Binding var scheduledTime: Date?
     @Binding var alarmOffset: Int?
@@ -21,6 +21,13 @@ struct TodoEditFormView: View {
 
     private static let unitNames = ["분", "시간", "일", "주", "개월"]
     private static let unitMultipliers = [1, 60, 1440, 10080, 43200]
+
+    private var datePickerSelection: Binding<Date> {
+        Binding(
+            get: { date ?? Calendar.current.startOfDay(for: .now) },
+            set: { date = $0 }
+        )
+    }
 
     var body: some View {
         Section {
@@ -49,31 +56,56 @@ struct TodoEditFormView: View {
             .simultaneousGesture(TapGesture().onEnded { resignKeyboard() })
 
             // 날짜
-            Button {
-                resignKeyboard()
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                withAnimation { showDatePicker.toggle() }
-            } label: {
-                HStack {
-                    Text("날짜").foregroundStyle(.primary)
-                    Spacer()
-                    Text(date.formatted(date: .abbreviated, time: .omitted))
-                        .foregroundStyle(.primary)
-                        .font(.subheadline)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color(.systemGray6), in: Capsule())
+            HStack {
+                Button {
+                    resignKeyboard()
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation {
+                        if date == nil {
+                            date = Calendar.current.startOfDay(for: .now)
+                        }
+                        showDatePicker.toggle()
+                    }
+                } label: {
+                    HStack {
+                        Text("날짜").foregroundStyle(.primary)
+                        Spacer()
+                        if let date {
+                            Text(date.formatted(date: .abbreviated, time: .omitted))
+                                .foregroundStyle(.primary)
+                                .font(.subheadline)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Color(.systemGray6), in: Capsule())
+                        } else {
+                            Text("없음")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if date != nil {
+                    Button {
+                        withAnimation { clearDate() }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.body)
+                            .foregroundStyle(Color(.tertiaryLabel))
+                    }
+                    .buttonStyle(.plain)
                 }
             }
-            .buttonStyle(.plain)
 
             if showDatePicker {
-                DatePicker("", selection: $date, displayedComponents: .date)
+                DatePicker("", selection: datePickerSelection, displayedComponents: .date)
                     .datePickerStyle(.graphical)
                     .labelsHidden()
                     .tint(AppTheme.shared.accent)
                     .environment(\.calendar, localizedCalendar)
                     .onChange(of: date) { _, newDate in
+                        guard let newDate else { return }
                         scheduledTime = TodoScheduledTime.aligning(
                             scheduledTime,
                             toDay: newDate
@@ -81,91 +113,93 @@ struct TodoEditFormView: View {
                     }
             }
 
-            // 시간
-            HStack {
-                Button {
-                    resignKeyboard()
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation {
-                        if scheduledTime == nil {
-                            var comps = Calendar.current.dateComponents([.year, .month, .day], from: date)
-                            comps.hour = 9
-                            comps.minute = 0
-                            let defaultTime = Calendar.current.date(from: comps) ?? date
-                            scheduledTime = defaultTime
-                            timePickerValue = defaultTime
-                            showTimePicker = true
-                        } else {
-                            timePickerValue = scheduledTime ?? date
-                            showTimePicker.toggle()
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Text("시간").foregroundStyle(.primary)
-                        Spacer()
-                        if let st = scheduledTime {
-                            Text(st, format: .dateTime.hour().minute())
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text("없음").foregroundStyle(.secondary)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
-                if scheduledTime != nil {
+            if let day = date {
+                // 시간
+                HStack {
                     Button {
-                        withAnimation { clearTime() }
+                        resignKeyboard()
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        withAnimation {
+                            if scheduledTime == nil {
+                                var comps = Calendar.current.dateComponents([.year, .month, .day], from: day)
+                                comps.hour = 9
+                                comps.minute = 0
+                                let defaultTime = Calendar.current.date(from: comps) ?? day
+                                scheduledTime = defaultTime
+                                timePickerValue = defaultTime
+                                showTimePicker = true
+                            } else {
+                                timePickerValue = scheduledTime ?? day
+                                showTimePicker.toggle()
+                            }
+                        }
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.body)
-                            .foregroundStyle(Color(.tertiaryLabel))
+                        HStack {
+                            Text("시간").foregroundStyle(.primary)
+                            Spacer()
+                            if let st = scheduledTime {
+                                Text(st, format: .dateTime.hour().minute())
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("없음").foregroundStyle(.secondary)
+                            }
+                        }
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                } else {
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-            }
 
-            if showTimePicker {
-                HStack {
-                    Button("없음") {
-                        withAnimation { clearTime() }
-                    }
-                    .foregroundStyle(.secondary)
-                    Spacer()
-                    Button("완료") {
-                        let cal = Calendar.current
-                        var comps = cal.dateComponents([.year, .month, .day], from: date)
-                        let timeComps = cal.dateComponents([.hour, .minute], from: timePickerValue)
-                        comps.hour = timeComps.hour
-                        comps.minute = timeComps.minute
-                        if let confirmed = cal.date(from: comps) {
-                            scheduledTime = confirmed
+                    if scheduledTime != nil {
+                        Button {
+                            withAnimation { clearTime() }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.body)
+                                .foregroundStyle(Color(.tertiaryLabel))
                         }
-                        withAnimation { showTimePicker = false }
+                        .buttonStyle(.plain)
+                    } else {
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
                     }
-                    .tint(AppTheme.shared.accent)
-                    .fontWeight(.semibold)
                 }
 
-                DatePicker(
-                    "",
-                    selection: $timePickerValue,
-                    displayedComponents: .hourAndMinute
-                )
-                .datePickerStyle(.wheel)
-                .labelsHidden()
-                .tint(AppTheme.shared.accent)
-                .environment(\.calendar, localizedCalendar)
+                if showTimePicker {
+                    HStack {
+                        Button("없음") {
+                            withAnimation { clearTime() }
+                        }
+                        .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("완료") {
+                            let cal = Calendar.current
+                            var comps = cal.dateComponents([.year, .month, .day], from: day)
+                            let timeComps = cal.dateComponents([.hour, .minute], from: timePickerValue)
+                            comps.hour = timeComps.hour
+                            comps.minute = timeComps.minute
+                            if let confirmed = cal.date(from: comps) {
+                                scheduledTime = confirmed
+                            }
+                            withAnimation { showTimePicker = false }
+                        }
+                        .tint(AppTheme.shared.accent)
+                        .fontWeight(.semibold)
+                    }
+
+                    DatePicker(
+                        "",
+                        selection: $timePickerValue,
+                        displayedComponents: .hourAndMinute
+                    )
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
+                    .tint(AppTheme.shared.accent)
+                    .environment(\.calendar, localizedCalendar)
+                }
             }
         }
 
-        if scheduledTime != nil {
+        if date != nil, scheduledTime != nil {
             Section {
                 Picker("알림", selection: Binding(
                     get: { alarmPickerSelection },
@@ -242,6 +276,15 @@ struct TodoEditFormView: View {
             #selector(UIResponder.resignFirstResponder),
             to: nil, from: nil, for: nil
         )
+    }
+
+    private func clearDate() {
+        date = nil
+        scheduledTime = nil
+        alarmOffset = nil
+        showDatePicker = false
+        showTimePicker = false
+        showCustomAlarmInput = false
     }
 
     private func clearTime() {

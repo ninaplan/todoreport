@@ -396,6 +396,14 @@ final class TodoViewModel {
         }
     }
 
+    /// 날짜 없는 인박스 항목 생성. 오늘 목록에는 넣지 않음.
+    func addInboxTodo(title: String, memo: String? = nil, categoryId: String? = nil) {
+        guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
+        let trimmed = title.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        Task { try? await service.saveInboxTodo(title: trimmed, memo: memo, categoryId: categoryId) }
+    }
+
     func deleteTodo(_ todo: Todo) {
         guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
         todos.removeAll { $0.id == todo.id }

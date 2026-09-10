@@ -637,17 +637,25 @@ private struct TodoViewSheetsModifier: ViewModifier {
                     defaultCategoryId: viewModel.selectedCategoryFilter,
                     initialDate: viewModel.selectedDate
                 ) { title, memo, categoryId, date, scheduledTime, alarmOffset, recurrenceRule, recurrenceEndDate, recurrenceCount in
-                    viewModel.addTodo(
-                        title: title,
-                        memo: memo,
-                        categoryId: categoryId,
-                        date: date,
-                        scheduledTime: scheduledTime,
-                        alarmOffset: alarmOffset,
-                        recurrenceRule: recurrenceRule,
-                        recurrenceEndDate: recurrenceEndDate,
-                        recurrenceCount: recurrenceCount
-                    )
+                    if let date {
+                        viewModel.addTodo(
+                            title: title,
+                            memo: memo,
+                            categoryId: categoryId,
+                            date: date,
+                            scheduledTime: scheduledTime,
+                            alarmOffset: alarmOffset,
+                            recurrenceRule: recurrenceRule,
+                            recurrenceEndDate: recurrenceEndDate,
+                            recurrenceCount: recurrenceCount
+                        )
+                    } else {
+                        viewModel.addInboxTodo(
+                            title: title,
+                            memo: memo,
+                            categoryId: categoryId
+                        )
+                    }
                     hapticSuccessTrigger.toggle()
                 }
                 .presentationDragIndicator(.visible)
@@ -1474,10 +1482,7 @@ private struct TodoEditSheet: View {
                         set: { draft.memo = $0.isEmpty ? nil : $0 }
                     ),
                     categoryId: $draft.categoryId,
-                    date: Binding(
-                        get: { draft.date ?? Calendar.current.startOfDay(for: .now) },
-                        set: { draft.date = $0 }
-                    ),
+                    date: $draft.date,
                     showDatePicker: $showDatePicker,
                     scheduledTime: $draft.scheduledTime,
                     alarmOffset: $draft.alarmOffset,

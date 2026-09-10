@@ -4,9 +4,9 @@ struct QuickCaptureView: View {
     let defaultCategoryId: String?
     @State private var viewModel: QuickCaptureViewModel
     @Environment(\.dismiss) private var dismiss
-    let onSave: (String, String?, String?, Date, Date?, Int?, RecurrenceRule?, Date?, Int?) -> Void
+    let onSave: (String, String?, String?, Date?, Date?, Int?, RecurrenceRule?, Date?, Int?) -> Void
 
-    init(defaultCategoryId: String? = nil, initialDate: Date = .now, onSave: @escaping (String, String?, String?, Date, Date?, Int?, RecurrenceRule?, Date?, Int?) -> Void) {
+    init(defaultCategoryId: String? = nil, initialDate: Date = .now, onSave: @escaping (String, String?, String?, Date?, Date?, Int?, RecurrenceRule?, Date?, Int?) -> Void) {
         self.defaultCategoryId = defaultCategoryId
         self.onSave = onSave
         _viewModel = State(initialValue: QuickCaptureViewModel(initialDate: initialDate))

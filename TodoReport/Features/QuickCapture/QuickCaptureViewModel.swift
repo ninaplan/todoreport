@@ -5,7 +5,7 @@ final class QuickCaptureViewModel {
     var title: String = ""
     var memo: String = ""
     var selectedCategoryId: String? = nil
-    var selectedDate: Date
+    var selectedDate: Date?
     var showDatePicker: Bool = false
     var showProAlert: Bool = false
     var scheduledTime: Date? = nil
