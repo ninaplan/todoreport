@@ -210,7 +210,7 @@ api/
 - 날짜별 투두 조회
 - **날짜 이동** — 모든 날짜 자유 이동 가능 (무료)
 - **투두 메모** — 투두별 상세 내용 추가 (Notion 페이지 텍스트 블록으로 저장)
-- **할일 보관** — 🔜 **v1 미구현**. V2 인박스와 함께 구현 예정 (카테고리 숨김과는 별개 기능)
+- **할일 보관** — 🔜 **인박스 길 A 진행 중** (2026-09-10). 로컬 `date` 옵셔널·백엔드 inbox 라우트·iOS SyncQueue 배관(미사용)까지. UI 「날짜 제거」·생성/업데이트 분기는 다음 세션. 카테고리 숨김과는 별개
 
 **Notion 동기화 (투두):**
 
@@ -1234,7 +1234,7 @@ struct Category: Identifiable, Codable {
 | iCloud 백업 / 기기 이동 | v2 유료 | 로컬 사용자 데이터 보호. Repository 패턴으로 구조 대비 완료 |
 | 로컬 ↔ 노션 데이터 마이그레이션 | v2 유료 | 로컬 → 노션 전환 시 기존 데이터 이전 |
 | Apple Reminders 연동 | v2 | 사용자 피드백 후 결정 |
-| **할일 보관 (인박스)** | v2 | v1 미구현. 인박스 UX와 함께 구현 (카테고리 숨김과는 별개). → `V2-IDEAS.md` |
+| **할일 보관 (인박스)** | 진행 중 | 길 A: date 옵셔널·백엔드 inbox·iOS SyncQueue 배관(미사용)까지. 다음: 상세폼 날짜 제거·생성 분기·PATCH null 조사. → `V2-IDEAS.md` |
 | 리포트 알림 원탭 저장 (알림 액션) | v1.2 | v1은 리마인더만. v1.2에서 「앱으로 가기」「바로 저장하기」액션 추가 |
 | 노션 저장 시트 UX (알림·저장 분리) | v1.1 | v1: 툴바 저장=노션 저장, 알림은 `@AppStorage` 즉시 반영. v1.1: 취소=알림 되돌리기, 확인=알림만 저장, 「노션에 저장하기」를 리뷰 카드 하단으로 이동 검토 |
 | 투두 탭 할일 시간 표시 | **구현됨** | 더보기 「설정 시간 보기」+ `TodoRow` trailing `[종?][시각]` (C안). `showScheduledTime` 기본 true. A/C 실험 브랜치 폐기 |
@@ -1284,7 +1284,7 @@ struct TodoItem: Identifiable, Codable {
     let id: String              // 앱 내부 UUID (Notion ID 아님)
     var title: String           // 할일 이름 (Notion 페이지 제목)
     var isCompleted: Bool       // 완료 여부
-    var date: Date              // 날짜
+    var date: Date?             // 날짜 (nil = 인박스). 일별 목록·캘린더는 non-nil만
     var scheduledTime: Date?    // 시간 지정 (없으면 nil)
     var alarmOffset: Int?       // 알림 시간 (분 단위, 0=정시 -5=5분전 -60=1시간전. 없으면 nil)
     var recurrence: RecurrenceRule?  // 반복 규칙 (없으면 nil)
