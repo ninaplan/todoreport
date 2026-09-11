@@ -26,6 +26,8 @@ struct Todo: Identifiable, Codable {
     var notionRelationLinked: Bool
     /// 로컬에서 마지막으로 생성·수정된 시각 (Notion/캐시 지연 시 merge 보호용)
     var localModifiedAt: Date?
+    /// 인박스 「나중에 보기」. 로컬 전용 — 노션에 저장하지 않음.
+    var snoozedUntil: Date?
 
     init(
         id: String = UUID().uuidString,
@@ -48,7 +50,8 @@ struct Todo: Identifiable, Codable {
         recurrenceEndDate: Date? = nil,
         recurrenceCount: Int? = nil,
         notionRelationLinked: Bool = false,
-        localModifiedAt: Date? = nil
+        localModifiedAt: Date? = nil,
+        snoozedUntil: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -71,6 +74,13 @@ struct Todo: Identifiable, Codable {
         self.recurrenceCount = recurrenceCount
         self.notionRelationLinked = notionRelationLinked
         self.localModifiedAt = localModifiedAt
+        self.snoozedUntil = snoozedUntil
+    }
+
+    /// 스누즈가 아직 유효하면 true (`snoozedUntil > now`).
+    var isSnoozeActive: Bool {
+        guard let until = snoozedUntil else { return false }
+        return until > .now
     }
 
     mutating func markLocallyModified(at date: Date = .now) {

@@ -12,6 +12,8 @@ struct TodoView: View {
     @State private var editingTodo: Todo? = nil
     @State private var inlineEditingTodoId: String? = nil
     @State private var showCategorySheet: Bool = false
+    @State private var showInboxSheet: Bool = false
+    @State private var inboxBadgeCount: Int = 0
 
     @State private var hapticImpactTrigger = false
     @State private var hapticSuccessTrigger = false
@@ -49,16 +51,26 @@ struct TodoView: View {
                     showPlannerSheet: $showPlannerSheet,
                     showQuickCapture: $showQuickCapture,
                     showCategorySheet: $showCategorySheet,
+                    showInboxSheet: $showInboxSheet,
                     changingDateTodo: $changingDateTodo,
                     editingTodo: $editingTodo,
                     hapticSuccessTrigger: $hapticSuccessTrigger,
-                    onCategoryDismiss: refreshAllChipColor
+                    onCategoryDismiss: refreshAllChipColor,
+                    onInboxDismiss: {
+                        refreshInboxBadge()
+                        Task { await viewModel.fetchLocalTodos() }
+                    }
                 ))
                 .modifier(TodoViewAlertsModifier(viewModel: viewModel))
                 .sensoryFeedback(.impact, trigger: hapticImpactTrigger)
                 .sensoryFeedback(.success, trigger: hapticSuccessTrigger)
                 .sensoryFeedback(.warning, trigger: hapticWarningTrigger)
+                .onAppear { refreshInboxBadge() }
         }
+    }
+
+    private func refreshInboxBadge() {
+        inboxBadgeCount = TodoService.shared.inboxNowCount()
     }
 
     @ToolbarContentBuilder
@@ -82,6 +94,27 @@ struct TodoView: View {
                         .font(.system(size: 9, weight: .thin))
                 }
             }
+            .tint(.primary)
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                showInboxSheet = true
+            } label: {
+                Image(systemName: "tray")
+                    .frame(width: 40, height: 34)
+                    .overlay(alignment: .topTrailing) {
+                        if inboxBadgeCount > 0 {
+                            Text(inboxBadgeCount > 99 ? "99+" : "\(inboxBadgeCount)")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, inboxBadgeCount > 9 ? 4 : 5)
+                                .padding(.vertical, 1)
+                                .background(AppTheme.shared.accent, in: Capsule())
+                                .padding([.top, .trailing], 1)
+                        }
+                    }
+            }
+            .accessibilityLabel(String(localized: "인박스"))
             .tint(.primary)
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -614,10 +647,12 @@ private struct TodoViewSheetsModifier: ViewModifier {
     @Binding var showPlannerSheet: Bool
     @Binding var showQuickCapture: Bool
     @Binding var showCategorySheet: Bool
+    @Binding var showInboxSheet: Bool
     @Binding var changingDateTodo: Todo?
     @Binding var editingTodo: Todo?
     @Binding var hapticSuccessTrigger: Bool
     let onCategoryDismiss: () -> Void
+    let onInboxDismiss: () -> Void
 
     func body(content: Content) -> some View {
         content
@@ -632,7 +667,7 @@ private struct TodoViewSheetsModifier: ViewModifier {
                 PlannerSelectionSheet()
                     .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $showQuickCapture) {
+            .sheet(isPresented: $showQuickCapture, onDismiss: onInboxDismiss) {
                 QuickCaptureView(
                     defaultCategoryId: viewModel.selectedCategoryFilter,
                     initialDate: viewModel.selectedDate
@@ -667,7 +702,10 @@ private struct TodoViewSheetsModifier: ViewModifier {
                 }
                 .presentationDragIndicator(.visible)
             }
-            .sheet(item: $editingTodo, onDismiss: { showCategorySheet = false }) { todo in
+            .sheet(item: $editingTodo, onDismiss: {
+                showCategorySheet = false
+                onInboxDismiss()
+            }) { todo in
                 TodoEditSheet(
                     todo: todo,
                     categories: viewModel.activeCategories,
@@ -685,6 +723,13 @@ private struct TodoViewSheetsModifier: ViewModifier {
             .sheet(isPresented: $showCategorySheet, onDismiss: onCategoryDismiss) {
                 NavigationStack {
                     CategoryView()
+                }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showInboxSheet, onDismiss: onInboxDismiss) {
+                NavigationStack {
+                    InboxView()
                 }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
@@ -1407,124 +1452,6 @@ private struct DatePickerSheet: View {
                 .background(Color.black, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .allowsHitTesting(false)
-    }
-}
-
-// MARK: - 투두 날짜 변경 시트
-
-private struct TodoDateChangeSheet: View {
-    let initialDate: Date
-    let onConfirm: (Date) -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var selectedDate: Date
-
-    init(initialDate: Date, onConfirm: @escaping (Date) -> Void) {
-        self.initialDate = initialDate
-        self.onConfirm = onConfirm
-        _selectedDate = State(initialValue: Calendar.current.startOfDay(for: initialDate))
-    }
-
-    var body: some View {
-        NavigationStack {
-            DatePicker("날짜 선택", selection: $selectedDate, displayedComponents: .date)
-                .datePickerStyle(.graphical)
-                .tint(AppTheme.shared.accent)
-                .environment(\.calendar, localizedCalendar)
-                .padding(.horizontal)
-                .navigationTitle("날짜 변경")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("취소") { dismiss() }
-                            .toolbarSecondaryActionStyle()
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("완료") {
-                            onConfirm(selectedDate)
-                            dismiss()
-                        }
-                        .toolbarPrimaryActionStyle()
-                    }
-                }
-        }
-        .presentationDetents([.medium])
-    }
-}
-
-// MARK: - 투두 편집 시트
-
-private struct TodoEditSheet: View {
-    let categories: [Category]
-    let onSave: (Todo) -> Void
-    let onDeleteTapped: ((Todo) -> Void)?
-    @Environment(\.dismiss) private var dismiss
-    @State private var draft: Todo
-    @State private var showDatePicker = false
-
-    init(todo: Todo, categories: [Category], onSave: @escaping (Todo) -> Void, onDeleteTapped: ((Todo) -> Void)? = nil) {
-        self.categories = categories
-        self.onSave = onSave
-        self.onDeleteTapped = onDeleteTapped
-        _draft = State(initialValue: todo)
-    }
-
-    private var isSaveEnabled: Bool {
-        !draft.title.trimmingCharacters(in: .whitespaces).isEmpty
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                TodoEditFormView(
-                    title: $draft.title,
-                    memo: Binding(
-                        get: { draft.memo ?? "" },
-                        set: { draft.memo = $0.isEmpty ? nil : $0 }
-                    ),
-                    categoryId: $draft.categoryId,
-                    date: $draft.date,
-                    showDatePicker: $showDatePicker,
-                    scheduledTime: $draft.scheduledTime,
-                    alarmOffset: $draft.alarmOffset,
-                    categories: categories,
-                    autoFocus: false
-                )
-
-                if onDeleteTapped != nil {
-                    Section {
-                        Button("삭제") {
-                            onDeleteTapped?(draft)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .foregroundStyle(.red)
-                    }
-                }
-            }
-            .navigationTitle("편집")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("취소", role: .cancel) { dismiss() }
-                        .toolbarSecondaryActionStyle()
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("저장") {
-                        let trimmed = draft.title.trimmingCharacters(in: .whitespaces)
-                        guard !trimmed.isEmpty else { return }
-                        var saved = draft
-                        saved.title = trimmed
-                        if let date = draft.date {
-                            TodoScheduledTime.applyingDateChange(to: &saved, newDate: date)
-                        }
-                        onSave(saved)
-                        dismiss()
-                    }
-                    .disabled(!isSaveEnabled)
-                    .toolbarPrimaryActionStyle(isEnabled: isSaveEnabled)
-                }
-            }
-        }
-        .presentationDetents([.large])
     }
 }
 

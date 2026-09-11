@@ -34,6 +34,20 @@ extension TodoService {
         return local
     }
 
+    /// 「지금」 탭에 해당하는 인박스 개수 (완료·스누즈 유효 항목 제외). 배지용 동기 조회.
+    func inboxNowCount() -> Int {
+        loadLocalInboxTodos().filter { !$0.isCompleted && !$0.isSnoozeActive }.count
+    }
+
+    /// 인박스 스누즈만 로컬 저장. SyncQueue/노션에 올리지 않음.
+    func setInboxSnooze(id: String, until: Date?) throws {
+        let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == id })
+        guard let item = try inboxContext.fetch(descriptor).first else { return }
+        item.snoozedUntil = until
+        item.localModifiedAt = .now
+        try inboxContext.save()
+    }
+
     /// 인박스 항목 생성 — Offline-First (date nil, 선택 플래너 배정) → SyncQueue createInbox.
     func saveInboxTodo(title: String, memo: String? = nil, categoryId: String? = nil) async throws -> Todo {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -25,6 +25,8 @@ final class TodoItem {
     var recurrenceCount: Int?
     var notionRelationLinked: Bool = false
     var localModifiedAt: Date?
+    /// 인박스 「나중에 보기」. 로컬 전용 — 노션 payload에 포함하지 않음.
+    var snoozedUntil: Date? = nil
 
     init(
         id: String = UUID().uuidString,
@@ -45,7 +47,8 @@ final class TodoItem {
         recurrenceId: String? = nil,
         recurrenceEndDate: Date? = nil,
         recurrenceCount: Int? = nil,
-        notionRelationLinked: Bool = false
+        notionRelationLinked: Bool = false,
+        snoozedUntil: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -67,5 +70,6 @@ final class TodoItem {
         self.recurrenceEndDate = recurrenceEndDate
         self.recurrenceCount = recurrenceCount
         self.notionRelationLinked = notionRelationLinked
+        self.snoozedUntil = snoozedUntil
     }
 }

@@ -20,7 +20,8 @@ extension TodoItem {
         recurrenceId: String? = nil,
         recurrenceEndDate: Date? = nil,
         recurrenceCount: Int? = nil,
-        notionRelationLinked: Bool = false
+        notionRelationLinked: Bool = false,
+        snoozedUntil: Date? = nil
     ) {
         self.init(
             id: id,
@@ -41,7 +42,8 @@ extension TodoItem {
             recurrenceId: recurrenceId,
             recurrenceEndDate: recurrenceEndDate,
             recurrenceCount: recurrenceCount,
-            notionRelationLinked: notionRelationLinked
+            notionRelationLinked: notionRelationLinked,
+            snoozedUntil: snoozedUntil
         )
     }
 
@@ -64,7 +66,8 @@ extension TodoItem {
             recurrenceId: recurrenceId,
             recurrenceEndDate: recurrenceEndDate,
             recurrenceCount: recurrenceCount,
-            notionRelationLinked: notionRelationLinked
+            notionRelationLinked: notionRelationLinked,
+            snoozedUntil: snoozedUntil
         )
     }
 
@@ -82,12 +85,14 @@ extension TodoItem {
         recurrenceId = todo.recurrenceId
         recurrenceEndDate = todo.recurrenceEndDate
         recurrenceCount = todo.recurrenceCount
+        snoozedUntil = todo.snoozedUntil
         // sync 관련 필드는 호출자 객체를 신뢰하지 않음 — SyncQueue/Notion이 단독 관리
         // notionPageId: SyncQueueProcessor.updateNotionPageId() 가 세팅
         // notionRelationLinked: updateTodo(dateChanged) / NotionRelationLinker 가 관리
         // notionCreatedAt: Notion에서 내려온 값만 신뢰 (upsertFromNotion에서 직접 세팅)
         // notionLastEditedTime: SyncQueueProcessor의 push 성공 시 / upsertFromNotion의 pull 시에만 세팅
         // plannerId: 생성 시 고정 — 플래너 이동 기능 구현 시 별도 메서드로 처리
+        // snoozedUntil: 로컬 전용. 노션 payload에 넣지 않음
     }
 
     static func from(_ todo: Todo) -> TodoItem {
@@ -104,7 +109,8 @@ extension TodoItem {
             recurrenceId: todo.recurrenceId,
             recurrenceEndDate: todo.recurrenceEndDate,
             recurrenceCount: todo.recurrenceCount,
-            notionRelationLinked: todo.notionRelationLinked
+            notionRelationLinked: todo.notionRelationLinked,
+            snoozedUntil: todo.snoozedUntil
         )
     }
 }
