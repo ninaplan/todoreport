@@ -63,7 +63,8 @@ final class NotionAPIClient {
     }
 
     private func syncTodoDelete(entityId: String, planner: Planner) async throws {
-        let path = "/api/notion/todo/\(entityId)"
+        // GET 캐시 scope(plannerId)와 DELETE 무효화 scope를 맞추기 위해 쿼리로 전달
+        let path = "/api/notion/todo/\(entityId)?plannerId=\(planner.id)"
         let token = planner.resolvedNotionToken
         print("[Sync] 📤 요청 - path:\(path) body:nil")
         try await APIClient.shared.delete(path, token: token)

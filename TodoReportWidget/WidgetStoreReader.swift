@@ -35,30 +35,21 @@ enum WidgetStoreReader {
         let plannerId = AppGroupUserDefaults.selectedPlannerId() ?? ""
         guard !plannerId.isEmpty else { return nil }
 
+        // Optional date의 flatMap/#Predicate는 SwiftData에서 조용히 잘못된 결과를 낼 수 있어
+        // plannerId만 fetch한 뒤 Swift에서 오늘 범위로 필터한다 (인박스 date==nil 제외).
         let items: [TodoItem]
         do {
             let predicate = #Predicate<TodoItem> { item in
                 item.plannerId == plannerId
-                    && (item.date.flatMap { $0 >= startOfDay && $0 < startOfTomorrow } ?? false)
             }
-            items = try context.fetch(FetchDescriptor<TodoItem>(predicate: predicate))
+            let fetched = try context.fetch(FetchDescriptor<TodoItem>(predicate: predicate))
+            items = fetched.filter { item in
+                guard let date = item.date else { return false }
+                return date >= startOfDay && date < startOfTomorrow
+            }
         } catch {
-            logger.error("fetch throw (flatMap date predicate): \(error.localizedDescription, privacy: .public)")
-            // flatMap Predicate 실패 시 — plannerId만 fetch 후 Swift에서 날짜 필터
-            do {
-                let fallbackPredicate = #Predicate<TodoItem> { item in
-                    item.plannerId == plannerId
-                }
-                let fetched = try context.fetch(FetchDescriptor<TodoItem>(predicate: fallbackPredicate))
-                items = fetched.filter { item in
-                    guard let date = item.date else { return false }
-                    return date >= startOfDay && date < startOfTomorrow
-                }
-                logger.info("fetch fallback ok: Swift date filter after plannerId-only fetch (\(items.count) today)")
-            } catch {
-                logger.error("fetch throw (fallback): \(error.localizedDescription, privacy: .public)")
-                return nil
-            }
+            logger.error("fetch throw (plannerId): \(error.localizedDescription, privacy: .public)")
+            return nil
         }
 
         let hideCompleted = AppGroupUserDefaults.todoHideCompleted()
