@@ -11,7 +11,7 @@
 - v1.09 제출 예정 (빌드 17, main 반영)
 - v1.10 제출 완료 (빌드 19, 2026-08-30)
 - v1.13 TestFlight 테스트 중 (빌드 25, 2026-09-09) — 아직 App Store 제출 아님
-- v1.14 제출 예정 (투두탭 UI 미세 조정·FAB 유리 스타일·하단 탭 무반응 수정. 마케팅 버전·빌드 번호는 Xcode에서만)
+- v1.14 제출 예정 (투두탭 UI 미세 조정·FAB 유리 스타일·하단 탭 무반응·인박스 행 여백/액션 문구·위젯 숨김 카테고리. 마케팅 버전·빌드 번호는 Xcode에서만)
 
 ### 인박스 진행 (2026-09-11)
 - **완료:** `TodoItem`/`Todo.date` 옵셔널화 + 위젯 Predicate(`ed99bdf`·`aeed0c4`). 백엔드 `GET/POST /api/notion/todo/inbox` 배포(`todoreport-backend` `486bbce`). 편집 화면 「날짜 제거」→ 노션 date 속성 비움(`bb4992d` SyncQueue·AnyEncodable + 백엔드 PATCH). `+`에서 날짜 없이 저장 → 인박스 생성 UI 연결(`f6de244`, POST `/api/notion/todo/inbox`)
@@ -19,6 +19,15 @@
 - **근본 원인 해결:** 날짜 제거가 로컬만 반영되던 문제 — 백엔드 PATCH 인코더 · `SyncQueueManager`(update payload `date: null`) · `NotionAPIClient.AnyEncodable`(NSNull) 3곳
 - **되돌림(폐기):** FAB 롱프레스 / 시스템 alert 방식 인박스 빠른입력 UI. 투두 탭 우상단 tray·ellipsis에 `.buttonStyle(.glass)` / `ToolbarSpacer` 분리 시도 → Liquid Glass 캡슐이 어색해 롤백(기본 툴바 스타일 유지, 뱃지만 프레임 안 수납으로 잘림 수정)
 - **완료 (위젯·삭제 부활, `a21adc8`):** DELETE에 `plannerId`를 넘겨 GET 캐시 무효화 scope를 맞추고, 위젯은 `#Predicate` `flatMap` 대신 Swift 날짜 필터로 인박스(`date == nil`)를 제외 — 삭제된 투두·인박스 항목이 pull/위젯에 되살아나지 않도록 수정
+
+### 인박스·투두 행 정리 (2026-09-12)
+- **행 여백 통일 (9pt 고정):** 투두탭 `TodoRow`·인박스 `InboxTodoRow` 모두 `listRowInsets` top/bottom 3 + `.padding(.vertical, 6)` → 한 쪽 9pt. 인박스 List 구분선 제거(`.listRowSeparator(.hidden)`). 커밋 `21209eb`
+- **인박스 뱃지–트레이 아이콘 겹침:** 근본 원인 미확정(iOS 26 툴바 히트 영역 추정). `frame(width: 44, height: 36)` + overlay `offset(x: 1, y: -1)`만 조정. 근본 수정은 후속. 커밋 `21209eb`
+- **「위로 올리기」(구 「최신으로 올리기」):** 지금 탭 컨텍스트 메뉴. 최신 버킷에서도 사용 가능(제한 해제). `bumpToRecent` — `snoozedUntil = now - 1초`. 커밋 `9534055` · 문구 `062e754`
+- **투두탭 「내일하기」(구 「내일로」):** 스와이프·컨텍스트 메뉴. 커밋 `062e754`
+- **투두탭 「인박스로 보내기」:** 컨텍스트 메뉴만(`sendToInbox`, 반복 할일 제외). 날짜·알림 제거, 인박스 최근 구역으로. 커밋 `b55a6d3`
+- **신규 인박스 문자열 영어 번역** (`Localizable.xcstrings`). 커밋 `062e754`
+- **위젯 숨긴 카테고리:** `WidgetStoreReader.loadTodaySnapshot()`이 plannerId로 `CategoryItem`을 조회해 `isHidden` 할일을 목록·완료율에서 제외. 앱 `excludingHiddenCategoryTodos`와 동일 의미. 커밋 `41c5081`
 
 ### 할일 검색 (2026-09-12)
 - **완료:** iOS 26 `Tab(role: .search)` 검색 탭. `Features/Search/` 독립 모듈. 로컬 SwiftData만 (`title`/`memo` `localizedStandardContains`, 전 플래너·완료 포함, Notion API 없음)
@@ -62,7 +71,7 @@
 - **변경 전:** `.caption` (약 12pt).
 - 중간: `.footnote` (13pt) — 체감이 부족해 폐기.
 - **변경 후:** **14pt regular**, secondary. 제목(`.body` 약 17pt)보다 작고 caption보다는 읽기 쉬움.
-- **적용 범위:** `TodoView` 안 `TodoRow`만. 인박스 시트 메모·리포트 탭 리뷰/타임라인은 기존 크기 유지.
+- **적용 범위 (당시):** `TodoView` 안 `TodoRow`만. 이후 인박스 `InboxTodoRow` 메모도 같은 14pt로 맞춤 (`b45ad6f`). 리포트 탭 리뷰/타임라인은 기존 크기 유지.
 - 이유: 투두 목록에서 메모가 보조 정보인데 너무 작아 잘 안 보임.
 
 #### 5. 플래너 선택 시트 — 상태 문구
@@ -184,7 +193,7 @@
 - 할일마다 카테고리 색·아이콘 표시 (사용자 요청)
 - 알림 메시지에 설정 시각 표시
 - 노션 자료 미수신 빈 화면 / 오프라인 안내 메시지 — 이전 세션에 시도했다 되돌린 건, 이력 확인 필요
-- 위젯이 숨긴 카테고리를 거르지 않음 (`WidgetDataProvider`가 `TodoService.fetchTodos` 직접 호출)
+- 인박스 뱃지–트레이 아이콘 겹침 근본 원인 — 현재는 frame/offset 절충만 (`21209eb`)
 - 필터 칩 점+이름 — 투두 탭 `FilterChip`과 달력 범례(`categoryLegendChip`) 공통 컴포넌트화 검토
 - ~~할일 시간·알림 목록 표시~~ — TodoRow trailing 시간 태그 + 더보기 「설정 시간 보기」토글 완료. A/C 실험 브랜치 폐기
 - 앱 전체 안내문 문체 통일 (해요체 → 합쇼체). `Localizable.xcstrings` 전수 점검 필요. 문자열이 많아 별도 커밋으로 진행
@@ -198,6 +207,7 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- 인박스·투두 행 정리 (2026-09-12): 여백 9pt 통일·인박스 구분선 제거, 뱃지 offset 절충, 「위로 올리기」/「내일하기」/「인박스로 보내기」, 인박스 영어 번역, 위젯 숨긴 카테고리 필터. 상세는 위 전용 섹션. 커밋 `21209eb` · `b55a6d3` · `9534055` · `062e754` · `41c5081`
 - 투두탭 UI 미세 조정 (2026-09-12, v1.14): 카테고리 시트 편집 leading / 목록 여백·행간 / 체크–제목 8pt / 메모 14pt / 플래너 상태 「기기에 저장」. 상세는 위 전용 섹션. 커밋 `723d407` · `7926ba5`
 - 투두 탭 하단 할일 줄 탭 무반응 + FAB 유리 스타일 (2026-09-12): `safeAreaInset(bottom)`이 iOS 26 스크롤 가장자리 흡수 영역을 키우던 것 — List 콘텐츠 안 120pt 빈 행으로 교체. FAB는 `.glassProminent` 원형(52pt, + 26 heavy, tint accent). 설정 「업데이트 내역」은 `https://www.nock.kr/changelog` 외부 링크
 - 할일 검색 (2026-09-12): `Tab(role: .search)` + 로컬 SwiftData 제목·메모 검색. 결과 탭 시 플래너 전환 + 날짜면 투두 탭 하이라이트, 인박스면 시트 열고 세그먼트/버킷 펼친 뒤 하이라이트 (`MainTabCoordinator.openTodo`/`openInbox`)
@@ -721,7 +731,7 @@ guard SubscriptionManager.shared.isPro else {
 
 **보기 옵션 규칙:** 앞으로 보기 on/off는 `Toggle`로만 추가한다. 아이콘+동작 문구 `Button`은 시도 후 되돌림 — iOS 메뉴 아이콘 슬롯이 1개라 체크마크와 충돌하고, 문구가 「동작」인지 「상태」인지 헷갈림.
 
-**TodoRow 레이아웃 (2026-09-12 확정):** 체크 원–제목 `HStack` spacing 8, 행 `.padding(.vertical, 6)`, `listRowInsets` top/bottom 3·leading/trailing 24. 메모(「할일 메모 보기」켜짐)는 제목 아래 14pt regular·secondary·최대 2줄 — `TodoRow` 전용. 인박스 `InboxTodoRow` 메모는 `.caption` 유지.
+**TodoRow 레이아웃 (2026-09-12 확정, 인박스와 통일):** 체크 원–제목 `HStack` spacing 8, 행 `.padding(.vertical, 6)`, `listRowInsets` top/bottom 3·leading/trailing 24 → **한 쪽 9pt**. 메모는 제목 아래 14pt regular·secondary·최대 2줄 — `TodoRow`와 인박스 `InboxTodoRow` 동일. 인박스 List는 `.listRowSeparator(.hidden)`.
 
 **TodoRow 설정 시간:** `showScheduledTime`이 켜지고 `scheduledTime`이 있을 때 행 trailing에 시간 태그(`[시계] [시각] [종(bell, alarmOffset 있을 때만)]`) 표시. 배경 `secondarySystemGroupedBackground`, 글자 `primary.opacity(0.62)` — `TodoScheduledTimeTagStyle`. 고정은 제목 옆 `pin.fill`(accent). 시각은 지역 설정 포맷(`.dateTime.hour().minute()`).
 
@@ -748,9 +758,9 @@ guard SubscriptionManager.shared.isPro else {
 탭 (체크박스 영역)          → 완료/미완료 토글
 탭 (제목)                   → 인라인 제목 수정 (`TodoInlineTitleEditor`)
 우로 스와이프 (풀스와이프)   → 고정(isPinned 토글)
-좌로 스와이프               → [내일로(sunrise)] [날짜 변경] [삭제] — Label+`.labelStyle(.iconOnly)` (화면 아이콘만, title은 접근성)
+좌로 스와이프               → [내일하기(sunrise)] [날짜 변경] [삭제] — Label+`.labelStyle(.iconOnly)` (화면 아이콘만, title은 접근성)
   (일반: 삭제 확인 alert / 반복: 반복 삭제 alert)
-길게 누르기                 → 컨텍스트 메뉴 (편집 / 고정 / 내일로 / 날짜 변경 / 삭제) — `TodoRowAction` 카탈로그
+길게 누르기                 → 컨텍스트 메뉴 (편집 / 고정 / 내일하기 / 날짜 변경 / 인박스로 보내기 / 삭제) — `TodoRowAction` 카탈로그. 「인박스로 보내기」는 메뉴만(반복 할일 제외)
 ```
 
 ---
@@ -1140,6 +1150,7 @@ v1.5는 투두 DB **select/status 옵션** 단위 동기화. 별도 카테고리
 - **완료:** 로컬 `date` 옵셔널, 위젯 Predicate, 백엔드 inbox 라우트, 편집 「날짜 제거」→ 노션 date 비움, `+` 날짜 없이 저장 → 인박스 생성, 목록 UI(버킷·미뤄둠·스와이프)
 - **완료:** 검색에서 인박스 항목 탭 → 시트 오픈 + 스크롤·하이라이트 (`openInbox`)
 - **완료 (`a21adc8`):** 위젯이 인박스 항목을 오늘 목록에 넣지 않음 (Swift 날짜 필터). DELETE GET 캐시 무효화에 `plannerId`
+- **완료 (2026-09-12):** 투두탭에서 「인박스로 보내기」, 인박스 「위로 올리기」(최신 버킷 포함), 행 여백 9pt·구분선 제거, 영어 번역
 - **폐기:** FAB 롱프레스/alert 빠른입력 UI. 툴바 `.glass`/Spacer 분리 시도 후 롤백
 카테고리 보관과 별개. 상세 → `V2-IDEAS.md`
 
