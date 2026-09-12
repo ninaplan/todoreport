@@ -6,6 +6,7 @@ enum InboxRowActionKind: String, CaseIterable, Identifiable {
     case moveToToday
     case assignDate
     case snooze
+    case bumpToRecent
     case clearSnooze
     case uncomplete
     case delete
@@ -26,7 +27,7 @@ struct InboxRowAction: Identifiable {
 enum InboxRowActionCatalog {
     /// trailing: 바깥쪽(full swipe) = 삭제.
     static let nowTrailingSwipe: [InboxRowActionKind] = [.delete, .assignDate, .moveToToday]
-    static let nowContextMenu: [InboxRowActionKind] = [.edit, .moveToToday, .assignDate, .snooze, .delete]
+    static let nowContextMenu: [InboxRowActionKind] = [.edit, .moveToToday, .assignDate, .snooze, .bumpToRecent, .delete]
 
     static let snoozedTrailingSwipe: [InboxRowActionKind] = [.delete, .assignDate]
     static let snoozedContextMenu: [InboxRowActionKind] = [.clearSnooze, .assignDate, .delete]
@@ -69,6 +70,14 @@ enum InboxRowActionCatalog {
                 title: String(localized: "나중에 보기"),
                 systemImage: "clock",
                 tint: .gray,
+                isDestructive: false
+            )
+        case .bumpToRecent:
+            return InboxRowAction(
+                kind: .bumpToRecent,
+                title: String(localized: "최신으로 올리기"),
+                systemImage: "arrow.up",
+                tint: .blue,
                 isDestructive: false
             )
         case .clearSnooze:

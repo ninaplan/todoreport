@@ -303,7 +303,7 @@ struct InboxView: View {
                 allowsInlineEdit: catalog == .now,
                 leadingActions: leadingActions(for: catalog),
                 trailingActions: trailingActions(for: catalog),
-                contextActions: contextActions(for: catalog),
+                contextActions: contextActions(for: catalog, todo: todo),
                 onCheckboxTap: {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         viewModel.toggleTodo(todo)
@@ -343,9 +343,12 @@ struct InboxView: View {
         }
     }
 
-    private func contextActions(for catalog: RowCatalog) -> [InboxRowAction] {
+    private func contextActions(for catalog: RowCatalog, todo: Todo) -> [InboxRowAction] {
         switch catalog {
-        case .now: return InboxRowActionCatalog.nowContextActions()
+        case .now:
+            return InboxRowActionCatalog.nowContextActions().filter { action in
+                action.kind != .bumpToRecent || viewModel.canBumpToRecent(todo)
+            }
         case .snoozed: return InboxRowActionCatalog.snoozedContextActions()
         case .completed: return InboxRowActionCatalog.completedContextActions()
         }
@@ -429,6 +432,11 @@ struct InboxView: View {
             changingDateTodo = todo
         case .snooze:
             viewModel.requestSnooze(todo)
+        case .bumpToRecent:
+            withAnimation(.easeInOut(duration: 0.3)) {
+                viewModel.bumpToRecent(todo)
+            }
+            hapticSuccessTrigger.toggle()
         case .clearSnooze:
             withAnimation(.easeInOut(duration: 0.3)) {
                 viewModel.clearSnooze(todo)

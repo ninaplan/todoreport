@@ -3878,6 +3878,16 @@
         }
       }
     },
+    "최신으로 올리기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move to Recent"
+          }
+        }
+      }
+    },
     "취소" : {
       "localizations" : {
         "en" : {

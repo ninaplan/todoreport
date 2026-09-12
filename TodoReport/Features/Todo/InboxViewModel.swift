@@ -378,6 +378,17 @@ final class InboxViewModel {
         applySnooze(todo, until: .now)
     }
 
+    /// 오래된 할일을 「최근」버킷으로. `now` 직전이면 `isSnoozeActive`에 안 걸림.
+    func bumpToRecent(_ todo: Todo) {
+        guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
+        guard canBumpToRecent(todo) else { return }
+        applySnooze(todo, until: Date.now.addingTimeInterval(-1))
+    }
+
+    func canBumpToRecent(_ todo: Todo) -> Bool {
+        nowAgeBucket(for: todo) != .recent
+    }
+
     func requestDelete(_ todo: Todo) {
         guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
         pendingDeleteTodo = todo
