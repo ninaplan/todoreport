@@ -631,7 +631,7 @@ private struct InboxTodoRow: View {
                         .foregroundStyle(.secondary)
                 } else if let memo = todo.memo, !memo.isEmpty {
                     Text(memo)
-                        .font(.caption)
+                        .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }

@@ -1531,8 +1531,8 @@ private struct FloatingCaptureButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "plus")
-                .font(.system(size: 26, weight: .heavy))
-                .frame(width: 52, height: 52)
+                .font(.system(size: 26, weight: .bold))
+                .frame(width: 48, height: 48)
         }
         .buttonStyle(.glassProminent)
         .tint(AppTheme.shared.accent)
