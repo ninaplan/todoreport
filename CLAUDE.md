@@ -11,6 +11,7 @@
 - v1.09 제출 예정 (빌드 17, main 반영)
 - v1.10 제출 완료 (빌드 19, 2026-08-30)
 - v1.13 TestFlight 테스트 중 (빌드 25, 2026-09-09) — 아직 App Store 제출 아님
+- v1.14 제출 예정 (투두탭 UI 미세 조정·FAB 유리 스타일·하단 탭 무반응 수정. 마케팅 버전·빌드 번호는 Xcode에서만)
 
 ### 인박스 진행 (2026-09-11)
 - **완료:** `TodoItem`/`Todo.date` 옵셔널화 + 위젯 Predicate(`ed99bdf`·`aeed0c4`). 백엔드 `GET/POST /api/notion/todo/inbox` 배포(`todoreport-backend` `486bbce`). 편집 화면 「날짜 제거」→ 노션 date 속성 비움(`bb4992d` SyncQueue·AnyEncodable + 백엔드 PATCH). `+`에서 날짜 없이 저장 → 인박스 생성 UI 연결(`f6de244`, POST `/api/notion/todo/inbox`)
@@ -25,11 +26,63 @@
 - 안내: 「노션에 연결된 할일은 이 기기에 동기화된 기간만 검색됩니다.」
 - **다음 세션:** 음성인식 입력 등 (아래 「다음 할 일」)
 
+### 투두탭 UI 미세 조정 (2026-09-12, v1.14 예정)
+
+기능 변경 없음. 레이아웃·문구만. 커밋 `723d407`(카테고리 시트·목록 간격·체크–제목·메모 크기) + `7926ba5`(플래너 상태 문구 「기기에 저장」).
+
+#### 1. 카테고리 관리 시트 — 편집 버튼 위치
+
+사용자가 보는 화면:
+- 투두 탭 **오른쪽 위 `⋯`** → 메뉴 두 번째 섹션 **「카테고리 설정」** → 아래에서 올라오는 large 시트. 내비게이션 제목은 **「카테고리 관리」**. 시트라 왼쪽 `<` 뒤로가기는 없음.
+- **변경 전:** 내비게이션 바 **오른쪽**에 「편집」과 「+」(추가)가 붙어 있음. 왼쪽은 비어 있어 버튼이 한쪽으로 몰려 보임.
+- **변경 후:** **왼쪽 「편집」**, **오른쪽 「+」만**. 「완료」(편집 모드일 때 편집 버튼이 바뀌는 시스템 동작)도 왼쪽.
+- **설정 → 플래너 → 「카테고리 관리」** (네비게이션 push): 왼쪽은 시스템 `<` 뒤로가기, 오른쪽은 예전처럼 「편집」+「+」. **이 화면은 손대지 않음.**
+- 이유: 시트만 leading이 비어 레이아웃이 어색했기 때문. 설정 화면은 이미 `<`가 왼쪽을 채움.
+- 구현: 시트만 `CategoryView(presentsAsSheet: true)`. 기본값 `false` → `PlannerDetailView`의 `NavigationLink { CategoryView(plannerId:) }` 무변경.
+
+#### 2. 할일 목록 — 위 여백 / 행 간격
+
+사용자가 보는 화면 (위에서 아래):
+날짜행(40pt) → 하루 리포트 카드 → (카테고리가 있으면) 칩 가로 스크롤 → **첫 할일** → 다음 할일… → 「투두 추가」.
+
+- **첫 할일 위:** 칩 하단~첫 행 콘텐츠까지 **12pt → 16pt** (칩 섹션 `listRowInsets.bottom` 0→8, 행 inset·padding 재계산). 칩이 없으면 리포트 카드~첫 할일은 약 24pt 유지(카드 bottom 12→16으로 행을 줄인 만큼 보정).
+- **할일↔할일:** `listRowInsets` top/bottom **4 → 2 → 최종 3**. 행 안 `.padding(.vertical)` **8 → 6**. 이전보다 행이 조금 더 붙어 보이되 겹치지는 않음.
+- 「투두 추가」행(`AddTodoRow`)도 같은 insets·세로 padding.
+- 이유: 목록 맨 위는 답답하고, 항목 사이는 넓어 밀도가 낮아 보였음.
+
+#### 3. 체크 원 ↔ 할일 이름
+
+- 완료 원(`○` / 채워진 체크)과 제목 사이 **12pt → 8pt**.
+- 「투두 추가」행의 `+` 원·빈 원과 「투두 추가」/입력 필드 사이도 **12 → 8**.
+- 이유: 행 간격을 줄인 폭만큼 가로도 맞춰, 원과 글자가 한 덩어리로 읽히게.
+
+#### 4. 투두탭 메모 글씨
+
+- `⋯` → **「할일 메모 보기」**를 켜면, 메모가 있는 할일만 제목 아래 최대 2줄·secondary 색.
+- **변경 전:** `.caption` (약 12pt).
+- 중간: `.footnote` (13pt) — 체감이 부족해 폐기.
+- **변경 후:** **14pt regular**, secondary. 제목(`.body` 약 17pt)보다 작고 caption보다는 읽기 쉬움.
+- **적용 범위:** `TodoView` 안 `TodoRow`만. 인박스 시트 메모·리포트 탭 리뷰/타임라인은 기존 크기 유지.
+- 이유: 투두 목록에서 메모가 보조 정보인데 너무 작아 잘 안 보임.
+
+#### 5. 플래너 선택 시트 — 상태 문구
+
+사용자가 보는 화면:
+- 투두 탭 **왼쪽 위** 플래너 아이콘 + 이름 + ▾ 탭 → medium detent 시트. 제목 **「플래너」**, 오른쪽 **「완료」**.
+- 카드 한 장: 왼쪽 48pt 아이콘, 가운데 이름(본문 bold) + **그 아래 상태 한 줄**, 선택된 카드만 오른쪽 체크(accent). 맨 아래 **「플래너 추가」** (무료면 Pro 배지).
+- **상태 문구:**
+  - 노션 연동: **「노션에 연결됨」** (유지)
+  - 노션 미연동: **「로컬 저장」→「기기에 저장」**
+  - 구독 만료로 잠김: **「읽기 전용」** (유지, 카드 dim)
+- **상태 글씨:** caption → 할일 메모와 같은 **14pt regular + secondary**.
+- 설정 → 플래너 상세 헤더의 같은 라벨도 「로컬 저장」→「기기에 저장」(거기는 글씨 크기 변경 없음, caption 유지). 영어는 기존 키 「기기에 저장」= `Save to Device`. 「로컬 저장」/Local Storage 키 삭제.
+- 이유: 상태 줄이 메모와 크기·톤이 달라 보였고, 「로컬 저장」이 개발 용어처럼 들림. 플래너 추가 화면 버튼 「기기에 저장」과 맞춤.
+
 ### v1.13 변경 내용 (TestFlight 테스트 중)
 - 리포트 탭 카테고리별 달성률에 「미분류」(`#8E8E93`) 통계 추가, 활성 카테고리 정렬 후 맨 뒤 고정, % 텍스트는 카테고리색 대신 `Color.primary.opacity(0.62)`
 - 인라인 입력(할일 제목 수정 / 새 투두 추가 / 하루 리뷰) 중 화면 빈 공간 탭 시 저장·종료 — `TapToDismissKeyboardModifier.swift` 신설. hitTest에서 window의 first responder(`UITextField`/`UITextView`만 인정, List의 `CellHostingView` 등 컨테이너는 제외)를 직접 판단해 자동으로 모든 입력창에 적용. 포커스된 뷰 자체는 통과시켜 커서 유지
 - 새 투두 추가 중 포커스 이탈 시(빈 공간 탭 등) 리턴키와 동일하게 글자 있으면 자동 추가되도록 개선
-- TodoRow 여백 조정: 메모 없을 때 세로 padding 4(있을 때 8), 체크박스–텍스트 간격 12→8, `AddTodoRow`도 동일하게 통일
+- TodoRow 여백 조정(당시): 메모 없을 때 세로 padding 4(있을 때 8), 체크박스–텍스트 간격 12→8 시도. **실제 잔존 값은 padding 8·spacing 12였고, v1.14(2026-09-12)에서 padding 6·spacing 8·insets 3으로 확정** (위 「투두탭 UI 미세 조정」)
 - 보류: 메모 인라인 수정(스코프 미정), 할일 드래그 정렬(미착수)
 
 ### v1.10 변경 내용 (제출 완료)
@@ -145,6 +198,7 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- 투두탭 UI 미세 조정 (2026-09-12, v1.14): 카테고리 시트 편집 leading / 목록 여백·행간 / 체크–제목 8pt / 메모 14pt / 플래너 상태 「기기에 저장」. 상세는 위 전용 섹션. 커밋 `723d407` · `7926ba5`
 - 투두 탭 하단 할일 줄 탭 무반응 + FAB 유리 스타일 (2026-09-12): `safeAreaInset(bottom)`이 iOS 26 스크롤 가장자리 흡수 영역을 키우던 것 — List 콘텐츠 안 120pt 빈 행으로 교체. FAB는 `.glassProminent` 원형(52pt, + 26 heavy, tint accent). 설정 「업데이트 내역」은 `https://www.nock.kr/changelog` 외부 링크
 - 할일 검색 (2026-09-12): `Tab(role: .search)` + 로컬 SwiftData 제목·메모 검색. 결과 탭 시 플래너 전환 + 날짜면 투두 탭 하이라이트, 인박스면 시트 열고 세그먼트/버킷 펼친 뒤 하이라이트 (`MainTabCoordinator.openTodo`/`openInbox`)
 - 삭제된 투두·인박스가 pull/위젯에 되살아나던 문제 (`a21adc8`): DELETE `plannerId`로 GET 캐시 무효화, 위젯은 Swift 날짜 필터로 인박스 제외
@@ -661,9 +715,17 @@ guard SubscriptionManager.shared.isPro else {
   - 카테고리 설정        ← Button, systemImage "tag" (시트)
 ```
 
+**카테고리 관리 진입 두 곳 (툴바 배치가 다름, 2026-09-12):**
+- 투두탭 ⋯ → 「카테고리 설정」시트: `CategoryView(presentsAsSheet: true)` — **왼쪽 「편집」, 오른쪽 「+」**. 뒤로가기 없음.
+- 설정 → 플래너 → 「카테고리 관리」push: `CategoryView(plannerId:)` 기본값 — **왼쪽 `<`, 오른쪽 「편집」+「+」**. 시트 플래그를 넘기지 않음.
+
 **보기 옵션 규칙:** 앞으로 보기 on/off는 `Toggle`로만 추가한다. 아이콘+동작 문구 `Button`은 시도 후 되돌림 — iOS 메뉴 아이콘 슬롯이 1개라 체크마크와 충돌하고, 문구가 「동작」인지 「상태」인지 헷갈림.
 
+**TodoRow 레이아웃 (2026-09-12 확정):** 체크 원–제목 `HStack` spacing 8, 행 `.padding(.vertical, 6)`, `listRowInsets` top/bottom 3·leading/trailing 24. 메모(「할일 메모 보기」켜짐)는 제목 아래 14pt regular·secondary·최대 2줄 — `TodoRow` 전용. 인박스 `InboxTodoRow` 메모는 `.caption` 유지.
+
 **TodoRow 설정 시간:** `showScheduledTime`이 켜지고 `scheduledTime`이 있을 때 행 trailing에 시간 태그(`[시계] [시각] [종(bell, alarmOffset 있을 때만)]`) 표시. 배경 `secondarySystemGroupedBackground`, 글자 `primary.opacity(0.62)` — `TodoScheduledTimeTagStyle`. 고정은 제목 옆 `pin.fill`(accent). 시각은 지역 설정 포맷(`.dateTime.hour().minute()`).
+
+**플래너 선택 시트 (`PlannerSelectionSheet`, 투두탭 왼쪽 이름 탭):** 제목 「플래너」, trailing 「완료」, medium detent. 카드 이름 아래 상태: 「노션에 연결됨」/「기기에 저장」/잠기면 「읽기 전용」. 상태 글씨는 메모와 같이 14pt regular·secondary. 설정 플래너 상세 헤더도 문구만 「기기에 저장」(caption 유지).
 
 ---
 
