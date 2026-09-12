@@ -7,6 +7,7 @@ enum TodoRowActionKind: String, CaseIterable, Identifiable {
     case pin
     case moveToTomorrow
     case changeDate
+    case sendToInbox
     case delete
 
     var id: String { rawValue }
@@ -28,7 +29,7 @@ enum TodoRowActionCatalog {
     /// trailing 스와이프 렌더 순서: 먼저 선언된 항목이 바깥쪽(full swipe = 삭제).
     static let trailingSwipe: [TodoRowActionKind] = [.delete, .changeDate, .moveToTomorrow]
     static let leadingSwipe: [TodoRowActionKind] = [.pin]
-    static let contextMenu: [TodoRowActionKind] = [.edit, .pin, .moveToTomorrow, .changeDate, .delete]
+    static let contextMenu: [TodoRowActionKind] = [.edit, .pin, .moveToTomorrow, .changeDate, .sendToInbox, .delete]
 
     static func resolve(_ kind: TodoRowActionKind, todo: Todo) -> TodoRowAction {
         switch kind {
@@ -73,6 +74,14 @@ enum TodoRowActionCatalog {
                 tint: Color(red: 1, green: 0.584, blue: 0),
                 isDestructive: false
             )
+        case .sendToInbox:
+            return TodoRowAction(
+                kind: .sendToInbox,
+                title: String(localized: "인박스로 보내기"),
+                systemImage: "tray",
+                tint: .blue,
+                isDestructive: false
+            )
         case .delete:
             return TodoRowAction(
                 kind: .delete,
@@ -93,6 +102,9 @@ enum TodoRowActionCatalog {
     }
 
     static func contextMenuActions(for todo: Todo) -> [TodoRowAction] {
-        contextMenu.map { resolve($0, todo: todo) }
+        contextMenu.compactMap { kind in
+            if kind == .sendToInbox, todo.recurrenceId != nil { return nil }
+            return resolve(kind, todo: todo)
+        }
     }
 }

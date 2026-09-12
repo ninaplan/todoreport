@@ -572,6 +572,27 @@ final class TodoViewModel {
         }
     }
 
+    func sendToInbox(_ todo: Todo) {
+        guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
+        guard todo.recurrenceId == nil else { return }
+        var updated = todo
+        let hadAlarm = updated.alarmOffset != nil
+        updated.date = nil
+        updated.scheduledTime = nil
+        updated.alarmOffset = nil
+        updated.snoozedUntil = Date.now.addingTimeInterval(-1)
+        updated.markLocallyModified()
+        todos.removeAll { $0.id == todo.id }
+        if hadAlarm {
+            TodoNotificationManager.shared.cancel(for: todo.id)
+        }
+        cancelInFlightFetches()
+        Task {
+            try? await service.updateTodo(updated)
+            await replaceTodosFromStore()
+        }
+    }
+
     func saveTodoEdit(_ updated: Todo) {
         if let original = todos.first(where: { $0.id == updated.id }),
            let changeType = RecurringTodoEditHandler.detectChange(original: original, updated: updated) {

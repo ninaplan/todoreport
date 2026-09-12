@@ -634,6 +634,10 @@ struct TodoView: View {
             }
         case .changeDate:
             changingDateTodo = todo
+        case .sendToInbox:
+            withAnimation(.easeInOut(duration: 0.3)) {
+                viewModel.sendToInbox(todo)
+            }
         case .delete:
             viewModel.requestDelete(todo)
             hapticWarningTrigger.toggle()
