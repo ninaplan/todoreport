@@ -997,10 +997,24 @@
       }
     },
     "나중에 보기" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snooze"
+          }
+        }
+      }
     },
     "나중에 보기로 미룬 할 일이 여기에 표시됩니다." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tasks you snooze will show up here."
+          }
+        }
+      }
     },
     "나중에 연결하기" : {
       "localizations" : {
@@ -1035,10 +1049,24 @@
       }
     },
     "날짜 넣기" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schedule"
+          }
+        }
+      }
     },
     "날짜 다시 정하기" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reschedule"
+          }
+        }
+      }
     },
     "날짜 범위 계산 실패" : {
       "localizations" : {
@@ -1083,7 +1111,14 @@
       }
     },
     "날짜 없이 저장한 할 일이 여기에 모입니다." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tasks you save without a date land here."
+          }
+        }
+      }
     },
     "날짜 이동 속도 개선" : {
       "localizations" : {
@@ -1193,18 +1228,12 @@
         }
       }
     },
-    "내일로" : {
+    "내일하기" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Do Tomorrow"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "내일로"
           }
         }
       }
@@ -1590,7 +1619,14 @@
       }
     },
     "다시 볼 날짜" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snooze Until"
+          }
+        }
+      }
     },
     "다시 시도" : {
       "localizations" : {
@@ -1613,10 +1649,24 @@
       }
     },
     "다음달" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next Month"
+          }
+        }
+      }
     },
     "다음주" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next Week"
+          }
+        }
+      }
     },
     "다크 모드" : {
       "localizations" : {
@@ -1776,7 +1826,14 @@
       }
     },
     "되돌리기" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo"
+          }
+        }
+      }
     },
     "뒤로가기" : {
       "localizations" : {
@@ -2119,13 +2176,34 @@
       }
     },
     "미뤄둔 할 일이 없습니다" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Snoozed Tasks"
+          }
+        }
+      }
     },
     "미뤄둠" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snoozed"
+          }
+        }
+      }
     },
     "미뤄둠 (%lld)" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snoozed (%lld)"
+          }
+        }
+      }
     },
     "미분류" : {
       "localizations" : {
@@ -2431,7 +2509,14 @@
       }
     },
     "새 투두" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New To-Do"
+          }
+        }
+      }
     },
     "색상" : {
       "localizations" : {
@@ -3037,7 +3122,14 @@
       }
     },
     "오늘하기" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Do Today"
+          }
+        }
+      }
     },
     "오류" : {
       "localizations" : {
@@ -3126,7 +3218,14 @@
       }
     },
     "완료된 할 일이 없습니다" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Completed Tasks"
+          }
+        }
+      }
     },
     "완료된 할일 보기" : {
       "localizations" : {
@@ -3155,7 +3254,14 @@
       }
     },
     "완료됨 (%lld)" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed (%lld)"
+          }
+        }
+      }
     },
     "완료율" : {
       "localizations" : {
@@ -3178,7 +3284,14 @@
       }
     },
     "완료한 인박스 할 일이 여기에 표시됩니다." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed inbox tasks will show up here."
+          }
+        }
+      }
     },
     "외관" : {
       "localizations" : {
@@ -3246,6 +3359,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Monday"
+          }
+        }
+      }
+    },
+    "위로 올리기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move to Top"
           }
         }
       }
@@ -3371,7 +3494,14 @@
       }
     },
     "인박스에 할 일이 없습니다" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Tasks Here"
+          }
+        }
+      }
     },
     "인증 세션을 시작할 수 없어요" : {
       "localizations" : {
@@ -3790,13 +3920,34 @@
       }
     },
     "지금" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now"
+          }
+        }
+      }
     },
     "지금 보기로" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsnooze"
+          }
+        }
+      }
     },
     "직접 날짜 선택" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom Date"
+          }
+        }
+      }
     },
     "직접 선택" : {
       "localizations" : {
@@ -3884,16 +4035,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "You need at least one planner."
-          }
-        }
-      }
-    },
-    "최신으로 올리기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Move to Recent"
           }
         }
       }

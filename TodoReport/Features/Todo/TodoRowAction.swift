@@ -61,7 +61,7 @@ enum TodoRowActionCatalog {
         case .moveToTomorrow:
             return TodoRowAction(
                 kind: .moveToTomorrow,
-                title: String(localized: "내일로"),
+                title: String(localized: "내일하기"),
                 systemImage: "sunrise",
                 tint: .blue,
                 isDestructive: false

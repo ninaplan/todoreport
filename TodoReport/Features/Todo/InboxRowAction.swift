@@ -75,7 +75,7 @@ enum InboxRowActionCatalog {
         case .bumpToRecent:
             return InboxRowAction(
                 kind: .bumpToRecent,
-                title: String(localized: "최신으로 올리기"),
+                title: String(localized: "위로 올리기"),
                 systemImage: "arrow.up",
                 tint: .blue,
                 isDestructive: false

@@ -304,7 +304,7 @@ struct InboxView: View {
                 allowsInlineEdit: catalog == .now,
                 leadingActions: leadingActions(for: catalog),
                 trailingActions: trailingActions(for: catalog),
-                contextActions: contextActions(for: catalog, todo: todo),
+                contextActions: contextActions(for: catalog),
                 onCheckboxTap: {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         viewModel.toggleTodo(todo)
@@ -345,12 +345,9 @@ struct InboxView: View {
         }
     }
 
-    private func contextActions(for catalog: RowCatalog, todo: Todo) -> [InboxRowAction] {
+    private func contextActions(for catalog: RowCatalog) -> [InboxRowAction] {
         switch catalog {
-        case .now:
-            return InboxRowActionCatalog.nowContextActions().filter { action in
-                action.kind != .bumpToRecent || viewModel.canBumpToRecent(todo)
-            }
+        case .now: return InboxRowActionCatalog.nowContextActions()
         case .snoozed: return InboxRowActionCatalog.snoozedContextActions()
         case .completed: return InboxRowActionCatalog.completedContextActions()
         }
