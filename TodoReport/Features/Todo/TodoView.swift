@@ -1402,8 +1402,8 @@ private struct PlannerCard: View {
                     Text(planner.name)
                         .font(.body.bold())
                         .foregroundStyle(.primary)
-                    Text(planner.isReadOnly ? "읽기 전용" : (planner.isNotionConnected ? "노션에 연결됨" : "로컬 저장"))
-                        .font(.caption)
+                    Text(planner.isReadOnly ? "읽기 전용" : (planner.isNotionConnected ? "노션에 연결됨" : "기기에 저장"))
+                        .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()

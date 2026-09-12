@@ -1828,16 +1828,6 @@
         }
       }
     },
-    "로컬 저장" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Local Storage"
-          }
-        }
-      }
-    },
     "로컬에만 저장된 데이터라 삭제하면 복구할 수 없어요." : {
       "localizations" : {
         "en" : {

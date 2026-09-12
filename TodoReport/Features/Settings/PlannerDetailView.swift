@@ -143,7 +143,7 @@ struct PlannerDetailView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(name.isEmpty ? currentPlanner.name : name)
                         .font(.headline)
-                    Text(currentPlanner.isNotionConnected ? "Notion 연결됨" : "로컬 저장")
+                    Text(currentPlanner.isNotionConnected ? "Notion 연결됨" : "기기에 저장")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
