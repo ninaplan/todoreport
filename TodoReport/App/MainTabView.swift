@@ -23,6 +23,11 @@ struct MainTabView: View {
                 }
                 .background(Color(.systemGroupedBackground))
             }
+            Tab(value: MainTabCoordinator.Tab.search, role: .search) {
+                NavigationStack {
+                    TodoSearchView()
+                }
+            }
         }
         .environment(tabCoordinator)
     }

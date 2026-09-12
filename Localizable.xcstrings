@@ -662,6 +662,16 @@
         }
       }
     },
+    "검색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search"
+          }
+        }
+      }
+    },
     "격주" : {
       "localizations" : {
         "en" : {
@@ -1415,6 +1425,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Saving reports to Notion is a Pro feature"
+          }
+        }
+      }
+    },
+    "노션에 연결된 할일은 이 기기에 동기화된 기간만 검색됩니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For Notion-connected accounts, only dates synced to this device can be searched."
           }
         }
       }
@@ -4531,6 +4551,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "할 일을 길게 눌러 편집·고정·날짜 변경·삭제 메뉴 열기"
+          }
+        }
+      }
+    },
+    "제목과 메모에서 찾습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search titles and notes."
+          }
+        }
+      }
+    },
+    "할일 검색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search To-Dos"
           }
         }
       }

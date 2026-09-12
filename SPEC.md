@@ -1,7 +1,7 @@
 # 투두리포트 앱 개발 스펙
 
 > 작성일: 2026-05-26  
-> 최종 업데이트: 2026-07-23 (v1.08 재제출 — 달력 노션 불러오기 · 범례 필터 · pull stale 가드)  
+> 최종 업데이트: 2026-09-12 (할일 검색 탭 · 검색→날짜/인박스 하이라이트 · 위젯 인박스 제외 `a21adc8`)  
 > 브랜드: 노크(Nock / nock.kr)  
 > 앱명 (홈 화면): 투두리포트  
 > App Store 이름: 노션품은 투두x리포트  
@@ -111,6 +111,11 @@ TodoReport/
 │   ├── QuickCapture/              # 빠른 추가 (구 "빠른 캡처", 투두 탭 플로팅 버튼 → 시트)
 │   │   ├── QuickCaptureView.swift
 │   │   └── QuickCaptureViewModel.swift
+│   ├── Search/                    # 할일 검색 (무료, 로컬 SwiftData)
+│   │   ├── TodoSearchView.swift
+│   │   ├── TodoSearchViewModel.swift
+│   │   ├── TodoSearchService.swift
+│   │   └── SearchResultRow.swift
 │   ├── DailyReport/
 │   │   ├── DailyReportView.swift
 │   │   ├── DailyReportViewModel.swift
@@ -158,8 +163,8 @@ TodoReport/
 │
 └── App/
     ├── TodoReportApp.swift        # 앱 진입점 · onOpenURL (todoreport://todo|paywall)
-    ├── MainTabView.swift          # 설정 탭 NavigationStack path
-    ├── MainTabCoordinator.swift   # 탭 전환 · 위젯 딥링크
+    ├── MainTabView.swift          # 설정 탭 NavigationStack path · Tab(role: .search)
+    ├── MainTabCoordinator.swift   # 탭 전환 · 위젯 딥링크 · 검색 하이라이트(openTodo/openInbox)
     └── TabBarAppearance.swift
 ```
 
@@ -210,7 +215,8 @@ api/
 - 날짜별 투두 조회
 - **날짜 이동** — 모든 날짜 자유 이동 가능 (무료)
 - **투두 메모** — 투두별 상세 내용 추가 (Notion 페이지 텍스트 블록으로 저장)
-- **할일 보관** — ✅ **인박스 길 A** (2026-09-11). 날짜 제거(편집)→노션 date 비움, `+`에서 날짜 없이 저장→인박스 생성, 목록 UI(날짜 버킷 4단계·미뤄둠·스와이프). 카테고리 숨김과는 별개
+- **할일 보관** — ✅ **인박스 길 A** (2026-09-11). 날짜 제거(편집)→노션 date 비움, `+`에서 날짜 없이 저장→인박스 생성, 목록 UI(날짜 버킷 4단계·미뤄둠·스와이프). 검색에서 인박스 항목 탭 → 시트 오픈·스크롤·하이라이트. 카테고리 숨김과는 별개
+- **할일 검색** — ✅ (2026-09-12). iOS 26 `Tab(role: .search)`. 로컬 SwiftData `title`/`memo` (`localizedStandardContains`), 전 플래너·완료 포함. Notion API 없음(기기에 동기화된 기간만). 결과 탭: 필요 시 `PlannerService.selectPlanner` 후 날짜면 `openTodo(on:highlightTodoId:)`, 인박스(`date == nil`)면 `openInbox(highlightTodoId:)`
 
 **Notion 동기화 (투두):**
 
@@ -295,6 +301,7 @@ api/
 - entitlements 파일: `TodoReport/TodoReport.entitlements`, `TodoReportWidget/TodoReportWidget.entitlements`
 - 갱신 시점: 투두 fetch/추가/체크/삭제, 완료 할일 숨기기(`hideCompleted`) 설정 변경 시, 앱 실행·포그라운드 복귀 (`refreshTodayFromStore()`), 구독·DEBUG Pro 토글 (`syncProStatus` / `refreshTodayFromStore`)
 - 완료율: 오늘 **전체 투두** 기준 (앱 `hideCompleted`와 무관). 목록 표시는 `hideCompleted` 반영
+- **인박스 제외 (`a21adc8`):** 위젯 오늘 목록은 `date == nil` 항목을 넣지 않음. SwiftData `#Predicate`의 `flatMap`은 인박스 필터에 쓰지 않고, fetch 후 Swift 날짜 필터로 제외. DELETE는 `plannerId`를 넘겨 GET 캐시 무효화 scope를 맞춤
 - Pro 상태: `SubscriptionManager.isPro` → App Group `widgetIsPro`. DEBUG 빌드 `debugIsPro` 토글 지원
 - 실패 시 `AppLogger` `[WidgetDataProvider]` 로그 (App Group 접근 실패·인코딩 실패)
 
@@ -853,13 +860,14 @@ struct Category: Identifiable, Codable {
 
 ## 9. 네비게이션 구조
 
-### 탭 구성 (3개)
+### 탭 구성 (투두 · 리포트 · 설정 + 검색)
 
 | 탭 | 아이콘 | 포함 기능 |
 |---|---|---|
-| 투두 | 체크리스트 | 데일리 리포트 + 투두 목록 + 다른 날 투두 확인 |
+| 투두 | 체크리스트 | 데일리 리포트 + 투두 목록 + 인박스 시트 + 다른 날 투두 확인 |
 | 리포트 | 차트 | 이번 주/이번 달 데이터 (완료율·별점·카테고리 달성률), 이전 기간 조회(유료), 노션 저장(유료) |
 | 설정 | 기어 | 플래너 관리, 앱 설정, 카테고리, 구독, 계정 |
+| 검색 | `Tab(role: .search)` | 로컬 할일 제목·메모 검색 (`Features/Search/`). 하단 탭 바와 별도 시스템 검색 탭 |
 
 ### 탭·딥링크 동작 (v1)
 
@@ -868,7 +876,9 @@ struct Category: Identifiable, Codable {
 | 위젯 탭 (`todoreport://todo`) | 투두 탭 + 오늘 날짜. 설정 하위 화면(플래너 상세 등) 스택 초기화 |
 | 위젯 Paywall (`todoreport://paywall`) | Paywall 시트 |
 | 다른 탭 → **설정 탭** 재진입 | `NavigationStack` **루트(설정 목록)** 로 초기화 — 플래너 상세 등 이전 화면 유지 안 함 |
-| 리포트 날짜 행 탭 | `MainTabCoordinator.openTodo(on:)` → 투두 탭 해당 날짜 (설정 스택 초기화 없음) |
+| 리포트 날짜 행 탭 | `MainTabCoordinator.openTodo(on:)` → 투두 탭 해당 날짜 (설정 스택 초기화 없음, highlight 없음) |
+| 검색 결과 탭 (날짜 있음) | `openTodo(on:highlightTodoId:)` → 투두 탭 해당 날짜 + 행 스크롤·하이라이트 |
+| 검색 결과 탭 (인박스) | `openInbox(highlightTodoId:)` → 투두 탭 + 인박스 시트 + 세그먼트/버킷 펼침 후 스크롤·하이라이트 |
 
 > 설정 탭만 `MainTabView`에서 `NavigationStack(path:)` 관리. `settingsStackResetToken`으로 위젯 진입 시에도 스택 리셋.
 
@@ -1234,7 +1244,8 @@ struct Category: Identifiable, Codable {
 | iCloud 백업 / 기기 이동 | v2 유료 | 로컬 사용자 데이터 보호. Repository 패턴으로 구조 대비 완료 |
 | 로컬 ↔ 노션 데이터 마이그레이션 | v2 유료 | 로컬 → 노션 전환 시 기존 데이터 이전 |
 | Apple Reminders 연동 | v2 | 사용자 피드백 후 결정 |
-| **할일 보관 (인박스)** | **구현됨** | 길 A: 날짜 제거·인박스 생성·목록 UI(버킷/미뤄둠/스와이프) 완료. → `V2-IDEAS.md` |
+| **할일 보관 (인박스)** | **구현됨** | 길 A: 날짜 제거·인박스 생성·목록 UI(버킷/미뤄둠/스와이프) 완료. 검색→시트 하이라이트 완료. 위젯은 인박스 제외 (`a21adc8`). → `V2-IDEAS.md` |
+| 할일 검색 | **구현됨** | `Tab(role: .search)`, 로컬 SwiftData 제목·메모. 결과 탭 시 날짜 목록 또는 인박스 시트 + 하이라이트 |
 | 리포트 알림 원탭 저장 (알림 액션) | v1.2 | v1은 리마인더만. v1.2에서 「앱으로 가기」「바로 저장하기」액션 추가 |
 | 노션 저장 시트 UX (알림·저장 분리) | v1.1 | v1: 툴바 저장=노션 저장, 알림은 `@AppStorage` 즉시 반영. v1.1: 취소=알림 되돌리기, 확인=알림만 저장, 「노션에 저장하기」를 리뷰 카드 하단으로 이동 검토 |
 | 투두 탭 할일 시간 표시 | **구현됨** | 더보기 「설정 시간 보기」+ `TodoRow` trailing `[종?][시각]` (C안). `showScheduledTime` 기본 true. A/C 실험 브랜치 폐기 |

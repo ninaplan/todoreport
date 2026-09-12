@@ -27,6 +27,8 @@ final class TodoViewModel {
         didSet { UserDefaults.standard.set(showScheduledTime, forKey: "todoShowScheduledTime") }
     }
     var selectedCategoryFilter: String? = nil  // nil = 전체
+    /// 검색에서 들어온 항목이 숨김(완료/카테고리 필터)이어도 잠깐 목록에 보이게 한다.
+    private(set) var navigationRevealTodoId: String?
 
     var selectedDate: Date = .now {
         didSet {
@@ -118,15 +120,24 @@ final class TodoViewModel {
                             .sorted { sortDate($0) < sortDate($1) }
         let normal   = dated.filter { !$0.isPinned && !$0.isCompleted }
                             .sorted { sortDate($0) < sortDate($1) }
-        let completed = hideCompleted ? [] :
-                        dated.filter { $0.isCompleted }
-                             .sorted { ($0.completedAt ?? $0.createdAt) > ($1.completedAt ?? $1.createdAt) }
+        let completed: [Todo]
+        if hideCompleted {
+            if let revealId = navigationRevealTodoId {
+                completed = dated.filter { $0.isCompleted && $0.id == revealId }
+                    .sorted { ($0.completedAt ?? $0.createdAt) > ($1.completedAt ?? $1.createdAt) }
+            } else {
+                completed = []
+            }
+        } else {
+            completed = dated.filter { $0.isCompleted }
+                .sorted { ($0.completedAt ?? $0.createdAt) > ($1.completedAt ?? $1.createdAt) }
+        }
         return pinned + normal + completed
     }
 
     var filteredTodos: [Todo] {
         guard let filterId = selectedCategoryFilter else { return displayedTodos }
-        return displayedTodos.filter { $0.categoryId == filterId }
+        return displayedTodos.filter { $0.categoryId == filterId || $0.id == navigationRevealTodoId }
     }
 
     var filteredCompletionRate: Double {
@@ -676,5 +687,13 @@ final class TodoViewModel {
         let cal = Calendar.current
         let target = cal.startOfDay(for: date)
         selectedDate = target
+    }
+
+    func prepareRevealForNavigation(todoId: String) {
+        navigationRevealTodoId = todoId
+    }
+
+    func clearNavigationReveal() {
+        navigationRevealTodoId = nil
     }
 }

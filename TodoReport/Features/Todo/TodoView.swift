@@ -13,7 +13,10 @@ struct TodoView: View {
     @State private var inlineEditingTodoId: String? = nil
     @State private var showCategorySheet: Bool = false
     @State private var showInboxSheet: Bool = false
+    @State private var inboxSheetHighlightTodoId: String? = nil
     @State private var inboxBadgeCount: Int = 0
+    @State private var highlightedTodoId: String? = nil
+    @State private var highlightScrollTask: Task<Void, Never>? = nil
 
     @State private var hapticImpactTrigger = false
     @State private var hapticSuccessTrigger = false
@@ -52,11 +55,13 @@ struct TodoView: View {
                     showQuickCapture: $showQuickCapture,
                     showCategorySheet: $showCategorySheet,
                     showInboxSheet: $showInboxSheet,
+                    inboxHighlightTodoId: inboxSheetHighlightTodoId,
                     changingDateTodo: $changingDateTodo,
                     editingTodo: $editingTodo,
                     hapticSuccessTrigger: $hapticSuccessTrigger,
                     onCategoryDismiss: refreshAllChipColor,
                     onInboxDismiss: {
+                        inboxSheetHighlightTodoId = nil
                         refreshInboxBadge()
                         Task { await viewModel.fetchLocalTodos() }
                     }
@@ -338,10 +343,14 @@ struct TodoView: View {
             .onChange(of: tabCoordinator.todoRootResetToken) { _, _ in
                 resetTodoNavigationToRoot()
             }
-            .onChange(of: tabCoordinator.pendingTodoDate) { _, date in
-                guard let date else { return }
-                viewModel.navigateToDate(date)
-                tabCoordinator.clearPendingTodoDate()
+            .onChange(of: tabCoordinator.pendingTodoDate) { _, _ in
+                consumePendingTodoNavigation(proxy: proxy)
+            }
+            .onChange(of: tabCoordinator.pendingHighlightTodoId) { _, _ in
+                consumePendingTodoNavigation(proxy: proxy)
+            }
+            .onChange(of: tabCoordinator.pendingInboxHighlightTodoId) { _, _ in
+                consumePendingInboxNavigation()
             }
             .onChange(of: PlannerService.shared.selectedPlannerId) { _, _ in
                 refreshAllChipColor()
@@ -517,7 +526,61 @@ struct TodoView: View {
         inlineEditingTodoId = nil
         isAddingTodo = false
         newTodoTitle = ""
+        showInboxSheet = false
+        inboxSheetHighlightTodoId = nil
         viewModel.goToToday()
+        highlightedTodoId = nil
+        highlightScrollTask?.cancel()
+        highlightScrollTask = nil
+        viewModel.clearNavigationReveal()
+    }
+
+    private func consumePendingTodoNavigation(proxy: ScrollViewProxy) {
+        if let id = tabCoordinator.pendingHighlightTodoId {
+            viewModel.prepareRevealForNavigation(todoId: id)
+            highlightedTodoId = id
+            tabCoordinator.clearPendingHighlightTodoId()
+            startHighlightScroll(proxy: proxy, todoId: id)
+        }
+        if let date = tabCoordinator.pendingTodoDate {
+            viewModel.navigateToDate(date)
+            tabCoordinator.clearPendingTodoDate()
+        }
+    }
+
+    private func consumePendingInboxNavigation() {
+        guard let id = tabCoordinator.pendingInboxHighlightTodoId else { return }
+        inboxSheetHighlightTodoId = id
+        tabCoordinator.clearPendingInboxHighlightTodoId()
+        showInboxSheet = true
+    }
+
+    private func startHighlightScroll(proxy: ScrollViewProxy, todoId: String) {
+        highlightScrollTask?.cancel()
+        highlightScrollTask = Task { @MainActor in
+            for _ in 0..<25 {
+                if Task.isCancelled { return }
+                if viewModel.filteredTodos.contains(where: { $0.id == todoId }) {
+                    withAnimation(.easeInOut(duration: 0.35)) {
+                        proxy.scrollTo(todoId, anchor: .center)
+                    }
+                    try? await Task.sleep(for: .seconds(1.2))
+                    guard !Task.isCancelled else { return }
+                    withAnimation(.easeInOut(duration: 0.35)) {
+                        if highlightedTodoId == todoId {
+                            highlightedTodoId = nil
+                        }
+                    }
+                    viewModel.clearNavigationReveal()
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(120))
+            }
+            if highlightedTodoId == todoId {
+                highlightedTodoId = nil
+            }
+            viewModel.clearNavigationReveal()
+        }
     }
 
     /// 탭 이탈 시 인라인 입력·first responder 잔류를 정리한다.
@@ -623,7 +686,13 @@ struct TodoView: View {
                 onOpenDetailFromInline: { draft in openDetailFromInline(todo: todo, draft: draft) },
                 onAction: { performRowAction($0, for: todo) }
             )
+            .id(todo.id)
             .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
+            .listRowBackground(
+                highlightedTodoId == todo.id
+                    ? AppTheme.shared.accent.opacity(0.14)
+                    : Color.clear
+            )
         }
         .animation(.easeInOut(duration: 0.3), value: todos.map(\.id))
     }
@@ -648,6 +717,7 @@ private struct TodoViewSheetsModifier: ViewModifier {
     @Binding var showQuickCapture: Bool
     @Binding var showCategorySheet: Bool
     @Binding var showInboxSheet: Bool
+    var inboxHighlightTodoId: String? = nil
     @Binding var changingDateTodo: Todo?
     @Binding var editingTodo: Todo?
     @Binding var hapticSuccessTrigger: Bool
@@ -729,7 +799,8 @@ private struct TodoViewSheetsModifier: ViewModifier {
             }
             .sheet(isPresented: $showInboxSheet, onDismiss: onInboxDismiss) {
                 NavigationStack {
-                    InboxView()
+                    InboxView(highlightTodoId: inboxHighlightTodoId)
+                        .id(inboxHighlightTodoId ?? "inbox-tray")
                 }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)

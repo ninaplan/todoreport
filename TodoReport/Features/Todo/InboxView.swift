@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct InboxView: View {
+    private let highlightTodoId: String?
+
     @State private var viewModel = InboxViewModel()
     @Environment(\.dismiss) private var dismiss
 
@@ -10,27 +12,40 @@ struct InboxView: View {
     @State private var changingDateTodo: Todo? = nil
     @State private var editingTodo: Todo? = nil
     @State private var snoozedActionTodo: Todo? = nil
+    @State private var highlightedTodoId: String? = nil
+    @State private var highlightScrollTask: Task<Void, Never>? = nil
+    @State private var didConsumeHighlight = false
 
     @State private var hapticImpactTrigger = false
     @State private var hapticSuccessTrigger = false
     @State private var hapticWarningTrigger = false
 
+    init(highlightTodoId: String? = nil) {
+        self.highlightTodoId = highlightTodoId
+    }
+
     var body: some View {
         @Bindable var vm = viewModel
-        List {
-            segmentSection
+        ScrollViewReader { proxy in
+            List {
+                segmentSection
 
-            switch viewModel.segment {
-            case .now:
-                nowContent
-            case .snoozed:
-                snoozedContent
-            case .completed:
-                completedContent
+                switch viewModel.segment {
+                case .now:
+                    nowContent
+                case .snoozed:
+                    snoozedContent
+                case .completed:
+                    completedContent
+                }
+            }
+            .listStyle(.plain)
+            .environment(\.defaultMinListRowHeight, 0)
+            .task {
+                await viewModel.load()
+                startHighlightIfNeeded(proxy: proxy)
             }
         }
-        .listStyle(.plain)
-        .environment(\.defaultMinListRowHeight, 0)
         .navigationTitle("인박스")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -39,7 +54,6 @@ struct InboxView: View {
                     .toolbarPrimaryActionStyle()
             }
         }
-        .task { await viewModel.load() }
         .sheet(item: $changingDateTodo) { todo in
             TodoDateChangeSheet(
                 initialDate: Calendar.current.startOfDay(for: .now),
@@ -302,7 +316,13 @@ struct InboxView: View {
                 onSnoozedRowTap: catalog == .snoozed ? { snoozedActionTodo = todo } : nil,
                 onAction: { performRowAction($0, for: todo) }
             )
+            .id(todo.id)
             .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
+            .listRowBackground(
+                highlightedTodoId == todo.id
+                    ? AppTheme.shared.accent.opacity(0.14)
+                    : Color.clear
+            )
         }
         .animation(.easeInOut(duration: 0.3), value: todos.map(\.id))
     }
@@ -364,6 +384,36 @@ struct InboxView: View {
     }
 
     // MARK: - Actions
+
+    private func startHighlightIfNeeded(proxy: ScrollViewProxy) {
+        guard !didConsumeHighlight, let todoId = highlightTodoId else { return }
+        didConsumeHighlight = true
+        guard viewModel.revealTodoForNavigation(todoId) else { return }
+        highlightedTodoId = todoId
+        highlightScrollTask?.cancel()
+        highlightScrollTask = Task { @MainActor in
+            for _ in 0..<25 {
+                if Task.isCancelled { return }
+                if viewModel.isTodoVisibleInCurrentList(todoId) {
+                    withAnimation(.easeInOut(duration: 0.35)) {
+                        proxy.scrollTo(todoId, anchor: .center)
+                    }
+                    try? await Task.sleep(for: .seconds(1.2))
+                    guard !Task.isCancelled else { return }
+                    withAnimation(.easeInOut(duration: 0.35)) {
+                        if highlightedTodoId == todoId {
+                            highlightedTodoId = nil
+                        }
+                    }
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(120))
+            }
+            if highlightedTodoId == todoId {
+                highlightedTodoId = nil
+            }
+        }
+    }
 
     private func performRowAction(_ kind: InboxRowActionKind, for todo: Todo) {
         switch kind {

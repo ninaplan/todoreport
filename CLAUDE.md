@@ -1,6 +1,6 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-09-10 기준)
+## 현재 상황 (2026-09-12 기준)
 
 ### 앱 상태
 - v1.0.4 App Store 제출 완료
@@ -17,7 +17,13 @@
 - **완료 (목록 UI, 2026-09-11):** 투두 탭 tray 시트 `InboxView` — 지금/미뤄둠/완료됨 세그먼트, 날짜 버킷 4단계(최근·7일 이전·30일 이전·그 이전), 미뤄둠 만료 시 최근 취급 복귀, 스와이프·버킷 헤더 스타일, 툴바 뱃지 잘림 수정
 - **근본 원인 해결:** 날짜 제거가 로컬만 반영되던 문제 — 백엔드 PATCH 인코더 · `SyncQueueManager`(update payload `date: null`) · `NotionAPIClient.AnyEncodable`(NSNull) 3곳
 - **되돌림(폐기):** FAB 롱프레스 / 시스템 alert 방식 인박스 빠른입력 UI. 투두 탭 우상단 tray·ellipsis에 `.buttonStyle(.glass)` / `ToolbarSpacer` 분리 시도 → Liquid Glass 캡슐이 어색해 롤백(기본 툴바 스타일 유지, 뱃지만 프레임 안 수납으로 잘림 수정)
-- **다음 세션:** 할일 검색 / 음성인식 입력 등 (아래 「다음 할 일」)
+- **완료 (위젯·삭제 부활, `a21adc8`):** DELETE에 `plannerId`를 넘겨 GET 캐시 무효화 scope를 맞추고, 위젯은 `#Predicate` `flatMap` 대신 Swift 날짜 필터로 인박스(`date == nil`)를 제외 — 삭제된 투두·인박스 항목이 pull/위젯에 되살아나지 않도록 수정
+
+### 할일 검색 (2026-09-12)
+- **완료:** iOS 26 `Tab(role: .search)` 검색 탭. `Features/Search/` 독립 모듈. 로컬 SwiftData만 (`title`/`memo` `localizedStandardContains`, 전 플래너·완료 포함, Notion API 없음)
+- 결과 탭: `plannerId`가 다르면 `PlannerService.selectPlanner` 후 이동. 날짜 있으면 `MainTabCoordinator.openTodo(on:highlightTodoId:)` → 투두 탭 해당 날짜 + 스크롤·하이라이트. 인박스(`date == nil`)면 `openInbox(highlightTodoId:)` → 투두 탭 + 인박스 시트 + 세그먼트/버킷 펼침·`loadMore` 후 스크롤·하이라이트
+- 안내: 「노션에 연결된 할일은 이 기기에 동기화된 기간만 검색됩니다.」
+- **다음 세션:** 음성인식 입력 등 (아래 「다음 할 일」)
 
 ### v1.13 변경 내용 (TestFlight 테스트 중)
 - 리포트 탭 카테고리별 달성률에 「미분류」(`#8E8E93`) 통계 추가, 활성 카테고리 정렬 후 맨 뒤 고정, % 텍스트는 카테고리색 대신 `Color.primary.opacity(0.62)`
@@ -118,7 +124,6 @@
   - 조치: 가드 및 showDatePaywall/datePaywallMessage/dismissDatePaywall() 관련 코드 전체 제거
 
 ### 다음 할 일
-- **할일 검색 기능** — 투두 탭 옆 검색 탭, iOS 26 `Tab(role: .search)`, 로컬 SwiftData 전체기간 검색
 - **음성인식 입력** — 할일 추가·인라인 입력 등에 음성 입력
 - 탭 반응 지연 3건 — 완료 체크 `withAnimation(0.3)` 래핑, `pinTodo`의 `Task.sleep(200ms)`, 인라인 편집 진입 시 키보드 첫 표시 비용
 - 카테고리 칩 보기/숨기기 토글 (더보기 메뉴)
@@ -140,6 +145,8 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- 할일 검색 (2026-09-12): `Tab(role: .search)` + 로컬 SwiftData 제목·메모 검색. 결과 탭 시 플래너 전환 + 날짜면 투두 탭 하이라이트, 인박스면 시트 열고 세그먼트/버킷 펼친 뒤 하이라이트 (`MainTabCoordinator.openTodo`/`openInbox`)
+- 삭제된 투두·인박스가 pull/위젯에 되살아나던 문제 (`a21adc8`): DELETE `plannerId`로 GET 캐시 무효화, 위젯은 Swift 날짜 필터로 인박스 제외
 - 인박스 목록 UI (2026-09-11): 날짜 버킷 4단계·미뤄둠 복귀·스와이프·헤더 스타일·뱃지 잘림 수정. 툴바 glass/Spacer 시도 후 롤백
 - 인박스 UI·동기화 (2026-09-10): 편집 「날짜 제거」→ 노션 date 비움, `+` 날짜 없이 저장 → 인박스 생성. SyncQueue update `date:null` + AnyEncodable NSNull + 백엔드 PATCH
 - 인박스 기반 작업 (2026-09-10 전반): `TodoItem.date` 옵셔널화 + 위젯 Predicate. 백엔드 inbox 라우트·iOS SyncQueue 배관. FAB 롱프레스 빠른입력 UI 폐기
@@ -314,6 +321,7 @@ TodoReport/
 ├── Features/                      # 기능별 완전 독립 모듈
 │   ├── Todo/                      # 투두 (무료)
 │   ├── QuickCapture/              # 빠른 캡처 플로팅 시트 (무료)
+│   ├── Search/                    # 할일 검색 (무료, 로컬 SwiftData)
 │   ├── DailyReport/               # 데일리 리포트 (무료)
 │   ├── WeeklyReport/              # 주간 리포트 (유료)
 │   ├── MonthlyReport/             # 월간 리포트 (유료)
@@ -782,6 +790,14 @@ AutoFocusTextField(text: $title, placeholder: "새 투두", textStyle: .body)
 - 콜드 스타트: `KeyboardPrewarmer.scheduleAfterLaunch()`(루트 onAppear, ~2.5초 뒤)로 키보드 세션 프리웜. 즉시 프리웜은 메인 스레드 ~1초 블로킹으로 시작 직후 스크롤 먹통을 유발해 지연 실행.
 - 탭 이탈(`selectedTab != .todo`): `isAdding` 해제 + `resignFirstResponder`로 first responder 잔류 방지.
 
+**할일 검색 — `MainTabCoordinator` pending 확장**
+
+검색 결과는 Feature 내부에서 날짜/시트를 직접 열지 않는다. `TodoSearchViewModel.openResult`가 플래너만 맞춘 뒤 코디네이터에 위임한다.
+
+- `openTodo(on:highlightTodoId:)` — `pendingTodoDate` + `pendingHighlightTodoId` → 투두 탭이 `navigateToDate` 후 `scrollTo`·accent 하이라이트 (~1.2초). 리포트 타임라인은 `openTodo(on:)`만 호출(highlight nil)
+- `openInbox(highlightTodoId:)` — `pendingInboxHighlightTodoId` → 투두 탭이 `showInboxSheet` + `InboxView(highlightTodoId:)`. tray는 highlight nil이라 기존과 동일
+- 인박스 하이라이트: 세그먼트 전환 → 버킷 펼침 → `loadMore` 최대 40회 → `scrollTo`. `didConsumeHighlight`로 1회만
+
 **SwiftUI View에서 live 데이터 읽기 — stale 스냅샷 주의**
 
 `let planner: Planner`처럼 value type을 상수로 들고 있으면 저장 후 dismiss 없이는 UI가 갱신되지 않는다.
@@ -1049,6 +1065,8 @@ v1.5는 투두 DB **select/status 옵션** 단위 동기화. 별도 카테고리
 
 ### 할일 보관 (인박스) — 길 A 목록 UI 완료
 - **완료:** 로컬 `date` 옵셔널, 위젯 Predicate, 백엔드 inbox 라우트, 편집 「날짜 제거」→ 노션 date 비움, `+` 날짜 없이 저장 → 인박스 생성, 목록 UI(버킷·미뤄둠·스와이프)
+- **완료:** 검색에서 인박스 항목 탭 → 시트 오픈 + 스크롤·하이라이트 (`openInbox`)
+- **완료 (`a21adc8`):** 위젯이 인박스 항목을 오늘 목록에 넣지 않음 (Swift 날짜 필터). DELETE GET 캐시 무효화에 `plannerId`
 - **폐기:** FAB 롱프레스/alert 빠른입력 UI. 툴바 `.glass`/Spacer 분리 시도 후 롤백
 카테고리 보관과 별개. 상세 → `V2-IDEAS.md`
 

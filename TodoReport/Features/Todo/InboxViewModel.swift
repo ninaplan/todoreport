@@ -36,6 +36,7 @@ enum InboxAgeBucket: String, CaseIterable, Identifiable {
 @Observable
 final class InboxViewModel {
     private static let pageSize = 10
+    private static let maxNavigationLoadMoreRounds = 40
 
     var segment: InboxSegment = .now
     private(set) var allInbox: [Todo] = []
@@ -176,6 +177,66 @@ final class InboxViewModel {
         case .completed:
             let current = visibleLimitCompleted[bucket] ?? Self.pageSize
             visibleLimitCompleted[bucket] = current + Self.pageSize
+        case .snoozed:
+            break
+        }
+    }
+
+    /// 검색 진입용 — 해당 항목의 세그먼트·버킷을 열고 표시 목록에 들어갈 때까지 loadMore.
+    @discardableResult
+    func revealTodoForNavigation(_ todoId: String) -> Bool {
+        guard let todo = allInbox.first(where: { $0.id == todoId }) else { return false }
+        if todo.isCompleted {
+            segment = .completed
+            expandUntilVisible(todoId, in: completedAgeBucket(for: todo), segment: .completed)
+        } else if todo.isSnoozeActive {
+            segment = .snoozed
+        } else {
+            segment = .now
+            expandUntilVisible(todoId, in: nowAgeBucket(for: todo), segment: .now)
+        }
+        return true
+    }
+
+    func isTodoVisibleInCurrentList(_ todoId: String) -> Bool {
+        switch segment {
+        case .now:
+            return InboxAgeBucket.allCases.contains { bucket in
+                displayedTodos(in: bucket, segment: .now).contains { $0.id == todoId }
+            }
+        case .snoozed:
+            return snoozedTodos.contains { $0.id == todoId }
+        case .completed:
+            return InboxAgeBucket.allCases.contains { bucket in
+                displayedTodos(in: bucket, segment: .completed).contains { $0.id == todoId }
+            }
+        }
+    }
+
+    private func expandUntilVisible(_ todoId: String, in bucket: InboxAgeBucket, segment: InboxSegment) {
+        expandBucketForNavigation(bucket, segment: segment)
+        var rounds = 0
+        while !displayedTodos(in: bucket, segment: segment).contains(where: { $0.id == todoId }),
+              remainingCount(in: bucket, segment: segment) > 0,
+              rounds < Self.maxNavigationLoadMoreRounds {
+            loadMore(in: bucket, segment: segment)
+            rounds += 1
+        }
+    }
+
+    private func expandBucketForNavigation(_ bucket: InboxAgeBucket, segment: InboxSegment) {
+        guard bucket != .recent else { return }
+        switch segment {
+        case .now:
+            if !expandedNowBuckets.contains(bucket) {
+                expandedNowBuckets.insert(bucket)
+                visibleLimitNow[bucket] = Self.pageSize
+            }
+        case .completed:
+            if !expandedCompletedBuckets.contains(bucket) {
+                expandedCompletedBuckets.insert(bucket)
+                visibleLimitCompleted[bucket] = Self.pageSize
+            }
         case .snoozed:
             break
         }
