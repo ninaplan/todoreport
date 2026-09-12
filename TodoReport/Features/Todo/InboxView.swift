@@ -189,6 +189,7 @@ struct InboxView: View {
             .padding(.vertical, 8)
             .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
         }
+        .listRowSeparator(.hidden)
     }
 
     @ViewBuilder
@@ -317,12 +318,13 @@ struct InboxView: View {
                 onAction: { performRowAction($0, for: todo) }
             )
             .id(todo.id)
-            .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
+            .listRowInsets(EdgeInsets(top: 3, leading: 24, bottom: 3, trailing: 24))
             .listRowBackground(
                 highlightedTodoId == todo.id
                     ? AppTheme.shared.accent.opacity(0.14)
                     : Color.clear
             )
+            .listRowSeparator(.hidden)
         }
         .animation(.easeInOut(duration: 0.3), value: todos.map(\.id))
     }
@@ -646,7 +648,7 @@ private struct InboxTodoRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, (todo.memo?.isEmpty == false || showsSnoozeCaption) ? 8 : 4)
+        .padding(.vertical, 6)
     }
 
     private func snoozeCaption(_ until: Date) -> String {

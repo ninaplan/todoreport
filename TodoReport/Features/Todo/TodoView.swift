@@ -106,7 +106,7 @@ struct TodoView: View {
                 showInboxSheet = true
             } label: {
                 Image(systemName: "tray")
-                    .frame(width: 40, height: 34)
+                    .frame(width: 44, height: 36)
                     .overlay(alignment: .topTrailing) {
                         if inboxBadgeCount > 0 {
                             Text(inboxBadgeCount > 99 ? "99+" : "\(inboxBadgeCount)")
@@ -116,6 +116,7 @@ struct TodoView: View {
                                 .padding(.vertical, 1)
                                 .background(AppTheme.shared.accent, in: Capsule())
                                 .padding([.top, .trailing], 1)
+                                .offset(x: 1, y: -1)
                         }
                     }
             }
