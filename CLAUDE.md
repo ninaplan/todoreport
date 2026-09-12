@@ -136,7 +136,7 @@
 - ~~할일 시간·알림 목록 표시~~ — TodoRow trailing 시간 태그 + 더보기 「설정 시간 보기」토글 완료. A/C 실험 브랜치 폐기
 - 앱 전체 안내문 문체 통일 (해요체 → 합쇼체). `Localizable.xcstrings` 전수 점검 필요. 문자열이 많아 별도 커밋으로 진행
 - 로컬 저장 사용자 iCloud 백업 + alarmOffset 복원·재예약 (V2-IDEAS.md)
-- 하루 리뷰·인라인 편집 시 불필요 밀어올림 + soft 블러 침범 — 원인: List 기본 키보드 회피 + 상시 `safeAreaInset` bottom 100; soft 페이드 높이 공식 API 없음(바 40pt보다 아래로 번짐). 조건부 `.ignoresSafeArea(.keyboard)`는 조사만·미적용(이후 인라인 제목 편집 추가로 그대로 쓰기 어려움). 대안(조건부 ignore / 수동 scrollTo / inset 축소 / `.hard` 등) 정리됨(미적용)
+- 하루 리뷰·인라인 편집 시 불필요 밀어올림 + soft 블러 침범 — 원인: List 기본 키보드 회피. 하단 `safeAreaInset` 100은 2026-09-12에 제거(iOS 26 스크롤 가장자리 흡수 영역을 키워 할일 줄 탭이 먹통이 됨 → List 빈 행으로 교체). soft 페이드 높이 공식 API 없음. 조건부 `.ignoresSafeArea(.keyboard)`는 조사만·미적용
 - 달력 UX 미세조정 — 월 이동 시 선택 해제, 폰트·말풍선 위치 (V2-IDEAS.md)
 - 노션 업로드 마이그레이션 버그 수정 — `PlannerMigrationViewModel.uploadToNotion()`에서 `plannerId`가 nil인 기존 투두가 `SyncQueueManager`의 `isPlannerNotionConnected(nil)` 가드에 걸려 조용히 스킵됨 (설계만 완료, 미적용)
 - 노션 연결 시작 전 안내 팝업 추가 — 기존 "같은 워크스페이스" 인라인 문구를 조건부 alert("페이지 선택 시 주의해주세요")로 교체 (설계만 완료, 미적용)
@@ -145,6 +145,7 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- 투두 탭 하단 할일 줄 탭 무반응 + FAB 유리 스타일 (2026-09-12): `safeAreaInset(bottom)`이 iOS 26 스크롤 가장자리 흡수 영역을 키우던 것 — List 콘텐츠 안 120pt 빈 행으로 교체. FAB는 `.glassProminent` 원형(52pt, + 26 heavy, tint accent). 설정 「업데이트 내역」은 `https://www.nock.kr/changelog` 외부 링크
 - 할일 검색 (2026-09-12): `Tab(role: .search)` + 로컬 SwiftData 제목·메모 검색. 결과 탭 시 플래너 전환 + 날짜면 투두 탭 하이라이트, 인박스면 시트 열고 세그먼트/버킷 펼친 뒤 하이라이트 (`MainTabCoordinator.openTodo`/`openInbox`)
 - 삭제된 투두·인박스가 pull/위젯에 되살아나던 문제 (`a21adc8`): DELETE `plannerId`로 GET 캐시 무효화, 위젯은 Swift 날짜 필터로 인박스 제외
 - 인박스 목록 UI (2026-09-11): 날짜 버킷 4단계·미뤄둠 복귀·스와이프·헤더 스타일·뱃지 잘림 수정. 툴바 glass/Spacer 시도 후 롤백
@@ -202,6 +203,16 @@
 - CLAUDE.md — 개발 원칙 및 진행 상태
 - CHANGELOG.md — 버전별 수정 내역
 - V2-IDEAS.md — v2 백로그
+
+---
+
+## 핵심 학습
+
+### iOS 26 `safeAreaInset(edge: .bottom)`과 스크롤 가장자리 흡수 (2026-09-12)
+
+- `.safeAreaInset(edge: .bottom)`으로 하단에 여백을 선언하면, iOS 26이 이를 고정 컨트롤 영역으로 인식해 자동 스크롤 가장자리 블러/흡수 효과 영역을 그 크기에 비례해서 같이 키운다. 코드에서 `.scrollEdgeEffectStyle`를 top만 지정해도 TabView가 bottom 효과를 붙인다. 버퍼를 키우면(100→200) 할일 줄 탭 먹통 영역도 같이 커졌다.
+- `.allowsHitTesting(false)`는 inset 안의 clear 뷰에만 적용되고, 시스템 `ScrollEdgeEffectView` 흡수 레이어는 그대로다. FAB를 지워도 먹통은 남았다.
+- 하단 스크롤 가장자리 블러는 유지하면서 목록 스크롤 여백이 필요할 땐 `safeAreaInset`이 아니라 List 콘텐츠 안의 평범한 빈 행(`Color.clear` + `listRowBackground` clear)으로 준다. 투두 탭은 마지막 섹션에 120pt 빈 행.
 
 ---
 
@@ -665,7 +676,7 @@ guard SubscriptionManager.shared.isPro else {
 화면 가장자리 엣지 스와이프 → 이전/다음 날 (`edgeSwipeNavigation`, 스크롤 우선)
 ```
 
-`DateNavigationRow`는 List/ScrollView `.safeAreaBar(edge: .top)` 높이 40 + `.scrollEdgeEffectStyle(.soft, for: .top)` (리포트 탭 동일). `safeAreaInset`은 스크롤 엣지 블러를 못 받음.
+`DateNavigationRow`는 List/ScrollView `.safeAreaBar(edge: .top)` 높이 40 + `.scrollEdgeEffectStyle(.soft, for: .top)` (리포트 탭 동일). `safeAreaInset`은 스크롤 엣지 블러를 못 받음. **하단 스크롤 여백은 `safeAreaInset(edge: .bottom)` 금지** — iOS 26이 흡수 영역을 같이 키워 할일 줄 탭이 먹통이 됨. List 콘텐츠 안 빈 행으로 준다 (「핵심 학습」).
 
 ---
 

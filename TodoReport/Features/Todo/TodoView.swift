@@ -298,9 +298,6 @@ struct TodoView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 40)
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                Color.clear.frame(height: 100)
-            }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
                 guard isAddingTodo else { return }
                 withAnimation { proxy.scrollTo("addTodoRow", anchor: .bottom) }
@@ -614,6 +611,7 @@ struct TodoView: View {
                 if viewModel.emptyStateKind == .notionPullHint {
                     emptyTodoListHint
                 }
+                Color.clear.frame(height: 120)
             }
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
@@ -1534,13 +1532,12 @@ private struct FloatingCaptureButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "plus")
-                .font(.title2.bold())
-                .foregroundStyle(.white)
-                .frame(width: 56, height: 56)
-                .background(AppTheme.shared.accent)
-                .clipShape(Circle())
-                .shadow(color: AppTheme.shared.accent.opacity(0.4), radius: 8, y: 4)
+                .font(.system(size: 26, weight: .heavy))
+                .frame(width: 52, height: 52)
         }
+        .buttonStyle(.glassProminent)
+        .tint(AppTheme.shared.accent)
+        .buttonBorderShape(.circle)
         .padding(.trailing, 20)
         .padding(.bottom, 20)
     }

@@ -372,15 +372,21 @@ struct SettingsView: View {
     private var appInfoSection: some View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "-"
         return Section("앱 정보") {
-            NavigationLink {
-                WhatsNewView()
-            } label: {
-                Text("업데이트 내역")
+            if let changelogURL = URL(string: "https://www.nock.kr/changelog") {
+                Link(destination: changelogURL) {
+                    LabeledContent("업데이트 내역") {
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .foregroundStyle(.primary)
+                }
             }
             LabeledContent("버전") {
                 Text(version).foregroundStyle(.secondary)
             }
         }
+        .tint(.primary)
     }
 }
 
