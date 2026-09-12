@@ -43,9 +43,12 @@ enum WidgetStoreReader {
                 item.plannerId == plannerId
             }
             let fetched = try context.fetch(FetchDescriptor<TodoItem>(predicate: predicate))
+            let hiddenCategoryIds = try fetchHiddenCategoryIds(plannerId: plannerId, context: context)
             items = fetched.filter { item in
                 guard let date = item.date else { return false }
-                return date >= startOfDay && date < startOfTomorrow
+                guard date >= startOfDay && date < startOfTomorrow else { return false }
+                guard let categoryId = item.categoryId else { return true }
+                return !hiddenCategoryIds.contains(categoryId)
             }
         } catch {
             logger.error("fetch throw (plannerId): \(error.localizedDescription, privacy: .public)")
@@ -81,6 +84,15 @@ enum WidgetStoreReader {
         let predicate = #Predicate<PlannerItem> { $0.id == id }
         let descriptor = FetchDescriptor<PlannerItem>(predicate: predicate)
         return try? context.fetch(descriptor).first?.name
+    }
+
+    /// 앱 `TodoViewModel.excludingHiddenCategoryTodos`와 동일 — 숨긴 카테고리 할일 제외용 id 집합.
+    private static func fetchHiddenCategoryIds(plannerId: String, context: ModelContext) throws -> Set<String> {
+        let predicate = #Predicate<CategoryItem> { item in
+            item.plannerId == plannerId
+        }
+        let categories = try context.fetch(FetchDescriptor<CategoryItem>(predicate: predicate))
+        return Set(categories.filter(\.isHidden).map(\.id))
     }
 
     private static func widgetListItems(from items: [TodoItem], hideCompleted: Bool) -> [TodoItem] {
