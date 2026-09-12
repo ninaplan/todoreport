@@ -6,9 +6,12 @@ struct CategoryView: View {
     @State private var showAllChipColorSheet = false
     @Environment(\.editMode) private var editMode
     private let plannerId: String?
+    /// 투두탭 시트만 true. 설정 네비게이션 push는 기본값(false) 유지.
+    private let presentsAsSheet: Bool
 
-    init(plannerId: String? = nil) {
+    init(plannerId: String? = nil, presentsAsSheet: Bool = false) {
         self.plannerId = plannerId
+        self.presentsAsSheet = presentsAsSheet
         _viewModel = State(initialValue: CategoryViewModel(plannerId: plannerId))
         let pid = plannerId ?? PlannerService.shared.selectedPlanner?.id
         _allChipColorHex = State(initialValue: AllChipColorStore.hex(for: pid))
@@ -49,8 +52,10 @@ struct CategoryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sensoryFeedback(.selection, trigger: allChipColorHex)
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
+            ToolbarItem(placement: presentsAsSheet ? .topBarLeading : .topBarTrailing) {
                 EditButton()
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     viewModel.openAddSheet()
                 } label: {

@@ -260,9 +260,9 @@ struct TodoView: View {
                 .listRowInsets(EdgeInsets(
                     top: 4,
                     leading: 16,
-                    // 칩 있음: bottom(8)+chip.top(4)=12; chip.bottom(0)+할일 자체 여백(12)=12.
-                    // 칩 없음: bottom 12 유지.
-                    bottom: viewModel.activeCategories.isEmpty ? 12 : 8,
+                    // 칩 있음: bottom(8)+chip.top(4)=12; chip.bottom(8)+할일 여백(9)=17.
+                    // 칩 없음: bottom 16 + 할일 여백(9)=25.
+                    bottom: viewModel.activeCategories.isEmpty ? 16 : 8,
                     trailing: 16
                 ))
 
@@ -279,7 +279,7 @@ struct TodoView: View {
                     }
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 0, trailing: 0))
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
                 }
 
                 todoListSections
@@ -685,7 +685,7 @@ struct TodoView: View {
                 onAction: { performRowAction($0, for: todo) }
             )
             .id(todo.id)
-            .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
+            .listRowInsets(EdgeInsets(top: 3, leading: 24, bottom: 3, trailing: 24))
             .listRowBackground(
                 highlightedTodoId == todo.id
                     ? AppTheme.shared.accent.opacity(0.14)
@@ -702,8 +702,8 @@ struct TodoView: View {
             hapticSuccessTrigger.toggle()
         }
         // TodoRow와 동일한 세로 padding — defaultMinListRowHeight=0에서도 한 줄 할일과 높이 맞춤.
-        .padding(.vertical, 8)
-        .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
+        .padding(.vertical, 6)
+        .listRowInsets(EdgeInsets(top: 3, leading: 24, bottom: 3, trailing: 24))
     }
 }
 
@@ -790,7 +790,7 @@ private struct TodoViewSheetsModifier: ViewModifier {
             }
             .sheet(isPresented: $showCategorySheet, onDismiss: onCategoryDismiss) {
                 NavigationStack {
-                    CategoryView()
+                    CategoryView(presentsAsSheet: true)
                 }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
@@ -1073,7 +1073,7 @@ private struct TodoRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 8) {
             checkbox
 
             VStack(alignment: .leading, spacing: 6) {
@@ -1081,7 +1081,7 @@ private struct TodoRow: View {
 
                 if showMemo, let memo = todo.memo, !memo.isEmpty {
                     Text(memo)
-                        .font(.caption)
+                        .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                         .transition(.opacity.combined(with: .move(edge: .top)))
@@ -1091,8 +1091,7 @@ private struct TodoRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         // defaultMinListRowHeight=0 전제 — List 최소 높이 보정 없이 이 padding만으로 위아래 여백 결정.
-        // 이전 한 줄 행(최소 높이 44 중앙 정렬)과 비슷한 체감: insets(4)+padding(8)=12.
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .animation(.easeInOut(duration: 0.2), value: showMemo)
         .animation(.easeInOut(duration: 0.2), value: showScheduledTime)
     }
@@ -1260,7 +1259,7 @@ private struct AddTodoRow: View {
 
     var body: some View {
         if isAdding {
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 Image(systemName: "circle")
                     .font(.title3)
                     .foregroundStyle(Color(.tertiaryLabel))
@@ -1291,7 +1290,7 @@ private struct AddTodoRow: View {
                 focusEpoch = UUID()
                 isAdding = true
             } label: {
-                HStack(spacing: 12) {
+                HStack(spacing: 8) {
                     Image(systemName: "plus.circle.fill")
                         .font(.title3)
                         .foregroundStyle(AppTheme.shared.accent)
