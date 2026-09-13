@@ -120,7 +120,7 @@ struct TodoView: View {
                         }
                     }
             }
-            .accessibilityLabel(String(localized: "인박스"))
+            .accessibilityLabel(String(localized: "수집함"))
             .tint(.primary)
         }
         ToolbarItem(placement: .topBarTrailing) {

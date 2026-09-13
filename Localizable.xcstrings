@@ -1110,6 +1110,16 @@
         }
       }
     },
+    "떠오르는 생각은 바로 수집함에 모아두세요. 목록의 할 일을 수집함으로 보내거나 수집함의 항목을 오늘로 가져올 수도 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capture ideas right away in Inbox. You can also send to-dos from the list, or move Inbox items to today."
+          }
+        }
+      }
+    },
     "날짜 없이 저장한 할 일이 여기에 모입니다." : {
       "localizations" : {
         "en" : {
@@ -2648,6 +2658,56 @@
         }
       }
     },
+    "수집함" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inbox"
+          }
+        }
+      }
+    },
+    "수집함과 검색, 새로 생겼어요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inbox and Search are here"
+          }
+        }
+      }
+    },
+    "수집함에 할 일이 없습니다" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Tasks Here"
+          }
+        }
+      }
+    },
+    "수집함이 생겼어요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inbox is here"
+          }
+        }
+      }
+    },
+    "수집함으로 보내기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send to Inbox"
+          }
+        }
+      }
+    },
     "숨기기" : {
       "localizations" : {
         "en" : {
@@ -2684,6 +2744,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Start of Week"
+          }
+        }
+      }
+    },
+    "시작하기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get Started"
           }
         }
       }
@@ -2905,6 +2975,16 @@
         }
       }
     },
+    "언제 무엇을 했는지 기억나지 않아도 이제 검색으로 찾을 수 있어요. 여러 플래너를 쓰고 있다면, 모든 플래너의 검색 결과를 한 번에 볼 수 있어요." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Even if you forget when or what you did, you can find it with Search. If you use multiple planners, see results from all of them in one place."
+          }
+        }
+      }
+    },
     "언제든 해지 가능" : {
       "localizations" : {
         "en" : {
@@ -2951,6 +3031,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "None"
+          }
+        }
+      }
+    },
+    "여기서 할 일을 검색해보세요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search your to-dos here"
           }
         }
       }
@@ -3283,7 +3373,7 @@
         }
       }
     },
-    "완료한 인박스 할 일이 여기에 표시됩니다." : {
+    "완료한 수집함 할 일이 여기에 표시됩니다." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3493,16 +3583,6 @@
         }
       }
     },
-    "인박스에 할 일이 없습니다" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Tasks Here"
-          }
-        }
-      }
-    },
     "인증 세션을 시작할 수 없어요" : {
       "localizations" : {
         "en" : {
@@ -3563,6 +3643,16 @@
         }
       }
     },
+    "이번 업데이트 소식" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's New"
+          }
+        }
+      }
+    },
     "이용약관" : {
       "localizations" : {
         "en" : {
@@ -3619,26 +3709,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Index"
-          }
-        }
-      }
-    },
-    "인박스" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Inbox"
-          }
-        }
-      }
-    },
-    "인박스로 보내기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Send to Inbox"
           }
         }
       }
@@ -4596,6 +4666,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "At least 1 todo completed"
+          }
+        }
+      }
+    },
+    "할 일 검색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search To-Dos"
           }
         }
       }

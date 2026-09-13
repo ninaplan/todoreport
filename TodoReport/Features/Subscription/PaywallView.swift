@@ -432,7 +432,7 @@ private struct InboxComingSoonChip: View {
             Image(systemName: "clock")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(secondaryText)
-            Text("인박스")
+            Text("수집함")
                 .font(.system(size: 12))
                 .foregroundStyle(secondaryText)
             Text("예정")

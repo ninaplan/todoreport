@@ -17,7 +17,7 @@ struct SettingsView: View {
     @AppStorage("appColorScheme") private var appColorScheme: String = "system"
     @State private var notificationAuthStatus: UNAuthorizationStatus = .notDetermined
     @State private var showAddPlannerSheet = false
-    @State private var showPaywall = false
+    @State private var paywallSheet: PaywallSheet?
     @State private var activeMailSheet: SupportMailKind? = nil
     @State private var showFeedbackForm = false
     @State private var restoreAlertMessage: String?
@@ -67,7 +67,7 @@ struct SettingsView: View {
                 .presentationDragIndicator(.visible)
                 .presentationDetents([.large])
         }
-        .sheet(isPresented: $showPaywall) {
+        .sheet(item: $paywallSheet) { _ in
             PaywallView()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
@@ -123,7 +123,7 @@ struct SettingsView: View {
                 if isPro {
                     Task { await subscriptionManager.showManageSubscriptions() }
                 } else {
-                    showPaywall = true
+                    paywallSheet = PaywallSheet()
                 }
             } label: {
                 HStack(spacing: 10) {
@@ -148,7 +148,7 @@ struct SettingsView: View {
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
             }
-            .buttonStyle(.plain)
+            .tint(.primary)
         }
     }
 
@@ -216,7 +216,7 @@ struct SettingsView: View {
 
     private var addPlannerButton: some View {
         Button {
-            guard isPro else { showPaywall = true; return }
+            guard isPro else { paywallSheet = PaywallSheet(); return }
             showAddPlannerSheet = true
         } label: {
             HStack(spacing: 6) {
@@ -263,6 +263,7 @@ struct SettingsView: View {
                     }
                 }
                 .foregroundStyle(.primary)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
@@ -280,6 +281,7 @@ struct SettingsView: View {
                     }
                 }
                 .foregroundStyle(.primary)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
@@ -349,6 +351,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 .foregroundStyle(.primary)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
@@ -361,6 +364,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 .foregroundStyle(.primary)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
@@ -460,6 +464,12 @@ struct NotionBadge: View {
             .foregroundStyle(.white, .black)
             .font(.system(size: 16, weight: .bold))
     }
+}
+
+// MARK: - 설정 페이월 시트 아이템
+
+private struct PaywallSheet: Identifiable {
+    let id = UUID()
 }
 
 // MARK: - 고객지원 메일 종류

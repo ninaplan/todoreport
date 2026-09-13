@@ -77,7 +77,7 @@ enum TodoRowActionCatalog {
         case .sendToInbox:
             return TodoRowAction(
                 kind: .sendToInbox,
-                title: String(localized: "인박스로 보내기"),
+                title: String(localized: "수집함으로 보내기"),
                 systemImage: "tray",
                 tint: .blue,
                 isDestructive: false

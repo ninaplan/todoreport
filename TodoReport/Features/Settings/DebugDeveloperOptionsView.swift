@@ -71,6 +71,7 @@ struct DebugDeveloperOptionsSection: View {
         "hasSeenCalendarMoveHint",
         "hasSeenCalendarNotionFetchHint",
         "hasSeenDailyReportExpandHint_v2",
+        "hasSeenSearchTabHint",
     ]
 
     private func resetWhatsNewAndHints() {

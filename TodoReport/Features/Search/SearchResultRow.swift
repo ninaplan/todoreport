@@ -34,7 +34,7 @@ struct SearchResultRow: View {
         if let date = todo.date {
             return "\(plannerName) · \(AppDateFormat.reviewTimeline(date))"
         }
-        return "\(plannerName) · \(String(localized: "인박스"))"
+        return "\(plannerName) · \(String(localized: "수집함"))"
     }
 
     private var accessibilityText: String {

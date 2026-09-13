@@ -46,7 +46,7 @@ struct InboxView: View {
                 startHighlightIfNeeded(proxy: proxy)
             }
         }
-        .navigationTitle("인박스")
+        .navigationTitle("수집함")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -169,7 +169,7 @@ struct InboxView: View {
         if viewModel.nowTodos.isEmpty && !isAddingTodo {
             Section {
                 ContentUnavailableView(
-                    "인박스에 할 일이 없습니다",
+                    "수집함에 할 일이 없습니다",
                     systemImage: "tray",
                     description: Text("날짜 없이 저장한 할 일이 여기에 모입니다.")
                 )
@@ -218,7 +218,7 @@ struct InboxView: View {
                 ContentUnavailableView(
                     "완료된 할 일이 없습니다",
                     systemImage: "checkmark.circle",
-                    description: Text("완료한 인박스 할 일이 여기에 표시됩니다.")
+                    description: Text("완료한 수집함 할 일이 여기에 표시됩니다.")
                 )
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)

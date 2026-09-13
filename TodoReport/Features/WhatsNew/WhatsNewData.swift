@@ -2,6 +2,32 @@ import Foundation
 
 let whatsNewReleases: [WhatsNewRelease] = [
     WhatsNewRelease(
+        id: "1.14",
+        symbolName: "tray",
+        items: [
+            String(localized: "수집함이 생겼어요"),
+            String(localized: "할 일 검색")
+        ],
+        showsPopup: true,
+        popupTitle: String(localized: "이번 업데이트 소식"),
+        popupSubtitle: String(localized: "수집함과 검색, 새로 생겼어요"),
+        popupItems: [
+            WhatsNewRelease.PopupItem(
+                symbolName: "tray",
+                title: String(localized: "수집함이 생겼어요"),
+                description: String(localized: "떠오르는 생각은 바로 수집함에 모아두세요. 목록의 할 일을 수집함으로 보내거나 수집함의 항목을 오늘로 가져올 수도 있습니다."),
+                previewImageName: "WhatsNewInboxPreview"
+            ),
+            WhatsNewRelease.PopupItem(
+                symbolName: "magnifyingglass",
+                title: String(localized: "할 일 검색"),
+                description: String(localized: "언제 무엇을 했는지 기억나지 않아도 이제 검색으로 찾을 수 있어요. 여러 플래너를 쓰고 있다면, 모든 플래너의 검색 결과를 한 번에 볼 수 있어요."),
+                previewImageName: "WhatsNewSearchPreview"
+            )
+        ],
+        popupButtonTitle: String(localized: "시작하기")
+    ),
+    WhatsNewRelease(
         id: "1.10",
         symbolName: "rectangle.stack",
         items: [
