@@ -209,11 +209,16 @@ private struct AutoFocusSingleLineTextFieldRepresentable: UIViewRepresentable {
         )
     }
 
+    static func dismantleUIView(_ uiView: AutoFocusUITextField, coordinator: Coordinator) {
+        coordinator.flushDismiss(from: uiView)
+    }
+
     final class Coordinator: NSObject, UITextFieldDelegate {
         @Binding var text: String
         var onReturn: (() -> Bool)?
         var onDismiss: (() -> Void)?
         var onKeyboardAccessory: (() -> Void)?
+        private var didDismiss = false
 
         init(
             text: Binding<String>,
@@ -251,7 +256,18 @@ private struct AutoFocusSingleLineTextFieldRepresentable: UIViewRepresentable {
         }
 
         func textFieldDidEndEditing(_ tf: UITextField) {
-            text = tf.text ?? ""
+            flushDismiss(from: tf)
+        }
+
+        /// List 셀 제거 등으로 window가 먼저 끊기면 didEndEditing이 빠질 수 있어 dismantle에서도 호출.
+        func flushDismiss(from tf: UITextField) {
+            guard !didDismiss else { return }
+            didDismiss = true
+            if tf.markedTextRange == nil {
+                text = tf.text ?? ""
+            } else {
+                text = tf.text ?? text
+            }
             onDismiss?()
         }
     }
@@ -375,10 +391,15 @@ private struct AutoFocusMultilineTextFieldRepresentable: UIViewRepresentable {
         Coordinator(text: $text, onDismiss: onDismiss)
     }
 
+    static func dismantleUIView(_ uiView: GrowingTextView, coordinator: Coordinator) {
+        coordinator.flushDismiss(from: uiView)
+    }
+
     final class Coordinator: NSObject, UITextViewDelegate {
         @Binding var text: String
         var onDismiss: (() -> Void)?
         weak var placeholderLabel: UILabel?
+        private var didDismiss = false
 
         init(text: Binding<String>, onDismiss: (() -> Void)?) {
             _text = text
@@ -394,7 +415,17 @@ private struct AutoFocusMultilineTextFieldRepresentable: UIViewRepresentable {
         }
 
         func textViewDidEndEditing(_ textView: UITextView) {
-            text = textView.text ?? ""
+            flushDismiss(from: textView)
+        }
+
+        func flushDismiss(from textView: UITextView) {
+            guard !didDismiss else { return }
+            didDismiss = true
+            if textView.markedTextRange == nil {
+                text = textView.text ?? ""
+            } else {
+                text = textView.text ?? text
+            }
             placeholderLabel?.isHidden = !textView.text.isEmpty
             textView.invalidateIntrinsicContentSize()
             onDismiss?()

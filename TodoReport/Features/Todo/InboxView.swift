@@ -50,8 +50,11 @@ struct InboxView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("완료") { dismiss() }
-                    .toolbarPrimaryActionStyle()
+                Button("완료") {
+                    resignAndFinishInlineInputs()
+                    dismiss()
+                }
+                .toolbarPrimaryActionStyle()
             }
         }
         .sheet(item: $changingDateTodo) { todo in
@@ -127,6 +130,10 @@ struct InboxView: View {
         .sensoryFeedback(.impact, trigger: hapticImpactTrigger)
         .sensoryFeedback(.success, trigger: hapticSuccessTrigger)
         .sensoryFeedback(.warning, trigger: hapticWarningTrigger)
+        .tapToDismissKeyboard()
+        .onChange(of: viewModel.segment) { _, _ in
+            resignAndFinishInlineInputs()
+        }
     }
 
     // MARK: - Sections
@@ -311,7 +318,16 @@ struct InboxView: View {
                     }
                     hapticSuccessTrigger.toggle()
                 },
-                onStartInlineEdit: { inlineEditingTodoId = todo.id },
+                onStartInlineEdit: {
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil,
+                        from: nil,
+                        for: nil
+                    )
+                    finishAddingIfNeeded()
+                    inlineEditingTodoId = todo.id
+                },
                 onCommitInlineEdit: { draft in commitInlineTitleEdit(todo: todo, draft: draft) },
                 onOpenDetailFromInline: { draft in openDetailFromInline(todo: todo, draft: draft) },
                 onSnoozedRowTap: catalog == .snoozed ? { snoozedActionTodo = todo } : nil,
@@ -460,6 +476,32 @@ struct InboxView: View {
         if inlineEditingTodoId == todo.id {
             inlineEditingTodoId = nil
         }
+    }
+
+    /// 포커스 잔류·세그먼트 전환·시트 닫기 전에 인라인 추가/수정을 커밋한다.
+    private func resignAndFinishInlineInputs() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil
+        )
+        finishAddingIfNeeded()
+        inlineEditingTodoId = nil
+    }
+
+    /// AddRow.onDismiss와 동일: 공백만이면 저장하지 않고 입력만 종료.
+    private func finishAddingIfNeeded() {
+        guard isAddingTodo else { return }
+        let trimmed = newTodoTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            viewModel.addInboxTodo(title: trimmed)
+            newTodoTitle = ""
+            hapticSuccessTrigger.toggle()
+        } else {
+            newTodoTitle = ""
+        }
+        isAddingTodo = false
     }
 
     private func openDetailFromInline(todo: Todo, draft: String) {
@@ -717,6 +759,7 @@ private struct InboxAddRow: View {
     @Binding var isAdding: Bool
     let onAdd: () -> Void
     @State private var focusEpoch = UUID()
+    @State private var didFinish = false
 
     var body: some View {
         if isAdding {
@@ -729,17 +772,14 @@ private struct InboxAddRow: View {
                     placeholder: String(localized: "새 투두"),
                     textStyle: .body,
                     onReturn: {
-                        let trimmed = newTodoTitle.trimmingCharacters(in: .whitespaces)
+                        let trimmed = newTodoTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                         if trimmed.isEmpty { return false }
-                        onAdd()
+                        finishAdding(save: true)
                         return true
                     },
                     onDismiss: {
-                        let trimmed = newTodoTitle.trimmingCharacters(in: .whitespaces)
-                        if !trimmed.isEmpty {
-                            onAdd()
-                        }
-                        isAdding = false
+                        let trimmed = newTodoTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                        finishAdding(save: !trimmed.isEmpty)
                     }
                 )
                 .id(focusEpoch)
@@ -747,6 +787,7 @@ private struct InboxAddRow: View {
             }
         } else {
             Button {
+                didFinish = false
                 focusEpoch = UUID()
                 isAdding = true
             } label: {
@@ -763,5 +804,14 @@ private struct InboxAddRow: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private func finishAdding(save: Bool) {
+        guard !didFinish else { return }
+        didFinish = true
+        if save {
+            onAdd()
+        }
+        isAdding = false
     }
 }

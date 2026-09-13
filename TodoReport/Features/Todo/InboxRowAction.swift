@@ -25,14 +25,15 @@ struct InboxRowAction: Identifiable {
 }
 
 enum InboxRowActionCatalog {
-    /// trailing: 바깥쪽(full swipe) = 삭제.
-    static let nowTrailingSwipe: [InboxRowActionKind] = [.delete, .assignDate, .moveToToday]
+    /// trailing: 바깥쪽(full swipe) = 삭제. 안쪽(살짝 스와이프) = 나중에 보기.
+    static let nowTrailingSwipe: [InboxRowActionKind] = [.delete, .assignDate, .snooze]
     static let nowContextMenu: [InboxRowActionKind] = [.edit, .moveToToday, .assignDate, .snooze, .bumpToRecent, .delete]
 
     static let snoozedTrailingSwipe: [InboxRowActionKind] = [.delete, .assignDate]
     static let snoozedContextMenu: [InboxRowActionKind] = [.clearSnooze, .assignDate, .delete]
 
-    static let nowLeadingSwipe: [InboxRowActionKind] = [.snooze]
+    /// leading: 자주 쓰는 「오늘하기」(full swipe 가능).
+    static let nowLeadingSwipe: [InboxRowActionKind] = [.moveToToday]
     static let snoozedLeadingSwipe: [InboxRowActionKind] = [.clearSnooze]
 
     static let completedTrailingSwipe: [InboxRowActionKind] = [.delete]
