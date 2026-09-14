@@ -247,7 +247,7 @@ private struct SummaryCard: View {
     var body: some View {
         HStack(spacing: 0) {
             summaryItem(
-                value: "\(Int(completionRate * 100))%",
+                value: completionRate.formatted(.percent.precision(.fractionLength(0))),
                 label: "평균 완료율",
                 color: .primary
             )
@@ -374,7 +374,7 @@ private struct ExpandableCompletionCard: View {
                         AxisGridLine()
                         AxisValueLabel {
                             if let v = value.as(Double.self) {
-                                Text("\(Int(v * 100))%")
+                                Text(v.formatted(.percent.precision(.fractionLength(0))))
                                     .font(.caption2)
                                     .foregroundStyle(Color(.secondaryLabel))
                             }
@@ -579,7 +579,7 @@ private struct CategoryStatRow: View {
                 Text("\(stat.completed)/\(stat.total)개")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("\(Int(stat.rate * 100))%")
+                Text(stat.rate.formatted(.percent.precision(.fractionLength(0))))
                     .font(.caption.bold())
                     .foregroundStyle(Color.primary.opacity(0.62))
                     .frame(width: 36, alignment: .trailing)

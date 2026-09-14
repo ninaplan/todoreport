@@ -28,7 +28,7 @@ struct SmallWidgetView: View {
             Spacer()
 
             // 완료율 숫자
-            Text("\(Int(rate * 100))%")
+            Text(rate.formatted(.percent.precision(.fractionLength(0))))
                 .font(.system(size: 36, weight: .bold, design: .rounded))
                 .foregroundStyle(nockOrange)
 

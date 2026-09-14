@@ -34,7 +34,7 @@ struct LargeWidgetView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 1) {
-                    Text("\(Int(rate * 100))%")
+                    Text(rate.formatted(.percent.precision(.fractionLength(0))))
                         .font(.title2.bold())
                         .foregroundStyle(nockOrange)
                     Text("\(completed)/\(total)개 완료")

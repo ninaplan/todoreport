@@ -157,7 +157,7 @@ struct NotionSaveEditorView: View {
 
             HStack(spacing: 0) {
                 statItem(
-                    value: "\(Int(completionRate * 100))%",
+                    value: completionRate.formatted(.percent.precision(.fractionLength(0))),
                     label: "평균 완료율",
                     color: AppTheme.shared.accent
                 )

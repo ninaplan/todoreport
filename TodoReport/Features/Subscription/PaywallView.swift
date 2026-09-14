@@ -257,7 +257,9 @@ struct PaywallView: View {
                     ?? (subscriptionManager.isLoadingProducts ? String(localized: "로딩 중...") : "---"),
                 unit: "/년",
                 subtitle: yearlyPlanSubtitle,
-                discountBadge: "43% 할인",
+                discountBadge: String(
+                    localized: "\(0.43.formatted(.percent.precision(.fractionLength(0)))) 할인"
+                ),
                 isSelected: viewModel.selectedProductId == SubscriptionManager.yearlyProductId,
                 cardBackground: cardBackground,
                 dividerColor: dividerColor,
@@ -450,7 +452,7 @@ private struct PaywallPlanCard: View {
     let priceText: String
     let unit: LocalizedStringKey
     let subtitle: String?
-    let discountBadge: LocalizedStringKey?
+    let discountBadge: String?
     let isSelected: Bool
     let cardBackground: Color
     let dividerColor: Color

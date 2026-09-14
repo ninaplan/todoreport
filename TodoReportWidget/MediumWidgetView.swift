@@ -29,7 +29,7 @@ struct MediumWidgetView: View {
 
                 Spacer()
 
-                Text("\(Int(rate * 100))%")
+                Text(rate.formatted(.percent.precision(.fractionLength(0))))
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundStyle(nockOrange)
 

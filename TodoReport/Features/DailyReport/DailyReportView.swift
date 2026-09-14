@@ -114,7 +114,7 @@ struct DailyReportCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("\(displayCompleted)/\(displayTotal)개  \(Int(displayRate * 100))%")
+                Text("\(displayCompleted)/\(displayTotal)개  \(displayRate.formatted(.percent.precision(.fractionLength(0))))")
                     .font(.caption.bold())
                     .foregroundStyle(.primary)
             }

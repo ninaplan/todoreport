@@ -334,7 +334,7 @@ private struct InitialFetchLoadingView: View {
                         .progressViewStyle(.linear)
                         .tint(AppTheme.shared.accent)
                         .frame(width: 220)
-                    Text("\(Int(progress * 100))%")
+                    Text(progress.formatted(.percent.precision(.fractionLength(0))))
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
