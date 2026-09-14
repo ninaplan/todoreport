@@ -731,6 +731,7 @@ private struct InboxInlineTitleEditor: View {
             onDismiss: {
                 commitOnce()
             },
+            flushDismissOnDismantle: true,
             keyboardAccessoryTitle: String(localized: "자세히"),
             onKeyboardAccessory: {
                 openDetailOnce()
@@ -780,7 +781,8 @@ private struct InboxAddRow: View {
                     onDismiss: {
                         let trimmed = newTodoTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                         finishAdding(save: !trimmed.isEmpty)
-                    }
+                    },
+                    flushDismissOnDismantle: true
                 )
                 .id(focusEpoch)
                 .frame(height: 36)

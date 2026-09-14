@@ -18,6 +18,9 @@ struct AutoFocusTextField: View {
     var onReturn: (() -> Bool)? = nil
     /// 포커스를 잃는 모든 경우에 호출 (Return으로 resign + 외부 탭).
     var onDismiss: (() -> Void)? = nil
+    /// true면 UIViewRepresentable dismantle 시에도 onDismiss를 호출한다.
+    /// List 셀 재구성이 잦은 화면(투두 탭)은 기본 false. 시트/셀 제거 시 저장이 필요한 수집함만 opt-in.
+    var flushDismissOnDismantle: Bool = false
     /// 키보드 액세서리 버튼 제목. nil이면 액세서리 없음.
     var keyboardAccessoryTitle: String? = nil
     var onKeyboardAccessory: (() -> Void)? = nil
@@ -31,7 +34,8 @@ struct AutoFocusTextField: View {
                 textStyle: textStyle,
                 font: font,
                 autoFocus: autoFocus,
-                onDismiss: onDismiss
+                onDismiss: onDismiss,
+                flushDismissOnDismantle: flushDismissOnDismantle
             )
         default:
             AutoFocusSingleLineTextFieldRepresentable(
@@ -44,6 +48,7 @@ struct AutoFocusTextField: View {
                 autoFocus: autoFocus,
                 onReturn: onReturn,
                 onDismiss: onDismiss,
+                flushDismissOnDismantle: flushDismissOnDismantle,
                 keyboardAccessoryTitle: keyboardAccessoryTitle,
                 onKeyboardAccessory: onKeyboardAccessory
             )
@@ -138,6 +143,7 @@ private struct AutoFocusSingleLineTextFieldRepresentable: UIViewRepresentable {
     var autoFocus: Bool = true
     var onReturn: (() -> Bool)? = nil
     var onDismiss: (() -> Void)? = nil
+    var flushDismissOnDismantle: Bool = false
     var keyboardAccessoryTitle: String? = nil
     var onKeyboardAccessory: (() -> Void)? = nil
 
@@ -174,6 +180,7 @@ private struct AutoFocusSingleLineTextFieldRepresentable: UIViewRepresentable {
         if tf.markedTextRange == nil, tf.text != text { tf.text = text }
         context.coordinator.onReturn = onReturn
         context.coordinator.onDismiss = onDismiss
+        context.coordinator.flushDismissOnDismantle = flushDismissOnDismantle
         context.coordinator.onKeyboardAccessory = onKeyboardAccessory
         applyAccessory(to: tf, context: context)
     }
@@ -205,11 +212,13 @@ private struct AutoFocusSingleLineTextFieldRepresentable: UIViewRepresentable {
             text: $text,
             onReturn: onReturn,
             onDismiss: onDismiss,
+            flushDismissOnDismantle: flushDismissOnDismantle,
             onKeyboardAccessory: onKeyboardAccessory
         )
     }
 
     static func dismantleUIView(_ uiView: AutoFocusUITextField, coordinator: Coordinator) {
+        guard coordinator.flushDismissOnDismantle else { return }
         coordinator.flushDismiss(from: uiView)
     }
 
@@ -217,6 +226,7 @@ private struct AutoFocusSingleLineTextFieldRepresentable: UIViewRepresentable {
         @Binding var text: String
         var onReturn: (() -> Bool)?
         var onDismiss: (() -> Void)?
+        var flushDismissOnDismantle: Bool
         var onKeyboardAccessory: (() -> Void)?
         private var didDismiss = false
 
@@ -224,11 +234,13 @@ private struct AutoFocusSingleLineTextFieldRepresentable: UIViewRepresentable {
             text: Binding<String>,
             onReturn: (() -> Bool)?,
             onDismiss: (() -> Void)?,
+            flushDismissOnDismantle: Bool,
             onKeyboardAccessory: (() -> Void)?
         ) {
             _text = text
             self.onReturn = onReturn
             self.onDismiss = onDismiss
+            self.flushDismissOnDismantle = flushDismissOnDismantle
             self.onKeyboardAccessory = onKeyboardAccessory
         }
 
@@ -328,6 +340,7 @@ private struct AutoFocusMultilineTextFieldRepresentable: UIViewRepresentable {
     var font: UIFont? = nil
     var autoFocus: Bool = true
     var onDismiss: (() -> Void)? = nil
+    var flushDismissOnDismantle: Bool = false
 
     private func resolvedFont(compatibleWith traitCollection: UITraitCollection) -> UIFont {
         if let textStyle {
@@ -378,6 +391,7 @@ private struct AutoFocusMultilineTextFieldRepresentable: UIViewRepresentable {
         }
         context.coordinator.placeholderLabel?.isHidden = !tv.text.isEmpty
         context.coordinator.onDismiss = onDismiss
+        context.coordinator.flushDismissOnDismantle = flushDismissOnDismantle
         tv.invalidateIntrinsicContentSize()
     }
 
@@ -388,22 +402,33 @@ private struct AutoFocusMultilineTextFieldRepresentable: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, onDismiss: onDismiss)
+        Coordinator(
+            text: $text,
+            onDismiss: onDismiss,
+            flushDismissOnDismantle: flushDismissOnDismantle
+        )
     }
 
     static func dismantleUIView(_ uiView: GrowingTextView, coordinator: Coordinator) {
+        guard coordinator.flushDismissOnDismantle else { return }
         coordinator.flushDismiss(from: uiView)
     }
 
     final class Coordinator: NSObject, UITextViewDelegate {
         @Binding var text: String
         var onDismiss: (() -> Void)?
+        var flushDismissOnDismantle: Bool
         weak var placeholderLabel: UILabel?
         private var didDismiss = false
 
-        init(text: Binding<String>, onDismiss: (() -> Void)?) {
+        init(
+            text: Binding<String>,
+            onDismiss: (() -> Void)?,
+            flushDismissOnDismantle: Bool
+        ) {
             _text = text
             self.onDismiss = onDismiss
+            self.flushDismissOnDismantle = flushDismissOnDismantle
         }
 
         func textViewDidChange(_ textView: UITextView) {
