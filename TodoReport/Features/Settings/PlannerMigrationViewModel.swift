@@ -503,11 +503,14 @@ final class PlannerMigrationViewModel {
         let allTodos      = (try? context.fetch(FetchDescriptor<TodoItem>())) ?? []
         let allReports    = (try? context.fetch(FetchDescriptor<DailyReportItem>())) ?? []
         let allCategories = (try? context.fetch(FetchDescriptor<CategoryItem>())) ?? []
+        let allSeries     = (try? context.fetch(FetchDescriptor<RecurringSeries>())) ?? []
         allTodos.filter { $0.plannerId == plannerId || $0.plannerId == nil }
             .forEach { context.delete($0) }
         allReports.filter { ($0.plannerId == plannerId || $0.plannerId == nil) && $0.endDate == nil }
             .forEach { context.delete($0) }
         allCategories.filter { $0.plannerId == plannerId || $0.plannerId == nil }
+            .forEach { context.delete($0) }
+        allSeries.filter { $0.plannerId == plannerId || $0.plannerId == nil }
             .forEach { context.delete($0) }
         try? context.save()
         await CategoryService.shared.refresh()

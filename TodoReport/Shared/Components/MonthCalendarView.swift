@@ -76,7 +76,7 @@ struct MonthCalendarView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task(id: monthIdentity(displayedMonth)) {
             await CategoryService.shared.refresh()
-            dotsByDay = await TodoService.shared.fetchCategoryDots(forMonthContaining: displayedMonth)
+            await reloadMonthDots()
         }
         .task(id: focusedDate.map { calendar.startOfDay(for: $0) }) {
             await loadDayTodos()
@@ -305,7 +305,12 @@ struct MonthCalendarView: View {
         }
     }
 
+    private var categoryColorSignature: String {
+        CategoryService.shared.store.map { "\($0.id):\($0.colorHex)" }.joined()
+    }
+
     private var dayGrid: some View {
+        let _ = categoryColorSignature
         let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
         let weekCount = max(gridDays.count / 7, 1)
         return LazyVGrid(columns: columns, spacing: dayGridRowSpacing) {
@@ -495,8 +500,39 @@ struct MonthCalendarView: View {
             dayTodos = []
             return
         }
+        await RecurringTodoManager.shared.materializeThrough(date: focusedDate)
         let fetched = await TodoService.shared.fetchTodos(for: focusedDate)
         dayTodos = Self.sortedLikeTodoTab(fetched)
+    }
+
+    private func reloadMonthDots() async {
+        let stored = await TodoService.shared.fetchCategoryDots(forMonthContaining: displayedMonth)
+        let preview = RecurringTodoManager.shared.previewCategoryDots(forMonthContaining: displayedMonth)
+        dotsByDay = Self.mergingDots(stored, preview)
+    }
+
+    private static func mergingDots(
+        _ stored: [Date: DayCategoryDots],
+        _ preview: [Date: DayCategoryDots]
+    ) -> [Date: DayCategoryDots] {
+        var result = stored
+        for (day, previewDots) in preview {
+            guard let existing = result[day] else {
+                result[day] = previewDots
+                continue
+            }
+            var seen = Set(existing.categoryIds)
+            var ids = existing.categoryIds
+            for id in previewDots.categoryIds where !seen.contains(id) {
+                seen.insert(id)
+                ids.append(id)
+            }
+            result[day] = DayCategoryDots(
+                categoryIds: ids,
+                hasUncategorized: existing.hasUncategorized || previewDots.hasUncategorized
+            )
+        }
+        return result
     }
 
     private func fetchMonthFromNotion() async {
@@ -519,7 +555,7 @@ struct MonthCalendarView: View {
         do {
             try await TodoService.shared.syncTodosFromNotionRange(start: monthStart, end: monthEnd)
             await CategoryService.shared.refresh()
-            dotsByDay = await TodoService.shared.fetchCategoryDots(forMonthContaining: displayedMonth)
+            await reloadMonthDots()
             await loadDayTodos()
         } catch {
             AppLogger.shared.warn(

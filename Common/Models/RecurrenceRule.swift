@@ -100,6 +100,10 @@ enum RecurrenceRule: Codable, Equatable {
     /// origin의 패턴이 date에 해당하는지 판정
     func matches(date: Date, origin: Date) -> Bool {
         let cal = Calendar.current
+        let originStart = cal.startOfDay(for: origin)
+        let dateStart = cal.startOfDay(for: date)
+        guard dateStart >= originStart else { return false }
+
         let weekday = cal.component(.weekday, from: date) - 1  // 0=일..6=토
         switch self {
         case .daily:
@@ -112,9 +116,6 @@ enum RecurrenceRule: Codable, Equatable {
             return days.contains(weekday)
         case .biweekly(let days):
             guard days.contains(weekday) else { return false }
-            let originStart = cal.startOfDay(for: origin)
-            let dateStart   = cal.startOfDay(for: date)
-            guard dateStart >= originStart else { return false }
             let daysDiff  = cal.dateComponents([.day], from: originStart, to: dateStart).day ?? 0
             let weeksDiff = daysDiff / 7
             return weeksDiff % 2 == 0

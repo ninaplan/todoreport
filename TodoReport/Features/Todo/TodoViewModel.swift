@@ -32,8 +32,10 @@ final class TodoViewModel {
 
     var selectedDate: Date = .now {
         didSet {
-            Task { await fetchLocalTodos() }
-            Task { @MainActor in await RecurringTodoManager.shared.generateUpcoming() }
+            Task {
+                await RecurringTodoManager.shared.materializeThrough(date: selectedDate)
+                await fetchLocalTodos()
+            }
         }
     }
 
@@ -45,8 +47,6 @@ final class TodoViewModel {
     @ObservationIgnored private var isHandlingForegroundRefresh = false
     @ObservationIgnored private var isFirstLaunch: Bool = true
     @ObservationIgnored private static let dateSyncDebounceNanoseconds: UInt64 = 350_000_000
-
-    private var isPro: Bool { SubscriptionManager.shared.isPro }
 
     var isCurrentPlannerReadOnly: Bool {
         PlannerService.shared.selectedPlanner?.isReadOnly ?? false
@@ -290,7 +290,9 @@ final class TodoViewModel {
     /// 저장소 → `todos` 반영의 단일 진입점. `fetchTodos` 결과를 직접 대입하지 않는다.
     @MainActor
     private func loadTodosFromStore(for date: Date, animated: Bool) async {
-        let fetched = await service.fetchTodos(for: date)
+        let fetched = RecurringTodoManager.shared.attachingSeries(
+            to: await service.fetchTodos(for: date)
+        )
         guard !Task.isCancelled else { return }
         guard Calendar.current.isDate(selectedDate, inSameDayAs: date) else { return }
         applyTodosUpdate(fetched, animated: animated)
@@ -386,25 +388,40 @@ final class TodoViewModel {
         guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
         let trimmed = title.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        let recurrenceId = recurrenceRule != nil ? UUID().uuidString : nil
+        if let recurrenceRule {
+            Task {
+                do {
+                    _ = try await RecurringTodoManager.shared.createSeries(
+                        title: trimmed,
+                        memo: memo,
+                        categoryId: categoryId,
+                        plannerId: PlannerService.shared.selectedPlanner?.id,
+                        originDate: date ?? selectedDate,
+                        scheduledTime: scheduledTime,
+                        alarmOffset: alarmOffset,
+                        rule: recurrenceRule,
+                        endDate: recurrenceEndDate,
+                        occurrenceLimit: recurrenceCount
+                    )
+                    await replaceTodosFromStore()
+                    updateWidget()
+                } catch {
+                    showTodoSaveFailedAlert = true
+                }
+            }
+            return
+        }
         let todo = Todo(
             title: trimmed, memo: memo,
             date: date ?? selectedDate,
             categoryId: categoryId,
             plannerId: PlannerService.shared.selectedPlanner?.id,
             scheduledTime: scheduledTime, alarmOffset: alarmOffset,
-            recurrenceRule: recurrenceRule,
-            recurrenceId: recurrenceId,
-            recurrenceEndDate: recurrenceEndDate,
-            recurrenceCount: recurrenceCount,
             localModifiedAt: .now
         )
         todos.append(todo)
         updateWidget()
         Task { try? await service.saveTodo(todo) }
-        if recurrenceRule != nil {
-            Task { await RecurringTodoManager.shared.generateUpcoming() }
-        }
     }
 
     /// 날짜 없는 인박스 항목 생성. 오늘 목록에는 넣지 않음.
@@ -446,7 +463,10 @@ final class TodoViewModel {
             return left >= right
         }
         guard let fromDate = todo.date else { return }
-        Task { try? await service.deleteFutureItems(recurrenceId: rid, from: fromDate) }
+        Task {
+            try? await service.deleteFutureItems(recurrenceId: rid, from: fromDate)
+            await RecurringTodoManager.shared.capSeriesEndDate(seriesId: rid, beforeDate: fromDate)
+        }
     }
 
     func cancelDelete() {
@@ -486,19 +506,19 @@ final class TodoViewModel {
     // MARK: - Recurring Edit Alert
 
     var recurringEditAlertTitle: String {
-        switch pendingRecurringEdit?.changeType {
-        case .removeRecurrence: return "반복 해제"
-        case .changeRule:       return "반복 주기 변경"
-        default:                return "반복 투두 편집"
-        }
+        pendingRecurringEdit?.changeType.alertTitle ?? String(localized: "반복 투두 편집")
+    }
+
+    var recurringEditAlertMessage: String {
+        pendingRecurringEdit?.changeType.alertMessage ?? String(localized: "어떻게 변경할까요?")
     }
 
     var recurringEditSingleLabel: String {
-        pendingRecurringEdit?.changeType == .removeRecurrence ? "이 항목만 해제" : "이 항목만 변경"
+        pendingRecurringEdit?.changeType.singleLabel ?? String(localized: "이 항목만 변경")
     }
 
     var recurringEditFutureLabel: String {
-        pendingRecurringEdit?.changeType == .removeRecurrence ? "이후 항목 모두 해제" : "이후 항목 모두 변경"
+        pendingRecurringEdit?.changeType.futureLabel ?? String(localized: "이후 항목 모두 변경")
     }
 
     func cancelRecurringEdit() {
@@ -594,8 +614,32 @@ final class TodoViewModel {
     }
 
     func saveTodoEdit(_ updated: Todo) {
-        if let original = todos.first(where: { $0.id == updated.id }),
-           let changeType = RecurringTodoEditHandler.detectChange(original: original, updated: updated) {
+        guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
+        let original: Todo
+        if let listed = todos.first(where: { $0.id == updated.id }) {
+            original = RecurringTodoManager.shared.attachingSeries(to: listed)
+        } else {
+            original = RecurringTodoManager.shared.attachingSeries(to: updated)
+        }
+
+        if original.recurrenceId == nil, updated.recurrenceRule != nil {
+            Task {
+                var adopted = updated
+                adopted.recurrenceId = adopted.recurrenceId ?? UUID().uuidString
+                do {
+                    try RecurringTodoManager.shared.adoptExistingTodoAsSeriesOrigin(adopted)
+                    try await service.updateTodo(adopted)
+                    await RecurringTodoManager.shared.materializeDue()
+                    await replaceTodosFromStore()
+                } catch {
+                    await replaceTodosFromStore()
+                    showTodoSaveFailedAlert = true
+                }
+            }
+            return
+        }
+
+        if let changeType = RecurringTodoEditHandler.detectChange(original: original, updated: updated) {
             if changeType == .changeEndCondition {
                 // 종료 조건 변경은 alert 없이 시리즈 전체에 적용
                 Task {

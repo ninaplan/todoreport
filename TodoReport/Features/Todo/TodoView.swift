@@ -319,6 +319,7 @@ struct TodoView: View {
             }
             .onAppear {
                 refreshAllChipColor()
+                consumePendingTodoNavigation(proxy: proxy)
                 Task { await viewModel.onAppear() }
             }
             .onChange(of: tabCoordinator.selectedTab) { _, tab in
@@ -327,6 +328,7 @@ struct TodoView: View {
                 } else {
                     refreshAllChipColor()
                     presentTodoHintsIfNeeded()
+                    consumePendingTodoNavigation(proxy: proxy)
                 }
             }
             .onChange(of: tabCoordinator.foregroundRefreshToken) { _, _ in
@@ -832,7 +834,7 @@ private struct TodoViewAlertsModifier: ViewModifier {
                 Button(viewModel.recurringEditFutureLabel, role: .destructive) { viewModel.confirmRecurringEditFuture() }
                 Button("취소", role: .cancel) { viewModel.cancelRecurringEdit() }
             } message: {
-                Text("어떻게 변경할까요?")
+                Text(viewModel.recurringEditAlertMessage)
             }
             .alert("이 할일을 삭제할까요?", isPresented: $viewModel.showEditDeleteAlert) {
                 Button("삭제", role: .destructive) { viewModel.confirmEditDelete() }

@@ -14,17 +14,30 @@ struct QuickCaptureView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                TodoEditFormView(
-                    title: $viewModel.title,
-                    memo: $viewModel.memo,
-                    categoryId: $viewModel.selectedCategoryId,
-                    date: $viewModel.selectedDate,
-                    showDatePicker: $viewModel.showDatePicker,
-                    scheduledTime: $viewModel.scheduledTime,
-                    alarmOffset: $viewModel.alarmOffset,
-                    categories: viewModel.categories
-                )
+            ScrollViewReader { proxy in
+                Form {
+                    TodoEditFormView(
+                        title: $viewModel.title,
+                        memo: $viewModel.memo,
+                        categoryId: $viewModel.selectedCategoryId,
+                        date: $viewModel.selectedDate,
+                        showDatePicker: $viewModel.showDatePicker,
+                        scheduledTime: $viewModel.scheduledTime,
+                        alarmOffset: $viewModel.alarmOffset,
+                        recurrenceRule: $viewModel.recurrenceRule,
+                        recurrenceEndDate: $viewModel.recurrenceEndDate,
+                        recurrenceCount: $viewModel.recurrenceCount,
+                        categories: viewModel.categories,
+                        scrollToAnchor: { id in
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(80))
+                                withAnimation {
+                                    proxy.scrollTo(id, anchor: .bottom)
+                                }
+                            }
+                        }
+                    )
+                }
             }
             .navigationTitle("할일 추가")
             .navigationBarTitleDisplayMode(.inline)

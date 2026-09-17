@@ -1,9 +1,39 @@
 import Foundation
 
-enum RecurringEditChangeType {
+enum RecurringEditChangeType: Equatable {
     case removeRecurrence
     case changeRule
     case changeEndCondition
+    case changeDetails
+
+    var alertTitle: String {
+        switch self {
+        case .removeRecurrence: return String(localized: "반복 해제")
+        case .changeRule: return String(localized: "반복 주기 변경")
+        case .changeEndCondition, .changeDetails: return String(localized: "반복 투두 편집")
+        }
+    }
+
+    var alertMessage: String {
+        switch self {
+        case .changeDetails:
+            return String(localized: "이 변경사항을 어디까지 적용할까요?")
+        default:
+            return String(localized: "어떻게 변경할까요?")
+        }
+    }
+
+    var singleLabel: String {
+        self == .removeRecurrence
+            ? String(localized: "이 항목만 해제")
+            : String(localized: "이 항목만 변경")
+    }
+
+    var futureLabel: String {
+        self == .removeRecurrence
+            ? String(localized: "이후 항목 모두 해제")
+            : String(localized: "이후 항목 모두 변경")
+    }
 }
 
 struct RecurringEditPendingInfo {
@@ -31,6 +61,14 @@ enum RecurringTodoEditHandler {
             return .changeEndCondition
         }
 
+        if original.categoryId != updated.categoryId ||
+           original.scheduledTime != updated.scheduledTime ||
+           original.alarmOffset != updated.alarmOffset ||
+           original.title != updated.title ||
+           original.memo != updated.memo {
+            return .changeDetails
+        }
+
         return nil
     }
 
@@ -50,10 +88,14 @@ enum RecurringTodoEditHandler {
             // 이 항목을 새 시리즈의 시작으로 분리
             var newSeries = updated
             newSeries.recurrenceId = UUID().uuidString
+            try RecurringTodoManager.shared.adoptExistingTodoAsSeriesOrigin(newSeries)
             try await TodoService.shared.updateTodo(newSeries)
-            await RecurringTodoManager.shared.generateUpcoming()
+            await RecurringTodoManager.shared.materializeDue()
 
         case .changeEndCondition:
+            try await TodoService.shared.updateTodo(updated)
+
+        case .changeDetails:
             try await TodoService.shared.updateTodo(updated)
         }
     }
@@ -70,7 +112,7 @@ enum RecurringTodoEditHandler {
                 seriesId: seriesId, from: fromDate, excludingId: updated.id
             )
             await RecurringTodoManager.shared.capSeriesEndDate(
-                seriesId: seriesId, beforeDate: fromDate, excludingId: updated.id
+                seriesId: seriesId, beforeDate: fromDate
             )
             var detached = updated
             detached.recurrenceId = nil
@@ -85,12 +127,13 @@ enum RecurringTodoEditHandler {
                 seriesId: seriesId, from: fromDate, excludingId: updated.id
             )
             await RecurringTodoManager.shared.capSeriesEndDate(
-                seriesId: seriesId, beforeDate: fromDate, excludingId: updated.id
+                seriesId: seriesId, beforeDate: fromDate
             )
             var newOrigin = updated
             newOrigin.recurrenceId = UUID().uuidString
+            try RecurringTodoManager.shared.adoptExistingTodoAsSeriesOrigin(newOrigin)
             try await TodoService.shared.updateTodo(newOrigin)
-            await RecurringTodoManager.shared.generateUpcoming()
+            await RecurringTodoManager.shared.materializeDue()
 
         case .changeEndCondition:
             await RecurringTodoManager.shared.updateSeriesEndCondition(
@@ -98,8 +141,15 @@ enum RecurringTodoEditHandler {
                 endDate: updated.recurrenceEndDate,
                 count: updated.recurrenceCount
             )
+            RecurringTodoManager.shared.updateSeriesTemplate(from: updated)
             try await TodoService.shared.updateTodo(updated)
-            await RecurringTodoManager.shared.generateUpcoming()
+            await RecurringTodoManager.shared.materializeDue()
+
+        case .changeDetails:
+            RecurringTodoManager.shared.updateSeriesTemplate(from: updated)
+            try await TodoService.shared.updateTodo(updated)
+            await RecurringTodoManager.shared.updateFutureTodosDetails(from: updated)
+            await RecurringTodoManager.shared.materializeDue()
         }
     }
 }

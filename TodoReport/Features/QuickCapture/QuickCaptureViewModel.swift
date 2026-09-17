@@ -7,7 +7,6 @@ final class QuickCaptureViewModel {
     var selectedCategoryId: String? = nil
     var selectedDate: Date?
     var showDatePicker: Bool = false
-    var showProAlert: Bool = false
     var scheduledTime: Date? = nil
     var alarmOffset: Int? = nil
     var recurrenceRule: RecurrenceRule? = nil

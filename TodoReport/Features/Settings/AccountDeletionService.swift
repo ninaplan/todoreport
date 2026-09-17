@@ -28,6 +28,11 @@ final class AccountDeletionService {
             step: "3. TodoItem"
         )
         try deleteAllEntities(
+            RecurringSeries.self,
+            context: context,
+            step: "3b. RecurringSeries"
+        )
+        try deleteAllEntities(
             DailyReportItem.self,
             context: context,
             step: "4. DailyReportItem"

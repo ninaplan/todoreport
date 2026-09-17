@@ -122,6 +122,13 @@ struct InboxView: View {
             Button("삭제", role: .destructive) { viewModel.confirmDelete() }
             Button("취소", role: .cancel) { viewModel.cancelDelete() }
         }
+        .alert(viewModel.recurringEditAlertTitle, isPresented: $vm.showRecurringEditAlert) {
+            Button(viewModel.recurringEditSingleLabel) { viewModel.confirmRecurringEditSingle() }
+            Button(viewModel.recurringEditFutureLabel, role: .destructive) { viewModel.confirmRecurringEditFuture() }
+            Button("취소", role: .cancel) { viewModel.cancelRecurringEdit() }
+        } message: {
+            Text(viewModel.recurringEditAlertMessage)
+        }
         .alert("읽기 전용 플래너", isPresented: $vm.showReadOnlyAlert) {
             Button("확인", role: .cancel) { viewModel.cancelReadOnlyAlert() }
         } message: {

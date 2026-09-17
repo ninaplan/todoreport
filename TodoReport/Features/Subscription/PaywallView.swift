@@ -144,8 +144,8 @@ struct PaywallView: View {
 
             ProFeatureRow(
                 title: "반복 할일",
-                description: "매일·매주 반복되는 할일을 한 번만 설정하면 자동으로 생성됩니다.",
-                isComingSoon: true,
+                description: "매일·매주 반복되는 할 일을 한 번만 설정하면 날짜에 맞춰 자동으로 생성됩니다.",
+                isComingSoon: false,
                 primaryText: primaryText,
                 secondaryText: secondaryText
             )

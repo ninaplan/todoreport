@@ -56,7 +56,7 @@ struct TodoReportApp: App {
                     ReportNotificationManager.shared.rescheduleAll()
                 }
                 Task { @MainActor in
-                    await RecurringTodoManager.shared.generateUpcoming()
+                    await RecurringTodoManager.shared.materializeDue()
                     NotionRelationLinker.shared.linkMissing()
                 }
                 UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
@@ -67,6 +67,8 @@ struct TodoReportApp: App {
             .onOpenURL { url in
                 if url.scheme == "todoreport" && url.host == "paywall" {
                     showPaywall = true
+                } else if url.scheme == "todoreport" && url.host == "todo" {
+                    MainTabCoordinator.shared.openTodoTabFromWidget()
                 } else {
                     Task { @MainActor in
                         NotionAuthManager.shared.handleCallback(url: url)
@@ -105,6 +107,7 @@ struct TodoReportApp: App {
                     }
                 }
                 Task { @MainActor in
+                    await RecurringTodoManager.shared.materializeDue()
                     await WidgetDataProvider.shared.refreshTodayFromStore()
                 }
             default:

@@ -18,7 +18,7 @@ struct TodoEditSheet: View {
         self.categories = categories
         self.onSave = onSave
         self.onDeleteTapped = onDeleteTapped
-        _draft = State(initialValue: todo)
+        _draft = State(initialValue: RecurringTodoManager.shared.attachingSeries(to: todo))
     }
 
     private var isSaveEnabled: Bool {
@@ -27,29 +27,42 @@ struct TodoEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                TodoEditFormView(
-                    title: $draft.title,
-                    memo: Binding(
-                        get: { draft.memo ?? "" },
-                        set: { draft.memo = $0.isEmpty ? nil : $0 }
-                    ),
-                    categoryId: $draft.categoryId,
-                    date: $draft.date,
-                    showDatePicker: $showDatePicker,
-                    scheduledTime: $draft.scheduledTime,
-                    alarmOffset: $draft.alarmOffset,
-                    categories: categories,
-                    autoFocus: false
-                )
-
-                if onDeleteTapped != nil {
-                    Section {
-                        Button("삭제") {
-                            onDeleteTapped?(draft)
+            ScrollViewReader { proxy in
+                Form {
+                    TodoEditFormView(
+                        title: $draft.title,
+                        memo: Binding(
+                            get: { draft.memo ?? "" },
+                            set: { draft.memo = $0.isEmpty ? nil : $0 }
+                        ),
+                        categoryId: $draft.categoryId,
+                        date: $draft.date,
+                        showDatePicker: $showDatePicker,
+                        scheduledTime: $draft.scheduledTime,
+                        alarmOffset: $draft.alarmOffset,
+                        recurrenceRule: $draft.recurrenceRule,
+                        recurrenceEndDate: $draft.recurrenceEndDate,
+                        recurrenceCount: $draft.recurrenceCount,
+                        categories: categories,
+                        autoFocus: false,
+                        scrollToAnchor: { id in
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(80))
+                                withAnimation {
+                                    proxy.scrollTo(id, anchor: .bottom)
+                                }
+                            }
                         }
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .foregroundStyle(.red)
+                    )
+
+                    if onDeleteTapped != nil {
+                        Section {
+                            Button("삭제") {
+                                onDeleteTapped?(draft)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .foregroundStyle(.red)
+                        }
                     }
                 }
             }

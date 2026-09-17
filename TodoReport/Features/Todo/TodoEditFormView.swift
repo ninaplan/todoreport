@@ -8,8 +8,12 @@ struct TodoEditFormView: View {
     @Binding var showDatePicker: Bool
     @Binding var scheduledTime: Date?
     @Binding var alarmOffset: Int?
+    @Binding var recurrenceRule: RecurrenceRule?
+    @Binding var recurrenceEndDate: Date?
+    @Binding var recurrenceCount: Int?
     let categories: [Category]
     var autoFocus: Bool = true
+    var scrollToAnchor: ((String) -> Void)? = nil
 
     private var localizedCalendar: Calendar { AppCalendar.localized }
 
@@ -19,6 +23,7 @@ struct TodoEditFormView: View {
     @State private var customAlarmNumber = 30
     @State private var customAlarmUnit = 0
 
+    private static let datePickerAnchor = "todoEditDatePicker"
     private static let unitNames = ["분", "시간", "일", "주", "개월"]
     private static let unitMultipliers = [1, 60, 1440, 10080, 43200]
 
@@ -104,6 +109,7 @@ struct TodoEditFormView: View {
                     .labelsHidden()
                     .tint(AppTheme.shared.accent)
                     .environment(\.calendar, localizedCalendar)
+                    .id(Self.datePickerAnchor)
                     .onChange(of: date) { _, newDate in
                         guard let newDate else { return }
                         scheduledTime = TodoScheduledTime.aligning(
@@ -197,10 +203,8 @@ struct TodoEditFormView: View {
                     .environment(\.calendar, localizedCalendar)
                 }
             }
-        }
 
-        if date != nil, scheduledTime != nil {
-            Section {
+            if date != nil, scheduledTime != nil {
                 Picker("알림", selection: Binding(
                     get: { alarmPickerSelection },
                     set: { value in
@@ -257,9 +261,23 @@ struct TodoEditFormView: View {
                     .onChange(of: customAlarmNumber) { _, _ in updateCustomAlarm() }
                     .onChange(of: customAlarmUnit) { _, _ in updateCustomAlarm() }
                 }
-            } footer: {
+            }
+        } footer: {
+            if date != nil, scheduledTime != nil {
                 Text("알림은 이 기기에만 저장됩니다. 앱을 다시 설치하거나 기기를 바꾸면 다시 설정해 주세요.")
             }
+        }
+
+        RecurrenceSettingsSection(
+            recurrenceRule: $recurrenceRule,
+            recurrenceEndDate: $recurrenceEndDate,
+            recurrenceCount: $recurrenceCount,
+            date: $date,
+            scrollToAnchor: scrollToAnchor
+        )
+        .onChange(of: showDatePicker) { _, shown in
+            guard shown else { return }
+            scrollToAnchor?(Self.datePickerAnchor)
         }
     }
 
@@ -282,6 +300,9 @@ struct TodoEditFormView: View {
         date = nil
         scheduledTime = nil
         alarmOffset = nil
+        recurrenceRule = nil
+        recurrenceEndDate = nil
+        recurrenceCount = nil
         showDatePicker = false
         showTimePicker = false
         showCustomAlarmInput = false

@@ -19,6 +19,7 @@ final class TodoItem {
     var plannerId: String?
     var scheduledTime: Date?
     var alarmOffset: Int?
+    /// 시리즈 소속만 표시. 규칙 본체는 `RecurringSeries`. 아래 세 필드는 스키마 호환용으로만 남김.
     var recurrenceData: Data?
     var recurrenceId: String?
     var recurrenceEndDate: Date?

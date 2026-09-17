@@ -59,6 +59,9 @@ final class InboxViewModel {
     var showCustomSnoozePicker = false
     var customSnoozeDate: Date = Calendar.current.startOfDay(for: .now)
 
+    var showRecurringEditAlert = false
+    private(set) var pendingRecurringEdit: RecurringEditPendingInfo? = nil
+
     private let service = TodoService.shared
     private let categoryService = CategoryService.shared
 
@@ -306,9 +309,112 @@ final class InboxViewModel {
         if saved.date != nil {
             saved.snoozedUntil = nil
         }
+        let shouldStartSeries = saved.recurrenceId == nil && saved.recurrenceRule != nil
+        if shouldStartSeries {
+            saved.recurrenceId = UUID().uuidString
+            Task { @MainActor in
+                do {
+                    try RecurringTodoManager.shared.adoptExistingTodoAsSeriesOrigin(saved)
+                    try await service.updateTodo(saved)
+                    await RecurringTodoManager.shared.materializeDue()
+                    await refreshLocal()
+                } catch {
+                    AppLogger.shared.error("Inbox", "할 일 저장 실패 \(error.localizedDescription)")
+                    await refreshLocal()
+                }
+            }
+            return
+        }
+
+        let original: Todo
+        if let listed = allInbox.first(where: { $0.id == saved.id }) {
+            original = RecurringTodoManager.shared.attachingSeries(to: listed)
+        } else {
+            original = RecurringTodoManager.shared.attachingSeries(to: saved)
+        }
+
+        if let changeType = RecurringTodoEditHandler.detectChange(original: original, updated: saved) {
+            if changeType == .changeEndCondition {
+                Task { @MainActor in
+                    do {
+                        try await RecurringTodoEditHandler.applyFromNowOn(
+                            original: original, updated: saved, changeType: changeType
+                        )
+                        await refreshLocal()
+                    } catch {
+                        AppLogger.shared.error("Inbox", "할 일 저장 실패 \(error.localizedDescription)")
+                        await refreshLocal()
+                    }
+                }
+            } else {
+                pendingRecurringEdit = RecurringEditPendingInfo(
+                    original: original, updated: saved, changeType: changeType
+                )
+                showRecurringEditAlert = true
+            }
+            return
+        }
+
         Task { @MainActor in
-            try? await service.updateTodo(saved)
-            await refreshLocal()
+            do {
+                try await service.updateTodo(saved)
+                await refreshLocal()
+            } catch {
+                AppLogger.shared.error("Inbox", "할 일 저장 실패 \(error.localizedDescription)")
+                await refreshLocal()
+            }
+        }
+    }
+
+    var recurringEditAlertTitle: String {
+        pendingRecurringEdit?.changeType.alertTitle ?? String(localized: "반복 투두 편집")
+    }
+
+    var recurringEditAlertMessage: String {
+        pendingRecurringEdit?.changeType.alertMessage ?? String(localized: "어떻게 변경할까요?")
+    }
+
+    var recurringEditSingleLabel: String {
+        pendingRecurringEdit?.changeType.singleLabel ?? String(localized: "이 항목만 변경")
+    }
+
+    var recurringEditFutureLabel: String {
+        pendingRecurringEdit?.changeType.futureLabel ?? String(localized: "이후 항목 모두 변경")
+    }
+
+    func cancelRecurringEdit() {
+        pendingRecurringEdit = nil
+    }
+
+    func confirmRecurringEditSingle() {
+        guard let info = pendingRecurringEdit else { return }
+        pendingRecurringEdit = nil
+        Task { @MainActor in
+            do {
+                try await RecurringTodoEditHandler.applySingleOnly(
+                    original: info.original, updated: info.updated, changeType: info.changeType
+                )
+                await refreshLocal()
+            } catch {
+                AppLogger.shared.error("Inbox", "할 일 저장 실패 \(error.localizedDescription)")
+                await refreshLocal()
+            }
+        }
+    }
+
+    func confirmRecurringEditFuture() {
+        guard let info = pendingRecurringEdit else { return }
+        pendingRecurringEdit = nil
+        Task { @MainActor in
+            do {
+                try await RecurringTodoEditHandler.applyFromNowOn(
+                    original: info.original, updated: info.updated, changeType: info.changeType
+                )
+                await refreshLocal()
+            } catch {
+                AppLogger.shared.error("Inbox", "할 일 저장 실패 \(error.localizedDescription)")
+                await refreshLocal()
+            }
         }
     }
 
