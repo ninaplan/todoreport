@@ -10,19 +10,19 @@ struct TodoSearchView: View {
                 ContentUnavailableView(
                     "할일 검색",
                     systemImage: "magnifyingglass",
-                    description: Text("제목과 메모에서 찾습니다.")
+                    description: Text("제목, 메모, 하루 리뷰에서 찾습니다.")
                 )
             } else if vm.results.isEmpty {
                 ContentUnavailableView.search(text: vm.trimmedQuery)
             } else {
                 List {
-                    ForEach(vm.results) { todo in
+                    ForEach(vm.results) { item in
                         Button {
-                            viewModel.openResult(todo)
+                            viewModel.openResult(item)
                         } label: {
                             SearchResultRow(
-                                todo: todo,
-                                plannerName: viewModel.plannerName(for: todo)
+                                item: item,
+                                plannerName: viewModel.plannerName(for: item)
                             )
                         }
                         .buttonStyle(.plain)

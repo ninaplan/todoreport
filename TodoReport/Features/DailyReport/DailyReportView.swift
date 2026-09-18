@@ -10,8 +10,10 @@ struct DailyReportCard: View {
     let displayTotal: Int
     /// 최초 1회, 리포트 카드가 처음 나타났을 때 호출 (화살표 안내 말풍선은 List 밖 상위 뷰에서 표시)
     var onFirstAppear: (() -> Void)? = nil
+    var expandToken: Int = 0
 
     @State private var isExpanded = false
+    @State private var lastAppliedExpandToken = 0
     @State private var expandedContentHeight: CGFloat = 0
     @FocusState private var isReviewFocused: Bool
 
@@ -69,7 +71,17 @@ struct DailyReportCard: View {
         }
         .onAppear {
             onFirstAppear?()
+            applyExpandTokenIfNeeded()
         }
+        .onChange(of: expandToken) { _, _ in
+            applyExpandTokenIfNeeded()
+        }
+    }
+
+    private func applyExpandTokenIfNeeded() {
+        guard expandToken > 0, expandToken != lastAppliedExpandToken else { return }
+        lastAppliedExpandToken = expandToken
+        isExpanded = true
     }
 
     // MARK: - 헤더 (접기/펼치기)

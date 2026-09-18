@@ -23,14 +23,19 @@ final class MainTabCoordinator {
     private(set) var settingsStackResetToken: Int = 0
     /// 5분+ 백그라운드 복귀 시 투두 탭 루트 리셋 트리거
     private(set) var todoRootResetToken: Int = 0
+    /// 검색 등에서 데일리 리포트 카드를 1회 펼칠 때 증가
+    private(set) var expandDailyReportToken: Int = 0
     /// 포그라운드 복귀 시 데이터 갱신 트리거
     private(set) var foregroundRefreshToken: Int = 0
 
     private init() {}
 
-    func openTodo(on date: Date, highlightTodoId: String? = nil) {
+    func openTodo(on date: Date, highlightTodoId: String? = nil, expandDailyReport: Bool = false) {
         pendingHighlightTodoId = highlightTodoId
         pendingTodoDate = Calendar.current.startOfDay(for: date)
+        if expandDailyReport {
+            expandDailyReportToken += 1
+        }
         selectedTab = .todo
     }
 

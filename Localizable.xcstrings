@@ -4001,12 +4001,12 @@
         }
       }
     },
-    "제목과 메모에서 찾습니다." : {
+    "제목, 메모, 하루 리뷰에서 찾습니다." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Search titles and notes."
+            "value" : "Search titles, notes, and daily reviews."
           }
         }
       }

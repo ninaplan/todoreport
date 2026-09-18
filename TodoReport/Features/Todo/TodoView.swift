@@ -253,7 +253,8 @@ struct TodoView: View {
                         displayRate: viewModel.filteredCompletionRate,
                         displayCompleted: viewModel.filteredCompletedCount,
                         displayTotal: viewModel.filteredTotalCount,
-                        onFirstAppear: { presentDailyReportExpandHintIfNeeded() }
+                        onFirstAppear: { presentDailyReportExpandHintIfNeeded() },
+                        expandToken: tabCoordinator.expandDailyReportToken
                     )
                 }
                 .listRowSeparator(.hidden)
