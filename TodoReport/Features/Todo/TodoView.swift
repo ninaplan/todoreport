@@ -28,9 +28,6 @@ struct TodoView: View {
     @State private var showInlineEditHint = false
     @AppStorage("hasSeenInlineEditHint") private var hasSeenInlineEditHint = false
     @AppStorage("lastSeenWhatsNewVersion") private var lastSeenWhatsNewVersion = ""
-    @State private var allChipColorHex: String = AllChipColorStore.hex(
-        for: PlannerService.shared.selectedPlanner?.id
-    )
 
     private var formattedDate: String {
         let cal = Calendar.current
@@ -59,7 +56,6 @@ struct TodoView: View {
                     changingDateTodo: $changingDateTodo,
                     editingTodo: $editingTodo,
                     hapticSuccessTrigger: $hapticSuccessTrigger,
-                    onCategoryDismiss: refreshAllChipColor,
                     onInboxDismiss: {
                         inboxSheetHighlightTodoId = nil
                         refreshInboxBadge()
@@ -271,11 +267,10 @@ struct TodoView: View {
                     Section {
                         CategoryFilterBar(
                             categories: viewModel.activeCategories,
-                            selectedId: Binding(
-                                get: { viewModel.selectedCategoryFilter },
-                                set: { viewModel.selectedCategoryFilter = $0 }
-                            ),
-                            allChipColor: Color(hex: allChipColorHex)
+                            selectedIds: viewModel.selectedCategoryFilter,
+                            onSelectSingle: { viewModel.selectSingleCategoryFilter($0) },
+                            onClear: { viewModel.clearCategoryFilter() },
+                            onToggle: { viewModel.toggleCategoryFilter($0) }
                         )
                     }
                     .listRowSeparator(.hidden)
@@ -318,7 +313,6 @@ struct TodoView: View {
                 await dailyReportViewModel.fetchReport(for: viewModel.selectedDate, completionRate: viewModel.completionRate)
             }
             .onAppear {
-                refreshAllChipColor()
                 consumePendingTodoNavigation(proxy: proxy)
                 Task { await viewModel.onAppear() }
             }
@@ -326,7 +320,6 @@ struct TodoView: View {
                 if tab != .todo {
                     cleanupInlineAddingOnTabLeave()
                 } else {
-                    refreshAllChipColor()
                     presentTodoHintsIfNeeded()
                     consumePendingTodoNavigation(proxy: proxy)
                 }
@@ -353,7 +346,6 @@ struct TodoView: View {
                 consumePendingInboxNavigation()
             }
             .onChange(of: PlannerService.shared.selectedPlannerId) { _, _ in
-                refreshAllChipColor()
                 dailyReportViewModel.switchReport()
                 Task {
                     await viewModel.switchPlanner()
@@ -594,10 +586,6 @@ struct TodoView: View {
         inlineEditingTodoId = nil
     }
 
-    private func refreshAllChipColor() {
-        allChipColorHex = AllChipColorStore.hex(for: PlannerService.shared.selectedPlanner?.id)
-    }
-
     @ViewBuilder
     private var todoListSections: some View {
         if viewModel.showsTodoListLoading {
@@ -704,7 +692,7 @@ struct TodoView: View {
 
     private var addTodoRow: some View {
         AddTodoRow(newTodoTitle: $newTodoTitle, isAdding: $isAddingTodo) {
-            viewModel.addTodo(title: newTodoTitle, categoryId: viewModel.selectedCategoryFilter)
+            viewModel.addTodo(title: newTodoTitle, categoryId: viewModel.defaultCategoryIdForNewTodo)
             newTodoTitle = ""
             hapticSuccessTrigger.toggle()
         }
@@ -726,7 +714,6 @@ private struct TodoViewSheetsModifier: ViewModifier {
     @Binding var changingDateTodo: Todo?
     @Binding var editingTodo: Todo?
     @Binding var hapticSuccessTrigger: Bool
-    let onCategoryDismiss: () -> Void
     let onInboxDismiss: () -> Void
 
     func body(content: Content) -> some View {
@@ -744,7 +731,7 @@ private struct TodoViewSheetsModifier: ViewModifier {
             }
             .sheet(isPresented: $showQuickCapture, onDismiss: onInboxDismiss) {
                 QuickCaptureView(
-                    defaultCategoryId: viewModel.selectedCategoryFilter,
+                    defaultCategoryId: viewModel.defaultCategoryIdForNewTodo,
                     initialDate: viewModel.selectedDate
                 ) { title, memo, categoryId, date, scheduledTime, alarmOffset, recurrenceRule, recurrenceEndDate, recurrenceCount in
                     if let date {
@@ -795,7 +782,7 @@ private struct TodoViewSheetsModifier: ViewModifier {
                 )
                 .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $showCategorySheet, onDismiss: onCategoryDismiss) {
+            .sheet(isPresented: $showCategorySheet) {
                 NavigationStack {
                     CategoryView(presentsAsSheet: true)
                 }
@@ -809,6 +796,13 @@ private struct TodoViewSheetsModifier: ViewModifier {
                 }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $viewModel.showCategoryFilterPaywall, onDismiss: {
+                viewModel.dismissCategoryFilterPaywall()
+            }) {
+                PaywallView(message: String(localized: "여러 카테고리 보기는 Pro 기능입니다."))
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
             }
     }
 }
@@ -913,29 +907,81 @@ private struct TodoInteractiveRow: View {
 
 private struct CategoryFilterBar: View {
     let categories: [Category]
-    @Binding var selectedId: String?
-    let allChipColor: Color
+    let selectedIds: Set<String>
+    let onSelectSingle: (String) -> Void
+    let onClear: () -> Void
+    let onToggle: (String) -> Void
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                FilterChip(label: String(localized: "전체"), color: allChipColor, isSelected: selectedId == nil) {
-                    selectedId = nil
+                Menu {
+                    Toggle(isOn: Binding(
+                        get: { selectedIds.isEmpty },
+                        set: { isOn in
+                            if isOn { onClear() }
+                        }
+                    )) {
+                        Text("전체")
+                    }
+
+                    ForEach(categories) { category in
+                        Toggle(isOn: Binding(
+                            get: { selectedIds.contains(category.id) },
+                            set: { _ in onToggle(category.id) }
+                        )) {
+                            Text(category.name)
+                        }
+                        .menuActionDismissBehavior(.disabled)
+                    }
+
+                    Toggle(isOn: Binding(
+                        get: { selectedIds.contains(TodoViewModel.uncategorizedFilterId) },
+                        set: { _ in onToggle(TodoViewModel.uncategorizedFilterId) }
+                    )) {
+                        Text("미분류")
+                    }
+                    .menuActionDismissBehavior(.disabled)
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease")
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(Color.primary)
+                        .frame(width: 32, height: 32)
+                        .overlay(alignment: .topTrailing) {
+                            if !selectedIds.isEmpty {
+                                Circle()
+                                    .fill(AppTheme.shared.accent)
+                                    .frame(width: 6, height: 6)
+                                    .offset(x: -4, y: 4)
+                            }
+                        }
+                        .accessibilityLabel(String(localized: "카테고리 필터"))
                 }
+                .buttonStyle(.plain)
+                .tint(.primary)
+
                 ForEach(categories) { category in
                     FilterChip(
                         label: category.name,
                         color: Color(hex: category.colorHex),
-                        isSelected: selectedId == category.id
+                        isSelected: selectedIds.contains(category.id)
                     ) {
-                        selectedId = category.id
+                        onSelectSingle(category.id)
                     }
+                }
+
+                FilterChip(
+                    label: String(localized: "미분류"),
+                    color: Color(.tertiaryLabel),
+                    isSelected: selectedIds.contains(TodoViewModel.uncategorizedFilterId)
+                ) {
+                    onSelectSingle(TodoViewModel.uncategorizedFilterId)
                 }
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 4)
         }
-        .sensoryFeedback(.selection, trigger: selectedId)
+        .sensoryFeedback(.selection, trigger: selectedIds)
     }
 }
 

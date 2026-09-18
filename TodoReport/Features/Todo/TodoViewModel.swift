@@ -26,7 +26,9 @@ final class TodoViewModel {
     }() {
         didSet { UserDefaults.standard.set(showScheduledTime, forKey: "todoShowScheduledTime") }
     }
-    var selectedCategoryFilter: String? = nil  // nil = 전체
+    /// 실제 카테고리 UUID와 겹치지 않는 필터 전용 값.
+    static let uncategorizedFilterId: String = "__uncategorized__"
+    private(set) var selectedCategoryFilter: Set<String> = []  // 비어 있으면 전체
     /// 검색에서 들어온 항목이 숨김(완료/카테고리 필터)이어도 잠깐 목록에 보이게 한다.
     private(set) var navigationRevealTodoId: String?
 
@@ -53,6 +55,7 @@ final class TodoViewModel {
     }
 
     var showReadOnlyAlert: Bool = false
+    var showCategoryFilterPaywall: Bool = false
 
     var showDatePicker: Bool = false
     private(set) var isNotionSyncing: Bool = false
@@ -102,9 +105,7 @@ final class TodoViewModel {
     }
 
     private var todosForRate: [Todo] {
-        let dated = todosForSelectedDate
-        guard let filterId = selectedCategoryFilter else { return dated }
-        return dated.filter { $0.categoryId == filterId }
+        todosForSelectedDate.filter(matchesCategoryFilter)
     }
 
     private var todosForSelectedDate: [Todo] {
@@ -136,8 +137,15 @@ final class TodoViewModel {
     }
 
     var filteredTodos: [Todo] {
-        guard let filterId = selectedCategoryFilter else { return displayedTodos }
-        return displayedTodos.filter { $0.categoryId == filterId || $0.id == navigationRevealTodoId }
+        if selectedCategoryFilter.isEmpty { return displayedTodos }
+        return displayedTodos.filter { matchesCategoryFilter($0) || $0.id == navigationRevealTodoId }
+    }
+
+    var defaultCategoryIdForNewTodo: String? {
+        guard selectedCategoryFilter.count == 1,
+              let id = selectedCategoryFilter.first,
+              id != Self.uncategorizedFilterId else { return nil }
+        return id
     }
 
     var filteredCompletionRate: Double {
@@ -150,6 +158,14 @@ final class TodoViewModel {
 
     private func sortDate(_ todo: Todo) -> Date {
         todo.notionCreatedAt ?? todo.createdAt
+    }
+
+    private func matchesCategoryFilter(_ todo: Todo) -> Bool {
+        if selectedCategoryFilter.isEmpty { return true }
+        if let categoryId = todo.categoryId {
+            return selectedCategoryFilter.contains(categoryId)
+        }
+        return selectedCategoryFilter.contains(Self.uncategorizedFilterId)
     }
 
     func category(for id: String?) -> Category? {
@@ -349,13 +365,43 @@ final class TodoViewModel {
     }
 
     private func validateCategoryFilter() {
-        guard let filterId = selectedCategoryFilter else { return }
-        if !categoryService.activeCategories.contains(where: { $0.id == filterId }) {
-            selectedCategoryFilter = nil
-        }
+        guard !selectedCategoryFilter.isEmpty else { return }
+        var allowed = Set(categoryService.activeCategories.map(\.id))
+        allowed.insert(Self.uncategorizedFilterId)
+        selectedCategoryFilter = selectedCategoryFilter.intersection(allowed)
     }
 
     // MARK: - Actions
+
+    func selectSingleCategoryFilter(_ categoryId: String) {
+        selectedCategoryFilter = [categoryId]
+    }
+
+    func clearCategoryFilter() {
+        selectedCategoryFilter = []
+    }
+
+    func toggleCategoryFilter(_ categoryId: String) {
+        if selectedCategoryFilter.contains(categoryId) {
+            var next = selectedCategoryFilter
+            next.remove(categoryId)
+            selectedCategoryFilter = next
+            return
+        }
+
+        if selectedCategoryFilter.count >= 1 && !SubscriptionManager.shared.isPro {
+            showCategoryFilterPaywall = true
+            return
+        }
+
+        var next = selectedCategoryFilter
+        next.insert(categoryId)
+        selectedCategoryFilter = next
+    }
+
+    func dismissCategoryFilterPaywall() {
+        showCategoryFilterPaywall = false
+    }
 
     func toggleTodo(_ todo: Todo) {
         guard let index = todos.firstIndex(where: { $0.id == todo.id }) else { return }
