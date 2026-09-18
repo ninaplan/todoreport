@@ -2274,6 +2274,16 @@
         }
       }
     },
+    "여러 카테고리 보기는 Pro 기능입니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Viewing multiple categories is a Pro feature."
+          }
+        }
+      }
+    },
     "반복 할일" : {
       "localizations" : {
         "en" : {
@@ -3951,16 +3961,6 @@
         }
       }
     },
-    "전체 칩 색상" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "\"All\" Chip Color"
-          }
-        }
-      }
-    },
     "전체 할 일 완료" : {
       "localizations" : {
         "en" : {
@@ -4297,6 +4297,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Category Settings"
+          }
+        }
+      }
+    },
+    "카테고리 필터" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category Filter"
           }
         }
       }

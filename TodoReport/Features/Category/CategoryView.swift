@@ -2,23 +2,13 @@ import SwiftUI
 
 struct CategoryView: View {
     @State private var viewModel: CategoryViewModel
-    @State private var allChipColorHex: String
-    @State private var showAllChipColorSheet = false
     @Environment(\.editMode) private var editMode
-    private let plannerId: String?
     /// 투두탭 시트만 true. 설정 네비게이션 push는 기본값(false) 유지.
     private let presentsAsSheet: Bool
 
     init(plannerId: String? = nil, presentsAsSheet: Bool = false) {
-        self.plannerId = plannerId
         self.presentsAsSheet = presentsAsSheet
         _viewModel = State(initialValue: CategoryViewModel(plannerId: plannerId))
-        let pid = plannerId ?? PlannerService.shared.selectedPlanner?.id
-        _allChipColorHex = State(initialValue: AllChipColorStore.hex(for: pid))
-    }
-
-    private var resolvedPlannerId: String? {
-        plannerId ?? PlannerService.shared.selectedPlanner?.id
     }
 
     private var isEditing: Bool { editMode?.wrappedValue.isEditing == true }
@@ -34,13 +24,6 @@ struct CategoryView: View {
                 .listRowBackground(Color.clear)
             } else {
                 Section {
-                    allChipRow
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            guard !isEditing else { return }
-                            showAllChipColorSheet = true
-                        }
-
                     ForEach(viewModel.categories) { category in
                         categoryListRow(category)
                     }
@@ -50,7 +33,6 @@ struct CategoryView: View {
         }
         .navigationTitle("카테고리 관리")
         .navigationBarTitleDisplayMode(.inline)
-        .sensoryFeedback(.selection, trigger: allChipColorHex)
         .toolbar {
             ToolbarItem(placement: presentsAsSheet ? .topBarLeading : .topBarTrailing) {
                 EditButton()
@@ -68,17 +50,6 @@ struct CategoryView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $showAllChipColorSheet) {
-            AllChipColorSheet(
-                selectedHex: allChipColorHex,
-                onSelect: { hex in
-                    allChipColorHex = hex
-                    AllChipColorStore.set(hex, for: resolvedPlannerId)
-                }
-            )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
-        }
         .task { await viewModel.fetchCategories() }
         .alert("카테고리 삭제", isPresented: $viewModel.showDeleteAlert) {
             Button("취소", role: .cancel) { viewModel.cancelDelete() }
@@ -90,24 +61,6 @@ struct CategoryView: View {
                 Text(viewModel.deleteAlertMessage(for: category))
             }
         }
-    }
-
-    private var allChipRow: some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(Color(hex: allChipColorHex))
-                .frame(width: 32, height: 32)
-            Text("전체")
-                .font(.body)
-                .foregroundStyle(.primary)
-            Spacer()
-            if !isEditing {
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .padding(.vertical, 2)
     }
 
     @ViewBuilder
@@ -156,41 +109,6 @@ struct CategoryView: View {
                 }
                 .tint(.gray)
             }
-        }
-    }
-}
-
-// MARK: - 전체 칩 색상 시트
-
-private struct AllChipColorSheet: View {
-    @State private var selectedHex: String
-    let onSelect: (String) -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    init(selectedHex: String, onSelect: @escaping (String) -> Void) {
-        _selectedHex = State(initialValue: selectedHex)
-        self.onSelect = onSelect
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("색상") {
-                    ColorSwatchPicker(selectedHex: selectedHex) { hex in
-                        selectedHex = hex
-                        onSelect(hex)
-                    }
-                }
-            }
-            .navigationTitle("전체 칩 색상")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("확인") { dismiss() }
-                        .toolbarPrimaryActionStyle()
-                }
-            }
-            .sensoryFeedback(.selection, trigger: selectedHex)
         }
     }
 }
