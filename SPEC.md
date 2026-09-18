@@ -1,7 +1,7 @@
 # 투두리포트 앱 개발 스펙
 
 > 작성일: 2026-05-26  
-> 최종 업데이트: 2026-09-12 (할일 검색 탭 · 검색→날짜/인박스 하이라이트 · 위젯 인박스 제외 `a21adc8`)  
+> 최종 업데이트: 2026-09-18 (위젯 자정 타임라인 · 알림 subtitle · 카테고리 필터 단일/다중+미분류 · 칩 아이콘 보기 · 전체 칩 색상 제거)  
 > 브랜드: 노크(Nock / nock.kr)  
 > 앱명 (홈 화면): 투두리포트  
 > App Store 이름: 노션품은 투두x리포트  
@@ -244,6 +244,7 @@ api/
 - UNUserNotificationCenter 사용
 - 시간 지정된 투두에 한해 알림 설정 가능
 - 알림 시간: 정시 / 5분 전 / 10분 전 / 30분 전 / 1시간 전 / 1일 전
+- **subtitle (2026-09-18):** 예정 시각. 오늘이면 시간만, 오늘이 아니면 날짜+시간 (`TodoNotificationManager`)
 
 #### 빠른 추가 (구 "빠른 캡처")
 > 명칭 변경 이유: "캡처"가 스크린샷 캡처로 오해될 수 있어 사용설명서 작성 중 "빠른 추가"로 변경 확정
@@ -302,6 +303,7 @@ api/
 - 갱신 시점: 투두 fetch/추가/체크/삭제, 완료 할일 숨기기(`hideCompleted`) 설정 변경 시, 앱 실행·포그라운드 복귀 (`refreshTodayFromStore()`), 구독·DEBUG Pro 토글 (`syncProStatus` / `refreshTodayFromStore`)
 - 완료율: 오늘 **전체 투두** 기준 (앱 `hideCompleted`와 무관). 목록 표시는 `hideCompleted` 반영
 - **인박스 제외 (`a21adc8`):** 위젯 오늘 목록은 `date == nil` 항목을 넣지 않음. SwiftData `#Predicate`의 `flatMap`은 인박스 필터에 쓰지 않고, fetch 후 Swift 날짜 필터로 제외. DELETE는 `plannerId`를 넘겨 GET 캐시 무효화 scope를 맞춤
+- **자정 전환 (2026-09-18, `c8fc2e5`):** `getTimeline`이 오늘 엔트리 + 내일 00:00 엔트리(해당 날짜 `loadTodaySnapshot(for:)`)를 미리 넣음. iOS가 자정에 위젯을 다시 부르지 않아도 날짜가 바뀜. 다음 갱신 정책은 그 이후
 - Pro 상태: `SubscriptionManager.isPro` → App Group `widgetIsPro`. DEBUG 빌드 `debugIsPro` 토글 지원
 - 실패 시 `AppLogger` `[WidgetDataProvider]` 로그 (App Group 접근 실패·인코딩 실패)
 
@@ -542,6 +544,11 @@ api/
 - 플래너 설정 → 노션 설정 → "노션 연결 해제"
 - 노션 연결 정보(토큰, DB ID, 속성 매핑)만 초기화되고 **로컬 투두·리포트 데이터는 삭제되지 않음** — 해당 플래너는 로컬 전용 플래너로 전환됨
 - 노션 쪽 원본 데이터도 삭제하지 않음 (API 삭제 호출 없음)
+
+#### 카테고리 필터 다중선택
+- 칩 탭은 항상 단일선택 (무료). 맨 앞 필터 아이콘 메뉴에서 **2개 이상**을 켜면 Pro
+- 무료가 두 번째를 켜려 하면 `PaywallView` (문구: 「여러 카테고리 보기는 Pro 기능입니다.」)
+- 미분류는 메뉴·칩 모두에 있음. 빈 선택 = 전체
 
 #### 반복 투두
 - 반복 주기: 매일 / 평일만(월~금) / 주말만(토~일) / 매주 요일 선택 / 격주 / 매월 / 매년
@@ -909,16 +916,19 @@ struct Category: Identifiable, Codable {
 
 ```
 ⋯ Menu
-├ Section 1 — Toggle 3개 (시스템 체크마크, 「체크 = 보인다」통일)
+├ Section 1 — Toggle 4개 (시스템 체크마크, 「체크 = 보인다」통일)
 │  ├ ✓ 완료된 할일 보기   ← hideCompleted를 View에서 뒤집어 바인딩
 │  ├ ✓ 할일 메모 보기     ← showMemo (기본값: 꺼짐)
-│  └ ✓ 설정 시간 보기     ← showScheduledTime (기본값: 켜짐, 키 없을 때)
+│  ├ ✓ 설정 시간 보기     ← showScheduledTime (기본값: 켜짐, 키 없을 때)
+│  └ ✓ 카테고리 아이콘으로 보기 ← showCategoryChipIcon (기본값: 꺼짐, `todoShowCategoryChipIcon`)
 └ Section 2
    └ 카테고리 설정        ← Button, systemImage "tag" (시트)
 ```
 
 > 보기 on/off는 `Toggle`로만 추가. 아이콘+동작 문구 Button은 체크마크 슬롯 충돌·문구 혼동으로 폐기.
 > 카테고리 필터는 투두 목록 상단 칩으로 이동. 보기 옵션에서 제거.
+
+**카테고리 칩 아이콘 보기 (2026-09-18):** 켜면 `FilterChip`이 이름 대신 SF Symbol (`category.icon`, 미분류는 `tag.slash`). 선택 색/굵기는 텍스트 칩과 동일. VoiceOver는 이름. 맨 앞 필터 메뉴 아이콘·달력 범례는 대상 아님.
 
 **카테고리 관리 화면 두 진입 (툴바만 다름, 2026-09-12):**
 
@@ -999,9 +1009,10 @@ struct Category: Identifiable, Codable {
 │  별점  ⭐⭐⭐⭐☆               │
 │  리뷰  "오늘도 잘 했다"         │
 ├─────────────────────────────────┤
-│ [전체] [수학] [영어] [독서] … → │  ← 카테고리 필터 칩 (가로 스크롤)
-│                                 │    전체: 모든 투두 + 배지 표시
-│                                 │    카테고리: 해당 투두만 + 배지 숨김
+│ [☰] [수학] [영어] [독서] [미분류] → │  ← 카테고리 필터 바 (가로 스크롤)
+│                                 │    칩 탭: 해당 id만 단일선택
+│                                 │    ☰ 메뉴: 전체/카테고리/미분류 다중선택
+│                                 │    2개 이상은 Pro. 빈 선택 = 전체
 ├─────────────────────────────────┤
 │  ☑ 수학 문제 풀기               │  ← 체크박스 탭: 완료/미완료
 │  ☑ 영어 단어 30개              │    제목 탭: 인라인 수정
@@ -1011,15 +1022,17 @@ struct Category: Identifiable, Codable {
 └─────────────────────────────────┘
 ```
 
-> 완료율은 현재 선택된 카테고리 필터 기준으로 계산된다. 전체 선택 시 전체 투두 기준.
+> 완료율은 현재 선택된 카테고리 필터 기준으로 계산된다. 필터가 비어 있으면(전체) 전체 투두 기준.
+
+> 카테고리 필터가 **실제 카테고리 1개**일 때만 인라인 "+ 투두 추가" / 플로팅 + 에 그 카테고리가 자동 지정된다. 전체·미분류·다중 선택에서는 지정하지 않음.
+
+> **카테고리 필터 (2026-09-18):** 칩 = 단일선택, 맨 앞 필터 아이콘 메뉴 = 다중선택(전체/카테고리/미분류). 미분류 id `TodoViewModel.uncategorizedFilterId`. 2개 이상 선택은 Pro (`PaywallView` 「여러 카테고리 보기는 Pro 기능입니다.」). 미사용 「전체 칩 색상」(`AllChipColorStore`)은 제거됨.
 
 > **[확정] 완료율·별점·리뷰 카드 스타일**
 > - 날짜 행 바로 아래 단일 흰색 카드로 통합 (완료율 → 별점 → 리뷰 순)
 > - 배경 `Color(.secondarySystemGroupedBackground)`, `RoundedRectangle(cornerRadius: 16, style: .continuous)`
 > - 테두리 0.5pt `Color(.separator)`, 그림자 없음
 > - 좌우 margin 16pt (리스트 행 insets), 리스트 배경 `Color(.systemGroupedBackground)`
-
-> 카테고리 필터 선택 상태에서 인라인 "+ 투두 추가" 또는 플로팅 + 버튼으로 투두 추가 시, 선택된 카테고리가 자동 지정된다.
 
 > **[확정] 인라인 투두 입력 폰트·자동 포커스**
 > - 입력 중: `AutoFocusTextField(textStyle: .body)` — 투두 행 `Text(.body)`와 동일, Dynamic Type 연동
@@ -1224,7 +1237,7 @@ struct Category: Identifiable, Codable {
 | Product ID | `kr.nock.todoreport.pro.monthly`, `kr.nock.todoreport.pro.yearly` (상세: 6-2-2절) |
 | 연간 할인 | 월간 대비 약 20~30% 할인 표시 권장 |
 | 무료 기능 제한 | 플래너 1개, 어제·오늘·내일 3일, 이번 주 주간 리포트만, Small 위젯(완료율) |
-| 유료 기능 | 이전 기간 주간·월간 리포트, 멀티 플래너, 반복 투두, 3일 외 날짜 조회, Medium·Large 위젯, 위젯 인터랙션(체크·＋) |
+| 유료 기능 | 이전 기간 주간·월간 리포트, 멀티 플래너, 반복 투두, 3일 외 날짜 조회, 카테고리 필터 2개 이상, Medium·Large 위젯, 위젯 인터랙션(체크·＋) |
 | 구매 복원 | Restore Purchases 필수 구현 |
 
 > ⚠️ **앱스토어 필수 요건:** Privacy Policy + Terms of Service 페이지 필요
@@ -1605,6 +1618,7 @@ SyncQueue에 createTodo 추가
 | 완료 숨기기 (`hideCompleted`) | **유지 (전역)** | UserDefaults | 취향 설정. UI는 「완료된 할일 보기」로 뒤집어 표시 |
 | 할일 메모 보기 | **유지 (전역)** | UserDefaults | 취향 설정, 플래너별 다를 필요 없음 |
 | 설정 시간 보기 | **유지 (전역)** | UserDefaults (`todoShowScheduledTime`, 기본 true) | 취향 설정, 플래너별 다를 필요 없음 |
+| 카테고리 아이콘으로 보기 | **유지 (전역)** | UserDefaults (`todoShowCategoryChipIcon`, 기본 false) | 취향 설정, 플래너별 다를 필요 없음 |
 | 정렬 옵션 | **유지 (전역)** | UserDefaults | 취향 설정, 플래너별 다를 필요 없음 |
 
 ---
@@ -1841,6 +1855,7 @@ v1 출시 — 노션에 자동 저장되는 투두 & 데일리 리포트. 지금
 - Medium UI: 폰트·날짜(`M월 d일`) 가독성 개선
 - 🔜 인터랙티브 체크·＋ 버튼
 - 관련: `WidgetDataProvider.swift`, `TodoReportWidget/`, `MainTabCoordinator.swift`, `MainTabView.swift`
+- **자정 전환 (2026-09-18):** 타임라인에 오늘 + 내일 00:00 엔트리를 넣어 iOS 재호출에 의존하지 않음 (`TodoWidgetProvider`, `WidgetStoreReader.loadTodaySnapshot(for:)`)
 
 ### 속성 자동 매핑 버그 수정 (v1 ✅)
 - **문제 1:** 설정 재진입 시 `autoMapTodoProps()`가 `reportRelation` 등 저장값을 덮어씀

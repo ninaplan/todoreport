@@ -1,6 +1,6 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-09-12 기준)
+## 현재 상황 (2026-09-18 기준)
 
 ### 앱 상태
 - v1.0.4 App Store 제출 완료
@@ -34,6 +34,16 @@
 - 결과 탭: `plannerId`가 다르면 `PlannerService.selectPlanner` 후 이동. 날짜 있으면 `MainTabCoordinator.openTodo(on:highlightTodoId:)` → 투두 탭 해당 날짜 + 스크롤·하이라이트. 인박스(`date == nil`)면 `openInbox(highlightTodoId:)` → 투두 탭 + 인박스 시트 + 세그먼트/버킷 펼침·`loadMore` 후 스크롤·하이라이트
 - 안내: 「노션에 연결된 할일은 이 기기에 동기화된 기간만 검색됩니다.」
 - **다음 세션:** 음성인식 입력 등 (아래 「다음 할 일」)
+
+### 투두탭 필터·위젯·알림 (2026-09-18)
+
+백엔드 변경 없음 (iOS만).
+
+- **위젯 자정 전환 (`c8fc2e5`):** `getTimeline`이 오늘 엔트리 + 내일 00:00 엔트리(해당 날짜 스냅샷)를 미리 넣음. iOS가 자정에 위젯을 다시 호출하지 않아도 날짜가 바뀜. `WidgetStoreReader.loadTodaySnapshot(for:)`가 기준 날짜를 받음.
+- **알림 subtitle (`95c9b5b`):** 리마인더에 예정 시각. 오늘이면 시간만, 아니면 날짜+시간 (`TodoNotificationManager`).
+- **카테고리 필터 (`57e73c6`):** 칩 탭 = 단일선택. 맨 앞 필터 아이콘 메뉴 = 전체/카테고리/미분류 다중선택. 2개 이상은 Pro (`showCategoryFilterPaywall`). 미분류 id는 `TodoViewModel.uncategorizedFilterId`. 새 할일 자동 카테고리는 필터가 실제 카테고리 1개일 때만.
+- **카테고리 칩 아이콘 보기:** ⋯ 「카테고리 아이콘으로 보기」(`todoShowCategoryChipIcon`, 기본 꺼짐). 켜면 칩이 이름 대신 `category.icon`(미분류는 `tag.slash`). VoiceOver는 이름 유지. 필터 아이콘·달력 범례는 대상 아님.
+- **정리 (`d1bd9f8`):** 미사용 「전체 칩 색상」(`AllChipColorStore` + 카테고리 관리 UI) 제거.
 
 ### 투두탭 UI 미세 조정 (2026-09-12, v1.14 예정)
 
@@ -191,7 +201,7 @@
 - 카테고리 칩 보기/숨기기 토글 (더보기 메뉴)
 - 카테고리 숨기기 시 해당 할일도 숨길지 사용자 선택 — 기본값은 「할일은 계속 보이기」. 기존 동작 변경이라 릴리스 노트 필요
 - 할일마다 카테고리 색·아이콘 표시 (사용자 요청)
-- 알림 메시지에 설정 시각 표시
+- ~~알림 메시지에 설정 시각 표시~~ — 완료 (2026-09-18). 오늘이면 시간, 아니면 날짜+시간을 subtitle로
 - 노션 자료 미수신 빈 화면 / 오프라인 안내 메시지 — 이전 세션에 시도했다 되돌린 건, 이력 확인 필요
 - 인박스 뱃지–트레이 아이콘 겹침 근본 원인 — 현재는 frame/offset 절충만 (`21209eb`)
 - 필터 칩 점+이름 — 투두 탭 `FilterChip`과 달력 범례(`categoryLegendChip`) 공통 컴포넌트화 검토
@@ -207,6 +217,7 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- 투두탭 필터·위젯·알림 (2026-09-18): 위젯 자정 타임라인 엔트리, 알림 subtitle, 카테고리 단일/다중 필터+미분류, 칩 아이콘 보기, 미사용 전체 칩 색상 제거. 상세는 위 전용 섹션. 커밋 `c8fc2e5` · `95c9b5b` · `57e73c6` · `d1bd9f8`
 - 인박스·투두 행 정리 (2026-09-12): 여백 9pt 통일·인박스 구분선 제거, 뱃지 offset 절충, 「위로 올리기」/「내일하기」/「인박스로 보내기」, 인박스 영어 번역, 위젯 숨긴 카테고리 필터. 상세는 위 전용 섹션. 커밋 `21209eb` · `b55a6d3` · `9534055` · `062e754` · `41c5081`
 - 투두탭 UI 미세 조정 (2026-09-12, v1.14): 카테고리 시트 편집 leading / 목록 여백·행간 / 체크–제목 8pt / 메모 14pt / 플래너 상태 「기기에 저장」. 상세는 위 전용 섹션. 커밋 `723d407` · `7926ba5`
 - 투두 탭 하단 할일 줄 탭 무반응 + FAB 유리 스타일 (2026-09-12): `safeAreaInset(bottom)`이 iOS 26 스크롤 가장자리 흡수 영역을 키우던 것 — List 콘텐츠 안 120pt 빈 행으로 교체. FAB는 `.glassProminent` 원형(52pt, + 26 heavy, tint accent). 설정 「업데이트 내역」은 `https://www.nock.kr/changelog` 외부 링크
@@ -277,6 +288,11 @@
 - `.safeAreaInset(edge: .bottom)`으로 하단에 여백을 선언하면, iOS 26이 이를 고정 컨트롤 영역으로 인식해 자동 스크롤 가장자리 블러/흡수 효과 영역을 그 크기에 비례해서 같이 키운다. 코드에서 `.scrollEdgeEffectStyle`를 top만 지정해도 TabView가 bottom 효과를 붙인다. 버퍼를 키우면(100→200) 할일 줄 탭 먹통 영역도 같이 커졌다.
 - `.allowsHitTesting(false)`는 inset 안의 clear 뷰에만 적용되고, 시스템 `ScrollEdgeEffectView` 흡수 레이어는 그대로다. FAB를 지워도 먹통은 남았다.
 - 하단 스크롤 가장자리 블러는 유지하면서 목록 스크롤 여백이 필요할 땐 `safeAreaInset`이 아니라 List 콘텐츠 안의 평범한 빈 행(`Color.clear` + `listRowBackground` clear)으로 준다. 투두 탭은 마지막 섹션에 120pt 빈 행.
+
+### 위젯 자정 전환은 타임라인 엔트리로 (2026-09-18)
+
+- WidgetKit은 자정에 `getTimeline`을 다시 부르지 않을 수 있다. 오늘 스냅샷만 넣고 `.after(내일)`에 의존하면 날짜가 안 바뀐 채 남을 수 있음.
+- 오늘 엔트리 + **내일 00:00** 엔트리(그 날짜로 `loadTodaySnapshot(for:)`)를 한 타임라인에 넣는다. 주기 갱신은 그 다음 정책.
 
 ---
 
@@ -705,6 +721,7 @@ guard SubscriptionManager.shared.isPro else {
 **유료 기능 목록:**
 - 노션에 리포트 저장하기 (주간/월간)
 - 멀티 플래너 (2개 이상)
+- 카테고리 필터 2개 이상 선택
 - 반복 투두 (v2 예정)
 
 ---
@@ -717,10 +734,11 @@ guard SubscriptionManager.shared.isPro else {
 우측: ⋯ (탭 → 네이티브 Menu 보기 옵션)
 
 보기 옵션 (Menu):
-  Section 1 — Toggle 3개 (시스템 체크마크, 「체크 = 보인다」통일)
+  Section 1 — Toggle 4개 (시스템 체크마크, 「체크 = 보인다」통일)
   - ✓ 완료된 할일 보기   ← hideCompleted를 View에서 뒤집어 바인딩
   - ✓ 할일 메모 보기     ← showMemo
   - ✓ 설정 시간 보기     ← showScheduledTime (기본 true, UserDefaults 키 없을 때)
+  - ✓ 카테고리 아이콘으로 보기 ← showCategoryChipIcon (기본 꺼짐, `todoShowCategoryChipIcon`)
   Section 2
   - 카테고리 설정        ← Button, systemImage "tag" (시트)
 ```
@@ -730,6 +748,8 @@ guard SubscriptionManager.shared.isPro else {
 - 설정 → 플래너 → 「카테고리 관리」push: `CategoryView(plannerId:)` 기본값 — **왼쪽 `<`, 오른쪽 「편집」+「+」**. 시트 플래그를 넘기지 않음.
 
 **보기 옵션 규칙:** 앞으로 보기 on/off는 `Toggle`로만 추가한다. 아이콘+동작 문구 `Button`은 시도 후 되돌림 — iOS 메뉴 아이콘 슬롯이 1개라 체크마크와 충돌하고, 문구가 「동작」인지 「상태」인지 헷갈림.
+
+**카테고리 필터 바 (2026-09-18):** 칩 가로 스크롤 — 맨 앞 `line.3.horizontal.decrease` 메뉴(전체/카테고리/미분류 토글, 닫히지 않음) + 활성 카테고리 칩 + 맨 뒤 「미분류」. 칩 탭은 그 id만 단일선택. 메뉴에서 이미 1개가 선택된 채 하나를 더 켜면 무료는 페이월, Pro만 다중. 칩이 아이콘 모드여도 필터 메뉴 버튼은 그대로. 달력 범례(`categoryLegendChip`)는 별개.
 
 **TodoRow 레이아웃 (2026-09-12 확정, 인박스와 통일):** 체크 원–제목 `HStack` spacing 8, 행 `.padding(.vertical, 6)`, `listRowInsets` top/bottom 3·leading/trailing 24 → **한 쪽 9pt**. 메모는 제목 아래 14pt regular·secondary·최대 2줄 — `TodoRow`와 인박스 `InboxTodoRow` 동일. 인박스 List는 `.listRowSeparator(.hidden)`.
 
@@ -1066,8 +1086,10 @@ Phase 5 (출시)
 - ✅ 하루 리뷰 타임라인 (DailyReportView 개선)
 - ✅ 리포트 탭 하루 리뷰 더보기/접기 (ReviewTimelineRow: GeometryReader 높이 비교로 잘림 감지)
 - ✅ 하루 리뷰 탭 시 투두 목록(DayTodoDetailView) 이동 제거 (더보기와 충돌)
-- ✅ 시간 지정 + 투두 알림 (TodoNotificationManager, TodoEditFormView)
+- ✅ 시간 지정 + 투두 알림 (TodoNotificationManager, TodoEditFormView) — 2026-09-18: 알림 subtitle에 시각(오늘 아니면 날짜+시각)
 - ✅ 투두 탭 목록 시간·종 표시 (`TodoRow` trailing, `showScheduledTime` 토글)
+- ✅ 위젯 자정 전환: 타임라인에 내일 00:00 엔트리 (`c8fc2e5`)
+- ✅ 카테고리 필터 단일(칩)+다중(메뉴, 2개+ Pro)+미분류, 칩 아이콘 보기
 - 🔜 반복 투두 (RecurrenceRule, RecurringTodoManager, TodoEditFormView 반복 섹션) — v2로 연기
 - ✅ Notion relation 자동 연결 개선 (NotionRelationLinker: 14일 윈도우, max 10개, 성공 후에만 linked 세팅)
 - ✅ SyncQueueProcessor: create 완료 후 자동 relation enqueue
