@@ -59,18 +59,29 @@ struct TodoTimelineProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<WidgetTimelineEntry>) -> Void) {
         let now = Date.now
-        let data = WidgetStoreReader.loadTodaySnapshot()
-        let entry = WidgetTimelineEntry(date: now, data: data)
-
         let calendar = Calendar.current
         let startOfTomorrow = calendar.date(
             byAdding: .day, value: 1,
             to: calendar.startOfDay(for: now)
         ) ?? now.addingTimeInterval(24 * 60 * 60)
-        let periodicRefresh = now.addingTimeInterval(4 * 60 * 60)
-        let nextRefresh = min(startOfTomorrow, periodicRefresh)
 
-        completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
+        let todayEntry = WidgetTimelineEntry(
+            date: now,
+            data: WidgetStoreReader.loadTodaySnapshot(for: now)
+        )
+        let tomorrowEntry = WidgetTimelineEntry(
+            date: startOfTomorrow,
+            data: WidgetStoreReader.loadTodaySnapshot(for: startOfTomorrow)
+        )
+
+        let startOfDayAfterTomorrow = calendar.date(
+            byAdding: .day, value: 1,
+            to: startOfTomorrow
+        ) ?? startOfTomorrow.addingTimeInterval(24 * 60 * 60)
+        let periodicRefresh = startOfTomorrow.addingTimeInterval(4 * 60 * 60)
+        let nextRefresh = min(startOfDayAfterTomorrow, periodicRefresh)
+
+        completion(Timeline(entries: [todayEntry, tomorrowEntry], policy: .after(nextRefresh)))
     }
 }
 

@@ -18,15 +18,14 @@ enum WidgetStoreReader {
         }
     }()
 
-    static func loadTodaySnapshot() -> WidgetSnapshotData? {
+    static func loadTodaySnapshot(for referenceDate: Date = .now) -> WidgetSnapshotData? {
         guard let container else {
             logger.error("loadTodaySnapshot aborted: container nil")
             return nil
         }
 
         let calendar = Calendar.current
-        let now = Date.now
-        let startOfDay = calendar.startOfDay(for: now)
+        let startOfDay = calendar.startOfDay(for: referenceDate)
         guard let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfDay) else {
             return nil
         }
@@ -82,7 +81,7 @@ enum WidgetStoreReader {
         widgetTodos.insert(contentsOf: previews, at: insertAt)
 
         return WidgetSnapshotData(
-            date: now,
+            date: referenceDate,
             plannerName: plannerName,
             completionRate: totalCount == 0 ? 0 : Double(completedCount) / Double(totalCount),
             completedCount: completedCount,
