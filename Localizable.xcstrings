@@ -4301,6 +4301,16 @@
         }
       }
     },
+    "카테고리 아이콘으로 보기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Category Icons"
+          }
+        }
+      }
+    },
     "카테고리 필터" : {
       "localizations" : {
         "en" : {

@@ -137,6 +137,10 @@ struct TodoView: View {
                         get: { vm.showScheduledTime },
                         set: { vm.showScheduledTime = $0 }
                     ))
+                    Toggle("카테고리 아이콘으로 보기", isOn: Binding(
+                        get: { vm.showCategoryChipIcon },
+                        set: { vm.showCategoryChipIcon = $0 }
+                    ))
                 }
                 Section {
                     Button {
@@ -268,6 +272,7 @@ struct TodoView: View {
                         CategoryFilterBar(
                             categories: viewModel.activeCategories,
                             selectedIds: viewModel.selectedCategoryFilter,
+                            showCategoryChipIcon: viewModel.showCategoryChipIcon,
                             onSelectSingle: { viewModel.selectSingleCategoryFilter($0) },
                             onClear: { viewModel.clearCategoryFilter() },
                             onToggle: { viewModel.toggleCategoryFilter($0) }
@@ -908,6 +913,7 @@ private struct TodoInteractiveRow: View {
 private struct CategoryFilterBar: View {
     let categories: [Category]
     let selectedIds: Set<String>
+    let showCategoryChipIcon: Bool
     let onSelectSingle: (String) -> Void
     let onClear: () -> Void
     let onToggle: (String) -> Void
@@ -963,6 +969,8 @@ private struct CategoryFilterBar: View {
                 ForEach(categories) { category in
                     FilterChip(
                         label: category.name,
+                        systemImage: category.icon,
+                        showsIcon: showCategoryChipIcon,
                         color: Color(hex: category.colorHex),
                         isSelected: selectedIds.contains(category.id)
                     ) {
@@ -972,6 +980,8 @@ private struct CategoryFilterBar: View {
 
                 FilterChip(
                     label: String(localized: "미분류"),
+                    systemImage: "tag.slash",
+                    showsIcon: showCategoryChipIcon,
                     color: Color(.tertiaryLabel),
                     isSelected: selectedIds.contains(TodoViewModel.uncategorizedFilterId)
                 ) {
@@ -987,6 +997,8 @@ private struct CategoryFilterBar: View {
 
 private struct FilterChip: View {
     let label: String
+    let systemImage: String
+    let showsIcon: Bool
     let color: Color
     let isSelected: Bool
     let action: () -> Void
@@ -995,21 +1007,28 @@ private struct FilterChip: View {
 
     var body: some View {
         Button(action: action) {
-            Text(label)
-                .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                .foregroundStyle(
-                    isSelected
-                    ? color.readableForeground
-                    : color.readableText(on: colorScheme)
-                )
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(
-                    Capsule()
-                        .fill(isSelected ? color : color.opacity(0.12))
-                )
+            Group {
+                if showsIcon {
+                    Image(systemName: systemImage)
+                } else {
+                    Text(label)
+                }
+            }
+            .font(.subheadline.weight(isSelected ? .semibold : .regular))
+            .foregroundStyle(
+                isSelected
+                ? color.readableForeground
+                : color.readableText(on: colorScheme)
+            )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(
+                Capsule()
+                    .fill(isSelected ? color : color.opacity(0.12))
+            )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 }

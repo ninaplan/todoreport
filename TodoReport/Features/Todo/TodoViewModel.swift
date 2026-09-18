@@ -26,6 +26,9 @@ final class TodoViewModel {
     }() {
         didSet { UserDefaults.standard.set(showScheduledTime, forKey: "todoShowScheduledTime") }
     }
+    var showCategoryChipIcon: Bool = UserDefaults.standard.bool(forKey: "todoShowCategoryChipIcon") {
+        didSet { UserDefaults.standard.set(showCategoryChipIcon, forKey: "todoShowCategoryChipIcon") }
+    }
     /// 실제 카테고리 UUID와 겹치지 않는 필터 전용 값.
     static let uncategorizedFilterId: String = "__uncategorized__"
     private(set) var selectedCategoryFilter: Set<String> = []  // 비어 있으면 전체
