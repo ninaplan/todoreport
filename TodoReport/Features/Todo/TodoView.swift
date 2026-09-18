@@ -692,7 +692,7 @@ struct TodoView: View {
                 onAction: { performRowAction($0, for: todo) }
             )
             .id(todo.id)
-            .listRowInsets(EdgeInsets(top: 3, leading: 24, bottom: 3, trailing: 24))
+            .listRowInsets(TodoListRowSpacing.listRowInsets)
             .listRowBackground(
                 highlightedTodoId == todo.id
                     ? AppTheme.shared.accent.opacity(0.14)
@@ -709,8 +709,8 @@ struct TodoView: View {
             hapticSuccessTrigger.toggle()
         }
         // TodoRow와 동일한 세로 padding — defaultMinListRowHeight=0에서도 한 줄 할일과 높이 맞춤.
-        .padding(.vertical, 6)
-        .listRowInsets(EdgeInsets(top: 3, leading: 24, bottom: 3, trailing: 24))
+        .padding(.vertical, TodoListRowSpacing.verticalPadding)
+        .listRowInsets(TodoListRowSpacing.listRowInsets)
     }
 }
 
@@ -891,6 +891,7 @@ private struct TodoInteractiveRow: View {
                 } label: {
                     Label(action.title, systemImage: action.systemImage)
                 }
+                .labelStyle(.iconOnly)
                 .tint(action.tint)
             }
         }
@@ -1051,6 +1052,21 @@ private struct TodoInlineTitleEditor: View {
     }
 }
 
+/// 투두 목록 행 세로 여백. inset은 공통, padding은 메모 표시 여부로 나눔.
+private enum TodoListRowSpacing {
+    static let verticalInset: CGFloat = 4
+    static let verticalPadding: CGFloat = 8
+    static let verticalPaddingWithMemo: CGFloat = 6
+
+    static var listRowInsets: EdgeInsets {
+        EdgeInsets(top: verticalInset, leading: 24, bottom: verticalInset, trailing: 24)
+    }
+
+    static func verticalPadding(isMemoVisible: Bool) -> CGFloat {
+        isMemoVisible ? verticalPaddingWithMemo : verticalPadding
+    }
+}
+
 /// 시간 태그 색 — 고정(오렌지)과 구분. 제목(primary)보다 약하고 secondary보다 진하게.
 private enum TodoScheduledTimeTagStyle {
     static var foreground: Color { Color.primary.opacity(0.62) }
@@ -1079,6 +1095,11 @@ private struct TodoRow: View {
         UIFont.preferredFont(forTextStyle: .body).lineHeight
     }
 
+    private var isMemoVisible: Bool {
+        guard showMemo, let memo = todo.memo, !memo.isEmpty else { return false }
+        return true
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             checkbox
@@ -1086,7 +1107,7 @@ private struct TodoRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 titleArea
 
-                if showMemo, let memo = todo.memo, !memo.isEmpty {
+                if isMemoVisible, let memo = todo.memo {
                     Text(memo)
                         .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(.secondary)
@@ -1098,7 +1119,7 @@ private struct TodoRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         // defaultMinListRowHeight=0 전제 — List 최소 높이 보정 없이 이 padding만으로 위아래 여백 결정.
-        .padding(.vertical, 6)
+        .padding(.vertical, TodoListRowSpacing.verticalPadding(isMemoVisible: isMemoVisible))
         .animation(.easeInOut(duration: 0.2), value: showMemo)
         .animation(.easeInOut(duration: 0.2), value: showScheduledTime)
     }
@@ -1211,17 +1232,14 @@ private struct TodoRow: View {
     private func scheduledTimeTag(_ scheduledTime: Date) -> some View {
         let hasAlarm = todo.alarmOffset != nil
         HStack(spacing: 3) {
-            Image(systemName: "clock")
-                .font(.caption2)
-                .accessibilityHidden(true)
-            Text(scheduledTime, format: .dateTime.hour().minute())
-                .font(.caption2)
-                .monospacedDigit()
             if hasAlarm {
                 Image(systemName: "bell")
                     .font(.caption2)
                     .accessibilityHidden(true)
             }
+            Text(scheduledTime, format: .dateTime.hour().minute())
+                .font(.caption2)
+                .monospacedDigit()
         }
         .foregroundStyle(TodoScheduledTimeTagStyle.foreground)
         .padding(.horizontal, 5)
