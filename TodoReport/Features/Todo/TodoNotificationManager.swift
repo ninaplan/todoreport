@@ -42,6 +42,9 @@ final class TodoNotificationManager {
 
         let content = UNMutableNotificationContent()
         content.title = todo.title
+        content.subtitle = Calendar.current.isDateInToday(scheduledTime)
+            ? scheduledTime.formatted(.dateTime.hour().minute())
+            : scheduledTime.formatted(.dateTime.month().day().hour().minute())
         if let memo = todo.memo, !memo.isEmpty { content.body = memo }
         content.sound = .default
 
