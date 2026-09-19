@@ -115,7 +115,7 @@ struct LargeWidgetView: View {
             options: 0,
             locale: .autoupdatingCurrent
         )
-        return fmt.string(from: .now)
+        return fmt.string(from: data?.date ?? .now)
     }
 }
 
