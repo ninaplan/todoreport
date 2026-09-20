@@ -45,16 +45,49 @@ struct InboxView: View {
                 await viewModel.load()
                 startHighlightIfNeeded(proxy: proxy)
             }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                guard isAddingTodo, viewModel.segment == .now else { return }
+                withAnimation { proxy.scrollTo("addTodoRow", anchor: .bottom) }
+            }
+            .onChange(of: viewModel.nowTodos.count) { _, _ in
+                guard isAddingTodo, viewModel.segment == .now else { return }
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 80_000_000)
+                    withAnimation { proxy.scrollTo("addTodoRow", anchor: .bottom) }
+                }
+            }
         }
         .navigationTitle("수집함")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("완료") {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("닫기") {
                     resignAndFinishInlineInputs()
+                    viewModel.exitNowEditMode()
                     dismiss()
                 }
-                .toolbarPrimaryActionStyle()
+                .toolbarSecondaryActionStyle()
+            }
+            if viewModel.segment == .now {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(viewModel.isEditingNow ? "완료" : "편집") {
+                        if viewModel.isEditingNow {
+                            viewModel.exitNowEditMode()
+                        } else {
+                            resignAndFinishInlineInputs()
+                            viewModel.enterNowEditMode()
+                        }
+                    }
+                    .toolbarPrimaryActionStyle(
+                        isEnabled: viewModel.isEditingNow || !viewModel.nowTodos.isEmpty
+                    )
+                    .disabled(!viewModel.isEditingNow && viewModel.nowTodos.isEmpty)
+                }
+            }
+            if viewModel.isEditingNow {
+                ToolbarItemGroup(placement: .bottomBar) {
+                    nowEditActionBar
+                }
             }
         }
         .sheet(item: $changingDateTodo) { todo in
@@ -83,7 +116,7 @@ struct InboxView: View {
             .presentationDragIndicator(.visible)
         }
         .confirmationDialog(
-            "나중에 보기",
+            "미루기",
             isPresented: $vm.showSnoozeSheet,
             titleVisibility: .visible
         ) {
@@ -122,6 +155,10 @@ struct InboxView: View {
             Button("삭제", role: .destructive) { viewModel.confirmDelete() }
             Button("취소", role: .cancel) { viewModel.cancelDelete() }
         }
+        .alert(viewModel.bulkDeleteAlertTitle, isPresented: $vm.showBulkDeleteAlert) {
+            Button("삭제", role: .destructive) { viewModel.confirmBulkDelete() }
+            Button("취소", role: .cancel) { viewModel.cancelBulkDelete() }
+        }
         .alert(viewModel.recurringEditAlertTitle, isPresented: $vm.showRecurringEditAlert) {
             Button(viewModel.recurringEditSingleLabel) { viewModel.confirmRecurringEditSingle() }
             Button(viewModel.recurringEditFutureLabel, role: .destructive) { viewModel.confirmRecurringEditFuture() }
@@ -140,6 +177,7 @@ struct InboxView: View {
         .tapToDismissKeyboard()
         .onChange(of: viewModel.segment) { _, _ in
             resignAndFinishInlineInputs()
+            viewModel.exitNowEditMode()
         }
     }
 
@@ -180,20 +218,33 @@ struct InboxView: View {
 
     @ViewBuilder
     private var nowContent: some View {
-        if viewModel.nowTodos.isEmpty && !isAddingTodo {
+        let isEmpty = viewModel.nowTodos.isEmpty && !isAddingTodo
+        if isEmpty {
             Section {
-                ContentUnavailableView(
-                    "수집함에 할 일이 없습니다",
+                inboxEmptyState(
+                    title: "수집함에 할 일이 없습니다",
                     systemImage: "tray",
-                    description: Text("날짜 없이 저장한 할 일이 여기에 모입니다.")
+                    description: "날짜 없이 저장한 할 일이 여기에 모입니다."
                 )
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
             }
         } else {
-            ageBucketSections(segment: .now)
+            if viewModel.isEditingNow {
+                nowSelectAllSection
+            }
+            recentAgeBucketSection(segment: .now)
         }
 
+        if !viewModel.isEditingNow {
+            addTodoSection
+                .id("addTodoRow")
+        }
+
+        if !isEmpty {
+            collapsibleAgeBucketSections(segment: .now)
+        }
+    }
+
+    private var addTodoSection: some View {
         Section {
             InboxAddRow(newTodoTitle: $newTodoTitle, isAdding: $isAddingTodo) {
                 viewModel.addInboxTodo(title: newTodoTitle)
@@ -206,17 +257,50 @@ struct InboxView: View {
         .listRowSeparator(.hidden)
     }
 
+    private var nowSelectAllSection: some View {
+        Section {
+            Button {
+                viewModel.toggleSelectAllNow()
+            } label: {
+                HStack(spacing: 8) {
+                    InboxSelectionCheckbox(isSelected: viewModel.isAllNowSelected)
+                        .frame(height: UIFont.preferredFont(forTextStyle: .body).lineHeight)
+                        .accessibilityHidden(true)
+                    Text("전체 선택")
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                    if viewModel.selectedTodoIds.count > 0 {
+                        Text("\(viewModel.selectedTodoIds.count)개 선택됨")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.vertical, 8)
+            .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .accessibilityLabel(String(localized: "전체 선택"))
+            .accessibilityValue(
+                viewModel.isAllNowSelected
+                ? String(localized: "선택됨")
+                : String(localized: "선택 안 됨")
+            )
+        }
+    }
+
     @ViewBuilder
     private var snoozedContent: some View {
         if viewModel.snoozedTodos.isEmpty {
             Section {
-                ContentUnavailableView(
-                    "미뤄둔 할 일이 없습니다",
+                inboxEmptyState(
+                    title: "미뤄둔 할 일이 없습니다",
                     systemImage: "clock",
-                    description: Text("나중에 보기로 미룬 할 일이 여기에 표시됩니다.")
+                    description: "나중에 보기로 미룬 할 일이 여기에 표시됩니다."
                 )
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
             }
         } else {
             Section {
@@ -229,13 +313,11 @@ struct InboxView: View {
     private var completedContent: some View {
         if viewModel.completedTodos.isEmpty {
             Section {
-                ContentUnavailableView(
-                    "완료된 할 일이 없습니다",
+                inboxEmptyState(
+                    title: "완료된 할 일이 없습니다",
                     systemImage: "checkmark.circle",
-                    description: Text("완료한 수집함 할 일이 여기에 표시됩니다.")
+                    description: "완료한 수집함 할 일이 여기에 표시됩니다."
                 )
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
             }
         } else {
             ageBucketSections(segment: .completed)
@@ -244,15 +326,30 @@ struct InboxView: View {
 
     @ViewBuilder
     private func ageBucketSections(segment: InboxSegment) -> some View {
-        let catalog: RowCatalog = segment == .now ? .now : .completed
+        recentAgeBucketSection(segment: segment)
+        collapsibleAgeBucketSections(segment: segment)
+    }
 
+    @ViewBuilder
+    private func recentAgeBucketSection(segment: InboxSegment) -> some View {
+        let catalog: RowCatalog = segment == .now ? .now : .completed
         let recentTodos = viewModel.displayedTodos(in: .recent, segment: segment)
-        if !recentTodos.isEmpty {
+        let remaining = viewModel.remainingCount(in: .recent, segment: segment)
+        if !recentTodos.isEmpty || remaining > 0 {
             Section {
-                inboxRows(for: recentTodos, catalog: catalog)
+                if !recentTodos.isEmpty {
+                    inboxRows(for: recentTodos, catalog: catalog)
+                }
+                if remaining > 0 {
+                    loadMoreRow(in: .recent, segment: segment)
+                }
             }
         }
+    }
 
+    @ViewBuilder
+    private func collapsibleAgeBucketSections(segment: InboxSegment) -> some View {
+        let catalog: RowCatalog = segment == .now ? .now : .completed
         ForEach(InboxAgeBucket.collapsibleCases) { bucket in
             let total: Int = {
                 switch segment {
@@ -282,24 +379,27 @@ struct InboxView: View {
                             for: viewModel.displayedTodos(in: bucket, segment: segment),
                             catalog: catalog
                         )
-                        let remaining = viewModel.remainingCount(in: bucket, segment: segment)
-                        if remaining > 0 {
-                            Button {
-                                withAnimation { viewModel.loadMore(in: bucket, segment: segment) }
-                            } label: {
-                                Text("더보기")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                            }
-                            .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
+                        if viewModel.remainingCount(in: bucket, segment: segment) > 0 {
+                            loadMoreRow(in: bucket, segment: segment)
                         }
                     }
                 }
             }
         }
+    }
+
+    private func loadMoreRow(in bucket: InboxAgeBucket, segment: InboxSegment) -> some View {
+        Button {
+            withAnimation { viewModel.loadMore(in: bucket, segment: segment) }
+        } label: {
+            Text("더보기")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     private enum RowCatalog {
@@ -310,15 +410,18 @@ struct InboxView: View {
 
     @ViewBuilder
     private func inboxRows(for todos: [Todo], catalog: RowCatalog) -> some View {
+        let isSelecting = catalog == .now && viewModel.isEditingNow
         ForEach(todos) { todo in
             InboxInteractiveRow(
                 todo: todo,
                 showsSnoozeCaption: catalog == .snoozed,
                 isInlineEditing: catalog == .now && inlineEditingTodoId == todo.id,
-                allowsInlineEdit: catalog == .now,
-                leadingActions: leadingActions(for: catalog),
-                trailingActions: trailingActions(for: catalog),
-                contextActions: contextActions(for: catalog),
+                allowsInlineEdit: catalog == .now && !isSelecting,
+                isSelectionMode: isSelecting,
+                isSelected: viewModel.isNowSelected(todo.id),
+                leadingActions: isSelecting ? [] : leadingActions(for: catalog),
+                trailingActions: isSelecting ? [] : trailingActions(for: catalog),
+                contextActions: isSelecting ? [] : contextActions(for: catalog),
                 onCheckboxTap: {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         viewModel.toggleTodo(todo)
@@ -338,10 +441,13 @@ struct InboxView: View {
                 onCommitInlineEdit: { draft in commitInlineTitleEdit(todo: todo, draft: draft) },
                 onOpenDetailFromInline: { draft in openDetailFromInline(todo: todo, draft: draft) },
                 onSnoozedRowTap: catalog == .snoozed ? { snoozedActionTodo = todo } : nil,
+                onToggleSelection: {
+                    viewModel.toggleNowSelection(id: todo.id)
+                },
                 onAction: { performRowAction($0, for: todo) }
             )
             .id(todo.id)
-            .listRowInsets(EdgeInsets(top: 3, leading: 24, bottom: 3, trailing: 24))
+            .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
             .listRowBackground(
                 highlightedTodoId == todo.id
                     ? AppTheme.shared.accent.opacity(0.14)
@@ -374,6 +480,91 @@ struct InboxView: View {
         case .snoozed: return InboxRowActionCatalog.snoozedContextActions()
         case .completed: return InboxRowActionCatalog.completedContextActions()
         }
+    }
+
+    private var nowEditActionBar: some View {
+        HStack(spacing: 0) {
+            nowEditActionButton(
+                title: String(localized: "삭제"),
+                systemImage: "trash",
+                role: .destructive
+            ) {
+                viewModel.requestDeleteSelected()
+                if viewModel.showBulkDeleteAlert {
+                    hapticWarningTrigger.toggle()
+                }
+            }
+            nowEditActionButton(
+                title: String(localized: "완료"),
+                systemImage: "checkmark.circle"
+            ) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    viewModel.completeSelected()
+                }
+                if !viewModel.isEditingNow {
+                    hapticSuccessTrigger.toggle()
+                }
+            }
+            nowEditActionButton(
+                title: String(localized: "오늘하기"),
+                systemImage: "sun.max"
+            ) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    viewModel.moveSelectedToToday()
+                }
+                if !viewModel.isEditingNow {
+                    hapticSuccessTrigger.toggle()
+                }
+            }
+            nowEditActionButton(
+                title: String(localized: "미루기"),
+                systemImage: "clock"
+            ) {
+                viewModel.requestSnoozeSelected()
+            }
+        }
+        .disabled(!viewModel.hasNowEditSelection)
+    }
+
+    private func nowEditActionButton(
+        title: String,
+        systemImage: String,
+        role: ButtonRole? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(role: role, action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: systemImage)
+                    .font(.body)
+                Text(title)
+                    .font(.caption2)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(role == .destructive ? Color.red : Color.primary)
+    }
+
+    private func inboxEmptyState(
+        title: LocalizedStringKey,
+        systemImage: String,
+        description: LocalizedStringKey
+    ) -> some View {
+        ContentUnavailableView {
+            VStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.title3.weight(.regular))
+                    .foregroundStyle(.tertiary)
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        } description: {
+            Text(description)
+        }
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     private var customSnoozePickerSheet: some View {
@@ -556,6 +747,32 @@ private struct InboxBucketHeader: View {
     }
 }
 
+// MARK: - Selection checkbox
+
+private struct InboxSelectionCheckbox: View {
+    let isSelected: Bool
+    private let size: CGFloat = 18
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(isSelected ? Color.blue : Color.clear)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(
+                    isSelected ? Color.blue : Color(.tertiaryLabel),
+                    lineWidth: 1.5
+                )
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+        }
+        .frame(width: size, height: size)
+        .frame(maxHeight: .infinity, alignment: .center)
+    }
+}
+
 // MARK: - Interactive Row
 
 private struct InboxInteractiveRow: View {
@@ -563,6 +780,8 @@ private struct InboxInteractiveRow: View {
     let showsSnoozeCaption: Bool
     let isInlineEditing: Bool
     let allowsInlineEdit: Bool
+    var isSelectionMode: Bool = false
+    var isSelected: Bool = false
     let leadingActions: [InboxRowAction]
     let trailingActions: [InboxRowAction]
     let contextActions: [InboxRowAction]
@@ -571,14 +790,17 @@ private struct InboxInteractiveRow: View {
     let onCommitInlineEdit: (String) -> Void
     let onOpenDetailFromInline: (String) -> Void
     let onSnoozedRowTap: (() -> Void)?
+    var onToggleSelection: (() -> Void)? = nil
     let onAction: (InboxRowActionKind) -> Void
 
     var body: some View {
-        InboxTodoRow(
+        let row = InboxTodoRow(
             todo: todo,
             showsSnoozeCaption: showsSnoozeCaption,
             isInlineEditing: isInlineEditing,
             allowsInlineEdit: allowsInlineEdit,
+            isSelectionMode: isSelectionMode,
+            isSelected: isSelected,
             onCheckboxTap: onCheckboxTap,
             onStartInlineEdit: onStartInlineEdit,
             onCommitInlineEdit: onCommitInlineEdit,
@@ -587,37 +809,50 @@ private struct InboxInteractiveRow: View {
         )
         .id(todo.id)
         .contentShape(Rectangle())
-        .contextMenu {
-            if !isInlineEditing {
-                ForEach(contextActions) { action in
-                    Button(role: action.isDestructive ? .destructive : nil) {
-                        onAction(action.kind)
-                    } label: {
-                        Label(action.title, systemImage: action.systemImage)
+
+        if isSelectionMode {
+            row
+                .onTapGesture { onToggleSelection?() }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityValue(
+                    isSelected
+                    ? String(localized: "선택됨")
+                    : String(localized: "선택 안 됨")
+                )
+        } else {
+            row
+                .contextMenu {
+                    if !isInlineEditing {
+                        ForEach(contextActions) { action in
+                            Button(role: action.isDestructive ? .destructive : nil) {
+                                onAction(action.kind)
+                            } label: {
+                                Label(action.title, systemImage: action.systemImage)
+                            }
+                        }
                     }
                 }
-            }
-        }
-        .swipeActions(edge: .leading, allowsFullSwipe: !leadingActions.isEmpty) {
-            ForEach(leadingActions) { action in
-                Button {
-                    onAction(action.kind)
-                } label: {
-                    Label(action.title, systemImage: action.systemImage)
+                .swipeActions(edge: .leading, allowsFullSwipe: !leadingActions.isEmpty) {
+                    ForEach(leadingActions) { action in
+                        Button {
+                            onAction(action.kind)
+                        } label: {
+                            Label(action.title, systemImage: action.systemImage)
+                        }
+                        .tint(action.tint)
+                    }
                 }
-                .tint(action.tint)
-            }
-        }
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            ForEach(trailingActions) { action in
-                Button(role: action.isDestructive ? .destructive : nil) {
-                    onAction(action.kind)
-                } label: {
-                    Label(action.title, systemImage: action.systemImage)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    ForEach(trailingActions) { action in
+                        Button(role: action.isDestructive ? .destructive : nil) {
+                            onAction(action.kind)
+                        } label: {
+                            Label(action.title, systemImage: action.systemImage)
+                        }
+                        .labelStyle(.iconOnly)
+                        .tint(action.isDestructive ? nil : action.tint)
+                    }
                 }
-                .labelStyle(.iconOnly)
-                .tint(action.isDestructive ? nil : action.tint)
-            }
         }
     }
 }
@@ -629,6 +864,8 @@ private struct InboxTodoRow: View {
     let showsSnoozeCaption: Bool
     let isInlineEditing: Bool
     let allowsInlineEdit: Bool
+    var isSelectionMode: Bool = false
+    var isSelected: Bool = false
     var onCheckboxTap: (() -> Void)? = nil
     var onStartInlineEdit: (() -> Void)? = nil
     var onCommitInlineEdit: ((String) -> Void)? = nil
@@ -641,22 +878,42 @@ private struct InboxTodoRow: View {
         UIFont.preferredFont(forTextStyle: .body).lineHeight
     }
 
+    private var isExtraTextVisible: Bool {
+        if showsSnoozeCaption, todo.snoozedUntil != nil { return true }
+        if let memo = todo.memo, !memo.isEmpty { return true }
+        return false
+    }
+
+    private var titleText: some View {
+        Text(todo.title)
+            .font(.body)
+            .foregroundStyle(todo.isCompleted ? .secondary : .primary)
+            .strikethrough(todo.isCompleted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            Button {
-                onCheckboxTap?()
-            } label: {
-                Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(
-                        todo.isCompleted
-                        ? AppTheme.shared.accent.opacity(completedCheckboxOpacity)
-                        : Color(.tertiaryLabel)
-                    )
+            if isSelectionMode {
+                InboxSelectionCheckbox(isSelected: isSelected)
                     .frame(height: firstLineHeight)
+                    .accessibilityHidden(true)
+            } else {
+                Button {
+                    onCheckboxTap?()
+                } label: {
+                    Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
+                        .foregroundStyle(
+                            todo.isCompleted
+                            ? AppTheme.shared.accent.opacity(completedCheckboxOpacity)
+                            : Color(.tertiaryLabel)
+                        )
+                        .frame(height: firstLineHeight)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "완료 토글"))
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(String(localized: "완료 토글"))
 
             VStack(alignment: .leading, spacing: 6) {
                 if isInlineEditing {
@@ -666,19 +923,17 @@ private struct InboxTodoRow: View {
                         onOpenDetail: { onOpenDetailFromInline?($0) }
                     )
                 } else {
-                    Text(todo.title)
-                        .font(.body)
-                        .foregroundStyle(todo.isCompleted ? .secondary : .primary)
-                        .strikethrough(todo.isCompleted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    titleText
                         .contentShape(Rectangle())
                         .onTapGesture {
+                            if isSelectionMode { return }
                             if allowsInlineEdit {
                                 onStartInlineEdit?()
                             } else {
                                 onSnoozedRowTap?()
                             }
                         }
+                        .allowsHitTesting(!isSelectionMode)
                 }
 
                 if showsSnoozeCaption, let until = todo.snoozedUntil {
@@ -694,7 +949,7 @@ private struct InboxTodoRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, isExtraTextVisible ? 6 : 8)
     }
 
     private func snoozeCaption(_ until: Date) -> String {
@@ -769,6 +1024,10 @@ private struct InboxAddRow: View {
     @State private var focusEpoch = UUID()
     @State private var didFinish = false
 
+    private var firstLineHeight: CGFloat {
+        UIFont.preferredFont(forTextStyle: .body).lineHeight
+    }
+
     var body: some View {
         if isAdding {
             HStack(spacing: 8) {
@@ -782,7 +1041,7 @@ private struct InboxAddRow: View {
                     onReturn: {
                         let trimmed = newTodoTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                         if trimmed.isEmpty { return false }
-                        finishAdding(save: true)
+                        onAdd()
                         return true
                     },
                     onDismiss: {
@@ -792,7 +1051,7 @@ private struct InboxAddRow: View {
                     flushDismissOnDismantle: true
                 )
                 .id(focusEpoch)
-                .frame(height: 36)
+                .frame(maxWidth: .infinity, minHeight: firstLineHeight, maxHeight: firstLineHeight, alignment: .leading)
             }
         } else {
             Button {

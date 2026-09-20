@@ -353,6 +353,7 @@ struct TodoView: View {
             }
             .onChange(of: PlannerService.shared.selectedPlannerId) { _, _ in
                 dailyReportViewModel.switchReport()
+                refreshInboxBadge()
                 Task {
                     await viewModel.switchPlanner()
                     await dailyReportViewModel.fetchReport(
@@ -1348,6 +1349,10 @@ private struct AddTodoRow: View {
     /// 추가 버튼을 누를 때마다 갱신 → AutoFocusTextField가 fresh 인스턴스로 다시 만들어짐.
     @State private var focusEpoch = UUID()
 
+    private var firstLineHeight: CGFloat {
+        UIFont.preferredFont(forTextStyle: .body).lineHeight
+    }
+
     var body: some View {
         if isAdding {
             HStack(spacing: 8) {
@@ -1374,7 +1379,8 @@ private struct AddTodoRow: View {
                     }
                 )
                 .id(focusEpoch)
-                .frame(height: 36)
+                .frame(maxWidth: .infinity, minHeight: firstLineHeight, maxHeight: firstLineHeight, alignment: .leading)
+                .layoutPriority(0)
             }
         } else {
             Button {

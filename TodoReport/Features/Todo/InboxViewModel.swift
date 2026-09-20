@@ -9,7 +9,7 @@ enum InboxSegment: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-/// 지금·완료됨 탭 공통 날짜 버킷 (최근은 헤더 없음·항상 전체 표시).
+/// 지금·완료됨 탭 공통 날짜 버킷 (최근은 헤더 없음. 완료됨은 전체 표시, 지금은 페이지네이션).
 enum InboxAgeBucket: String, CaseIterable, Identifiable {
     case recent
     case weekPlus
@@ -52,12 +52,18 @@ final class InboxViewModel {
 
     var showDeleteAlert = false
     private(set) var pendingDeleteTodo: Todo? = nil
+    var showBulkDeleteAlert = false
+    private(set) var pendingBulkDeleteIds: [String] = []
 
     var showReadOnlyAlert = false
     var showSnoozeSheet = false
-    private(set) var pendingSnoozeTodo: Todo? = nil
+    private(set) var pendingSnoozeTodos: [Todo] = []
     var showCustomSnoozePicker = false
     var customSnoozeDate: Date = Calendar.current.startOfDay(for: .now)
+
+    private(set) var isEditingNow = false
+    private(set) var selectedTodoIds: Set<String> = []
+    private var shouldExitEditAfterSnooze = false
 
     var showRecurringEditAlert = false
     private(set) var pendingRecurringEdit: RecurringEditPendingInfo? = nil
@@ -111,11 +117,14 @@ final class InboxViewModel {
     }
 
     func visibleCount(for bucket: InboxAgeBucket, segment: InboxSegment) -> Int {
-        guard bucket != .recent else { return Int.max }
         switch segment {
-        case .now: return visibleLimitNow[bucket] ?? Self.pageSize
-        case .completed: return visibleLimitCompleted[bucket] ?? Self.pageSize
-        case .snoozed: return Self.pageSize
+        case .now:
+            return visibleLimitNow[bucket] ?? Self.pageSize
+        case .completed:
+            guard bucket != .recent else { return Int.max }
+            return visibleLimitCompleted[bucket] ?? Self.pageSize
+        case .snoozed:
+            return Self.pageSize
         }
     }
 
@@ -126,7 +135,7 @@ final class InboxViewModel {
         case .completed: all = completedTodos(in: bucket)
         case .snoozed: return []
         }
-        if bucket == .recent { return all }
+        if segment == .completed && bucket == .recent { return all }
         guard isBucketExpanded(bucket, segment: segment) else { return [] }
         let limit = visibleCount(for: bucket, segment: segment)
         return Array(all.prefix(limit))
@@ -139,7 +148,7 @@ final class InboxViewModel {
         case .completed: total = completedTodos(in: bucket).count
         case .snoozed: return 0
         }
-        if bucket == .recent { return 0 }
+        if segment == .completed && bucket == .recent { return 0 }
         guard isBucketExpanded(bucket, segment: segment) else { return 0 }
         return max(0, total - visibleCount(for: bucket, segment: segment))
     }
@@ -171,7 +180,7 @@ final class InboxViewModel {
     }
 
     func loadMore(in bucket: InboxAgeBucket, segment: InboxSegment) {
-        guard bucket != .recent else { return }
+        if segment == .completed && bucket == .recent { return }
         guard isBucketExpanded(bucket, segment: segment) else { return }
         switch segment {
         case .now:
@@ -435,32 +444,30 @@ final class InboxViewModel {
 
     func requestSnooze(_ todo: Todo) {
         guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
-        pendingSnoozeTodo = todo
+        shouldExitEditAfterSnooze = false
+        pendingSnoozeTodos = [todo]
         showSnoozeSheet = true
     }
 
     func cancelSnoozeSheet() {
         showSnoozeSheet = false
-        pendingSnoozeTodo = nil
+        pendingSnoozeTodos = []
         showCustomSnoozePicker = false
+        shouldExitEditAfterSnooze = false
     }
 
     func confirmSnoozeNextWeek() {
-        guard let todo = pendingSnoozeTodo else { return }
         let cal = Calendar.current
         let base = cal.startOfDay(for: .now)
         let until = cal.date(byAdding: .weekOfYear, value: 1, to: base) ?? base
-        applySnooze(todo, until: until)
-        cancelSnoozeSheet()
+        applySnoozeToPending(until: until)
     }
 
     func confirmSnoozeNextMonth() {
-        guard let todo = pendingSnoozeTodo else { return }
         let cal = Calendar.current
         let base = cal.startOfDay(for: .now)
         let until = cal.date(byAdding: .month, value: 1, to: base) ?? base
-        applySnooze(todo, until: until)
-        cancelSnoozeSheet()
+        applySnoozeToPending(until: until)
     }
 
     func openCustomSnoozePicker() {
@@ -472,10 +479,8 @@ final class InboxViewModel {
     }
 
     func confirmCustomSnooze() {
-        guard let todo = pendingSnoozeTodo else { return }
         let until = Calendar.current.startOfDay(for: customSnoozeDate)
-        applySnooze(todo, until: until)
-        cancelSnoozeSheet()
+        applySnoozeToPending(until: until)
     }
 
     /// 지금으로 복귀 — `snoozedUntil`을 현재 시각으로 두어 「최근」버킷에 들어가게 함.
@@ -499,12 +504,108 @@ final class InboxViewModel {
     func confirmDelete() {
         guard let todo = pendingDeleteTodo else { return }
         pendingDeleteTodo = nil
-        allInbox.removeAll { $0.id == todo.id }
-        Task { try? await service.deleteTodo(id: todo.id) }
+        deleteLocallyAndEnqueue(id: todo.id)
     }
 
     func cancelDelete() {
         pendingDeleteTodo = nil
+    }
+
+    // MARK: - Now edit mode
+
+    var hasNowEditSelection: Bool { !selectedTodoIds.isEmpty }
+
+    var isAllNowSelected: Bool {
+        !nowTodos.isEmpty && nowTodos.allSatisfy { selectedTodoIds.contains($0.id) }
+    }
+
+    var bulkDeleteAlertTitle: String {
+        let count = pendingBulkDeleteIds.count
+        if count == 1 {
+            return String(localized: "이 할 일을 삭제할까요?")
+        }
+        return String(localized: "선택한 \(count)개의 할 일을 삭제할까요?")
+    }
+
+    func enterNowEditMode() {
+        guard segment == .now else { return }
+        isEditingNow = true
+        selectedTodoIds = []
+    }
+
+    func exitNowEditMode() {
+        isEditingNow = false
+        selectedTodoIds = []
+        pendingBulkDeleteIds = []
+        showBulkDeleteAlert = false
+    }
+
+    func toggleNowSelection(id: String) {
+        guard isEditingNow else { return }
+        if selectedTodoIds.contains(id) {
+            selectedTodoIds.remove(id)
+        } else {
+            selectedTodoIds.insert(id)
+        }
+    }
+
+    func isNowSelected(_ id: String) -> Bool {
+        selectedTodoIds.contains(id)
+    }
+
+    func toggleSelectAllNow() {
+        guard isEditingNow else { return }
+        if isAllNowSelected {
+            selectedTodoIds = []
+        } else {
+            selectedTodoIds = Set(nowTodos.map(\.id))
+        }
+    }
+
+    func requestDeleteSelected() {
+        guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
+        let ids = selectedNowTodos.map(\.id)
+        guard !ids.isEmpty else { return }
+        pendingBulkDeleteIds = ids
+        showBulkDeleteAlert = true
+    }
+
+    func cancelBulkDelete() {
+        pendingBulkDeleteIds = []
+    }
+
+    func confirmBulkDelete() {
+        let ids = pendingBulkDeleteIds
+        pendingBulkDeleteIds = []
+        for id in ids {
+            deleteLocallyAndEnqueue(id: id)
+        }
+        exitNowEditMode()
+    }
+
+    func completeSelected() {
+        guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
+        for todo in selectedNowTodos where !todo.isCompleted {
+            toggleTodo(todo)
+        }
+        exitNowEditMode()
+    }
+
+    func moveSelectedToToday() {
+        guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
+        for todo in selectedNowTodos {
+            moveToToday(todo)
+        }
+        exitNowEditMode()
+    }
+
+    func requestSnoozeSelected() {
+        guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
+        let todos = selectedNowTodos
+        guard !todos.isEmpty else { return }
+        shouldExitEditAfterSnooze = true
+        pendingSnoozeTodos = todos
+        showSnoozeSheet = true
     }
 
     func cancelReadOnlyAlert() {
@@ -512,6 +613,28 @@ final class InboxViewModel {
     }
 
     // MARK: - Private
+
+    private var selectedNowTodos: [Todo] {
+        nowTodos.filter { selectedTodoIds.contains($0.id) }
+    }
+
+    private func deleteLocallyAndEnqueue(id: String) {
+        allInbox.removeAll { $0.id == id }
+        Task { try? await service.deleteTodo(id: id) }
+    }
+
+    /// 대기 중인 스누즈 대상에 동일 날짜를 적용. 다중 선택에서 연 경우에만 편집 모드를 종료한다.
+    private func applySnoozeToPending(until: Date?) {
+        let todos = pendingSnoozeTodos
+        let exitEdit = shouldExitEditAfterSnooze
+        cancelSnoozeSheet()
+        for todo in todos {
+            applySnooze(todo, until: until)
+        }
+        if exitEdit {
+            exitNowEditMode()
+        }
+    }
 
     /// 지금 탭 버킷·정렬 — 스누즈 복귀값 우선, 없으면 노션 생성일.
     private func nowRecencyDate(for todo: Todo) -> Date {

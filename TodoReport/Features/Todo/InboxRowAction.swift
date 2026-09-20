@@ -25,7 +25,7 @@ struct InboxRowAction: Identifiable {
 }
 
 enum InboxRowActionCatalog {
-    /// trailing: 바깥쪽(full swipe) = 삭제. 안쪽(살짝 스와이프) = 나중에 보기.
+    /// trailing: 바깥쪽(full swipe) = 삭제. 안쪽(살짝 스와이프) = 미루기.
     static let nowTrailingSwipe: [InboxRowActionKind] = [.delete, .assignDate, .snooze]
     static let nowContextMenu: [InboxRowActionKind] = [.edit, .moveToToday, .assignDate, .snooze, .bumpToRecent, .delete]
 
@@ -68,7 +68,7 @@ enum InboxRowActionCatalog {
         case .snooze:
             return InboxRowAction(
                 kind: .snooze,
-                title: String(localized: "나중에 보기"),
+                title: String(localized: "미루기"),
                 systemImage: "clock",
                 tint: .gray,
                 isDestructive: false
