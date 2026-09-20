@@ -29,10 +29,11 @@
 - **신규 인박스 문자열 영어 번역** (`Localizable.xcstrings`). 커밋 `062e754`
 - **위젯 숨긴 카테고리:** `WidgetStoreReader.loadTodaySnapshot()`이 plannerId로 `CategoryItem`을 조회해 `isHidden` 할일을 목록·완료율에서 제외. 앱 `excludingHiddenCategoryTodos`와 동일 의미. 커밋 `41c5081`
 
-### 할일 검색 (2026-09-12)
-- **완료:** iOS 26 `Tab(role: .search)` 검색 탭. `Features/Search/` 독립 모듈. 로컬 SwiftData만 (`title`/`memo` `localizedStandardContains`, 전 플래너·완료 포함, Notion API 없음)
-- 결과 탭: `plannerId`가 다르면 `PlannerService.selectPlanner` 후 이동. 날짜 있으면 `MainTabCoordinator.openTodo(on:highlightTodoId:)` → 투두 탭 해당 날짜 + 스크롤·하이라이트. 인박스(`date == nil`)면 `openInbox(highlightTodoId:)` → 투두 탭 + 인박스 시트 + 세그먼트/버킷 펼침·`loadMore` 후 스크롤·하이라이트
-- 안내: 「노션에 연결된 할일은 이 기기에 동기화된 기간만 검색됩니다.」
+### 할일 검색 (2026-09-12, 하루 리뷰 2026-09-18)
+- **완료:** iOS 26 `Tab(role: .search)` 검색 탭. `Features/Search/` 독립 모듈. 로컬 SwiftData만 (전 플래너·완료 포함, Notion API 없음)
+- **검색 대상:** 할일 `title`/`memo` + 하루 리뷰 `DailyReportItem.review` (`endDate == nil`만 — 주간/월간 저장 기록 제외). 결과 타입 `SearchResultItem` (`.todo` / `.review`), 날짜 내림차순
+- 결과 탭: `plannerId`가 다르면 `PlannerService.selectPlanner` 후 이동. 할일 날짜 있으면 `MainTabCoordinator.openTodo(on:highlightTodoId:)` → 투두 탭 해당 날짜 + 스크롤·하이라이트. 인박스(`date == nil`)면 `openInbox(highlightTodoId:)` → 투두 탭 + 인박스 시트 + 세그먼트/버킷 펼침·`loadMore` 후 스크롤·하이라이트. **리뷰**면 `openTodo(on:expandDailyReport: true)` → 해당 날짜 + `DailyReportCard` 자동 펼침 (`expandDailyReportToken`)
+- 안내: 「노션에 연결된 할일은 이 기기에 동기화된 기간만 검색됩니다.」 빈 상태: 「제목, 메모, 하루 리뷰에서 찾습니다.」
 - **다음 세션:** 음성인식 입력 등 (아래 「다음 할 일」)
 
 ### 투두탭 필터·위젯·알림 (2026-09-18)
@@ -217,11 +218,12 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- 할일 검색 하루 리뷰 (2026-09-18): `DailyReportItem.review`(`endDate == nil`) 검색 + `SearchResultItem`. 리뷰 탭 시 해당 날짜 이동·데일리 리포트 카드 자동 펼침 (`expandDailyReportToken`). 커밋 `a2d0e92`
 - 투두탭 필터·위젯·알림 (2026-09-18): 위젯 자정 타임라인 엔트리, 알림 subtitle, 카테고리 단일/다중 필터+미분류, 칩 아이콘 보기, 미사용 전체 칩 색상 제거. 상세는 위 전용 섹션. 커밋 `c8fc2e5` · `95c9b5b` · `57e73c6` · `d1bd9f8`
 - 인박스·투두 행 정리 (2026-09-12): 여백 9pt 통일·인박스 구분선 제거, 뱃지 offset 절충, 「위로 올리기」/「내일하기」/「인박스로 보내기」, 인박스 영어 번역, 위젯 숨긴 카테고리 필터. 상세는 위 전용 섹션. 커밋 `21209eb` · `b55a6d3` · `9534055` · `062e754` · `41c5081`
 - 투두탭 UI 미세 조정 (2026-09-12, v1.14): 카테고리 시트 편집 leading / 목록 여백·행간 / 체크–제목 8pt / 메모 14pt / 플래너 상태 「기기에 저장」. 상세는 위 전용 섹션. 커밋 `723d407` · `7926ba5`
 - 투두 탭 하단 할일 줄 탭 무반응 + FAB 유리 스타일 (2026-09-12): `safeAreaInset(bottom)`이 iOS 26 스크롤 가장자리 흡수 영역을 키우던 것 — List 콘텐츠 안 120pt 빈 행으로 교체. FAB는 `.glassProminent` 원형(52pt, + 26 heavy, tint accent). 설정 「업데이트 내역」은 `https://www.nock.kr/changelog` 외부 링크
-- 할일 검색 (2026-09-12): `Tab(role: .search)` + 로컬 SwiftData 제목·메모 검색. 결과 탭 시 플래너 전환 + 날짜면 투두 탭 하이라이트, 인박스면 시트 열고 세그먼트/버킷 펼친 뒤 하이라이트 (`MainTabCoordinator.openTodo`/`openInbox`)
+- 할일 검색 (2026-09-12, 리뷰 2026-09-18): `Tab(role: .search)` + 로컬 SwiftData 제목·메모·하루 리뷰. 결과 탭 시 플래너 전환 + 날짜면 투두 탭 하이라이트, 인박스면 시트 하이라이트, 리뷰면 날짜 이동·카드 펼침 (`openTodo`/`openInbox`/`expandDailyReportToken`)
 - 삭제된 투두·인박스가 pull/위젯에 되살아나던 문제 (`a21adc8`): DELETE `plannerId`로 GET 캐시 무효화, 위젯은 Swift 날짜 필터로 인박스 제외
 - 인박스 목록 UI (2026-09-11): 날짜 버킷 4단계·미뤄둠 복귀·스와이프·헤더 스타일·뱃지 잘림 수정. 툴바 glass/Spacer 시도 후 롤백
 - 인박스 UI·동기화 (2026-09-10): 편집 「날짜 제거」→ 노션 date 비움, `+` 날짜 없이 저장 → 인박스 생성. SyncQueue update `date:null` + AnyEncodable NSNull + 백엔드 PATCH
@@ -895,9 +897,9 @@ AutoFocusTextField(text: $title, placeholder: "새 투두", textStyle: .body)
 
 **할일 검색 — `MainTabCoordinator` pending 확장**
 
-검색 결과는 Feature 내부에서 날짜/시트를 직접 열지 않는다. `TodoSearchViewModel.openResult`가 플래너만 맞춘 뒤 코디네이터에 위임한다.
+검색 결과는 Feature 내부에서 날짜/시트를 직접 열지 않는다. `TodoSearchViewModel.openResult`가 플래너만 맞춘 뒤 코디네이터에 위임한다. 결과는 `SearchResultItem` (`.todo` / `.review`).
 
-- `openTodo(on:highlightTodoId:)` — `pendingTodoDate` + `pendingHighlightTodoId` → 투두 탭이 `navigateToDate` 후 `scrollTo`·accent 하이라이트 (~1.2초). 리포트 타임라인은 `openTodo(on:)`만 호출(highlight nil)
+- `openTodo(on:highlightTodoId:expandDailyReport:)` — `pendingTodoDate` + `pendingHighlightTodoId` → 투두 탭이 `navigateToDate` 후 `scrollTo`·accent 하이라이트 (~1.2초). 리포트 타임라인은 `openTodo(on:)`만 호출(highlight nil). `expandDailyReport: true`면 `expandDailyReportToken` 증가 → `DailyReportCard`가 1회 펼침(헤더 탭 접기/펼치기는 그대로)
 - `openInbox(highlightTodoId:)` — `pendingInboxHighlightTodoId` → 투두 탭이 `showInboxSheet` + `InboxView(highlightTodoId:)`. tray는 highlight nil이라 기존과 동일
 - 인박스 하이라이트: 세그먼트 전환 → 버킷 펼침 → `loadMore` 최대 40회 → `scrollTo`. `didConsumeHighlight`로 1회만
 
