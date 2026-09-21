@@ -1,7 +1,7 @@
 # 투두리포트 앱 개발 스펙
 
 > 작성일: 2026-05-26  
-> 최종 업데이트: 2026-09-18 (위젯 자정 타임라인 · 알림 subtitle · 카테고리 필터 단일/다중+미분류 · 칩 아이콘 보기 · 전체 칩 색상 제거)  
+> 최종 업데이트: 2026-09-21 (카테고리 필터 peek · WhatsNew 1.15 팝업 · 페이월 연간 체험 배지)  
 > 브랜드: 노크(Nock / nock.kr)  
 > 앱명 (홈 화면): 투두리포트  
 > App Store 이름: 노션품은 투두x리포트  
@@ -488,15 +488,17 @@ api/
 | 연간 Product ID | `kr.nock.todoreport.pro.yearly` |
 | 가격 (한국, ASC) | 월 ₩4,900 / 연 ₩33,000 |
 | 구현 | `SubscriptionManager` (StoreKit 2), `PaywallView` / `PaywallViewModel` |
-| 로컬 테스트 | `TodoReport.storekit` + Scheme StoreKit Configuration |
-| Sandbox 테스트 | ASC 동기화 `.storekit` 또는 Scheme **None** + Sandbox 계정 |
-| Archive/TestFlight | Scheme StoreKit 설정 **무시** — ASC Sandbox/Production |
+| 로컬 테스트 | Scheme StoreKit Configuration → `노션품은 투두x리포트.storekit` (연간 7일 무료 `P7D`. Xcode Run 전용) |
+| Sandbox 테스트 | Scheme **None** + Sandbox 계정 (ASC 실상품) |
+| Archive/TestFlight | Scheme StoreKit 설정 **무시** — ASC Sandbox/Production. 연간 7일 무료체험은 ASC에 승인·작동 중 |
 
 **필수 ASC 조건:** 유료 앱 계약 Active, 구독 **제출 준비 완료**, In-App Purchase capability, Paid Applications Agreement·세금·은행.
 
-**설정 탭:** 구독 복원 결과 알림, Pro 시 **구독 관리** (`AppStore.showManageSubscriptions`).
+**설정 탭:** 구독 복원 결과 알림, Pro 시 **구독 관리** (`AppStore.showManageSubscriptions`). DEBUG 「페이월 미리보기」는 `isPro`와 무관하게 `PaywallView`를 연다.
 
-**관련 파일:** `Core/Subscription/SubscriptionManager.swift`, `TodoReport.storekit`, `Features/Subscription/PaywallView.swift`
+**페이월 (2026-09-21):** 연간 카드에 `yearlyIntroOfferText` 배지(예: 「7일 무료」). CTA는 오퍼 있으면 「7일 무료로 시작하기」. Pro 카드 제목 「할 일 반복 설정」·「원하는 카테고리만 모아보기」. 무료 칩에 수집함·할 일 검색·카테고리 필터·카테고리 아이콘 보기.
+
+**관련 파일:** `Core/Subscription/SubscriptionManager.swift`, `노션품은 투두x리포트.storekit`, `Features/Subscription/PaywallView.swift`
 
 #### 멀티 플래너
 - 플래너 1개 = 투두DB 1개 + 데일리리포트DB 1개 묶음
@@ -547,15 +549,19 @@ api/
 - 노션 연결 정보(토큰, DB ID, 속성 매핑)만 초기화되고 **로컬 투두·리포트 데이터는 삭제되지 않음** — 해당 플래너는 로컬 전용 플래너로 전환됨
 - 노션 쪽 원본 데이터도 삭제하지 않음 (API 삭제 호출 없음)
 
-#### 카테고리 필터 다중선택
-- 칩 탭은 항상 단일선택 (무료). 맨 앞 필터 아이콘 메뉴에서 **2개 이상**을 켜면 Pro
-- 무료가 두 번째를 켜려 하면 `PaywallView` (문구: 「여러 카테고리 보기는 Pro 기능입니다.」)
-- 미분류는 메뉴·칩 모두에 있음. 빈 선택 = 전체
+#### 카테고리 필터 다중선택 (v1.15, peek 2026-09-21)
+- 맨 앞 필터 아이콘 메뉴가 **지속 필터** (`selectedCategoryFilter`). 2개 이상을 켜면 Pro
+- 칩 탭은 **peek** (`peekCategoryId`) — 필터 값은 바꾸지 않는 임시 보기. 주황 점은 캡슐 안 아이콘/텍스트 쪽
+- 무료가 메뉴에서 두 번째를 켜려 하면 `PaywallView` (문구: 「여러 카테고리 보기는 Pro 기능입니다.」)
+- 미분류는 메뉴·칩 모두에 있음. 빈 선택 = 전체. 미분류만 모아볼 수도 있다
+- 새 할일 자동 카테고리: peek 중인 실제 카테고리 우선. peek가 없거나 미분류면 필터가 실제 카테고리 1개일 때만
 
-#### 반복 투두
-- 반복 주기: 매일 / 평일만(월~금) / 주말만(토~일) / 매주 요일 선택 / 격주 / 매월 / 매년
-- 시간 지정과 연계 (시간 지정된 투두에 알림 반복 적용)
-- 노션에 반복 일정대로 자동 생성
+#### 반복 투두 (Pro, v1.15)
+- 할일 추가·편집 시트에서 반복 주기를 설정한다. 무료는 Pro 배지와 함께 페이월이 열린다 (`RecurrenceSettingsSection`, `RecurringTodoManager` `isPro` 가드)
+- 주기: 매일 / 평일(월~금) / 주말(토~일) / 매주 요일 선택 / 격주 / 매월 / 매년. 종료는 안 함 / 날짜 / 횟수
+- 해당 날짜가 되면 그날의 할 일이 목록에 생긴다. 위젯에도 오늘 반복 항목이 미리 보여, 앱을 열지 않아도 보인다
+- 편집·삭제 시 **이 항목만** 또는 **이후 모두**를 고른다. 이후 모두는 이미 만들어진 미래 항목에도 반영된다
+- 반복 규칙 본체는 앱 로컬(`RecurringSeries`). 그날 생긴 할 일은 일반 할 일과 같이 노션에 동기화된다
 
 #### 다른 날 투두 확인
 - 날짜 텍스트 탭 → 커스텀 월간 달력 시트 (`MonthCalendarView`) — 날짜별 카테고리 색 점·그날 할일 목록 확인 후 이동
@@ -931,7 +937,7 @@ struct Category: Identifiable, Codable {
 > 보기 on/off는 `Toggle`로만 추가. 아이콘+동작 문구 Button은 체크마크 슬롯 충돌·문구 혼동으로 폐기.
 > 카테고리 필터는 투두 목록 상단 칩으로 이동. 보기 옵션에서 제거.
 
-**카테고리 칩 아이콘 보기 (2026-09-18):** 켜면 `FilterChip`이 이름 대신 SF Symbol (`category.icon`, 미분류는 `tag.slash`). 선택 색/굵기는 텍스트 칩과 동일. VoiceOver는 이름. 맨 앞 필터 메뉴 아이콘·달력 범례는 대상 아님.
+**카테고리 칩 아이콘 보기 (v1.15, 2026-09-18):** 켜면 `FilterChip`이 이름 대신 SF Symbol (`category.icon`, 미분류는 `tag.slash`). 선택 색/굵기는 텍스트 칩과 동일. VoiceOver는 이름. 맨 앞 필터 메뉴 아이콘·달력 범례는 대상 아님. 투두 탭 ⋯ 「카테고리 아이콘으로 보기」에서 켜고 끈다.
 
 **카테고리 관리 화면 두 진입 (툴바만 다름, 2026-09-12):**
 
@@ -1025,11 +1031,11 @@ struct Category: Identifiable, Codable {
 └─────────────────────────────────┘
 ```
 
-> 완료율은 현재 선택된 카테고리 필터 기준으로 계산된다. 필터가 비어 있으면(전체) 전체 투두 기준.
+> 완료율은 현재 선택된 카테고리 필터(peek 중이면 peek) 기준으로 계산된다. 필터가 비어 있고 peek도 없으면 전체 투두 기준.
 
-> 카테고리 필터가 **실제 카테고리 1개**일 때만 인라인 "+ 투두 추가" / 플로팅 + 에 그 카테고리가 자동 지정된다. 전체·미분류·다중 선택에서는 지정하지 않음.
+> 새 할일 자동 카테고리: **peek 중인 실제 카테고리**가 있으면 그걸 지정. peek가 없거나 미분류면, 지속 필터가 **실제 카테고리 1개**일 때만. 전체·미분류·다중 필터에서는 지정하지 않음.
 
-> **카테고리 필터 (2026-09-18):** 칩 = 단일선택, 맨 앞 필터 아이콘 메뉴 = 다중선택(전체/카테고리/미분류). 미분류 id `TodoViewModel.uncategorizedFilterId`. 2개 이상 선택은 Pro (`PaywallView` 「여러 카테고리 보기는 Pro 기능입니다.」). 미사용 「전체 칩 색상」(`AllChipColorStore`)은 제거됨.
+> **카테고리 필터 (2026-09-21 peek):** 메뉴 = 지속 필터 다중선택, 칩 탭 = peek. 미분류 id `TodoViewModel.uncategorizedFilterId`. 2개 이상 선택은 Pro (`PaywallView` 「여러 카테고리 보기는 Pro 기능입니다.」). 미사용 「전체 칩 색상」(`AllChipColorStore`)은 제거됨.
 
 > **[확정] 완료율·별점·리뷰 카드 스타일**
 > - 날짜 행 바로 아래 단일 흰색 카드로 통합 (완료율 → 별점 → 리뷰 순)
@@ -1319,7 +1325,7 @@ Phase 3 (유료 기능)
   - Apple IAP StoreKit 2 연동 ✅ (Sandbox 검증, 6-2-2절)
   - 주간/월간 리포트 ✅
   - 멀티 플래너 ✅
-  - 반복 투두 (v2 연기)
+  - 반복 투두 ✅ (v1.15, Pro)
   - 다른 날 투두 확인 ✅
   - 홈 화면 위젯 ✅ (Small 무료 · Medium/Large Pro, App Group, 딥링크, Medium UI)
 

@@ -12,7 +12,7 @@
   - **폐기:** FAB 롱프레스 / 시스템 alert 빠른입력 UI (방향 전환)
   - ~~길 B~~ — 채택하지 않음 (노션 의미 불일치)
 - 할일 순서 수동 편집 (드래그)
-- 반복 투두 변경/취소 처리 (alert 플로우)
+- 반복 투두 변경/취소 처리 (alert 플로우) — **v1.15 완료** (`RecurringTodoEditHandler` 이 항목만 / 이후 모두)
 - 언어 선택 (한국어/영어) — 전체 String Catalog 작업 필요
 - AI 주간 요약 (Claude API, Vercel 타임아웃 이슈로 이관)
 - 로컬 저장 사용자 iCloud 백업 + alarmOffset 복원·재예약 — 상세 아래 「로컬 저장 사용자 iCloud 백업」

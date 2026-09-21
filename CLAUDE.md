@@ -1,6 +1,6 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-09-18 기준)
+## 현재 상황 (2026-09-21 기준)
 
 ### 앱 상태
 - v1.0.4 App Store 제출 완료
@@ -12,6 +12,7 @@
 - v1.10 제출 완료 (빌드 19, 2026-08-30)
 - v1.13 TestFlight 테스트 중 (빌드 25, 2026-09-09) — 아직 App Store 제출 아님
 - v1.14 제출 예정 (투두탭 UI 미세 조정·FAB 유리 스타일·하단 탭 무반응·인박스 행 여백/액션 문구·위젯 숨김 카테고리. 마케팅 버전·빌드 번호는 Xcode에서만)
+- v1.15 제출 예정 (2026-09-21, 반복 투두·카테고리 필터 peek·카테고리 아이콘 보기·WhatsNew 팝업·페이월 체험 배지. 마케팅 버전·빌드 번호는 Xcode에서만)
 
 ### 인박스 진행 (2026-09-11)
 - **완료:** `TodoItem`/`Todo.date` 옵셔널화 + 위젯 Predicate(`ed99bdf`·`aeed0c4`). 백엔드 `GET/POST /api/notion/todo/inbox` 배포(`todoreport-backend` `486bbce`). 편집 화면 「날짜 제거」→ 노션 date 속성 비움(`bb4992d` SyncQueue·AnyEncodable + 백엔드 PATCH). `+`에서 날짜 없이 저장 → 인박스 생성 UI 연결(`f6de244`, POST `/api/notion/todo/inbox`)
@@ -42,7 +43,7 @@
 
 - **위젯 자정 전환 (`c8fc2e5`):** `getTimeline`이 오늘 엔트리 + 내일 00:00 엔트리(해당 날짜 스냅샷)를 미리 넣음. iOS가 자정에 위젯을 다시 호출하지 않아도 날짜가 바뀜. `WidgetStoreReader.loadTodaySnapshot(for:)`가 기준 날짜를 받음.
 - **알림 subtitle (`95c9b5b`):** 리마인더에 예정 시각. 오늘이면 시간만, 아니면 날짜+시간 (`TodoNotificationManager`).
-- **카테고리 필터 (`57e73c6`):** 칩 탭 = 단일선택. 맨 앞 필터 아이콘 메뉴 = 전체/카테고리/미분류 다중선택. 2개 이상은 Pro (`showCategoryFilterPaywall`). 미분류 id는 `TodoViewModel.uncategorizedFilterId`. 새 할일 자동 카테고리는 필터가 실제 카테고리 1개일 때만.
+- **카테고리 필터 (`57e73c6`):** 칩 탭 = 단일선택. 맨 앞 필터 아이콘 메뉴 = 전체/카테고리/미분류 다중선택. 2개 이상은 Pro (`showCategoryFilterPaywall`). 미분류 id는 `TodoViewModel.uncategorizedFilterId`. 새 할일 자동 카테고리는 필터가 실제 카테고리 1개일 때만. **2026-09-21:** 칩 탭은 peek로 바뀜 (아래 「카테고리 필터 peek 재설계」).
 - **카테고리 칩 아이콘 보기:** ⋯ 「카테고리 아이콘으로 보기」(`todoShowCategoryChipIcon`, 기본 꺼짐). 켜면 칩이 이름 대신 `category.icon`(미분류는 `tag.slash`). VoiceOver는 이름 유지. 필터 아이콘·달력 범례는 대상 아님.
 - **정리 (`d1bd9f8`):** 미사용 「전체 칩 색상」(`AllChipColorStore` + 카테고리 관리 UI) 제거.
 
@@ -97,6 +98,34 @@
 - **상태 글씨:** caption → 할일 메모와 같은 **14pt regular + secondary**.
 - 설정 → 플래너 상세 헤더의 같은 라벨도 「로컬 저장」→「기기에 저장」(거기는 글씨 크기 변경 없음, caption 유지). 영어는 기존 키 「기기에 저장」= `Save to Device`. 「로컬 저장」/Local Storage 키 삭제.
 - 이유: 상태 줄이 메모와 크기·톤이 달라 보였고, 「로컬 저장」이 개발 용어처럼 들림. 플래너 추가 화면 버튼 「기기에 저장」과 맞춤.
+
+### v1.15 변경 내용 (제출 예정, 2026-09-20)
+
+백엔드 변경 없음 (iOS만). 마케팅 버전·빌드 번호는 Xcode에서만.
+
+- **반복 투두 (`eff1661`):** `RecurringSeries`가 규칙의 유일한 진실 공급원 (`RecurrenceRule` — 매일/평일/주말/매주/격주/매월/매년). 발생분은 필요할 때 생성 (`materializeDue` — 앱 기동·포그라운드). 위젯은 읽기 전용 미리보기라 앱을 안 열어도 오늘 반복 항목이 보임. 편집·삭제는 「이 항목만」/「이후 모두」(`RecurringTodoEditHandler` — 카테고리·시간·제목·반복 해제·주기 변경 구분, 이후 모두는 이미 만들어진 미래 항목에도 반영). **Pro 전용** — `RecurrenceSettingsSection` 페이월, `RecurringTodoManager.createSeries`/`adoptExistingTodoAsSeriesOrigin` `isPro` 가드. 시리즈 규칙은 로컬 전용(노션에 안 올림). 그날 생긴 할일은 일반 할일과 같이 SyncQueue.
+- **카테고리 필터 (`57e73c6`, peek 2026-09-21):** 메뉴 = 지속 필터. 칩 탭 = peek. 2개 이상은 Pro. 자동 카테고리는 peek 우선.
+- **카테고리 아이콘으로 보기 (`5e59441`):** ⋯ 「카테고리 아이콘으로 보기」(`todoShowCategoryChipIcon`, 기본 꺼짐). 켜면 칩이 이름 대신 `category.icon`(미분류는 `tag.slash`). VoiceOver는 이름 유지. 필터 아이콘·달력 범례는 대상 아님.
+
+### 카테고리 필터 peek 재설계 (2026-09-21)
+
+백엔드 변경 없음 (iOS만).
+
+- 메뉴 기반 **필터**(`selectedCategoryFilter`)는 지속. 칩 탭은 **peek**(`peekCategoryId`) — 필터 값을 바꾸지 않는 임시 보기
+- 필터 인 상태 주황 점은 캡슐 밖이 아니라 아이콘/텍스트 쪽에 붙임
+- `defaultCategoryIdForNewTodo`: ① peek가 실제 카테고리면 그 id ② peek가 없거나 미분류면 기존처럼 `selectedCategoryFilter`가 실제 카테고리 1개일 때만. 미분류 peek는 자동 지정 안 함
+
+### 왓츠뉴 1.15 (2026-09-21)
+
+- 팝업 제목 「새로 추가된 기능」. 제목은 상단 고정, 항목은 위부터 채움 (세로 가운데 정렬 아님)
+- 항목: 할 일 반복 설정 / 카테고리 필터 / 카테고리를 아이콘으로 보기. 미리보기 `WhatsNewRecurringPreview` · `WhatsNewCategoryIconPreview` (이미지셋 누락이 빈 칸으로 보이던 문제 — 해결)
+- 카테고리 필터 항목은 미리보기 없음
+
+### 페이월 7일 무료체험 (2026-09-21)
+
+- 연간 카드 배지·CTA는 `yearlyIntroOfferText` 동적 사용 (숫자 하드코딩 금지). ASC 연간 트라이얼은 실사용자 기준 정상
+- Pro 카드 제목: 「할 일 반복 설정」·「원하는 카테고리만 모아보기」. 무료 칩에 수집함·할 일 검색·카테고리 필터·카테고리 아이콘 보기
+- DEBUG 설정 「페이월 미리보기」— `isPro`와 무관하게 `PaywallView` 시트
 
 ### v1.13 변경 내용 (TestFlight 테스트 중)
 - 리포트 탭 카테고리별 달성률에 「미분류」(`#8E8E93`) 통계 추가, 활성 카테고리 정렬 후 맨 뒤 고정, % 텍스트는 카테고리색 대신 `Color.primary.opacity(0.62)`
@@ -218,6 +247,8 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- 카테고리 필터 peek · WhatsNew 1.15 팝업 · 페이월 체험 배지 (2026-09-21): 칩 탭은 임시 peek, 메뉴만 지속 필터. 새 투두는 peek 카테고리 우선. 왓츠뉴 미리보기 이미지셋 추가. 연간 카드 `yearlyIntroOfferText` 배지, DEBUG 페이월 미리보기, 로컬 StoreKit 연간 7일 트라이얼
+- v1.15 제출 준비 (2026-09-20): 반복 투두·카테고리 필터·카테고리 아이콘 보기 문서·WhatsNew. 커밋 `eff1661` · `57e73c6` · `5e59441`
 - 할일 검색 하루 리뷰 (2026-09-18): `DailyReportItem.review`(`endDate == nil`) 검색 + `SearchResultItem`. 리뷰 탭 시 해당 날짜 이동·데일리 리포트 카드 자동 펼침 (`expandDailyReportToken`). 커밋 `a2d0e92`
 - 투두탭 필터·위젯·알림 (2026-09-18): 위젯 자정 타임라인 엔트리, 알림 subtitle, 카테고리 단일/다중 필터+미분류, 칩 아이콘 보기, 미사용 전체 칩 색상 제거. 상세는 위 전용 섹션. 커밋 `c8fc2e5` · `95c9b5b` · `57e73c6` · `d1bd9f8`
 - 인박스·투두 행 정리 (2026-09-12): 여백 9pt 통일·인박스 구분선 제거, 뱃지 offset 절충, 「위로 올리기」/「내일하기」/「인박스로 보내기」, 인박스 영어 번역, 위젯 숨긴 카테고리 필터. 상세는 위 전용 섹션. 커밋 `21209eb` · `b55a6d3` · `9534055` · `062e754` · `41c5081`
@@ -361,6 +392,7 @@
    → 새 버전을 App Store에 제출할 때(빌드 번호 올리거나 CLAUDE.md에 새 "v1.x.x 변경 내용" 섹션이 추가될 때)마다 `WhatsNewData.swift`에 해당 릴리즈 항목을 반드시 추가
    → 새 문자열은 하드코딩 금지 — `String(localized:)`로 감싸고 `Localizable.xcstrings`에 영어 번역까지 바로 채워 넣을 것 (사용자가 "영어도 해줘"라고 다시 말하지 않아도 됨)
    → 사용자에게 확인 없이 진행 가능한 항목: What's New 문구 자체의 번역 추가. 단, 코드 로직 변경이 필요하면 기존 원칙대로 먼저 확인
+   → 새 무료 기능이 나올 때마다 페이월의 무료 기능 목록(`freeFeaturesSection`)도 같이 갱신할 것
 
 ---
 
@@ -724,7 +756,7 @@ guard SubscriptionManager.shared.isPro else {
 - 노션에 리포트 저장하기 (주간/월간)
 - 멀티 플래너 (2개 이상)
 - 카테고리 필터 2개 이상 선택
-- 반복 투두 (v2 예정)
+- 반복 투두
 
 ---
 
@@ -751,7 +783,7 @@ guard SubscriptionManager.shared.isPro else {
 
 **보기 옵션 규칙:** 앞으로 보기 on/off는 `Toggle`로만 추가한다. 아이콘+동작 문구 `Button`은 시도 후 되돌림 — iOS 메뉴 아이콘 슬롯이 1개라 체크마크와 충돌하고, 문구가 「동작」인지 「상태」인지 헷갈림.
 
-**카테고리 필터 바 (2026-09-18):** 칩 가로 스크롤 — 맨 앞 `line.3.horizontal.decrease` 메뉴(전체/카테고리/미분류 토글, 닫히지 않음) + 활성 카테고리 칩 + 맨 뒤 「미분류」. 칩 탭은 그 id만 단일선택. 메뉴에서 이미 1개가 선택된 채 하나를 더 켜면 무료는 페이월, Pro만 다중. 칩이 아이콘 모드여도 필터 메뉴 버튼은 그대로. 달력 범례(`categoryLegendChip`)는 별개.
+**카테고리 필터 바 (2026-09-21 peek):** 칩 가로 스크롤 — 맨 앞 `line.3.horizontal.decrease` 메뉴가 **지속 필터**(`selectedCategoryFilter`, 전체/카테고리/미분류 토글, 2개 이상은 Pro). 칩 탭은 **peek**(`peekCategoryId`)라 필터를 바꾸지 않음. 필터 인 주황 점은 캡슐 안 아이콘/텍스트 쪽. 칩이 아이콘 모드여도 필터 메뉴 버튼은 그대로. 달력 범례(`categoryLegendChip`)는 별개. 새 할일 자동 카테고리는 peek 실제 카테고리 우선, 없으면 필터가 실제 카테고리 1개일 때만.
 
 **TodoRow 레이아웃 (2026-09-12 확정, 인박스와 통일):** 체크 원–제목 `HStack` spacing 8, 행 `.padding(.vertical, 6)`, `listRowInsets` top/bottom 3·leading/trailing 24 → **한 쪽 9pt**. 메모는 제목 아래 14pt regular·secondary·최대 2줄 — `TodoRow`와 인박스 `InboxTodoRow` 동일. 인박스 List는 `.listRowSeparator(.hidden)`.
 
@@ -844,6 +876,12 @@ guard let value = optional else { return }
 ---
 
 ## 알려진 패턴 / 주의사항
+
+**로컬 StoreKit 트라이얼 (Xcode Run)**
+
+- Scheme LaunchAction은 `노션품은 투두x리포트.storekit`을 StoreKit Configuration으로 씀. 연간(`kr.nock.todoreport.pro.yearly`)에 7일 무료(`paymentMode: free`, `P7D`)가 들어 있음. 월간은 없음
+- Xcode로 실기기/시뮬레이터에 설치하면 이 파일을 본다. TestFlight·App Store는 Scheme을 무시하고 ASC 실상품을 본다 (ASC 연간 트라이얼은 이미 승인·작동)
+- 로컬 파일에 intro가 비어 있으면 `introductoryOffer == nil` → CTA 「구독 시작하기」. 코드 버그가 아니라 테스트 설정 누락으로 보면 된다
 
 **외관 모드 설정 (`appColorScheme`)**
 
@@ -1047,7 +1085,7 @@ Phase 5 (출시)
 - [x] Phase 1: Notion OAuth + APIClient + 온보딩
 - [x] Phase 2: 투두 기록 + 빠른 캡처 + 데일리 리포트 + 카테고리 (무료)
 - [x] Phase 3: 홈 화면 위젯 (WidgetKit + App Group)
-- [ ] Phase 4: StoreKit 2 + 반복 투두 (유료)
+- [ ] Phase 4: StoreKit 2 (유료) — 반복 투두는 v1.15 완료
 - [ ] Phase 5: App Store 심사 제출
 
 ---
@@ -1091,8 +1129,8 @@ Phase 5 (출시)
 - ✅ 시간 지정 + 투두 알림 (TodoNotificationManager, TodoEditFormView) — 2026-09-18: 알림 subtitle에 시각(오늘 아니면 날짜+시각)
 - ✅ 투두 탭 목록 시간·종 표시 (`TodoRow` trailing, `showScheduledTime` 토글)
 - ✅ 위젯 자정 전환: 타임라인에 내일 00:00 엔트리 (`c8fc2e5`)
-- ✅ 카테고리 필터 단일(칩)+다중(메뉴, 2개+ Pro)+미분류, 칩 아이콘 보기
-- 🔜 반복 투두 (RecurrenceRule, RecurringTodoManager, TodoEditFormView 반복 섹션) — v2로 연기
+- ✅ 카테고리 필터 메뉴(지속)+칩 peek(임시)+미분류, 칩 아이콘 보기. 새 할일은 peek 카테고리 우선
+- ✅ 반복 투두 (`RecurringSeries` + `RecurrenceRule`, `RecurringTodoManager`, `RecurrenceSettingsSection`) — v1.15, Pro
 - ✅ Notion relation 자동 연결 개선 (NotionRelationLinker: 14일 윈도우, max 10개, 성공 후에만 linked 세팅)
 - ✅ SyncQueueProcessor: create 완료 후 자동 relation enqueue
 - ✅ TodoService: 날짜 변경 시 notionRelationLinked 리셋
@@ -1102,7 +1140,7 @@ Phase 5 (출시)
 - ✅ 포그라운드 복귀 시 linkMissing() + processIfConnected() 호출 (TodoReportApp)
 - ✅ TodoEditFormView 공통 편집 컴포넌트 (QuickCapture/TodoEdit 공유)
 - ✅ 무료 사용자 날짜 범위: 어제·오늘·내일 3일 (±1일)
-- 🔜 반복 설정 변경/해제 처리 (RecurringTodoEditHandler, detectChange/applySingleOnly/applyFromNowOn) — v2로 연기
+- ✅ 반복 설정 변경/해제 (`RecurringTodoEditHandler` — 이 항목만 / 이후 모두) — v1.15
 - ✅ 언어 설정 연동 (시스템/한국어/영어, 재시작 후 적용 방식)
 - ✅ PawRatingView (발바닥 아이콘 별점 입력), UI 라벨 '별점' 사용
 - ✅ NotionDBPickerView 건너뛰기 버튼: .body 폰트, .primary 색상
@@ -1146,10 +1184,8 @@ Phase 5 (출시)
 
 ## v2 백로그
 
-### 반복 투두 (v2 재구현)
-v1 구현 시 발견된 버그: 시작일 경계 오류, 횟수 계산 오류, seriesId 생명주기 관리, Notion SyncQueue 미연결, 날짜 이동 시 동적 생성 미구현.
-v2에서 처음부터 설계 재검토 후 구현 권장.
-기존 `RecurringTodoManager`, `RecurringTodoEditHandler` 코드는 보존.
+### 반복 투두 — v1.15 완료 (`eff1661`)
+`RecurringSeries` + `RecurrenceRule`로 재구현. 발생분 lazy materialize, 위젯 미리보기, 편집 「이 항목만」/「이후 모두」(`RecurringTodoEditHandler`). Pro 가드. 옛 v1 버그(시작일 경계·횟수·seriesId·SyncQueue·동적 생성)는 이 재구현으로 대체.
 
 ### 동적 속성 매핑
 노션 속성 타입(text / select / relation 등)에 따라 앱 UI와 저장 방식이 달라지도록 구현.
