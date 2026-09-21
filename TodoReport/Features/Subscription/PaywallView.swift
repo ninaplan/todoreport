@@ -143,8 +143,18 @@ struct PaywallView: View {
             proFeatureDivider
 
             ProFeatureRow(
-                title: "반복 할일",
-                description: "매일·매주 반복되는 할 일을 한 번만 설정하면 날짜에 맞춰 자동으로 생성됩니다.",
+                title: "할 일 반복 설정",
+                description: "반복되는 할 일을 한 번만 설정하면 날짜에 맞춰 자동으로 생성됩니다.",
+                isComingSoon: false,
+                primaryText: primaryText,
+                secondaryText: secondaryText
+            )
+
+            proFeatureDivider
+
+            ProFeatureRow(
+                title: "원하는 카테고리만 모아보기",
+                description: "카테고리 여러 개를 한 번에 선택해서 볼 수 있습니다.",
                 isComingSoon: false,
                 primaryText: primaryText,
                 secondaryText: secondaryText
@@ -196,7 +206,10 @@ struct PaywallView: View {
                 FreeFeatureChip(label: "데일리 리포트", primaryText: primaryText, secondaryText: secondaryText)
                 FreeFeatureChip(label: "주간·월간 리포트 기기 저장", primaryText: primaryText, secondaryText: secondaryText)
                 FreeFeatureChip(label: "하루 리뷰", primaryText: primaryText, secondaryText: secondaryText)
-                InboxComingSoonChip(secondaryText: secondaryText)
+                FreeFeatureChip(label: "수집함", primaryText: primaryText, secondaryText: secondaryText)
+                FreeFeatureChip(label: "할 일 검색", primaryText: primaryText, secondaryText: secondaryText)
+                FreeFeatureChip(label: "카테고리 필터", primaryText: primaryText, secondaryText: secondaryText)
+                FreeFeatureChip(label: "카테고리를 아이콘으로 보기", primaryText: primaryText, secondaryText: secondaryText)
             }
         }
         .padding(.top, 20)
@@ -257,6 +270,7 @@ struct PaywallView: View {
                     ?? (subscriptionManager.isLoadingProducts ? String(localized: "로딩 중...") : "---"),
                 unit: "/년",
                 subtitle: yearlyPlanSubtitle,
+                introOfferText: subscriptionManager.yearlyIntroOfferText,
                 discountBadge: String(
                     localized: "\(0.43.formatted(.percent.precision(.fractionLength(0)))) 할인"
                 ),
@@ -426,25 +440,6 @@ private struct FreeFeatureChip: View {
     }
 }
 
-private struct InboxComingSoonChip: View {
-    let secondaryText: Color
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "clock")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(secondaryText)
-            Text("수집함")
-                .font(.system(size: 12))
-                .foregroundStyle(secondaryText)
-            Text("예정")
-                .font(.system(size: 12))
-                .foregroundStyle(secondaryText)
-                .opacity(0.5)
-        }
-    }
-}
-
 // MARK: - PaywallPlanCard
 
 private struct PaywallPlanCard: View {
@@ -452,6 +447,7 @@ private struct PaywallPlanCard: View {
     let priceText: String
     let unit: LocalizedStringKey
     let subtitle: String?
+    var introOfferText: String? = nil
     let discountBadge: String?
     let isSelected: Bool
     let cardBackground: Color
@@ -481,6 +477,16 @@ private struct PaywallPlanCard: View {
                     Text(title)
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(primaryText)
+
+                    if let introOfferText {
+                        Text(introOfferText)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.nockOrange)
+                            .clipShape(Capsule())
+                    }
 
                     if let discountBadge {
                         Text(discountBadge)

@@ -4,6 +4,7 @@ import SwiftUI
 struct DebugDeveloperOptionsSection: View {
     @State private var inputURL = BackendBaseURL.overrideValue ?? ""
     @State private var queueCounts: (pending: Int, processing: Int, failed: Int) = (0, 0, 0)
+    @State private var showPaywallPreview = false
 
     var body: some View {
         Group {
@@ -53,6 +54,10 @@ struct DebugDeveloperOptionsSection: View {
                 Button("업데이트 팝업·안내 다시 보기") {
                     resetWhatsNewAndHints()
                 }
+
+                Button("페이월 미리보기") {
+                    showPaywallPreview = true
+                }
             } header: {
                 Text("개발자 옵션")
             } footer: {
@@ -61,6 +66,11 @@ struct DebugDeveloperOptionsSection: View {
         }
         .onAppear {
             refreshQueueCounts()
+        }
+        .sheet(isPresented: $showPaywallPreview) {
+            PaywallView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
     }
 
