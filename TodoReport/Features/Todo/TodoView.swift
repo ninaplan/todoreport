@@ -273,8 +273,10 @@ struct TodoView: View {
                         CategoryFilterBar(
                             categories: viewModel.activeCategories,
                             selectedIds: viewModel.selectedCategoryFilter,
+                            peekCategoryId: viewModel.peekCategoryId,
                             showCategoryChipIcon: viewModel.showCategoryChipIcon,
-                            onSelectSingle: { viewModel.selectSingleCategoryFilter($0) },
+                            onPeek: { viewModel.peekCategory($0) },
+                            onClearPeek: { viewModel.clearCategoryPeek() },
                             onClear: { viewModel.clearCategoryFilter() },
                             onToggle: { viewModel.toggleCategoryFilter($0) }
                         )
@@ -915,58 +917,19 @@ private struct TodoInteractiveRow: View {
 private struct CategoryFilterBar: View {
     let categories: [Category]
     let selectedIds: Set<String>
+    let peekCategoryId: String?
     let showCategoryChipIcon: Bool
-    let onSelectSingle: (String) -> Void
+    let onPeek: (String) -> Void
+    let onClearPeek: () -> Void
     let onClear: () -> Void
     let onToggle: (String) -> Void
+
+    private var isPeeking: Bool { peekCategoryId != nil }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                Menu {
-                    Toggle(isOn: Binding(
-                        get: { selectedIds.isEmpty },
-                        set: { isOn in
-                            if isOn { onClear() }
-                        }
-                    )) {
-                        Text("전체")
-                    }
-
-                    ForEach(categories) { category in
-                        Toggle(isOn: Binding(
-                            get: { selectedIds.contains(category.id) },
-                            set: { _ in onToggle(category.id) }
-                        )) {
-                            Text(category.name)
-                        }
-                        .menuActionDismissBehavior(.disabled)
-                    }
-
-                    Toggle(isOn: Binding(
-                        get: { selectedIds.contains(TodoViewModel.uncategorizedFilterId) },
-                        set: { _ in onToggle(TodoViewModel.uncategorizedFilterId) }
-                    )) {
-                        Text("미분류")
-                    }
-                    .menuActionDismissBehavior(.disabled)
-                } label: {
-                    Image(systemName: "line.3.horizontal.decrease")
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(Color.primary)
-                        .frame(width: 32, height: 32)
-                        .overlay(alignment: .topTrailing) {
-                            if !selectedIds.isEmpty {
-                                Circle()
-                                    .fill(AppTheme.shared.accent)
-                                    .frame(width: 6, height: 6)
-                                    .offset(x: -4, y: 4)
-                            }
-                        }
-                        .accessibilityLabel(String(localized: "카테고리 필터"))
-                }
-                .buttonStyle(.plain)
-                .tint(.primary)
+                filterControl
 
                 ForEach(categories) { category in
                     FilterChip(
@@ -974,9 +937,10 @@ private struct CategoryFilterBar: View {
                         systemImage: category.icon,
                         showsIcon: showCategoryChipIcon,
                         color: Color(hex: category.colorHex),
-                        isSelected: selectedIds.contains(category.id)
+                        isSelected: peekCategoryId == category.id,
+                        isInFilter: selectedIds.contains(category.id)
                     ) {
-                        onSelectSingle(category.id)
+                        onPeek(category.id)
                     }
                 }
 
@@ -985,15 +949,78 @@ private struct CategoryFilterBar: View {
                     systemImage: "tag.slash",
                     showsIcon: showCategoryChipIcon,
                     color: Color(.tertiaryLabel),
-                    isSelected: selectedIds.contains(TodoViewModel.uncategorizedFilterId)
+                    isSelected: peekCategoryId == TodoViewModel.uncategorizedFilterId,
+                    isInFilter: selectedIds.contains(TodoViewModel.uncategorizedFilterId)
                 ) {
-                    onSelectSingle(TodoViewModel.uncategorizedFilterId)
+                    onPeek(TodoViewModel.uncategorizedFilterId)
                 }
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 4)
         }
         .sensoryFeedback(.selection, trigger: selectedIds)
+        .sensoryFeedback(.selection, trigger: peekCategoryId)
+    }
+
+    @ViewBuilder
+    private var filterControl: some View {
+        if isPeeking {
+            Button(action: onClearPeek) {
+                filterIcon
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "잠깐 보기 종료"))
+        } else {
+            Menu {
+                Toggle(isOn: Binding(
+                    get: { selectedIds.isEmpty },
+                    set: { isOn in
+                        if isOn { onClear() }
+                    }
+                )) {
+                    Text("전체")
+                }
+
+                ForEach(categories) { category in
+                    Toggle(isOn: Binding(
+                        get: { selectedIds.contains(category.id) },
+                        set: { _ in onToggle(category.id) }
+                    )) {
+                        Text(category.name)
+                    }
+                    .menuActionDismissBehavior(.disabled)
+                }
+
+                Toggle(isOn: Binding(
+                    get: { selectedIds.contains(TodoViewModel.uncategorizedFilterId) },
+                    set: { _ in onToggle(TodoViewModel.uncategorizedFilterId) }
+                )) {
+                    Text("미분류")
+                }
+                .menuActionDismissBehavior(.disabled)
+            } label: {
+                filterIcon
+            }
+            .buttonStyle(.plain)
+            .tint(.primary)
+            .accessibilityLabel(String(localized: "카테고리 필터"))
+        }
+    }
+
+    private var filterIcon: some View {
+        Image(systemName: "line.3.horizontal.decrease")
+            .font(.body.weight(.medium))
+            .foregroundStyle(Color.primary)
+            .frame(width: 32, height: 32)
+            .overlay(alignment: .topTrailing) {
+                if !selectedIds.isEmpty {
+                    Circle()
+                        .fill(AppTheme.shared.accent)
+                        .frame(width: 6, height: 6)
+                        .offset(x: -4, y: 4)
+                }
+            }
+            .accessibilityHidden(true)
     }
 }
 
@@ -1003,6 +1030,7 @@ private struct FilterChip: View {
     let showsIcon: Bool
     let color: Color
     let isSelected: Bool
+    let isInFilter: Bool
     let action: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -1022,6 +1050,14 @@ private struct FilterChip: View {
                 ? color.readableForeground
                 : color.readableText(on: colorScheme)
             )
+            .overlay(alignment: .topTrailing) {
+                if isInFilter {
+                    Circle()
+                        .fill(AppTheme.shared.accent)
+                        .frame(width: 6, height: 6)
+                        .offset(x: 2, y: -2)
+                }
+            }
             .padding(.horizontal, 14)
             .padding(.vertical, 7)
             .background(
@@ -1031,7 +1067,10 @@ private struct FilterChip: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityValue(isInFilter ? String(localized: "필터에 포함됨") : "")
         .animation(.easeInOut(duration: 0.15), value: isSelected)
+        .animation(.easeInOut(duration: 0.15), value: isInFilter)
     }
 }
 

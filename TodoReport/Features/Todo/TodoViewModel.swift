@@ -32,6 +32,8 @@ final class TodoViewModel {
     /// 실제 카테고리 UUID와 겹치지 않는 필터 전용 값.
     static let uncategorizedFilterId: String = "__uncategorized__"
     private(set) var selectedCategoryFilter: Set<String> = []  // 비어 있으면 전체
+    /// 칩 탭으로 들어가는 임시 보기. nil이면 필터 모드. `selectedCategoryFilter`는 바꾸지 않는다.
+    private(set) var peekCategoryId: String? = nil
     /// 검색에서 들어온 항목이 숨김(완료/카테고리 필터)이어도 잠깐 목록에 보이게 한다.
     private(set) var navigationRevealTodoId: String?
 
@@ -140,11 +142,17 @@ final class TodoViewModel {
     }
 
     var filteredTodos: [Todo] {
+        if let peekId = peekCategoryId {
+            return displayedTodos.filter { matchesSingleCategory($0, peekId) || $0.id == navigationRevealTodoId }
+        }
         if selectedCategoryFilter.isEmpty { return displayedTodos }
         return displayedTodos.filter { matchesCategoryFilter($0) || $0.id == navigationRevealTodoId }
     }
 
     var defaultCategoryIdForNewTodo: String? {
+        if let peekId = peekCategoryId, peekId != Self.uncategorizedFilterId {
+            return peekId
+        }
         guard selectedCategoryFilter.count == 1,
               let id = selectedCategoryFilter.first,
               id != Self.uncategorizedFilterId else { return nil }
@@ -169,6 +177,13 @@ final class TodoViewModel {
             return selectedCategoryFilter.contains(categoryId)
         }
         return selectedCategoryFilter.contains(Self.uncategorizedFilterId)
+    }
+
+    private func matchesSingleCategory(_ todo: Todo, _ categoryId: String) -> Bool {
+        if let todoCategoryId = todo.categoryId {
+            return todoCategoryId == categoryId
+        }
+        return categoryId == Self.uncategorizedFilterId
     }
 
     func category(for id: String?) -> Category? {
@@ -368,16 +383,32 @@ final class TodoViewModel {
     }
 
     private func validateCategoryFilter() {
-        guard !selectedCategoryFilter.isEmpty else { return }
         var allowed = Set(categoryService.activeCategories.map(\.id))
         allowed.insert(Self.uncategorizedFilterId)
-        selectedCategoryFilter = selectedCategoryFilter.intersection(allowed)
+
+        if !selectedCategoryFilter.isEmpty {
+            selectedCategoryFilter = selectedCategoryFilter.intersection(allowed)
+        }
+
+        // 칩 바가 없으면 peek를 종료할 수단이 없으므로 해제한다.
+        if categoryService.activeCategories.isEmpty {
+            peekCategoryId = nil
+            return
+        }
+
+        if let peekId = peekCategoryId, !allowed.contains(peekId) {
+            peekCategoryId = nil
+        }
     }
 
     // MARK: - Actions
 
-    func selectSingleCategoryFilter(_ categoryId: String) {
-        selectedCategoryFilter = [categoryId]
+    func peekCategory(_ categoryId: String) {
+        peekCategoryId = categoryId
+    }
+
+    func clearCategoryPeek() {
+        peekCategoryId = nil
     }
 
     func clearCategoryFilter() {
