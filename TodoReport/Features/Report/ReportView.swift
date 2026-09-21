@@ -718,6 +718,14 @@ private struct ReviewTimelineRow: View {
     let entry: ReviewTimelineEntry
     let onOpenTodo: () -> Void
 
+    @State private var isExpanded = false
+    @State private var truncatedHeight: CGFloat = 0
+    @State private var fullHeight: CGFloat = 0
+
+    private var isTruncated: Bool {
+        fullHeight > truncatedHeight + 0.5
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Button(action: onOpenTodo) {
@@ -736,9 +744,52 @@ private struct ReviewTimelineRow: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.leading)
-                .lineLimit(3)
+                .lineLimit(isExpanded ? nil : 3)
                 .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .background(alignment: .topLeading) {
+                    Text(entry.review)
+                        .font(.subheadline)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .hidden()
+                        .onGeometryChange(for: CGFloat.self) { proxy in
+                            proxy.size.height
+                        } action: { truncatedHeight = $0 }
+                }
+                .background(alignment: .topLeading) {
+                    Text(entry.review)
+                        .font(.subheadline)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .hidden()
+                        .onGeometryChange(for: CGFloat.self) { proxy in
+                            proxy.size.height
+                        } action: { fullHeight = $0 }
+                }
+
+            if isTruncated {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) { isExpanded.toggle() }
+                } label: {
+                    HStack(spacing: 4) {
+                        Group {
+                            if isExpanded {
+                                Text("접기")
+                            } else {
+                                Text("더보기")
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.shared.accent)
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Color(.tertiaryLabel))
+                            .animation(.easeInOut(duration: 0.2), value: isExpanded)
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
         }
         .padding(16)
     }
