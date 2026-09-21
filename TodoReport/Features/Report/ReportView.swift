@@ -421,8 +421,8 @@ private struct ExpandableCompletionCard: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(incompleteTodos) { todo in todoRow(todo) }
-                        ForEach(completedTodos)  { todo in todoRow(todo) }
+                        ForEach(incompleteTodos) { todo in ReportTodoRow(todo: todo) }
+                        ForEach(completedTodos)  { todo in ReportTodoRow(todo: todo) }
                     }
                 }
                 .padding(16)
@@ -430,19 +430,6 @@ private struct ExpandableCompletionCard: View {
             }
         }
         .reportCard()
-    }
-
-    private func todoRow(_ todo: ReportTodoEntry) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 14))
-                .foregroundStyle(todo.isCompleted ? AppTheme.shared.accent : Color(.tertiaryLabel))
-            Text(todo.title)
-                .font(.subheadline)
-                .foregroundStyle(todo.isCompleted ? Color(.secondaryLabel) : .primary)
-                .strikethrough(todo.isCompleted, color: Color(.secondaryLabel))
-            Spacer()
-        }
     }
 }
 
@@ -567,34 +554,91 @@ private struct CategoryStatsCard: View {
 private struct CategoryStatRow: View {
     let stat: CategoryStat
 
+    @State private var isExpanded = false
+
+    private var incompleteTodos: [ReportTodoEntry] {
+        stat.todos.filter { !$0.isCompleted }.sorted { $0.date < $1.date }
+    }
+
+    private var completedTodos: [ReportTodoEntry] {
+        stat.todos.filter { $0.isCompleted }.sorted { $0.date < $1.date }
+    }
+
+    private var iconColor: Color {
+        stat.isUncategorized ? Color(.label) : Color(hex: stat.colorHex)
+    }
+
     var body: some View {
         VStack(spacing: 6) {
-            HStack {
-                Circle()
-                    .fill(Color(hex: stat.colorHex))
-                    .frame(width: 8, height: 8)
-                Text(stat.name)
-                    .font(.subheadline)
-                Spacer()
-                Text("\(stat.completed)/\(stat.total)개")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(stat.rate.formatted(.percent.precision(.fractionLength(0))))
-                    .font(.caption.bold())
-                    .foregroundStyle(Color.primary.opacity(0.62))
-                    .frame(width: 36, alignment: .trailing)
-            }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color(hex: stat.colorHex).opacity(0.12))
-                        .frame(height: 6)
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color(hex: stat.colorHex))
-                        .frame(width: geo.size.width * stat.rate, height: 6)
+            VStack(spacing: 6) {
+                HStack {
+                    Image(systemName: stat.icon)
+                        .font(.system(size: 12))
+                        .foregroundStyle(iconColor)
+                        .frame(width: 14, height: 14)
+                    Text(stat.name)
+                        .font(.subheadline)
+                    Spacer()
+                    Text("\(stat.completed)/\(stat.total)개")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(stat.rate.formatted(.percent.precision(.fractionLength(0))))
+                        .font(.caption.bold())
+                        .foregroundStyle(Color.primary.opacity(0.62))
+                        .frame(width: 36, alignment: .trailing)
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color(.tertiaryLabel))
+                        .animation(.easeInOut(duration: 0.2), value: isExpanded)
                 }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color(hex: stat.colorHex).opacity(0.12))
+                            .frame(height: 6)
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color(hex: stat.colorHex))
+                            .frame(width: geo.size.width * stat.rate, height: 6)
+                    }
+                }
+                .frame(height: 6)
             }
-            .frame(height: 6)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.25)) { isExpanded.toggle() }
+            }
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 10) {
+                    if stat.todos.isEmpty {
+                        Text("이 기간에 기록된 할일이 없습니다.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(incompleteTodos) { todo in ReportTodoRow(todo: todo) }
+                        ForEach(completedTodos) { todo in ReportTodoRow(todo: todo) }
+                    }
+                }
+                .padding(.top, 4)
+                .transition(.opacity)
+            }
+        }
+    }
+}
+
+private struct ReportTodoRow: View {
+    let todo: ReportTodoEntry
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 14))
+                .foregroundStyle(todo.isCompleted ? AppTheme.shared.accent : Color(.tertiaryLabel))
+            Text(todo.title)
+                .font(.subheadline)
+                .foregroundStyle(todo.isCompleted ? Color(.secondaryLabel) : .primary)
+                .strikethrough(todo.isCompleted, color: Color(.secondaryLabel))
+            Spacer()
         }
     }
 }

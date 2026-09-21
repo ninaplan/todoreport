@@ -68,9 +68,12 @@ struct CategoryStat: Identifiable {
     let id = UUID()
     let name: String
     let colorHex: String
+    let icon: String
     let rate: Double
     let completed: Int
     let total: Int
+    let todos: [ReportTodoEntry]
+    let isUncategorized: Bool
 }
 
 struct PeriodReportChartData {
@@ -99,7 +102,10 @@ final class ReportService {
         }
 
         let plannerId = PlannerService.shared.selectedPlanner?.id
-        let todos = fetchTodos(in: start..<end, plannerId: plannerId)
+        let todos = excludingHiddenCategoryTodos(
+            fetchTodos(in: start..<end, plannerId: plannerId),
+            plannerId: plannerId
+        )
         let reports = fetchReports(in: start..<end, plannerId: plannerId)
         let categories = fetchCategories(plannerId: plannerId)
 
@@ -164,7 +170,10 @@ final class ReportService {
         }
 
         let plannerId = PlannerService.shared.selectedPlanner?.id
-        let todos = fetchTodos(in: start..<end, plannerId: plannerId)
+        let todos = excludingHiddenCategoryTodos(
+            fetchTodos(in: start..<end, plannerId: plannerId),
+            plannerId: plannerId
+        )
         let reports = fetchReports(in: start..<end, plannerId: plannerId)
         let categories = fetchCategories(plannerId: plannerId)
 
@@ -651,10 +660,29 @@ final class ReportService {
     }
 
     private func fetchCategories(plannerId: String?) -> [CategoryItem] {
-        let descriptor = FetchDescriptor<CategoryItem>()
+        let descriptor = FetchDescriptor<CategoryItem>(
+            sortBy: [SortDescriptor(\.sortOrder)]
+        )
         let all = (try? context.fetch(descriptor)) ?? []
         let pid = plannerId
         return all.filter { $0.statusRaw != "archived" && !$0.isHidden && ($0.plannerId == pid || $0.plannerId == nil) }
+    }
+
+    private func hiddenCategoryIds(plannerId: String?) -> Set<String> {
+        let all = (try? context.fetch(FetchDescriptor<CategoryItem>())) ?? []
+        let hidden = all.filter(\.isHidden)
+        guard let pid = plannerId else {
+            return Set(hidden.map(\.id))
+        }
+        return Set(hidden.filter { $0.plannerId == pid || $0.plannerId == nil }.map(\.id))
+    }
+
+    private func excludingHiddenCategoryTodos(_ todos: [TodoItem], plannerId: String?) -> [TodoItem] {
+        let hiddenIds = hiddenCategoryIds(plannerId: plannerId)
+        return todos.filter { todo in
+            guard let categoryId = todo.categoryId else { return true }
+            return !hiddenIds.contains(categoryId)
+        }
     }
 
     // MARK: - 집계 헬퍼
@@ -669,15 +697,16 @@ final class ReportService {
             return CategoryStat(
                 name: category.name,
                 colorHex: category.colorHex,
+                icon: category.icon,
                 rate: Double(completed) / Double(total),
                 completed: completed,
-                total: total
+                total: total,
+                todos: reportTodoEntries(from: catTodos),
+                isUncategorized: false
             )
         }
 
-        stats.sort { $0.rate > $1.rate }
-
-        // categoryId nil · 숨김/삭제된 카테고리 등 활성 목록 밖 할일 → 미분류 (항상 맨 아래)
+        // categoryId nil · 숨김/삭제된 카테고리 등 활성 목록 밖 할일 → 미분류
         let uncategorizedTodos = todos.filter { todo in
             guard let categoryId = todo.categoryId else { return true }
             return !activeCategoryIds.contains(categoryId)
@@ -688,13 +717,24 @@ final class ReportService {
             stats.append(CategoryStat(
                 name: String(localized: "미분류"),
                 colorHex: "#8E8E93",
+                icon: "tag.slash",
                 rate: Double(completed) / Double(total),
                 completed: completed,
-                total: total
+                total: total,
+                todos: reportTodoEntries(from: uncategorizedTodos),
+                isUncategorized: true
             ))
         }
 
+        stats.sort { $0.rate > $1.rate }
         return stats
+    }
+
+    private func reportTodoEntries(from items: [TodoItem]) -> [ReportTodoEntry] {
+        items.compactMap { item in
+            guard let date = item.date else { return nil }
+            return ReportTodoEntry(id: item.id, title: item.title, date: date, isCompleted: item.isCompleted)
+        }
     }
 
     private func ratingDouble(_ raw: String?) -> Double {
