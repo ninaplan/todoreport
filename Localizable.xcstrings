@@ -154,6 +154,16 @@
         }
       }
     },
+    "%lld개 선택됨" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld selected"
+          }
+        }
+      }
+    },
     "%lld개 중 %lld개 완료" : {
       "localizations" : {
         "en" : {
@@ -164,12 +174,12 @@
         }
       }
     },
-    "%lld개 선택됨" : {
+    "%lld번" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld selected"
+            "value" : "%lld times"
           }
         }
       }
@@ -190,16 +200,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld-day view"
-          }
-        }
-      }
-    },
-    "%lld번" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld times"
           }
         }
       }
@@ -992,16 +992,6 @@
         }
       }
     },
-    "날짜까지" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "On Date"
-          }
-        }
-      }
-    },
     "날짜 넣기" : {
       "localizations" : {
         "en" : {
@@ -1110,6 +1100,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fixed several date and category sync issues"
+          }
+        }
+      }
+    },
+    "날짜까지" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On Date"
           }
         }
       }
@@ -2028,16 +2028,6 @@
         }
       }
     },
-    "매일·매주 반복되는 할 일을 한 번만 설정하면 날짜에 맞춰 자동으로 생성됩니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set a repeating to-do once, and it is created automatically on matching dates."
-          }
-        }
-      }
-    },
     "매주" : {
       "localizations" : {
         "en" : {
@@ -2098,22 +2088,22 @@
         }
       }
     },
-    "목" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Thu"
-          }
-        }
-      }
-    },
     "모든 데이터가 Notion에 업로드됐어요" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "All data has been uploaded to Notion"
+          }
+        }
+      }
+    },
+    "목" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thu"
           }
         }
       }
@@ -2148,22 +2138,22 @@
         }
       }
     },
-    "미뤄둔 할 일이 없습니다" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Snoozed Tasks"
-          }
-        }
-      }
-    },
     "미루기" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Snooze"
+          }
+        }
+      }
+    },
+    "미뤄둔 할 일이 없습니다" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Snoozed Tasks"
           }
         }
       }
@@ -2214,46 +2204,6 @@
         }
       }
     },
-    "반복 투두 삭제" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete Repeating Todo"
-          }
-        }
-      }
-    },
-    "반복 투두 편집" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Edit Repeating Todo"
-          }
-        }
-      }
-    },
-    "반복 주기 변경" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change Repeat Rule"
-          }
-        }
-      }
-    },
-    "반복 해제" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stop Repeating"
-          }
-        }
-      }
-    },
     "반복" : {
       "localizations" : {
         "en" : {
@@ -2274,6 +2224,46 @@
         }
       }
     },
+    "반복 주기 변경" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change Repeat Rule"
+          }
+        }
+      }
+    },
+    "반복 투두 삭제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Repeating Todo"
+          }
+        }
+      }
+    },
+    "반복 투두 편집" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Repeating Todo"
+          }
+        }
+      }
+    },
+    "반복 할 일, 카테고리 필터가 새로 생겼습니다" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recurring to-dos and category filters are here"
+          }
+        }
+      }
+    },
     "반복 할 일은 Pro 기능입니다." : {
       "localizations" : {
         "en" : {
@@ -2284,22 +2274,22 @@
         }
       }
     },
-    "여러 카테고리 보기는 Pro 기능입니다." : {
+    "반복 해제" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Viewing multiple categories is a Pro feature."
+            "value" : "Stop Repeating"
           }
         }
       }
     },
-    "반복 할일" : {
+    "반복되는 할 일을 한 번만 설정하면 날짜에 맞춰 자동으로 생성됩니다." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Repeating Todos"
+            "value" : "Set it up once, and recurring to-dos are created automatically on schedule."
           }
         }
       }
@@ -2360,6 +2350,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Avg. Rating"
+          }
+        }
+      }
+    },
+    "보고 싶은 카테고리의 할 일만 골라서 볼 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can view only the to-dos from the categories you want."
           }
         }
       }
@@ -2571,6 +2571,16 @@
         }
       }
     },
+    "새로 추가된 기능" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Features"
+          }
+        }
+      }
+    },
     "색상" : {
       "localizations" : {
         "en" : {
@@ -2611,16 +2621,6 @@
         }
       }
     },
-    "선택 안 함" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "None"
-          }
-        }
-      }
-    },
     "선택 안 됨" : {
       "localizations" : {
         "en" : {
@@ -2631,12 +2631,12 @@
         }
       }
     },
-    "선택하세요" : {
+    "선택 안 함" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Please select"
+            "value" : "None"
           }
         }
       }
@@ -2651,12 +2651,12 @@
         }
       }
     },
-    "선택한 날짜로 이동해요" : {
+    "선택하세요" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Jumps to the selected date"
+            "value" : "Please select"
           }
         }
       }
@@ -2667,6 +2667,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete %lld selected to-dos?"
+          }
+        }
+      }
+    },
+    "선택한 날짜로 이동해요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jumps to the selected date"
           }
         }
       }
@@ -3107,6 +3117,16 @@
         }
       }
     },
+    "여러 카테고리 보기는 Pro 기능입니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Viewing multiple categories is a Pro feature."
+          }
+        }
+      }
+    },
     "연 %@ 절약" : {
       "localizations" : {
         "en" : {
@@ -3465,6 +3485,16 @@
         }
       }
     },
+    "원하는 카테고리만 모아보기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See Only the Categories You Want"
+          }
+        }
+      }
+    },
     "월" : {
       "localizations" : {
         "en" : {
@@ -3785,6 +3815,16 @@
         }
       }
     },
+    "일" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sun"
+          }
+        }
+      }
+    },
     "이후 항목 모두 해제" : {
       "localizations" : {
         "en" : {
@@ -3831,16 +3871,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Didn't receive an authentication response"
-          }
-        }
-      }
-    },
-    "일" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sun"
           }
         }
       }
@@ -3921,22 +3951,12 @@
         }
       }
     },
-    "종료" : {
+    "잠깐 보기 종료" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ends"
-          }
-        }
-      }
-    },
-    "종료일" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "End Date"
+            "value" : "Exit Peek"
           }
         }
       }
@@ -4061,6 +4081,26 @@
         }
       }
     },
+    "종료" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ends"
+          }
+        }
+      }
+    },
+    "종료일" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End Date"
+          }
+        }
+      }
+    },
     "주간" : {
       "localizations" : {
         "en" : {
@@ -4111,22 +4151,22 @@
         }
       }
     },
-    "주말만" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Weekends"
-          }
-        }
-      }
-    },
     "주말(토~일)" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Weekends (Sat–Sun)"
+          }
+        }
+      }
+    },
+    "주말만" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weekends"
           }
         }
       }
@@ -4361,22 +4401,22 @@
         }
       }
     },
-    "카테고리 필터" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Category Filter"
-          }
-        }
-      }
-    },
     "카테고리 없음" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "No Category"
+          }
+        }
+      }
+    },
+    "카테고리 여러 개를 한 번에 선택해서 볼 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select and view several categories at once."
           }
         }
       }
@@ -4411,12 +4451,32 @@
         }
       }
     },
+    "카테고리 필터" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category Filter"
+          }
+        }
+      }
+    },
     "카테고리가 노션 프로젝트·목표 DB와 연결됩니다." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Categories are linked to your Notion project/goal database."
+          }
+        }
+      }
+    },
+    "카테고리를 아이콘으로 보기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View categories as icons"
           }
         }
       }
@@ -4671,6 +4731,17 @@
         }
       }
     },
+    "페이월 미리보기" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview Paywall"
+          }
+        }
+      }
+    },
     "페이지 선택 시 주의해주세요" : {
       "localizations" : {
         "en" : {
@@ -4711,22 +4782,22 @@
         }
       }
     },
-    "평일만" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Weekdays"
-          }
-        }
-      }
-    },
     "평일(월~금)" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Weekdays (Mon–Fri)"
+          }
+        }
+      }
+    },
+    "평일만" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weekdays"
           }
         }
       }
@@ -4821,6 +4892,16 @@
         }
       }
     },
+    "필터에 포함됨" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Filter"
+          }
+        }
+      }
+    },
     "하루 리뷰" : {
       "localizations" : {
         "en" : {
@@ -4877,6 +4958,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Loading todo list"
+          }
+        }
+      }
+    },
+    "할 일 목록의 카테고리를 이름 대신 아이콘으로 표시할 수 있습니다. 더보기(⋯) 메뉴에서 켜고 끌 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Display categories as icons instead of names in your to-do list. Toggle it from the ⋯ menu."
+          }
+        }
+      }
+    },
+    "할 일 반복 설정" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recurring To-Do Settings"
           }
         }
       }
@@ -5063,16 +5164,6 @@
         }
       }
     },
-    "횟수까지" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "After"
-          }
-        }
-      }
-    },
     "확인" : {
       "localizations" : {
         "en" : {
@@ -5099,6 +5190,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Activate"
+          }
+        }
+      }
+    },
+    "횟수까지" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After"
           }
         }
       }
