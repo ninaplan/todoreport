@@ -2,6 +2,40 @@ import Foundation
 
 let whatsNewReleases: [WhatsNewRelease] = [
     WhatsNewRelease(
+        id: "1.15",
+        symbolName: "repeat",
+        items: [
+            String(localized: "할 일 반복 설정"),
+            String(localized: "카테고리 필터"),
+            String(localized: "카테고리를 아이콘으로 보기")
+        ],
+        showsPopup: true,
+        popupTitle: String(localized: "새로 추가된 기능"),
+        popupSubtitle: String(localized: "반복 할 일, 카테고리 필터가 새로 생겼습니다"),
+        popupItems: [
+            WhatsNewRelease.PopupItem(
+                symbolName: "repeat",
+                title: String(localized: "할 일 반복 설정"),
+                description: String(localized: "반복되는 할 일을 한 번만 설정하면 날짜에 맞춰 자동으로 생성됩니다."),
+                previewImageName: "WhatsNewRecurringPreview",
+                isPro: true
+            ),
+            WhatsNewRelease.PopupItem(
+                symbolName: "line.3.horizontal.decrease.circle",
+                title: String(localized: "카테고리 필터"),
+                description: String(localized: "보고 싶은 카테고리의 할 일만 골라서 볼 수 있습니다."),
+                isPro: true
+            ),
+            WhatsNewRelease.PopupItem(
+                symbolName: "tag",
+                title: String(localized: "카테고리를 아이콘으로 보기"),
+                description: String(localized: "할 일 목록의 카테고리를 이름 대신 아이콘으로 표시할 수 있습니다. 더보기(⋯) 메뉴에서 켜고 끌 수 있습니다."),
+                previewImageName: "WhatsNewCategoryIconPreview"
+            )
+        ],
+        popupButtonTitle: String(localized: "시작하기")
+    ),
+    WhatsNewRelease(
         id: "1.14",
         symbolName: "tray",
         items: [

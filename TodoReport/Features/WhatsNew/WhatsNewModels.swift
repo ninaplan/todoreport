@@ -7,6 +7,8 @@ struct WhatsNewRelease: Identifiable {
         let description: String
         /// Assets Catalog 이미지 이름. nil이면 미리보기 없음.
         let previewImageName: String?
+        /// true면 제목 옆에 Pro 배지. 이미 Pro인 사용자는 `ProBadge`가 숨긴다.
+        let isPro: Bool
 
         var id: String { title }
 
@@ -14,12 +16,14 @@ struct WhatsNewRelease: Identifiable {
             symbolName: String,
             title: String,
             description: String,
-            previewImageName: String? = nil
+            previewImageName: String? = nil,
+            isPro: Bool = false
         ) {
             self.symbolName = symbolName
             self.title = title
             self.description = description
             self.previewImageName = previewImageName
+            self.isPro = isPro
         }
     }
 

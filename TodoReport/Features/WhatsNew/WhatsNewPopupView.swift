@@ -17,20 +17,21 @@ struct WhatsNewPopupView: View {
 
     private var featuredContent: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(spacing: 28) {
-                    Text(release.popupTitle ?? String(localized: "이번 업데이트 소식"))
-                        .font(.title2.weight(.bold))
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 36)
+            Text(release.popupTitle ?? String(localized: "이번 업데이트 소식"))
+                .font(.title2.weight(.bold))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 24)
+                .padding(.top, 16 + oneBodyLineSpacing)
+                .padding(.bottom, threeBodyLineSpacing)
 
-                    VStack(alignment: .leading, spacing: 24) {
-                        ForEach(release.popupItems) { item in
-                            featuredItemRow(item)
-                        }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    ForEach(release.popupItems) { item in
+                        featuredItemRow(item)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 16)
             }
@@ -41,34 +42,48 @@ struct WhatsNewPopupView: View {
         }
     }
 
-    private func featuredItemRow(_ item: WhatsNewRelease.PopupItem) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 14) {
-                Image(systemName: item.symbolName)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .frame(width: 28)
-                    .padding(.top, 2)
+    private var oneBodyLineSpacing: CGFloat {
+        UIFont.preferredFont(forTextStyle: .body).lineHeight
+    }
 
+    private var threeBodyLineSpacing: CGFloat {
+        oneBodyLineSpacing * 3
+    }
+
+    private func featuredItemRow(_ item: WhatsNewRelease.PopupItem) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: item.symbolName)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.primary)
+                .frame(width: 28)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(item.title)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
+                    HStack(alignment: .center, spacing: 6) {
+                        Text(item.title)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        if item.isPro {
+                            ProBadge()
+                        }
+                    }
                     Text(item.description)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-            }
 
-            if let previewImageName = item.previewImageName {
-                Image(previewImageName)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .accessibilityHidden(true)
+                if let previewImageName = item.previewImageName {
+                    Image(previewImageName)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(minWidth: 0, maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .accessibilityHidden(true)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
