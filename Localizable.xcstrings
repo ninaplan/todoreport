@@ -3665,6 +3665,26 @@
         }
       }
     },
+    "이 할일만 보내기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send This Item Only"
+          }
+        }
+      }
+    },
+    "이 할일만 보낼지, 이후 반복을 모두 해제하고 보낼지 선택해 주세요." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose whether to send this item only, or to stop future repeats and send."
+          }
+        }
+      }
+    },
     "이 할일을 삭제할까요?" : {
       "localizations" : {
         "en" : {
@@ -3791,6 +3811,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ready to get started?"
+          }
+        }
+      }
+    },
+    "이후 반복 모두 해제하고 보내기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Future Repeats and Send"
           }
         }
       }

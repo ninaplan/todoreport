@@ -102,9 +102,6 @@ enum TodoRowActionCatalog {
     }
 
     static func contextMenuActions(for todo: Todo) -> [TodoRowAction] {
-        contextMenu.compactMap { kind in
-            if kind == .sendToInbox, todo.recurrenceId != nil { return nil }
-            return resolve(kind, todo: todo)
-        }
+        contextMenu.map { resolve($0, todo: todo) }
     }
 }

@@ -5,7 +5,7 @@ struct DailyReportCard: View {
     @Bindable var viewModel: DailyReportViewModel
     let date: Date
     let completionRate: Double      // Notion 저장용 (전체 기준)
-    let displayRate: Double         // UI 표시용 (필터 반영)
+    let displayRate: Double         // UI 표시용 (오늘 전체 기준)
     let displayCompleted: Int
     let displayTotal: Int
     /// 최초 1회, 리포트 카드가 처음 나타났을 때 호출 (화살표 안내 말풍선은 List 밖 상위 뷰에서 표시)

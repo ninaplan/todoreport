@@ -75,6 +75,9 @@ final class TodoViewModel {
     var showRecurringEditAlert: Bool = false
     private(set) var pendingRecurringEdit: RecurringEditPendingInfo? = nil
 
+    var showSendRecurringToInboxAlert: Bool = false
+    private(set) var pendingInboxSendTodo: Todo? = nil
+
     var showsTodoListLoading: Bool {
         filteredTodos.isEmpty && (isLoading || isAwaitingInitialNotionLoad)
     }
@@ -109,9 +112,8 @@ final class TodoViewModel {
         return Double(dated.filter(\.isCompleted).count) / Double(dated.count)
     }
 
-    private var todosForRate: [Todo] {
-        todosForSelectedDate.filter(matchesCategoryFilter)
-    }
+    var completedCount: Int { todosForSelectedDate.filter(\.isCompleted).count }
+    var totalCount: Int { todosForSelectedDate.count }
 
     private var todosForSelectedDate: [Todo] {
         todos.filter {
@@ -158,14 +160,6 @@ final class TodoViewModel {
               id != Self.uncategorizedFilterId else { return nil }
         return id
     }
-
-    var filteredCompletionRate: Double {
-        guard !todosForRate.isEmpty else { return 0 }
-        return Double(todosForRate.filter(\.isCompleted).count) / Double(todosForRate.count)
-    }
-
-    var filteredCompletedCount: Int { todosForRate.filter(\.isCompleted).count }
-    var filteredTotalCount: Int { todosForRate.count }
 
     private func sortDate(_ todo: Todo) -> Date {
         todo.notionCreatedAt ?? todo.createdAt
@@ -674,8 +668,48 @@ final class TodoViewModel {
 
     func sendToInbox(_ todo: Todo) {
         guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
-        guard todo.recurrenceId == nil else { return }
+        if todo.recurrenceId != nil {
+            pendingInboxSendTodo = todo
+            showSendRecurringToInboxAlert = true
+            return
+        }
+        applySendToInbox(todo, detachingFromSeries: false)
+    }
+
+    func cancelSendRecurringToInbox() {
+        pendingInboxSendTodo = nil
+    }
+
+    func confirmSendRecurringToInboxSingle() {
+        guard let todo = pendingInboxSendTodo else { return }
+        pendingInboxSendTodo = nil
+        applySendToInbox(todo, detachingFromSeries: true)
+    }
+
+    func confirmSendRecurringToInboxFuture() {
+        guard let todo = pendingInboxSendTodo else { return }
+        pendingInboxSendTodo = nil
+        Task { @MainActor in
+            if let seriesId = todo.recurrenceId, let fromDate = todo.date {
+                await RecurringTodoManager.shared.deleteFutureTodos(
+                    seriesId: seriesId, from: fromDate, excludingId: todo.id
+                )
+                await RecurringTodoManager.shared.capSeriesEndDate(
+                    seriesId: seriesId, beforeDate: fromDate
+                )
+            }
+            applySendToInbox(todo, detachingFromSeries: true)
+        }
+    }
+
+    private func applySendToInbox(_ todo: Todo, detachingFromSeries: Bool) {
         var updated = todo
+        if detachingFromSeries {
+            updated.recurrenceId = nil
+            updated.recurrenceRule = nil
+            updated.recurrenceEndDate = nil
+            updated.recurrenceCount = nil
+        }
         let hadAlarm = updated.alarmOffset != nil
         updated.date = nil
         updated.scheduledTime = nil

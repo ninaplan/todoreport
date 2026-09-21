@@ -250,9 +250,9 @@ struct TodoView: View {
                         viewModel: dailyReportViewModel,
                         date: viewModel.selectedDate,
                         completionRate: viewModel.completionRate,
-                        displayRate: viewModel.filteredCompletionRate,
-                        displayCompleted: viewModel.filteredCompletedCount,
-                        displayTotal: viewModel.filteredTotalCount,
+                        displayRate: viewModel.completionRate,
+                        displayCompleted: viewModel.completedCount,
+                        displayTotal: viewModel.totalCount,
                         onFirstAppear: { presentDailyReportExpandHintIfNeeded() },
                         expandToken: tabCoordinator.expandDailyReportToken
                     )
@@ -838,6 +838,21 @@ private struct TodoViewAlertsModifier: ViewModifier {
                 Button("취소", role: .cancel) { viewModel.cancelRecurringEdit() }
             } message: {
                 Text(viewModel.recurringEditAlertMessage)
+            }
+            .alert("수집함으로 보내기", isPresented: $viewModel.showSendRecurringToInboxAlert) {
+                Button("이 할일만 보내기") {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        viewModel.confirmSendRecurringToInboxSingle()
+                    }
+                }
+                Button("이후 반복 모두 해제하고 보내기", role: .destructive) {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        viewModel.confirmSendRecurringToInboxFuture()
+                    }
+                }
+                Button("취소", role: .cancel) { viewModel.cancelSendRecurringToInbox() }
+            } message: {
+                Text("이 할일만 보낼지, 이후 반복을 모두 해제하고 보낼지 선택해 주세요.")
             }
             .alert("이 할일을 삭제할까요?", isPresented: $viewModel.showEditDeleteAlert) {
                 Button("삭제", role: .destructive) { viewModel.confirmEditDelete() }
