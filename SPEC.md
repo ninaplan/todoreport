@@ -165,7 +165,7 @@ TodoReport/
 └── App/
     ├── TodoReportApp.swift        # 앱 진입점 · onOpenURL (todoreport://todo|paywall)
     ├── MainTabView.swift          # 설정 탭 NavigationStack path · Tab(role: .search)
-    ├── MainTabCoordinator.swift   # 탭 전환 · 위젯 딥링크 · 검색 하이라이트(openTodo/openInbox) · 리뷰 진입 시 카드 펼침(expandDailyReportToken)
+    ├── MainTabCoordinator.swift   # 탭 전환 · 위젯 딥링크 · 검색·리포트 하이라이트(openTodo/openInbox) · 리뷰 진입 시 카드 펼침(expandDailyReportToken)
     └── TabBarAppearance.swift
 ```
 
@@ -318,6 +318,7 @@ api/
 - 투두 탭 상단 `DailyReportCard`: **기본 접힘** — 「데일리 리포트」 제목 + chevron만 표시. 탭 시 펼침/접힘 (chevron 180° 회전)
 - 검색에서 하루 리뷰 결과 탭 시 `expandDailyReportToken`으로 1회 자동 펼침. 헤더 탭 접기/펼치기는 그대로
 - 펼침 시: 완료율·별점·하루 리뷰(`TextField`) 표시. height reveal + clipped (List 행 출렁임 방지)
+- 완료율은 카테고리 필터·peek과 무관하게 **그날 전체** 기준 (v1.16). 목록 필터와 카드 숫자를 분리
 - 오늘의 한마디(하루 리뷰) 작성
 - 별점 선택 (⭐~⭐⭐⭐⭐⭐) — 기분, 성취도 등 용도는 사용자가 자유롭게 정의
 - 완료율 자동 계산
@@ -561,6 +562,7 @@ api/
 - 주기: 매일 / 평일(월~금) / 주말(토~일) / 매주 요일 선택 / 격주 / 매월 / 매년. 종료는 안 함 / 날짜 / 횟수
 - 해당 날짜가 되면 그날의 할 일이 목록에 생긴다. 위젯에도 오늘 반복 항목이 미리 보여, 앱을 열지 않아도 보인다
 - 편집·삭제 시 **이 항목만** 또는 **이후 모두**를 고른다. 이후 모두는 이미 만들어진 미래 항목에도 반영된다
+- **수집함으로 보내기 (v1.16):** 컨텍스트 메뉴. 일반 할일은 바로 보냄. 반복 할일은 알럿에서 이 할일만 보내기 / 이후 반복 모두 해제하고 보내기
 - 반복 규칙 본체는 앱 로컬(`RecurringSeries`). 그날 생긴 할 일은 일반 할 일과 같이 노션에 동기화된다
 
 #### 다른 날 투두 확인
@@ -902,6 +904,7 @@ struct Category: Identifiable, Codable {
 | 위젯 Paywall (`todoreport://paywall`) | Paywall 시트 |
 | 다른 탭 → **설정 탭** 재진입 | `NavigationStack` **루트(설정 목록)** 로 초기화 — 플래너 상세 등 이전 화면 유지 안 함 |
 | 리포트 날짜 행 탭 | `MainTabCoordinator.openTodo(on:)` → 투두 탭 해당 날짜 (설정 스택 초기화 없음, highlight 없음) |
+| 리포트 그래프·카테고리 할일 행 탭 (v1.16) | `openTodo(on:highlightTodoId:)` → 투두 탭 **그 행의 날짜** + 스크롤·하이라이트 (`navigationRevealTodoId`로 완료 숨김·필터·peek 중에도 노출) |
 | 검색 결과 탭 (날짜 있음) | `openTodo(on:highlightTodoId:)` → 투두 탭 해당 날짜 + 행 스크롤·하이라이트 |
 | 검색 결과 탭 (인박스) | `openInbox(highlightTodoId:)` → 투두 탭 + 인박스 시트 + 세그먼트/버킷 펼침 후 스크롤·하이라이트 |
 | 검색 결과 탭 (하루 리뷰) | `openTodo(on:expandDailyReport: true)` → 투두 탭 해당 날짜 + `DailyReportCard` 자동 펼침 (`expandDailyReportToken`) |
@@ -1012,7 +1015,7 @@ struct Category: Identifiable, Codable {
 │                                 │    날짜 탭: 커스텀 월간 달력 시트
 │                                 │    화면 가장 엣지 스와이프: 이전/다음 날
 │                                 │
-│  완료율 ████████░░ 80%         │  ← 선택된 카테고리 기준으로 계산
+│  완료율 ████████░░ 80%         │  ← 그날 전체 기준 (필터·peek 무관, v1.16)
 │  (v2) ⏱ 집중타임 합계: 2h 30m  │
 │                                 │
 │  별점  ⭐⭐⭐⭐☆               │
@@ -1031,7 +1034,7 @@ struct Category: Identifiable, Codable {
 └─────────────────────────────────┘
 ```
 
-> 완료율은 현재 선택된 카테고리 필터(peek 중이면 peek) 기준으로 계산된다. 필터가 비어 있고 peek도 없으면 전체 투두 기준.
+> 하루 리포트 카드 완료율은 카테고리 필터·peek과 무관하게 **그날 전체** 기준이다 (v1.16). 목록만 필터·peek을 따른다.
 
 > 새 할일 자동 카테고리: **peek 중인 실제 카테고리**가 있으면 그걸 지정. peek가 없거나 미분류면, 지속 필터가 **실제 카테고리 1개**일 때만. 전체·미분류·다중 필터에서는 지정하지 않음.
 
@@ -1090,7 +1093,7 @@ struct Category: Identifiable, Codable {
 | 탭 (제목) | 인라인 제목 수정 (`TodoInlineTitleEditor`). 키보드 툴바 「자세히」→ 편집 시트 |
 | 오른쪽 스와이프 (풀스와이프) | 고정(isPinned 토글) |
 | 왼쪽 스와이프 | 내일로(`sunrise`) / 날짜 변경 / 삭제 — `Label`+`.labelStyle(.iconOnly)` (화면엔 아이콘만, title은 VoiceOver용 유지) |
-| 길게 누르기 | 컨텍스트 메뉴 (편집 / 고정 / 내일로 / 날짜 변경 / 삭제) — `TodoRowAction` 카탈로그. 스와이프와 항목 중복은 의도된 설계 |
+| 길게 누르기 | 컨텍스트 메뉴 (편집 / 고정 / 내일로 / 날짜 변경 / 인박스로 보내기 / 삭제) — `TodoRowAction` 카탈로그. 스와이프와 항목 중복은 의도된 설계. 「인박스로 보내기」는 메뉴만. 반복 할일은 이 할일만 / 이후 반복 모두 해제하고 보내기 (v1.16) |
 
 **삭제 확인:**
 - **일반 할일:** 휴지통 탭·풀스와이프 모두 「이 할 일을 삭제할까요?」 alert → [삭제] / [취소] (`showSingleDeleteAlert`). 확인 시에만 `deleteTodo`
@@ -1115,13 +1118,15 @@ struct Category: Identifiable, Codable {
 │  [ 완료율 그래프 ] ← 무료        │
 │  주간: 요일별 막대              │
 │  월간: 주차별 막대              │
+│  막대 탭 → 해당 기간 할일 목록   │
+│  행 탭 → 투두 탭 그 날짜·하이라이트 │
 ├─────────────────────────────────┤
 │  [ 별점 그래프 ] ← 무료          │
 │  주간/월간: 꺾은선 (흐름 파악)  │
 ├─────────────────────────────────┤
 │  [ 카테고리별 달성률 ] ← 무료    │
-│  수학  ████████░░  80%  ›       │  ← 탭: 드릴다운
-│  영어  █████░░░░░  50%  ›       │
+│  수학  ████████░░  80%  ›       │  ← 탭: 펼침
+│  영어  █████░░░░░  50%  ›       │    펼친 할일 행 탭 → 투두 탭 그 날짜·하이라이트
 │  독서  ███░░░░░░░  30%  ›       │
 ├─────────────────────────────────┤
 │  [ 하루 리뷰 타임라인 ] ← 무료  │
@@ -1153,6 +1158,15 @@ struct Category: Identifiable, Codable {
 | 무료 사용자 + 범위 밖 날짜 탭 | `ReportView`에서 알림: **Pro 알아보기** / **확인** (카드 내부 아님) |
 
 > `DayTodoDetailView`는 제거됨. 리뷰에서 투두 목록으로의 별도 드릴다운 없음.
+
+#### 완료율 그래프·카테고리 할일 행 (v1.16)
+
+| 요소 | 동작 |
+|---|---|
+| 완료율 막대 탭 | 해당 기간 할일 목록 펼침 (`ExpandableCompletionCard`) |
+| 카테고리 행 탭 | 해당 카테고리 할일 목록 펼침 (`CategoryStatRow`). 헤더만 접기/펼치기 |
+| 펼친 할일 행 탭 | `openTodoFromRow` → `MainTabCoordinator.openTodo(on:highlightTodoId:)` — **그 행의 `entry.date`**, 하이라이트. 월간 막대(7일)도 바 대표일이 아님 |
+| 완료 숨김·필터·peek | `TodoViewModel.navigationRevealTodoId`로 대상 할일을 목록에 노출 |
 
 #### 연속 달성 (Streak)
 
@@ -1612,7 +1626,7 @@ SyncQueue에 createTodo 추가
 | Notion formula (완료율) | Notion 자동 계산 | Notion DB | 앱에서 읽지도 쓰지도 않음 |
 | 완료율_앱 (number) | 앱 계산 후 PATCH | Notion DB | 주간/월간 리포트 저장 시에만 (유료) |
 
-- 화면 완료율: 선택된 카테고리 필터 기준으로 계산
+- 투두 탭 하루 리포트 카드 완료율: 항상 그날 전체 기준 (카테고리 필터·peek 무관, v1.16)
 - **Notion 저장 시 완료율은 항상 전체 투두 기준** — 카테고리 필터 상태 무관
 - Notion의 `완료율` formula: 관계형 연결 시 자동 계산, 앱이 건드리지 않음
 

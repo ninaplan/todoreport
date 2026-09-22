@@ -1,6 +1,6 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-09-21 기준)
+## 현재 상황 (2026-09-22 기준)
 
 ### 앱 상태
 - v1.0.4 App Store 제출 완료
@@ -13,6 +13,7 @@
 - v1.13 TestFlight 테스트 중 (빌드 25, 2026-09-09) — 아직 App Store 제출 아님
 - v1.14 제출 예정 (투두탭 UI 미세 조정·FAB 유리 스타일·하단 탭 무반응·인박스 행 여백/액션 문구·위젯 숨김 카테고리. 마케팅 버전·빌드 번호는 Xcode에서만)
 - v1.15 제출 완료 (2026-09-21, 반복 투두·카테고리 필터 peek·카테고리 아이콘 보기·WhatsNew 팝업·페이월 체험 배지. 마케팅 버전·빌드 번호는 Xcode에서만)
+- v1.16 제출 완료 (2026-09-22, 리포트 목록→투두 이동·반복 할일 수집함 보내기·하루 리포트 카드 완료율 전체 기준. 마케팅 버전·빌드 번호는 Xcode에서만)
 
 ### 인박스 진행 (2026-09-11)
 - **완료:** `TodoItem`/`Todo.date` 옵셔널화 + 위젯 Predicate(`ed99bdf`·`aeed0c4`). 백엔드 `GET/POST /api/notion/todo/inbox` 배포(`todoreport-backend` `486bbce`). 편집 화면 「날짜 제거」→ 노션 date 속성 비움(`bb4992d` SyncQueue·AnyEncodable + 백엔드 PATCH). `+`에서 날짜 없이 저장 → 인박스 생성 UI 연결(`f6de244`, POST `/api/notion/todo/inbox`)
@@ -26,7 +27,7 @@
 - **인박스 뱃지–트레이 아이콘 겹침:** 근본 원인 미확정(iOS 26 툴바 히트 영역 추정). `frame(width: 44, height: 36)` + overlay `offset(x: 1, y: -1)`만 조정. 근본 수정은 후속. 커밋 `21209eb`
 - **「위로 올리기」(구 「최신으로 올리기」):** 지금 탭 컨텍스트 메뉴. 최신 버킷에서도 사용 가능(제한 해제). `bumpToRecent` — `snoozedUntil = now - 1초`. 커밋 `9534055` · 문구 `062e754`
 - **투두탭 「내일하기」(구 「내일로」):** 스와이프·컨텍스트 메뉴. 커밋 `062e754`
-- **투두탭 「인박스로 보내기」:** 컨텍스트 메뉴만(`sendToInbox`, 반복 할일 제외). 날짜·알림 제거, 인박스 최근 구역으로. 커밋 `b55a6d3`
+- **투두탭 「인박스로 보내기」:** 컨텍스트 메뉴만(`sendToInbox`). 날짜·알림 제거, 인박스 최근 구역으로. 일반 할일은 바로 보냄. **반복 할일(v1.16):** 이 할일만 보내기 / 이후 반복 모두 해제하고 보내기. 커밋 `b55a6d3` · `d7d13df`
 - **신규 인박스 문자열 영어 번역** (`Localizable.xcstrings`). 커밋 `062e754`
 - **위젯 숨긴 카테고리:** `WidgetStoreReader.loadTodaySnapshot()`이 plannerId로 `CategoryItem`을 조회해 `isHidden` 할일을 목록·완료율에서 제외. 앱 `excludingHiddenCategoryTodos`와 동일 의미. 커밋 `41c5081`
 
@@ -126,6 +127,14 @@
 - 연간 카드 배지·CTA는 `yearlyIntroOfferText` 동적 사용 (숫자 하드코딩 금지). ASC 연간 트라이얼은 실사용자 기준 정상
 - Pro 카드 제목: 「할 일 반복 설정」·「원하는 카테고리만 모아보기」. 무료 칩에 수집함·할 일 검색·카테고리 필터·카테고리 아이콘 보기
 - DEBUG 설정 「페이월 미리보기」— `isPro`와 무관하게 `PaywallView` 시트
+
+### v1.16 변경 내용 (제출 완료, 2026-09-22)
+
+백엔드 변경 없음 (iOS만). 마케팅 버전·빌드 번호는 Xcode에서만. WhatsNew 팝업 없음 (`WhatsNewData.swift` 미추가).
+
+- **리포트 목록 → 투두 이동:** 완료율 그래프 막대를 눌러 펼친 할일 목록과 카테고리별 달성률 펼친 목록에서 행을 탭하면 투두 탭 해당 날짜로 이동하고 그 할일을 하이라이트한다. `ReportView.openTodoFromRow` → `MainTabCoordinator.openTodo(on:highlightTodoId:)`. `TodoViewModel.navigationRevealTodoId` 덕분에 완료 숨김·카테고리 필터·peek 상태에서도 대상 할일이 목록에 노출된다. 월간은 바가 7일 범위라 목록에 날짜가 섞이지만, 이동은 바 대표일이 아니라 **탭한 행의 `entry.date`**. 하루 리뷰 타임라인 날짜 탭(`openTodo(on:)` highlight 없음)은 그대로.
+- **반복 할일 수집함 보내기 (`d7d13df`):** 컨텍스트 메뉴 「인박스로 보내기」가 반복 할일도 받는다. 알럿에서 이 할일만 보내기 / 이후 반복 모두 해제하고 보내기.
+- **하루 리포트 카드 완료율 (`d7d13df`):** 카테고리 필터·peek과 무관하게 항상 그날 전체 기준. 목록 필터와 카드 숫자를 분리.
 
 ### v1.13 변경 내용 (TestFlight 테스트 중)
 - 리포트 탭 카테고리별 달성률에 「미분류」(`#8E8E93`) 통계 추가, 활성 카테고리 정렬 후 맨 뒤 고정, % 텍스트는 카테고리색 대신 `Color.primary.opacity(0.62)`
@@ -247,6 +256,7 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- v1.16 제출 (2026-09-22): 리포트 그래프·카테고리 목록 행 탭 → 투두 탭 날짜 이동·하이라이트 (`openTodoFromRow` → `MainTabCoordinator`, `navigationRevealTodoId`). 반복 할일 수집함 보내기. 하루 리포트 카드 완료율은 필터·peek과 무관하게 그날 전체. 커밋 `d7d13df` · `80dc94b`. WhatsNew 팝업 없음
 - 카테고리 필터 peek · WhatsNew 1.15 팝업 · 페이월 체험 배지 (2026-09-21): 칩 탭은 임시 peek, 메뉴만 지속 필터. 새 투두는 peek 카테고리 우선. 왓츠뉴 미리보기 이미지셋 추가. 연간 카드 `yearlyIntroOfferText` 배지, DEBUG 페이월 미리보기, 로컬 StoreKit 연간 7일 트라이얼
 - v1.15 제출 준비 (2026-09-20): 반복 투두·카테고리 필터·카테고리 아이콘 보기 문서·WhatsNew. 커밋 `eff1661` · `57e73c6` · `5e59441`
 - 할일 검색 하루 리뷰 (2026-09-18): `DailyReportItem.review`(`endDate == nil`) 검색 + `SearchResultItem`. 리뷰 탭 시 해당 날짜 이동·데일리 리포트 카드 자동 펼침 (`expandDailyReportToken`). 커밋 `a2d0e92`
@@ -388,11 +398,11 @@
 7. **alert 상태 프로퍼티는 cancel/confirm 메서드 쌍으로 구현**
    → `showXxxAlert`, `xxxItem` 프로퍼티가 있으면 반드시 `cancelXxx()` / `confirmXxx()` 메서드도 함께 정의
    → View에서 alert 상태 프로퍼티 직접 수정 금지
-8. **버전 제출 시 What's New·번역은 사용자가 요청하지 않아도 항상 함께 갱신한다**
-   → 새 버전을 App Store에 제출할 때(빌드 번호 올리거나 CLAUDE.md에 새 "v1.x.x 변경 내용" 섹션이 추가될 때)마다 `WhatsNewData.swift`에 해당 릴리즈 항목을 반드시 추가
+8. **버전 제출 시 번역은 사용자가 요청하지 않아도 항상 함께 갱신한다**
    → 새 문자열은 하드코딩 금지 — `String(localized:)`로 감싸고 `Localizable.xcstrings`에 영어 번역까지 바로 채워 넣을 것 (사용자가 "영어도 해줘"라고 다시 말하지 않아도 됨)
    → 사용자에게 확인 없이 진행 가능한 항목: What's New 문구 자체의 번역 추가. 단, 코드 로직 변경이 필요하면 기존 원칙대로 먼저 확인
    → 새 무료 기능이 나올 때마다 페이월의 무료 기능 목록(`freeFeaturesSection`)도 같이 갱신할 것
+   → **WhatsNew 팝업:** 팝업을 띄울 버전에만 `WhatsNewData.swift` 항목을 추가한다. 팝업이 없는 버전은 항목을 추가하지 않고 `CHANGELOG.md`와 [nock.kr/changelog](https://www.nock.kr/changelog)로만 알린다. `showsPopup: false` 항목을 배열 맨 앞에 추가하면 검색 탭·인라인 편집 말풍선 표시 조건(`lastSeenWhatsNewVersion == whatsNewReleases.first?.id`)이 깨지므로 금지. 인앱 `WhatsNewView` 목록은 호출되지 않으며, 설정 > 업데이트 내역은 외부 링크다.
 
 ---
 
@@ -814,7 +824,7 @@ guard SubscriptionManager.shared.isPro else {
 우로 스와이프 (풀스와이프)   → 고정(isPinned 토글)
 좌로 스와이프               → [내일하기(sunrise)] [날짜 변경] [삭제] — Label+`.labelStyle(.iconOnly)` (화면 아이콘만, title은 접근성)
   (일반: 삭제 확인 alert / 반복: 반복 삭제 alert)
-길게 누르기                 → 컨텍스트 메뉴 (편집 / 고정 / 내일하기 / 날짜 변경 / 인박스로 보내기 / 삭제) — `TodoRowAction` 카탈로그. 「인박스로 보내기」는 메뉴만(반복 할일 제외)
+길게 누르기                 → 컨텍스트 메뉴 (편집 / 고정 / 내일하기 / 날짜 변경 / 인박스로 보내기 / 삭제) — `TodoRowAction` 카탈로그. 「인박스로 보내기」는 메뉴만. 반복 할일은 이 할일만 / 이후 반복 모두 해제하고 보내기 (`d7d13df`)
 ```
 
 ---
@@ -937,7 +947,7 @@ AutoFocusTextField(text: $title, placeholder: "새 투두", textStyle: .body)
 
 검색 결과는 Feature 내부에서 날짜/시트를 직접 열지 않는다. `TodoSearchViewModel.openResult`가 플래너만 맞춘 뒤 코디네이터에 위임한다. 결과는 `SearchResultItem` (`.todo` / `.review`).
 
-- `openTodo(on:highlightTodoId:expandDailyReport:)` — `pendingTodoDate` + `pendingHighlightTodoId` → 투두 탭이 `navigateToDate` 후 `scrollTo`·accent 하이라이트 (~1.2초). 리포트 타임라인은 `openTodo(on:)`만 호출(highlight nil). `expandDailyReport: true`면 `expandDailyReportToken` 증가 → `DailyReportCard`가 1회 펼침(헤더 탭 접기/펼치기는 그대로)
+- `openTodo(on:highlightTodoId:expandDailyReport:)` — `pendingTodoDate` + `pendingHighlightTodoId` → 투두 탭이 `navigateToDate` 후 `scrollTo`·accent 하이라이트 (~1.2초). `TodoViewModel.navigationRevealTodoId`로 완료 숨김·카테고리 필터·peek 중이어도 대상 행을 목록에 노출. 리포트 그래프·카테고리 펼친 목록 행 탭은 `openTodoFromRow`가 `entry.date`/`entry.id`로 호출(v1.16). 리포트 타임라인 날짜 탭은 `openTodo(on:)`만 호출(highlight nil). `expandDailyReport: true`면 `expandDailyReportToken` 증가 → `DailyReportCard`가 1회 펼침(헤더 탭 접기/펼치기는 그대로)
 - `openInbox(highlightTodoId:)` — `pendingInboxHighlightTodoId` → 투두 탭이 `showInboxSheet` + `InboxView(highlightTodoId:)`. tray는 highlight nil이라 기존과 동일
 - 인박스 하이라이트: 세그먼트 전환 → 버킷 펼침 → `loadMore` 최대 40회 → `scrollTo`. `didConsumeHighlight`로 1회만
 
@@ -1211,6 +1221,7 @@ v1.5는 투두 DB **select/status 옵션** 단위 동기화. 별도 카테고리
 - **완료:** 검색에서 인박스 항목 탭 → 시트 오픈 + 스크롤·하이라이트 (`openInbox`)
 - **완료 (`a21adc8`):** 위젯이 인박스 항목을 오늘 목록에 넣지 않음 (Swift 날짜 필터). DELETE GET 캐시 무효화에 `plannerId`
 - **완료 (2026-09-12):** 투두탭에서 「인박스로 보내기」, 인박스 「위로 올리기」(최신 버킷 포함), 행 여백 9pt·구분선 제거, 영어 번역
+- **완료 (v1.16):** 반복 할일도 수집함으로 보내기 — 이 할일만 / 이후 반복 모두 해제하고 보내기 (`d7d13df`)
 - **폐기:** FAB 롱프레스/alert 빠른입력 UI. 툴바 `.glass`/Spacer 분리 시도 후 롤백
 카테고리 보관과 별개. 상세 → `V2-IDEAS.md`
 
