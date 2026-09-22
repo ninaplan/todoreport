@@ -167,7 +167,7 @@ final class RecurringTodoManager {
         }
     }
 
-    func deleteFutureTodos(seriesId: String, from date: Date, excludingId: String) async {
+    func deleteFutureTodos(seriesId: String, from date: Date, excludingId: String? = nil) async {
         let fromDay = Calendar.current.startOfDay(for: date)
         let allItems: [TodoItem]
         do {
@@ -194,19 +194,28 @@ final class RecurringTodoManager {
         }
     }
 
-    func capSeriesEndDate(seriesId: String, beforeDate: Date) async {
+    func capSeriesEndDate(seriesId: String, beforeDate: Date, excludingId: String? = nil) async {
         let cal = Calendar.current
         guard let endDay = cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: beforeDate)) else { return }
         guard let series = RecurringSeries.fetch(id: seriesId, in: context) else { return }
-        if let existingEnd = series.endDate, cal.startOfDay(for: existingEnd) <= endDay {
-            return
+        if let existingEnd = series.endDate {
+            if cal.startOfDay(for: existingEnd) > endDay {
+                series.endDate = endDay
+            }
+        } else {
+            series.endDate = endDay
         }
-        series.endDate = endDay
+        let originDay = cal.startOfDay(for: series.originDate)
+        if let currentEnd = series.endDate, cal.startOfDay(for: currentEnd) < originDay {
+            series.isActive = false
+        }
         do {
             try context.save()
         } catch {
             AppLogger.shared.error("RecurringTodo", "시리즈 종료일 저장 실패 \(error.localizedDescription)")
         }
+        await deleteFutureTodos(seriesId: seriesId, from: beforeDate, excludingId: excludingId)
+        logLeftoverOccurrences(seriesId: seriesId, after: endDay, excludingId: excludingId, isActive: series.isActive)
     }
 
     /// 같은 시리즈의 이후 발생분에 제목·메모·카테고리·시간·알림만 반영한다.
@@ -322,6 +331,9 @@ final class RecurringTodoManager {
 
         let cal = Calendar.current
         let origin = cal.startOfDay(for: series.originDate)
+        if let seriesEnd = series.endDate, cal.startOfDay(for: seriesEnd) < origin {
+            return
+        }
 
         var through = cal.startOfDay(for: requestedThrough)
         if let seriesEnd = series.endDate {
@@ -420,6 +432,33 @@ final class RecurringTodoManager {
                 return cal.startOfDay(for: date)
             }
         )
+    }
+
+    private func logLeftoverOccurrences(
+        seriesId: String,
+        after endDay: Date,
+        excludingId: String?,
+        isActive: Bool
+    ) {
+        let cal = Calendar.current
+        let items: [TodoItem]
+        do {
+            items = try context.fetch(FetchDescriptor<TodoItem>())
+        } catch {
+            AppLogger.shared.error("RecurringTodo", "시리즈 종료 잔여 조회 실패 \(error.localizedDescription)")
+            return
+        }
+        let leftover = items.filter {
+            $0.recurrenceId == seriesId &&
+            $0.id != excludingId &&
+            ($0.date.map { cal.startOfDay(for: $0) } ?? .distantPast) > endDay
+        }.count
+        let message = "시리즈 종료 정리 series:\(seriesId) leftover:\(leftover) isActive:\(isActive)"
+        if leftover == 0 {
+            AppLogger.shared.info("RecurringTodo", message)
+        } else {
+            AppLogger.shared.warn("RecurringTodo", message)
+        }
     }
 
     private func isPlannerReadOnly(_ plannerId: String?) -> Bool {

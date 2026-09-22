@@ -108,11 +108,8 @@ enum RecurringTodoEditHandler {
         switch changeType {
         case .removeRecurrence:
             guard let fromDate = updated.date else { return }
-            await RecurringTodoManager.shared.deleteFutureTodos(
-                seriesId: seriesId, from: fromDate, excludingId: updated.id
-            )
             await RecurringTodoManager.shared.capSeriesEndDate(
-                seriesId: seriesId, beforeDate: fromDate
+                seriesId: seriesId, beforeDate: fromDate, excludingId: updated.id
             )
             var detached = updated
             detached.recurrenceId = nil
@@ -123,11 +120,8 @@ enum RecurringTodoEditHandler {
 
         case .changeRule:
             guard let fromDate = updated.date else { return }
-            await RecurringTodoManager.shared.deleteFutureTodos(
-                seriesId: seriesId, from: fromDate, excludingId: updated.id
-            )
             await RecurringTodoManager.shared.capSeriesEndDate(
-                seriesId: seriesId, beforeDate: fromDate
+                seriesId: seriesId, beforeDate: fromDate, excludingId: updated.id
             )
             var newOrigin = updated
             newOrigin.recurrenceId = UUID().uuidString

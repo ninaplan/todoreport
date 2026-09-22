@@ -538,7 +538,6 @@ final class TodoViewModel {
         }
         guard let fromDate = todo.date else { return }
         Task {
-            try? await service.deleteFutureItems(recurrenceId: rid, from: fromDate)
             await RecurringTodoManager.shared.capSeriesEndDate(seriesId: rid, beforeDate: fromDate)
         }
     }
@@ -691,11 +690,8 @@ final class TodoViewModel {
         pendingInboxSendTodo = nil
         Task { @MainActor in
             if let seriesId = todo.recurrenceId, let fromDate = todo.date {
-                await RecurringTodoManager.shared.deleteFutureTodos(
-                    seriesId: seriesId, from: fromDate, excludingId: todo.id
-                )
                 await RecurringTodoManager.shared.capSeriesEndDate(
-                    seriesId: seriesId, beforeDate: fromDate
+                    seriesId: seriesId, beforeDate: fromDate, excludingId: todo.id
                 )
             }
             applySendToInbox(todo, detachingFromSeries: true)
