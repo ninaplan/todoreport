@@ -421,8 +421,12 @@ private struct ExpandableCompletionCard: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(incompleteTodos) { todo in ReportTodoRow(todo: todo) }
-                        ForEach(completedTodos)  { todo in ReportTodoRow(todo: todo) }
+                        ForEach(incompleteTodos) { todo in
+                            ReportTodoRow(todo: todo) { openTodoFromRow(todo) }
+                        }
+                        ForEach(completedTodos) { todo in
+                            ReportTodoRow(todo: todo) { openTodoFromRow(todo) }
+                        }
                     }
                 }
                 .padding(16)
@@ -615,8 +619,12 @@ private struct CategoryStatRow: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(incompleteTodos) { todo in ReportTodoRow(todo: todo) }
-                        ForEach(completedTodos) { todo in ReportTodoRow(todo: todo) }
+                        ForEach(incompleteTodos) { todo in
+                            ReportTodoRow(todo: todo) { openTodoFromRow(todo) }
+                        }
+                        ForEach(completedTodos) { todo in
+                            ReportTodoRow(todo: todo) { openTodoFromRow(todo) }
+                        }
                     }
                 }
                 .padding(.top, 4)
@@ -626,10 +634,27 @@ private struct CategoryStatRow: View {
     }
 }
 
+private func openTodoFromRow(_ entry: ReportTodoEntry) {
+    MainTabCoordinator.shared.openTodo(on: entry.date, highlightTodoId: entry.id)
+}
+
 private struct ReportTodoRow: View {
     let todo: ReportTodoEntry
+    var onOpenTodo: (() -> Void)? = nil
 
     var body: some View {
+        if let onOpenTodo {
+            Button(action: onOpenTodo) {
+                rowContent
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        } else {
+            rowContent
+        }
+    }
+
+    private var rowContent: some View {
         HStack(spacing: 10) {
             Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 14))
