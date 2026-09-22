@@ -269,6 +269,7 @@ final class TodoService {
         if let pid = pid { params["plannerId"] = pid }
         if let v = mapping.completed { params["completedProp"] = v }
         if let v = mapping.date      { params["dateProp"] = v }
+        if let v = mapping.memo      { params["memoProp"] = v }
         if let v = mapping.isPinned  { params["isPinnedProp"] = v }
         if let planner {
             params.merge(CategoryNotionSync.shared.todoFetchParams(from: planner)) { _, new in new }
@@ -280,7 +281,7 @@ final class TodoService {
             )
             guard !Task.isCancelled else { return nil }
             print("[TodoService] 🔄 Notion fetch - \(seoulDateString(from: date)) \(notionTodos.count)개")
-            upsertFromNotion(notionTodos, for: date, plannerId: pid)
+            upsertFromNotion(notionTodos, for: date, plannerId: pid, mappedMemoProp: mapping.memo)
             return true
         } catch {
             print("[TodoService] ⚠️ Notion sync 실패 - \(error.localizedDescription)")
@@ -307,6 +308,7 @@ final class TodoService {
         if let pid = pid { params["plannerId"] = pid }
         if let v = mapping.completed { params["completedProp"] = v }
         if let v = mapping.date      { params["dateProp"] = v }
+        if let v = mapping.memo      { params["memoProp"] = v }
         if let v = mapping.isPinned  { params["isPinnedProp"] = v }
         if let planner {
             params.merge(CategoryNotionSync.shared.todoFetchParams(from: planner)) { _, new in new }
@@ -332,7 +334,7 @@ final class TodoService {
         for (dayKey, items) in grouped {
             let dayDate = parseNotionDayOnlyDate(dayKey, calendar: .current, timeZone: seoul)
                 ?? Calendar.current.startOfDay(for: start)
-            upsertFromNotion(items, for: dayDate, plannerId: pid, enqueueRelationLinks: false)
+            upsertFromNotion(items, for: dayDate, plannerId: pid, mappedMemoProp: mapping.memo, enqueueRelationLinks: false)
         }
     }
 
@@ -367,11 +369,19 @@ final class TodoService {
         return items.first { itemBelongsToSyncPlanner($0, plannerId: plannerId) }
     }
 
+    /// 매핑이 없거나(.appOnly) 서버 memo가 null이면 로컬 값을 유지한다.
+    func memoApplyingNotionPull(incoming: String?, existing: String?, mappedMemoProp: String?) -> String? {
+        guard mappedMemoProp != nil else { return existing }
+        guard let incoming else { return existing }
+        return incoming
+    }
+
     private func applyNotionTodoResponse(
         _ nt: NotionTodoResponse,
         to existing: TodoItem,
         plannerId: String?,
-        parsedNotionCreatedAt: Date?
+        parsedNotionCreatedAt: Date?,
+        mappedMemoProp: String?
     ) {
         let pageId = nt.notionPageId
         guard !isLocallyProtectedFromNotionOverwrite(existing) else { return }
@@ -385,7 +395,7 @@ final class TodoService {
         }
 
         existing.title = nt.title
-        existing.memo = nt.memo
+        existing.memo = memoApplyingNotionPull(incoming: nt.memo, existing: existing.memo, mappedMemoProp: mappedMemoProp)
         if let nc = parsedNotionCreatedAt { existing.notionCreatedAt = nc }
         existing.isCompleted = nt.isCompleted
         existing.isPinned = nt.isPinned
@@ -405,6 +415,7 @@ final class TodoService {
         _ notionTodos: [NotionTodoResponse],
         for date: Date,
         plannerId: String?,
+        mappedMemoProp: String?,
         enqueueRelationLinks: Bool = true
     ) {
         let startOfDay = Calendar.current.startOfDay(for: date)
@@ -423,7 +434,7 @@ final class TodoService {
 
             // 1순위: notionPageId + plannerId 기준 매칭
             if let existing = findExistingByNotionPageId(pageId, plannerId: plannerId) {
-                applyNotionTodoResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt)
+                applyNotionTodoResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt, mappedMemoProp: mappedMemoProp)
                 continue
             }
 
@@ -442,14 +453,14 @@ final class TodoService {
                let existing = candidates.first(where: { itemBelongsToSyncPlanner($0, plannerId: plannerId) }) {
                 existing.notionPageId = pageId
                 if !isLocallyProtectedFromNotionOverwrite(existing) {
-                    applyNotionTodoResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt)
+                    applyNotionTodoResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt, mappedMemoProp: mappedMemoProp)
                 }
                 continue
             }
 
             // insert 직전: 같은 pageId 레코드가 있으면 갱신만 (삭제·재생성 방지)
             if let existing = findExistingByNotionPageId(pageId, plannerId: plannerId) {
-                applyNotionTodoResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt)
+                applyNotionTodoResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt, mappedMemoProp: mappedMemoProp)
                 continue
             }
 
@@ -459,7 +470,7 @@ final class TodoService {
             let parsedDate = parseNotionTodoDate(nt.date, fallback: startOfDay)
             let todo = Todo(
                 title: nt.title,
-                memo: nt.memo,
+                memo: memoApplyingNotionPull(incoming: nt.memo, existing: nil, mappedMemoProp: mappedMemoProp),
                 isCompleted: nt.isCompleted,
                 isPinned: nt.isPinned,
                 date: parsedDate.date,

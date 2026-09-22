@@ -90,6 +90,7 @@ extension TodoService {
         if let pid { params["plannerId"] = pid }
         if let v = mapping.completed { params["completedProp"] = v }
         if let v = mapping.date { params["dateProp"] = v }
+        if let v = mapping.memo { params["memoProp"] = v }
         if let v = mapping.isPinned { params["isPinnedProp"] = v }
         if let planner {
             params.merge(CategoryNotionSync.shared.todoFetchParams(from: planner)) { _, new in new }
@@ -101,7 +102,7 @@ extension TodoService {
             )
             guard !Task.isCancelled else { return nil }
             print("[TodoService] 📥 Notion inbox fetch - \(notionTodos.count)개")
-            upsertInboxFromNotion(notionTodos, plannerId: pid)
+            upsertInboxFromNotion(notionTodos, plannerId: pid, mappedMemoProp: mapping.memo)
             return true
         } catch {
             print("[TodoService] ⚠️ Notion inbox sync 실패 - \(error.localizedDescription)")
@@ -129,7 +130,8 @@ extension TodoService {
 
     private func upsertInboxFromNotion(
         _ notionTodos: [NotionInboxTodoResponse],
-        plannerId: String?
+        plannerId: String?,
+        mappedMemoProp: String?
     ) {
         let iso8601: DateFormatter = {
             let f = DateFormatter()
@@ -143,7 +145,7 @@ extension TodoService {
             let pageId = nt.notionPageId
 
             if let existing = findExistingByNotionPageIdForInbox(pageId, plannerId: plannerId) {
-                applyInboxNotionResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt)
+                applyInboxNotionResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt, mappedMemoProp: mappedMemoProp)
                 continue
             }
 
@@ -159,13 +161,13 @@ extension TodoService {
                let existing = candidates.first(where: { itemBelongsToInboxPlanner($0, plannerId: plannerId) }) {
                 existing.notionPageId = pageId
                 if !isLocallyProtectedFromInboxOverwrite(existing) {
-                    applyInboxNotionResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt)
+                    applyInboxNotionResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt, mappedMemoProp: mappedMemoProp)
                 }
                 continue
             }
 
             if let existing = findExistingByNotionPageIdForInbox(pageId, plannerId: plannerId) {
-                applyInboxNotionResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt)
+                applyInboxNotionResponse(nt, to: existing, plannerId: plannerId, parsedNotionCreatedAt: parsedNotionCreatedAt, mappedMemoProp: mappedMemoProp)
                 continue
             }
 
@@ -174,7 +176,7 @@ extension TodoService {
             )
             let todo = Todo(
                 title: nt.title,
-                memo: nt.memo,
+                memo: memoApplyingNotionPull(incoming: nt.memo, existing: nil, mappedMemoProp: mappedMemoProp),
                 isCompleted: nt.isCompleted,
                 isPinned: nt.isPinned,
                 date: nil,
@@ -223,7 +225,8 @@ extension TodoService {
         _ nt: NotionInboxTodoResponse,
         to existing: TodoItem,
         plannerId: String?,
-        parsedNotionCreatedAt: Date?
+        parsedNotionCreatedAt: Date?,
+        mappedMemoProp: String?
     ) {
         guard !isLocallyProtectedFromInboxOverwrite(existing) else { return }
 
@@ -236,7 +239,7 @@ extension TodoService {
         }
 
         existing.title = nt.title
-        existing.memo = nt.memo
+        existing.memo = memoApplyingNotionPull(incoming: nt.memo, existing: existing.memo, mappedMemoProp: mappedMemoProp)
         if let nc = parsedNotionCreatedAt { existing.notionCreatedAt = nc }
         existing.isCompleted = nt.isCompleted
         existing.isPinned = nt.isPinned
