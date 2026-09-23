@@ -5002,6 +5002,16 @@
         }
       }
     },
+    "필터 기억하기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remember Filter"
+          }
+        }
+      }
+    },
     "필터에 포함됨" : {
       "localizations" : {
         "en" : {

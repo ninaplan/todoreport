@@ -31,6 +31,11 @@ final class TodoViewModel {
     }
     /// 실제 카테고리 UUID와 겹치지 않는 필터 전용 값.
     static let uncategorizedFilterId: String = "__uncategorized__"
+    /// 「필터 기억하기」. 켜면 플래너별 필터를 UserDefaults에 남긴다. 위젯 App Group에는 넣지 않는다.
+    private static let keepCategoryFilterKey = "todoKeepCategoryFilter"
+    /// JSON `[plannerId: [categoryId]]`. 값은 로컬 `Category.id`.
+    private static let categoryFilterByPlannerKey = "todoCategoryFilterByPlanner"
+    private(set) var keepsCategoryFilter: Bool = false
     private(set) var selectedCategoryFilter: Set<String> = []  // 비어 있으면 전체
     /// 칩 탭으로 들어가는 임시 보기. nil이면 필터 모드. `selectedCategoryFilter`는 바꾸지 않는다.
     private(set) var peekCategoryId: String? = nil
@@ -53,7 +58,19 @@ final class TodoViewModel {
     @ObservationIgnored private var dateSyncDebounceTask: Task<Void, Never>?
     @ObservationIgnored private var isHandlingForegroundRefresh = false
     @ObservationIgnored private var isFirstLaunch: Bool = true
+    /// 구독 조회가 한 번 끝난 뒤. 그 전에는 원본 필터를 그대로 보여 준다.
+    private(set) var hasConfirmedSubscriptionForFilter = false
+    /// 메모리 필터가 어느 플래너 것인지. 전환 직후 이전 집합이 새 플래너 키에 쓰이지 않게 한다.
+    @ObservationIgnored private var categoryFilterPlannerId: String?
     @ObservationIgnored private static let dateSyncDebounceNanoseconds: UInt64 = 350_000_000
+
+    init() {
+        let keep = UserDefaults.standard.bool(forKey: Self.keepCategoryFilterKey)
+        keepsCategoryFilter = keep
+        categoryFilterPlannerId = PlannerService.shared.selectedPlanner?.id
+        guard keep else { return }
+        selectedCategoryFilter = Self.storedFilter(for: categoryFilterPlannerId)
+    }
 
     var isCurrentPlannerReadOnly: Bool {
         PlannerService.shared.selectedPlanner?.isReadOnly ?? false
@@ -143,11 +160,22 @@ final class TodoViewModel {
         return pinned + normal + completed
     }
 
+    /// 화면에 쓰는 필터. 구독이 확인된 무료 사용자이고 원본이 2개 이상이면 전체로 보여 준다. 저장값은 바꾸지 않는다.
+    var effectiveCategoryFilter: Set<String> {
+        let original = selectedCategoryFilter
+        guard hasConfirmedSubscriptionForFilter,
+              !SubscriptionManager.shared.isPro,
+              original.count >= 2 else {
+            return original
+        }
+        return []
+    }
+
     var filteredTodos: [Todo] {
         if let peekId = peekCategoryId {
             return displayedTodos.filter { matchesSingleCategory($0, peekId) || $0.id == navigationRevealTodoId }
         }
-        if selectedCategoryFilter.isEmpty { return displayedTodos }
+        if effectiveCategoryFilter.isEmpty { return displayedTodos }
         return displayedTodos.filter { matchesCategoryFilter($0) || $0.id == navigationRevealTodoId }
     }
 
@@ -155,8 +183,8 @@ final class TodoViewModel {
         if let peekId = peekCategoryId, peekId != Self.uncategorizedFilterId {
             return peekId
         }
-        guard selectedCategoryFilter.count == 1,
-              let id = selectedCategoryFilter.first,
+        guard effectiveCategoryFilter.count == 1,
+              let id = effectiveCategoryFilter.first,
               id != Self.uncategorizedFilterId else { return nil }
         return id
     }
@@ -166,11 +194,12 @@ final class TodoViewModel {
     }
 
     private func matchesCategoryFilter(_ todo: Todo) -> Bool {
-        if selectedCategoryFilter.isEmpty { return true }
+        let filter = effectiveCategoryFilter
+        if filter.isEmpty { return true }
         if let categoryId = todo.categoryId {
-            return selectedCategoryFilter.contains(categoryId)
+            return filter.contains(categoryId)
         }
-        return selectedCategoryFilter.contains(Self.uncategorizedFilterId)
+        return filter.contains(Self.uncategorizedFilterId)
     }
 
     private func matchesSingleCategory(_ todo: Todo, _ categoryId: String) -> Bool {
@@ -197,11 +226,17 @@ final class TodoViewModel {
         if isFirstLaunch {
             isFirstLaunch = false
         }
+        await confirmSubscriptionForFilter()
     }
 
     func switchPlanner() async {
         cancelInFlightFetches()
         todos = []
+        let plannerId = PlannerService.shared.selectedPlanner?.id
+        categoryFilterPlannerId = plannerId
+        if keepsCategoryFilter {
+            selectedCategoryFilter = Self.storedFilter(for: plannerId)
+        }
         await categoryService.refresh()
         await syncFromNotion(immediate: true)
     }
@@ -377,12 +412,19 @@ final class TodoViewModel {
     }
 
     private func validateCategoryFilter() {
+        let plannerId = PlannerService.shared.selectedPlanner?.id
+        guard plannerId == categoryFilterPlannerId else { return }
+
         var allowed = Set(categoryService.activeCategories.map(\.id))
         allowed.insert(Self.uncategorizedFilterId)
 
         if !selectedCategoryFilter.isEmpty {
-            selectedCategoryFilter = selectedCategoryFilter.intersection(allowed)
+            let pruned = selectedCategoryFilter.intersection(allowed)
+            if pruned != selectedCategoryFilter {
+                selectedCategoryFilter = pruned
+            }
         }
+        persistCurrentPlannerFilter()
 
         // 칩 바가 없으면 peek를 종료할 수단이 없으므로 해제한다.
         if categoryService.activeCategories.isEmpty {
@@ -407,24 +449,81 @@ final class TodoViewModel {
 
     func clearCategoryFilter() {
         selectedCategoryFilter = []
+        persistCurrentPlannerFilter()
+    }
+
+    func setKeepsCategoryFilter(_ isOn: Bool) {
+        keepsCategoryFilter = isOn
+        UserDefaults.standard.set(isOn, forKey: Self.keepCategoryFilterKey)
+        if isOn {
+            persistCurrentPlannerFilter()
+        } else {
+            UserDefaults.standard.removeObject(forKey: Self.categoryFilterByPlannerKey)
+        }
     }
 
     func toggleCategoryFilter(_ categoryId: String) {
-        if selectedCategoryFilter.contains(categoryId) {
-            var next = selectedCategoryFilter
+        let base = effectiveCategoryFilter
+        if base.contains(categoryId) {
+            var next = base
             next.remove(categoryId)
             selectedCategoryFilter = next
+            persistCurrentPlannerFilter()
             return
         }
 
-        if selectedCategoryFilter.count >= 1 && !SubscriptionManager.shared.isPro {
+        if base.count >= 1 && !SubscriptionManager.shared.isPro {
             showCategoryFilterPaywall = true
             return
         }
 
-        var next = selectedCategoryFilter
+        var next = base
         next.insert(categoryId)
         selectedCategoryFilter = next
+        persistCurrentPlannerFilter()
+    }
+
+    /// 플래너 삭제 시 그 플래너 키만 제거. 토글과 다른 플래너 값은 그대로 둔다.
+    static func removePersistedCategoryFilter(plannerId: String) {
+        var map = filterMap()
+        guard map.removeValue(forKey: plannerId) != nil else { return }
+        if map.isEmpty {
+            UserDefaults.standard.removeObject(forKey: categoryFilterByPlannerKey)
+        } else {
+            saveFilterMap(map)
+        }
+    }
+
+    /// `updatePurchasedProducts()`가 끝난 뒤에만 무료 다중 필터를 전체로 보여 준다. 저장값은 건드리지 않는다.
+    @MainActor
+    private func confirmSubscriptionForFilter() async {
+        guard !hasConfirmedSubscriptionForFilter else { return }
+        await SubscriptionManager.shared.updatePurchasedProducts()
+        hasConfirmedSubscriptionForFilter = true
+    }
+
+    private func persistCurrentPlannerFilter() {
+        guard keepsCategoryFilter else { return }
+        guard let plannerId = categoryFilterPlannerId, plannerId == PlannerService.shared.selectedPlanner?.id, !plannerId.isEmpty else { return }
+        var map = Self.filterMap()
+        if let existing = map[plannerId], Set(existing) == selectedCategoryFilter { return }
+        map[plannerId] = Array(selectedCategoryFilter)
+        Self.saveFilterMap(map)
+    }
+
+    private static func storedFilter(for plannerId: String?) -> Set<String> {
+        guard let plannerId, !plannerId.isEmpty else { return [] }
+        return Set(filterMap()[plannerId] ?? [])
+    }
+
+    private static func filterMap() -> [String: [String]] {
+        guard let data = UserDefaults.standard.data(forKey: categoryFilterByPlannerKey) else { return [:] }
+        return (try? JSONDecoder().decode([String: [String]].self, from: data)) ?? [:]
+    }
+
+    private static func saveFilterMap(_ map: [String: [String]]) {
+        guard let data = try? JSONEncoder().encode(map) else { return }
+        UserDefaults.standard.set(data, forKey: categoryFilterByPlannerKey)
     }
 
     func dismissCategoryFilterPaywall() {

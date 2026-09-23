@@ -272,13 +272,15 @@ struct TodoView: View {
                     Section {
                         CategoryFilterBar(
                             categories: viewModel.activeCategories,
-                            selectedIds: viewModel.selectedCategoryFilter,
+                            selectedIds: viewModel.effectiveCategoryFilter,
                             peekCategoryId: viewModel.peekCategoryId,
                             showCategoryChipIcon: viewModel.showCategoryChipIcon,
                             onPeek: { viewModel.peekCategory($0) },
                             onClearPeek: { viewModel.clearCategoryPeek() },
                             onClear: { viewModel.clearCategoryFilter() },
-                            onToggle: { viewModel.toggleCategoryFilter($0) }
+                            onToggle: { viewModel.toggleCategoryFilter($0) },
+                            keepsFilter: viewModel.keepsCategoryFilter,
+                            onSetKeepsFilter: { viewModel.setKeepsCategoryFilter($0) }
                         )
                     }
                     .listRowSeparator(.hidden)
@@ -938,6 +940,8 @@ private struct CategoryFilterBar: View {
     let onClearPeek: () -> Void
     let onClear: () -> Void
     let onToggle: (String) -> Void
+    let keepsFilter: Bool
+    let onSetKeepsFilter: (Bool) -> Void
 
     private var isPeeking: Bool { peekCategoryId != nil }
 
@@ -1011,6 +1015,16 @@ private struct CategoryFilterBar: View {
                     set: { _ in onToggle(TodoViewModel.uncategorizedFilterId) }
                 )) {
                     Text("미분류")
+                }
+                .menuActionDismissBehavior(.disabled)
+
+                Divider()
+
+                Toggle(isOn: Binding(
+                    get: { keepsFilter },
+                    set: { onSetKeepsFilter($0) }
+                )) {
+                    Text("필터 기억하기")
                 }
                 .menuActionDismissBehavior(.disabled)
             } label: {

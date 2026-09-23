@@ -474,6 +474,7 @@ final class PlannerService {
 
         try context.save()
         refreshStore()
+        TodoViewModel.removePersistedCategoryFilter(plannerId: id)
         if selectedPlannerId == planner.id {
             selectedPlannerId = store.first?.id ?? ""
         }
