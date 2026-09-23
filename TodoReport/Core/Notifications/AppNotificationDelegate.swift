@@ -16,7 +16,7 @@ final class AppNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
         if id.hasPrefix("report-save-reminder") {
             completionHandler([.banner, .sound, .list])
         } else {
-            completionHandler([])
+            completionHandler([.banner, .sound, .list])
         }
     }
 }
