@@ -214,6 +214,56 @@
         }
       }
     },
+    "%lld개월 전" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld months before"
+          }
+        }
+      }
+    },
+    "%lld분 전" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld minutes before"
+          }
+        }
+      }
+    },
+    "%lld시간 전" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld hours before"
+          }
+        }
+      }
+    },
+    "%lld일 전" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld days before"
+          }
+        }
+      }
+    },
+    "%lld주 전" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld weeks before"
+          }
+        }
+      }
+    },
     "+ 버튼을 눌러 카테고리를 추가하세요." : {
       "localizations" : {
         "en" : {
@@ -1166,6 +1216,16 @@
         }
       }
     },
+    "내일 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tomorrow %@"
+          }
+        }
+      }
+    },
     "내일, %@" : {
       "localizations" : {
         "en" : {
@@ -2084,6 +2144,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notes"
+          }
+        }
+      }
+    },
+    "모레 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In 2 days %@"
           }
         }
       }
@@ -3233,6 +3303,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Today"
+          }
+        }
+      }
+    },
+    "오늘 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today %@"
           }
         }
       }

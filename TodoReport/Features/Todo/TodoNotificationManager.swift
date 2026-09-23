@@ -22,10 +22,14 @@ final class TodoNotificationManager {
             print("[Notification] ✅ 완료로 인한 알림 취소 - id:\(todo.id)")
             return
         }
-        guard let scheduledTime = todo.scheduledTime,
-              let alarmOffset = todo.alarmOffset else {
-            // scheduledTime/alarmOffset 미설정 — 기존 알림 유지 (의도치 않은 nil 업데이트 방지)
-            print("[Notification] ⏭️ 스킵 - id:\(todo.id) scheduledTime:\(String(describing: todo.scheduledTime)) alarmOffset:\(String(describing: todo.alarmOffset))")
+        guard let scheduledTime = todo.scheduledTime else {
+            // scheduledTime 미설정 — 기존 알림 유지 (의도치 않은 nil 업데이트 방지)
+            print("[Notification] ⏭️ 스킵 - id:\(todo.id) scheduledTime:nil alarmOffset:\(String(describing: todo.alarmOffset))")
+            return
+        }
+        guard let alarmOffset = todo.alarmOffset else {
+            cancel(for: todo.id)
+            print("[Notification] ✅ 알림 없음으로 취소 - id:\(todo.id)")
             return
         }
 
@@ -42,10 +46,7 @@ final class TodoNotificationManager {
 
         let content = UNMutableNotificationContent()
         content.title = todo.title
-        content.subtitle = Calendar.current.isDateInToday(scheduledTime)
-            ? scheduledTime.formatted(.dateTime.hour().minute())
-            : scheduledTime.formatted(.dateTime.month().day().hour().minute())
-        if let memo = todo.memo, !memo.isEmpty { content.body = memo }
+        content.body = scheduleTimeText(scheduledTime: scheduledTime, fireDate: fireDate)
         content.sound = .default
 
         let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
@@ -59,6 +60,28 @@ final class TodoNotificationManager {
             } else {
                 print("[Notification] ✅ 등록 완료 - identifier:\(identifier) fireDate:\(fireDate)")
             }
+        }
+    }
+
+    /// 알림이 울리는 날과 할 일 예정일의 날짜 차이로 상대 날짜를 붙인다. `Date.now`와는 비교하지 않는다.
+    private func scheduleTimeText(scheduledTime: Date, fireDate: Date) -> String {
+        let calendar = Calendar.current
+        let fireDay = calendar.startOfDay(for: fireDate)
+        let dueDay = calendar.startOfDay(for: scheduledTime)
+        let dayDiff = calendar.dateComponents([.day], from: fireDay, to: dueDay).day ?? 0
+        let timeText = scheduledTime.formatted(.dateTime.hour().minute())
+
+        switch dayDiff {
+        case 0:
+            return String(localized: "오늘 \(timeText)")
+        case 1:
+            return String(localized: "내일 \(timeText)")
+        case 2:
+            return String(localized: "모레 \(timeText)")
+        default:
+            let dateText = scheduledTime.formatted(.dateTime.month().day())
+            let weekdayText = scheduledTime.formatted(.dateTime.weekday(.abbreviated))
+            return "\(dateText) (\(weekdayText)) \(timeText)"
         }
     }
 

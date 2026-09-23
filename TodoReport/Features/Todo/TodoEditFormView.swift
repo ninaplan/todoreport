@@ -26,6 +26,7 @@ struct TodoEditFormView: View {
     private static let datePickerAnchor = "todoEditDatePicker"
     private static let unitNames = ["분", "시간", "일", "주", "개월"]
     private static let unitMultipliers = [1, 60, 1440, 10080, 43200]
+    private static let alarmPresetOffsets = [0, 5, 10, 15, 30, 60, 120, 1440, 2880, 10080]
 
     private var datePickerSelection: Binding<Date> {
         Binding(
@@ -176,6 +177,7 @@ struct TodoEditFormView: View {
                             withAnimation { clearTime() }
                         }
                         .foregroundStyle(.secondary)
+                        .buttonStyle(.borderless)
                         Spacer()
                         Button("완료") {
                             let cal = Calendar.current
@@ -190,6 +192,7 @@ struct TodoEditFormView: View {
                         }
                         .tint(AppTheme.shared.accent)
                         .fontWeight(.semibold)
+                        .buttonStyle(.borderless)
                     }
 
                     DatePicker(
@@ -231,6 +234,9 @@ struct TodoEditFormView: View {
                     Text("1일 전").foregroundStyle(.secondary).tag(Optional(1440))
                     Text("2일 전").foregroundStyle(.secondary).tag(Optional(2880))
                     Text("1주 전").foregroundStyle(.secondary).tag(Optional(10080))
+                    if let offset = alarmOffset, !Self.alarmPresetOffsets.contains(offset) {
+                        Text(customLabel(offset)).foregroundStyle(.secondary).tag(Optional(offset))
+                    }
                     Text("직접 입력").foregroundStyle(.secondary).tag(Optional(-1))
                 }
                 .pickerStyle(.menu)
@@ -238,6 +244,21 @@ struct TodoEditFormView: View {
                 .simultaneousGesture(TapGesture().onEnded { resignKeyboard() })
 
                 if showCustomAlarmInput {
+                    HStack {
+                        Button("없음") {
+                            clearAlarm()
+                        }
+                        .foregroundStyle(.secondary)
+                        .buttonStyle(.borderless)
+                        Spacer()
+                        Button("완료") {
+                            withAnimation { showCustomAlarmInput = false }
+                        }
+                        .tint(AppTheme.shared.accent)
+                        .fontWeight(.semibold)
+                        .buttonStyle(.borderless)
+                    }
+
                     HStack(spacing: 0) {
                         Picker("", selection: $customAlarmNumber) {
                             ForEach(1...999, id: \.self) { n in
@@ -284,9 +305,9 @@ struct TodoEditFormView: View {
     // MARK: - Private
 
     private var alarmPickerSelection: Int? {
+        if showCustomAlarmInput { return Optional(-1) }
         guard let offset = alarmOffset else { return nil }
-        let presets = [0, 5, 10, 15, 30, 60, 120, 1440, 2880, 10080]
-        return presets.contains(offset) ? offset : Optional(-1)
+        return offset
     }
 
     private func resignKeyboard() {
@@ -351,10 +372,10 @@ struct TodoEditFormView: View {
     }
 
     private func customLabel(_ minutes: Int) -> String {
-        if minutes % 43200 == 0 { return "\(minutes / 43200)개월 전" }
-        if minutes % 10080 == 0 { return "\(minutes / 10080)주 전" }
-        if minutes % 1440 == 0  { return "\(minutes / 1440)일 전" }
-        if minutes % 60 == 0    { return "\(minutes / 60)시간 전" }
-        return "\(minutes)분 전"
+        if minutes % 43200 == 0 { return String(localized: "\(minutes / 43200)개월 전") }
+        if minutes % 10080 == 0 { return String(localized: "\(minutes / 10080)주 전") }
+        if minutes % 1440 == 0  { return String(localized: "\(minutes / 1440)일 전") }
+        if minutes % 60 == 0    { return String(localized: "\(minutes / 60)시간 전") }
+        return String(localized: "\(minutes)분 전")
     }
 }
