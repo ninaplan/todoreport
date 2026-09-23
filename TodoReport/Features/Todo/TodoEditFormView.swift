@@ -21,7 +21,9 @@ struct TodoEditFormView: View {
     @State private var timePickerValue: Date = .now
     @State private var showCustomAlarmInput = false
     @State private var customAlarmNumber = 30
+    @State private var customAlarmNumberText = "30"
     @State private var customAlarmUnit = 0
+    @FocusState private var isCustomAlarmNumberFocused: Bool
 
     private static let datePickerAnchor = "todoEditDatePicker"
     private static let unitNames = ["분", "시간", "일", "주", "개월"]
@@ -213,9 +215,17 @@ struct TodoEditFormView: View {
                     set: { value in
                         resignKeyboard()
                         if value == Optional(-1) {
-                            customAlarmNumber = 30
-                            customAlarmUnit = 0
-                            alarmOffset = 30
+                            let multipliers = Self.unitMultipliers
+                            if let offset = alarmOffset,
+                               let index = multipliers.indices.reversed().first(where: { offset % multipliers[$0] == 0 }),
+                               (1...999).contains(offset / multipliers[index]) {
+                                customAlarmNumber = offset / multipliers[index]
+                                customAlarmUnit = index
+                            } else {
+                                customAlarmNumber = 30
+                                customAlarmUnit = 0
+                                alarmOffset = 30
+                            }
                             showCustomAlarmInput = true
                         } else {
                             alarmOffset = value
@@ -252,6 +262,13 @@ struct TodoEditFormView: View {
                         .buttonStyle(.borderless)
                         Spacer()
                         Button("완료") {
+                            if let number = Int(customAlarmNumberText), (1...999).contains(number) {
+                                customAlarmNumberText = String(number)
+                            } else {
+                                customAlarmNumberText = String(customAlarmNumber)
+                            }
+                            isCustomAlarmNumberFocused = false
+                            resignKeyboard()
                             withAnimation { showCustomAlarmInput = false }
                         }
                         .tint(AppTheme.shared.accent)
@@ -260,14 +277,25 @@ struct TodoEditFormView: View {
                     }
 
                     HStack(spacing: 0) {
-                        Picker("", selection: $customAlarmNumber) {
-                            ForEach(1...999, id: \.self) { n in
-                                Text("\(n)").tag(n)
-                            }
-                        }
-                        .pickerStyle(.wheel)
+                        TextField(
+                            "",
+                            text: Binding(
+                                get: { customAlarmNumberText },
+                                set: { newValue in
+                                    let clipped = String(newValue.filter { $0.isASCII && ("0"..."9").contains($0) }.prefix(3))
+                                    customAlarmNumberText = clipped
+                                    guard let number = Int(clipped), (1...999).contains(number) else { return }
+                                    customAlarmNumber = number
+                                    updateCustomAlarm()
+                                }
+                            )
+                        )
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.center)
+                        .focused($isCustomAlarmNumberFocused)
+                        .font(.title2)
                         .frame(maxWidth: .infinity)
-                        .clipped()
+                        .accessibilityLabel("알림")
 
                         Picker("", selection: $customAlarmUnit) {
                             ForEach(0..<Self.unitNames.count, id: \.self) { i in
@@ -279,8 +307,13 @@ struct TodoEditFormView: View {
                         .clipped()
                     }
                     .frame(height: 150)
-                    .onChange(of: customAlarmNumber) { _, _ in updateCustomAlarm() }
                     .onChange(of: customAlarmUnit) { _, _ in updateCustomAlarm() }
+                    .onAppear {
+                        customAlarmNumberText = String(customAlarmNumber)
+                        Task { @MainActor in
+                            isCustomAlarmNumberFocused = true
+                        }
+                    }
                 }
             }
         } footer: {
