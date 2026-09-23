@@ -5,6 +5,7 @@ struct DebugDeveloperOptionsSection: View {
     @State private var inputURL = BackendBaseURL.overrideValue ?? ""
     @State private var queueCounts: (pending: Int, processing: Int, failed: Int) = (0, 0, 0)
     @State private var showPaywallPreview = false
+    @State private var showGhostCleanupAlert = false
 
     var body: some View {
         Group {
@@ -23,6 +24,15 @@ struct DebugDeveloperOptionsSection: View {
                 }
                 Button("큐 상세 로그 출력") {
                     SyncQueueManager.shared.debugDumpQueueItems()
+                }
+                Button("유령 데이터 점검") {
+                    GhostDataDiagnostics.dump()
+                }
+                Button("정리 대상 미리보기") {
+                    GhostDataDiagnostics.previewCleanup()
+                }
+                Button("유령 데이터 정리 실행") {
+                    showGhostCleanupAlert = true
                 }
             } header: {
                 Text("동기화 큐 상태")
@@ -71,6 +81,14 @@ struct DebugDeveloperOptionsSection: View {
             PaywallView()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+        }
+        .alert("유령 데이터 정리", isPresented: $showGhostCleanupAlert) {
+            Button("취소", role: .cancel) {}
+            Button("정리", role: .destructive) {
+                GhostDataDiagnostics.cleanup()
+            }
+        } message: {
+            Text("종료일이 시작일보다 앞선 시리즈의 이후 할일을 로컬에서만 삭제합니다. 노션에는 반영되지 않습니다.")
         }
     }
 
