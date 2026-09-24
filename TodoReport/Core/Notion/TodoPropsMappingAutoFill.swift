@@ -508,6 +508,7 @@ enum ReportPropsMappingAutoFill {
         ) {
             reviewMode = .existing
         }
+        if mapping.ratingStoredInAppOnly { return }
         let ratingTypes = ["select", "status"]
         for type in ratingTypes {
             if resolveStandard(
@@ -545,32 +546,34 @@ enum ReportPropsMappingAutoFill {
             allowFirstFallback: true,
             preserveIfMissing: true
         )
-        if let ratingType = mapping.ratingPropType {
-            resolveStandard(
-                name: &mapping.rating,
-                id: &mapping.ratingPropId,
-                type: ratingType,
-                defaultName: "별점",
-                properties: properties,
-                allowFirstFallback: false,
-                preserveIfMissing: true
-            )
-        } else {
-            for type in ["select", "status"] {
-                if resolveStandard(
+        if !mapping.ratingStoredInAppOnly {
+            if let ratingType = mapping.ratingPropType {
+                resolveStandard(
                     name: &mapping.rating,
                     id: &mapping.ratingPropId,
-                    type: type,
+                    type: ratingType,
                     defaultName: "별점",
                     properties: properties,
                     allowFirstFallback: false,
                     preserveIfMissing: true
-                ) {
-                    break
+                )
+            } else {
+                for type in ["select", "status"] {
+                    if resolveStandard(
+                        name: &mapping.rating,
+                        id: &mapping.ratingPropId,
+                        type: type,
+                        defaultName: "별점",
+                        properties: properties,
+                        allowFirstFallback: false,
+                        preserveIfMissing: true
+                    ) {
+                        break
+                    }
                 }
             }
+            applyRatingMetadata(mapping: &mapping, properties: properties)
         }
-        applyRatingMetadata(mapping: &mapping, properties: properties)
         resolveStandard(
             name: &mapping.periodCompletionRate,
             id: &mapping.periodCompletionRatePropId,
@@ -585,12 +588,14 @@ enum ReportPropsMappingAutoFill {
     static func backfillIds(mapping: inout ReportPropsMapping, properties: [NotionProperty]) {
         backfillField(name: &mapping.date, id: &mapping.datePropId, type: "date", properties: properties)
         backfillField(name: &mapping.review, id: &mapping.reviewPropId, type: "rich_text", properties: properties)
-        if let ratingType = mapping.ratingPropType {
-            backfillField(name: &mapping.rating, id: &mapping.ratingPropId, type: ratingType, properties: properties)
-        } else {
-            for type in ["select", "status"] {
-                if backfillField(name: &mapping.rating, id: &mapping.ratingPropId, type: type, properties: properties) {
-                    break
+        if !mapping.ratingStoredInAppOnly {
+            if let ratingType = mapping.ratingPropType {
+                backfillField(name: &mapping.rating, id: &mapping.ratingPropId, type: ratingType, properties: properties)
+            } else {
+                for type in ["select", "status"] {
+                    if backfillField(name: &mapping.rating, id: &mapping.ratingPropId, type: type, properties: properties) {
+                        break
+                    }
                 }
             }
         }
@@ -609,6 +614,7 @@ enum ReportPropsMappingAutoFill {
         ratingMode: inout PropMappingMode
     ) {
         mapping.rating = name
+        mapping.ratingStoredInAppOnly = name == nil
         if let name, let prop = properties.first(where: { $0.name == name }) {
             mapping.ratingPropId = prop.id
             mapping.dayRatingOptions = prop.options ?? []

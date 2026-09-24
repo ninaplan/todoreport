@@ -164,7 +164,10 @@ final class DailyReportService {
     private func upsertFromNotion(_ r: NotionReportResponse, for date: Date, plannerId: String?, mapping: ReportPropsMapping) {
         let startOfDay = Calendar.current.startOfDay(for: date)
         let pageId = r.notionPageId
-        let convertedRaw = notionRatingToDayRatingRaw(r.rating, options: mapping.dayRatingOptions)
+        let storesRatingInNotion = mapping.rating != nil
+        let convertedRaw = storesRatingInNotion
+            ? notionRatingToDayRatingRaw(r.rating, options: mapping.dayRatingOptions)
+            : nil
 
         print("[DailyReport] 🔄 upsert - notionPageId:\(pageId) review:\(r.review ?? "nil")")
 
@@ -173,7 +176,13 @@ final class DailyReportService {
             predicate: #Predicate { $0.notionPageId == pageId }
         )
         if let existing = try? context.fetch(byPageId).first {
-            applyPulledContent(to: existing, review: r.review ?? "", dayRatingRaw: convertedRaw, notionPageId: r.notionPageId)
+            applyPulledContent(
+                to: existing,
+                review: r.review ?? "",
+                dayRatingRaw: convertedRaw,
+                notionPageId: r.notionPageId,
+                applyRating: storesRatingInNotion
+            )
             print("[DailyReport] 🔄 upsert - notionPageId 일치 항목 업데이트")
         } else {
             // 2순위: 같은 date + plannerId 이면서 notionPageId가 빈 항목
@@ -186,7 +195,13 @@ final class DailyReportService {
                 return item.date >= startOfDay && item.date < end && item.plannerId == plannerId
             }
             if let pendingItem = pending?.first {
-                applyPulledContent(to: pendingItem, review: r.review ?? "", dayRatingRaw: convertedRaw, notionPageId: r.notionPageId)
+                applyPulledContent(
+                    to: pendingItem,
+                    review: r.review ?? "",
+                    dayRatingRaw: convertedRaw,
+                    notionPageId: r.notionPageId,
+                    applyRating: storesRatingInNotion
+                )
                 print("[DailyReport] 🔄 upsert - 빈 notionPageId 항목에 연결")
             } else {
                 let report = DailyReport(
@@ -289,16 +304,18 @@ final class DailyReportService {
         if !report.notionPageId.isEmpty { body["notionPageId"] = report.notionPageId }
         if let v = mapping.date   { body["dateProp"] = v }
         if let v = mapping.review { body["reviewProp"] = v }
-        if let v = mapping.rating { body["ratingProp"] = v }
-        if let dayRating = report.dayRating {
-            let starIndex = DayRating.allCases.firstIndex(of: dayRating) ?? 0
-            let options = mapping.dayRatingOptions
-            if options.isEmpty {
-                body["rating"] = dayRating.rawValue
-            } else if starIndex < options.count {
-                body["rating"] = options[starIndex]
+        if let ratingProp = mapping.rating {
+            body["ratingProp"] = ratingProp
+            if let dayRating = report.dayRating {
+                let starIndex = DayRating.allCases.firstIndex(of: dayRating) ?? 0
+                let options = mapping.dayRatingOptions
+                if options.isEmpty {
+                    body["rating"] = dayRating.rawValue
+                } else if starIndex < options.count {
+                    body["rating"] = options[starIndex]
+                }
+                if let t = mapping.ratingPropType { body["ratingPropType"] = t }
             }
-            if let t = mapping.ratingPropType { body["ratingPropType"] = t }
         }
         if let end = report.endDate {
             let inclusiveEnd = cal.date(byAdding: .day, value: -1, to: end) ?? end
@@ -361,11 +378,14 @@ final class DailyReportService {
         to item: DailyReportItem,
         review: String,
         dayRatingRaw: String?,
-        notionPageId: String
+        notionPageId: String,
+        applyRating: Bool
     ) {
         if item.notionSyncPendingAt == nil {
             item.review = review
-            item.dayRatingRaw = dayRatingRaw
+            if applyRating {
+                item.dayRatingRaw = dayRatingRaw
+            }
         }
         item.notionPageId = notionPageId
     }

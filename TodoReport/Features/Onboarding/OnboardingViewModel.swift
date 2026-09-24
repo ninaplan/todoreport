@@ -43,6 +43,54 @@ struct ReportPropsMapping: Codable {
     var periodCompletionRatePropId: String? = nil
     var dayRatingOptions: [String] = []
     var ratingPropType: String? = nil
+    /// 사용자가 별점 「앱에만 저장」을 고른 경우. 저장 JSON에 키가 없으면 false.
+    var ratingStoredInAppOnly: Bool = false
+
+    private enum CodingKeys: String, CodingKey {
+        case date
+        case datePropId
+        case review
+        case reviewPropId
+        case rating
+        case ratingPropId
+        case periodCompletionRate
+        case periodCompletionRatePropId
+        case dayRatingOptions
+        case ratingPropType
+        case ratingStoredInAppOnly
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        date = try container.decodeIfPresent(String.self, forKey: .date)
+        datePropId = try container.decodeIfPresent(String.self, forKey: .datePropId)
+        review = try container.decodeIfPresent(String.self, forKey: .review)
+        reviewPropId = try container.decodeIfPresent(String.self, forKey: .reviewPropId)
+        rating = try container.decodeIfPresent(String.self, forKey: .rating)
+        ratingPropId = try container.decodeIfPresent(String.self, forKey: .ratingPropId)
+        periodCompletionRate = try container.decodeIfPresent(String.self, forKey: .periodCompletionRate)
+        periodCompletionRatePropId = try container.decodeIfPresent(String.self, forKey: .periodCompletionRatePropId)
+        dayRatingOptions = try container.decodeIfPresent([String].self, forKey: .dayRatingOptions) ?? []
+        ratingPropType = try container.decodeIfPresent(String.self, forKey: .ratingPropType)
+        ratingStoredInAppOnly = try container.decodeIfPresent(Bool.self, forKey: .ratingStoredInAppOnly) ?? false
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(date, forKey: .date)
+        try container.encode(datePropId, forKey: .datePropId)
+        try container.encode(review, forKey: .review)
+        try container.encode(reviewPropId, forKey: .reviewPropId)
+        try container.encode(rating, forKey: .rating)
+        try container.encode(ratingPropId, forKey: .ratingPropId)
+        try container.encode(periodCompletionRate, forKey: .periodCompletionRate)
+        try container.encode(periodCompletionRatePropId, forKey: .periodCompletionRatePropId)
+        try container.encode(dayRatingOptions, forKey: .dayRatingOptions)
+        try container.encode(ratingPropType, forKey: .ratingPropType)
+        try container.encode(ratingStoredInAppOnly, forKey: .ratingStoredInAppOnly)
+    }
 }
 
 enum PropMappingMode: Equatable {
@@ -482,6 +530,7 @@ final class OnboardingViewModel {
         reportPropsMapping.dayRatingOptions = options
         reportPropsMapping.ratingPropType = "select"
         reportPropsMapping.rating = name
+        reportPropsMapping.ratingStoredInAppOnly = false
         ratingMode = .existing
         await refreshReportPropertiesList()
         ReportPropsMappingAutoFill.backfillIds(mapping: &reportPropsMapping, properties: reportProperties)

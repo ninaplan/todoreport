@@ -326,6 +326,7 @@ final class PlannerAddViewModel {
         reportPropsMapping.dayRatingOptions = options
         reportPropsMapping.ratingPropType = "select"
         reportPropsMapping.rating = name
+        reportPropsMapping.ratingStoredInAppOnly = false
         ratingMode = .existing
     }
 
@@ -373,11 +374,15 @@ final class PlannerAddViewModel {
         }
         reportPropsMapping.date = best(type: "date", default: "날짜")?.name
         if let p = best(type: "rich_text", default: "하루 리뷰") { reportPropsMapping.review = p.name; reviewMode = .existing }
-        if let p = best(type: "select", default: "별점") ?? best(type: "status", default: "별점") { selectRating(p.name) }
+        if !reportPropsMapping.ratingStoredInAppOnly,
+           let p = best(type: "select", default: "별점") ?? best(type: "status", default: "별점") {
+            selectRating(p.name)
+        }
     }
 
     func selectRating(_ name: String?) {
         reportPropsMapping.rating = name
+        reportPropsMapping.ratingStoredInAppOnly = name == nil
         if let name, let prop = reportProperties.first(where: { $0.name == name }) {
             reportPropsMapping.dayRatingOptions = prop.options ?? []
             reportPropsMapping.ratingPropType = prop.type

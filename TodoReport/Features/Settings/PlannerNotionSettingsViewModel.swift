@@ -261,6 +261,7 @@ final class PlannerNotionSettingsViewModel {
         reportPropsMapping.dayRatingOptions = options
         reportPropsMapping.ratingPropType = "select"
         reportPropsMapping.rating = name
+        reportPropsMapping.ratingStoredInAppOnly = false
         ratingMode = .existing
         await fetchReportProperties(autoMap: false)
         selectRating(name)

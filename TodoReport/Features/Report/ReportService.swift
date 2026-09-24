@@ -303,8 +303,10 @@ final class ReportService {
         if !notionPageIdForSave.isEmpty { body["notionPageId"] = notionPageIdForSave }
         if let v = mapping.date   { body["dateProp"] = v }
         if let v = mapping.review { body["reviewProp"] = v }
-        if let v = mapping.rating { body["ratingProp"] = v }
-        if let r = rating         { body["rating"] = r.rawValue }
+        if let ratingProp = mapping.rating {
+            body["ratingProp"] = ratingProp
+            if let r = rating { body["rating"] = r.rawValue }
+        }
         if let prop = mapping.periodCompletionRate {
             body["periodCompletionRateProp"] = prop
             body["periodCompletionRate"] = completionRate
