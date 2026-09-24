@@ -100,6 +100,7 @@ struct TodoReportApp: App {
                 presentWhatsNewPopupIfNeeded()
                 ReportNotificationManager.shared.rescheduleAll()
                 Task { @MainActor in SyncQueueManager.shared.processIfConnected() }
+                Task { await DailyReportService().retryPendingNotionSync() }
                 Task { @MainActor in NotionRelationLinker.shared.linkMissing() }
                 Task {
                     if let plannerId = PlannerService.shared.selectedPlanner?.id {

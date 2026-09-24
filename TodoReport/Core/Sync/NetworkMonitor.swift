@@ -33,6 +33,7 @@ final class NetworkMonitor: @unchecked Sendable {
     private func handleConnectivityChange(_ isConnected: Bool) {
         if isConnected, !wasConnected {
             SyncQueueManager.shared.processIfConnected()
+            Task { await DailyReportService().retryPendingNotionSync() }
         }
         wasConnected = isConnected
     }

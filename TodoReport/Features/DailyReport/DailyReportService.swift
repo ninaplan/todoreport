@@ -56,6 +56,27 @@ enum DayRating: String, CaseIterable, Codable {
 final class DailyReportService {
     private var context: ModelContext { PersistenceController.shared.context }
 
+    private final class NotionSyncFlight: @unchecked Sendable {
+        private let lock = NSLock()
+        private var ids: Set<String> = []
+
+        func tryBegin(_ id: String) -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            guard !ids.contains(id) else { return false }
+            ids.insert(id)
+            return true
+        }
+
+        func end(_ id: String) {
+            lock.lock()
+            ids.remove(id)
+            lock.unlock()
+        }
+    }
+
+    private static let notionSyncFlight = NotionSyncFlight()
+
     func fetchReport(for date: Date) async -> DailyReport? {
         let startOfDay = Calendar.current.startOfDay(for: date)
         guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return nil }
@@ -152,9 +173,7 @@ final class DailyReportService {
             predicate: #Predicate { $0.notionPageId == pageId }
         )
         if let existing = try? context.fetch(byPageId).first {
-            existing.review = r.review ?? ""
-            existing.dayRatingRaw = convertedRaw
-            existing.notionPageId = r.notionPageId
+            applyPulledContent(to: existing, review: r.review ?? "", dayRatingRaw: convertedRaw, notionPageId: r.notionPageId)
             print("[DailyReport] 🔄 upsert - notionPageId 일치 항목 업데이트")
         } else {
             // 2순위: 같은 date + plannerId 이면서 notionPageId가 빈 항목
@@ -167,9 +186,7 @@ final class DailyReportService {
                 return item.date >= startOfDay && item.date < end && item.plannerId == plannerId
             }
             if let pendingItem = pending?.first {
-                pendingItem.review = r.review ?? ""
-                pendingItem.dayRatingRaw = convertedRaw
-                pendingItem.notionPageId = r.notionPageId
+                applyPulledContent(to: pendingItem, review: r.review ?? "", dayRatingRaw: convertedRaw, notionPageId: r.notionPageId)
                 print("[DailyReport] 🔄 upsert - 빈 notionPageId 항목에 연결")
             } else {
                 let report = DailyReport(
@@ -215,24 +232,49 @@ final class DailyReportService {
             predicate: #Predicate { $0.date >= startOfDay && $0.date < endOfDay }
         )
         let existing = try context.fetch(descriptor)
+        let saved: DailyReportItem
         if let item = existing.first(where: { $0.plannerId == pid }) {
             item.update(from: r)
+            saved = item
         } else {
-            context.insert(DailyReportItem.from(r))
+            let created = DailyReportItem.from(r)
+            context.insert(created)
+            saved = created
+        }
+        let queueNotionSync = saved.endDate == nil && canSyncReportToNotion(plannerId: r.plannerId)
+        if queueNotionSync {
+            saved.notionSyncPendingAt = Date()
         }
         try context.save()
 
-        let captured = r
-        Task { await syncToNotion(captured) }
+        if queueNotionSync {
+            let id = saved.id
+            Task { await self.pushPendingReport(id: id) }
+        } else {
+            let captured = r
+            Task { await syncToNotion(captured) }
+        }
     }
 
-    func syncToNotion(_ report: DailyReport, retryCount: Int = 0) async {
+    /// 노션 저장 대기(`notionSyncPendingAt != nil`)인 하루 리뷰만 다시 보낸다.
+    func retryPendingNotionSync() async {
+        let online = await MainActor.run { NetworkMonitor.shared.isConnected }
+        guard online else { return }
+        let pending = ((try? context.fetch(FetchDescriptor<DailyReportItem>())) ?? []).filter {
+            $0.endDate == nil && $0.notionSyncPendingAt != nil
+        }
+        for item in pending {
+            await pushPendingReport(id: item.id)
+        }
+    }
+
+    func syncToNotion(_ report: DailyReport, retryCount: Int = 0) async -> Bool {
         print("[DailyReport] 📤 Notion sync 시작")
         guard let planner = PlannerService.shared.store.first(where: { $0.id == report.plannerId }),
               planner.isNotionConnected,
               let dbId = planner.notionReportDBId else {
             print("[DailyReport] ⚠️ 플래너 없음 또는 reportDBId 없음 - plannerId:\(report.plannerId ?? "nil") 스킵")
-            return
+            return false
         }
         let mapping = planner.decodedReportPropsMapping
         let token = planner.resolvedNotionToken
@@ -287,7 +329,7 @@ final class DailyReportService {
             } else {
                 // 신규 생성: date + plannerId로 찾아서 notionPageId 저장
                 guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay),
-                      let pid = report.plannerId else { return }
+                      let pid = report.plannerId else { return true }
                 let allDesc = FetchDescriptor<DailyReportItem>()
                 let all = (try? context.fetch(allDesc)) ?? []
                 if let item = all.first(where: {
@@ -297,13 +339,63 @@ final class DailyReportService {
                     try? context.save()
                 }
             }
+            return true
         } catch {
             print("[DailyReport] ❌ Notion 저장 실패 - \(error)")
             if retryCount < 2 {
                 try? await Task.sleep(for: .seconds(3))
-                await syncToNotion(report, retryCount: retryCount + 1)
+                return await syncToNotion(report, retryCount: retryCount + 1)
             }
+            return false
         }
+    }
+
+    private func canSyncReportToNotion(plannerId: String?) -> Bool {
+        guard let planner = PlannerService.shared.store.first(where: { $0.id == plannerId }),
+              planner.isNotionConnected,
+              planner.notionReportDBId != nil else { return false }
+        return true
+    }
+
+    private func applyPulledContent(
+        to item: DailyReportItem,
+        review: String,
+        dayRatingRaw: String?,
+        notionPageId: String
+    ) {
+        if item.notionSyncPendingAt == nil {
+            item.review = review
+            item.dayRatingRaw = dayRatingRaw
+        }
+        item.notionPageId = notionPageId
+    }
+
+    /// 같은 id는 한 번에 하나만 보낸다. 성공 시 대기 시각이 보낼 때와 같으면 표시를 지운다.
+    private func pushPendingReport(id: String) async {
+        guard Self.notionSyncFlight.tryBegin(id) else { return }
+        defer { Self.notionSyncFlight.end(id) }
+
+        while true {
+            guard let item = fetchReportItem(id: id),
+                  let pendingAt = item.notionSyncPendingAt,
+                  item.endDate == nil else { return }
+            let sent = await syncToNotion(item.toReport())
+            guard let latest = fetchReportItem(id: id) else { return }
+            if sent, latest.notionSyncPendingAt == pendingAt {
+                latest.notionSyncPendingAt = nil
+                try? context.save()
+                return
+            }
+            if !sent { return }
+        }
+    }
+
+    private func fetchReportItem(id: String) -> DailyReportItem? {
+        let itemId = id
+        let descriptor = FetchDescriptor<DailyReportItem>(
+            predicate: #Predicate { $0.id == itemId }
+        )
+        return try? context.fetch(descriptor).first
     }
 }
 

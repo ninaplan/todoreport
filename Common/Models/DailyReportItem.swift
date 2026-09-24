@@ -14,6 +14,8 @@ final class DailyReportItem {
     var endDate: Date?
     var periodCompletionRate: Double?
     var aiComment: String?
+    /// 노션 저장이 끝날 때까지 남김. nil이면 대기 아님. 값 자체가 대기 시작 시각.
+    var notionSyncPendingAt: Date? = nil
 
     init(
         id: String = UUID().uuidString,
@@ -26,7 +28,8 @@ final class DailyReportItem {
         plannerId: String? = nil,
         endDate: Date? = nil,
         periodCompletionRate: Double? = nil,
-        aiComment: String? = nil
+        aiComment: String? = nil,
+        notionSyncPendingAt: Date? = nil
     ) {
         self.id = id
         self.date = date
@@ -39,5 +42,6 @@ final class DailyReportItem {
         self.endDate = endDate
         self.periodCompletionRate = periodCompletionRate
         self.aiComment = aiComment
+        self.notionSyncPendingAt = notionSyncPendingAt
     }
 }

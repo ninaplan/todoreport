@@ -638,7 +638,8 @@ final class PersistenceController {
                 plannerId: source.plannerId,
                 endDate: source.endDate,
                 periodCompletionRate: source.periodCompletionRate,
-                aiComment: source.aiComment
+                aiComment: source.aiComment,
+                notionSyncPendingAt: source.notionSyncPendingAt
             )
             shared.insert(copy)
             merged += 1
