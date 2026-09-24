@@ -61,6 +61,11 @@ struct CategoryView: View {
                 Text(viewModel.deleteAlertMessage(for: category))
             }
         }
+        .alert("인터넷 연결이 필요해요", isPresented: $viewModel.showOfflineCategoryAlert) {
+            Button("확인") { viewModel.confirmOfflineCategoryAlert() }
+        } message: {
+            Text("노션과 연동된 카테고리는 인터넷에 연결된 상태에서 추가하거나 삭제할 수 있어요.")
+        }
     }
 
     @ViewBuilder
@@ -344,6 +349,11 @@ private struct CategoryEditSheet: View {
                 if let category = viewModel.deletingCategory {
                     Text(viewModel.deleteAlertMessage(for: category))
                 }
+            }
+            .alert("인터넷 연결이 필요해요", isPresented: $viewModel.showOfflineCategoryAlert) {
+                Button("확인") { viewModel.confirmOfflineCategoryAlert() }
+            } message: {
+                Text("노션과 연동된 카테고리는 인터넷에 연결된 상태에서 추가하거나 삭제할 수 있어요.")
             }
             .alert("이름은 노션에서 변경해주세요", isPresented: $viewModel.showNotionNameChangeAlert) {
                 Button("확인") { viewModel.confirmNotionNameChange() }

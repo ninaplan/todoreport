@@ -1452,6 +1452,16 @@
         }
       }
     },
+    "노션과 연동된 카테고리는 인터넷에 연결된 상태에서 추가하거나 삭제할 수 있어요." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Categories linked to Notion can only be added or deleted while connected to the internet."
+          }
+        }
+      }
+    },
     "노션에 리포트 저장하기" : {
       "localizations" : {
         "en" : {
@@ -3981,6 +3991,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Didn't receive an authentication response"
+          }
+        }
+      }
+    },
+    "인터넷 연결이 필요해요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Internet Connection Required"
           }
         }
       }

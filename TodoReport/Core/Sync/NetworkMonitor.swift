@@ -11,6 +11,10 @@ final class NetworkMonitor: @unchecked Sendable {
     private var wasConnected = false
     private var hasStarted = false
 
+    var isConnected: Bool {
+        monitor.currentPath.status == .satisfied
+    }
+
     func start() {
         guard !hasStarted else { return }
         hasStarted = true

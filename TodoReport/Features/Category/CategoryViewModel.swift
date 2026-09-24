@@ -17,6 +17,7 @@ final class CategoryViewModel {
     var showDeleteAlert: Bool = false
     private(set) var deletingCategory: Category? = nil
 
+    var showOfflineCategoryAlert: Bool = false
     var showNotionNameChangeAlert: Bool = false
 
     private var editingId: String? = nil
@@ -34,6 +35,10 @@ final class CategoryViewModel {
         let pid = plannerId ?? PlannerService.shared.selectedPlanner?.id
         guard let pid else { return nil }
         return PlannerService.shared.store.first(where: { $0.id == pid })
+    }
+
+    private var isOfflineNotionSelect: Bool {
+        isNotionCategorySyncEnabled && !NetworkMonitor.shared.isConnected
     }
 
     private func updateNotionSyncVisibility() {
@@ -96,6 +101,10 @@ final class CategoryViewModel {
     // MARK: - Sheet
 
     func openAddSheet() {
+        guard !isOfflineNotionSelect else {
+            showOfflineCategoryAlert = true
+            return
+        }
         editingId = nil
         editName = ""
         editColorHex = pickDefaultColor()
@@ -184,11 +193,17 @@ final class CategoryViewModel {
 
     func saveEdit() async {
         guard !isSaving else { return }
-        isSaving = true
-        defer { isSaving = false }
 
         let trimmed = editName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
+
+        if !isEditing, isOfflineNotionSelect {
+            showOfflineCategoryAlert = true
+            return
+        }
+
+        isSaving = true
+        defer { isSaving = false }
 
         if isEditing,
            isNotionCategorySyncEnabled,
@@ -217,6 +232,10 @@ final class CategoryViewModel {
     // MARK: - Delete
 
     func requestDelete(_ category: Category) {
+        guard !isOfflineNotionSelect else {
+            showOfflineCategoryAlert = true
+            return
+        }
         deletingCategory = category
         showDeleteAlert = true
     }
@@ -226,8 +245,21 @@ final class CategoryViewModel {
         showDeleteAlert = false
     }
 
+    func cancelOfflineCategoryAlert() {
+        showOfflineCategoryAlert = false
+    }
+
+    func confirmOfflineCategoryAlert() {
+        showOfflineCategoryAlert = false
+    }
+
     func confirmDelete() async {
         guard let category = deletingCategory else { return }
+        guard !isOfflineNotionSelect else {
+            cancelDelete()
+            showOfflineCategoryAlert = true
+            return
+        }
         withAnimation(.default) {
             categories.removeAll { $0.id == category.id }
         }
