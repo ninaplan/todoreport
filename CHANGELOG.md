@@ -2,6 +2,10 @@
 
 ## [1.17] - 미정
 
+### 새 기능
+- 카테고리 필터를 앱을 다시 열어도 유지하는 「필터 기억하기」 옵션 추가
+- Added "Remember Filter" option to keep your category filter after reopening the app
+
 ### 개선
 - 할 일 알림에 「오늘 / 내일 / 모레」와 시각이 표시됩니다
 - 알림에서 할 일 제목과 시각이 구분되어 보입니다

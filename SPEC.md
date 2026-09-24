@@ -1,7 +1,7 @@
 # 투두리포트 앱 개발 스펙
 
 > 작성일: 2026-05-26  
-> 최종 업데이트: 2026-09-21 (카테고리 필터 peek · WhatsNew 1.15 팝업 · 페이월 연간 체험 배지)  
+> 최종 업데이트: 2026-09-23 (투두 탭 「필터 기억하기」)  
 > 브랜드: 노크(Nock / nock.kr)  
 > 앱명 (홈 화면): 투두리포트  
 > App Store 이름: 노션품은 투두x리포트  
@@ -553,12 +553,24 @@ api/
 - 노션 연결 정보(토큰, DB ID, 속성 매핑)만 초기화되고 **로컬 투두·리포트 데이터는 삭제되지 않음** — 해당 플래너는 로컬 전용 플래너로 전환됨
 - 노션 쪽 원본 데이터도 삭제하지 않음 (API 삭제 호출 없음)
 
-#### 카테고리 필터 다중선택 (v1.15, peek 2026-09-21)
-- 맨 앞 필터 아이콘 메뉴가 **지속 필터** (`selectedCategoryFilter`). 2개 이상을 켜면 Pro
-- 칩 탭은 **peek** (`peekCategoryId`) — 필터 값은 바꾸지 않는 임시 보기. 주황 점은 캡슐 안 아이콘/텍스트 쪽
-- 무료가 메뉴에서 두 번째를 켜려 하면 `PaywallView` (문구: 「여러 카테고리 보기는 Pro 기능입니다.」)
+#### 카테고리 필터 다중선택 (v1.15, peek 2026-09-21, 기억하기 2026-09-23)
+- 맨 앞 필터 아이콘 메뉴가 **지속 필터** (`selectedCategoryFilter`, 사용자가 고른 원본). 2개 이상을 켜면 Pro
+- 화면의 목록·점·메뉴 체크·새 할일 자동 카테고리는 **`effectiveCategoryFilter`만** 읽는다. 구독 확인이 끝났고 Pro가 아니고 원본이 2개 이상이면 이 값은 전체(빈 값). 그 외에는 원본과 같다. 저장값은 비우지 않는다
+- 칩 탭은 **peek** (`peekCategoryId`) — 필터 값은 바꾸지 않는 임시 보기. 주황 점은 캡슐 안 아이콘/텍스트 쪽. peek는 저장하지 않음
+- 무료가 메뉴에서 두 번째를 켜려 하면 `PaywallView` (문구: 「여러 카테고리 보기는 Pro 기능입니다.」). 화면이 전체인 무료 제한 상태에서 하나를 고르면 그 1개만 새 원본이 되고 결제 화면은 뜨지 않음
 - 미분류는 메뉴·칩 모두에 있음. 빈 선택 = 전체. 미분류만 모아볼 수도 있다
-- 새 할일 자동 카테고리: peek 중인 실제 카테고리 우선. peek가 없거나 미분류면 필터가 실제 카테고리 1개일 때만
+- 새 할일 자동 카테고리: peek 중인 실제 카테고리 우선. peek가 없거나 미분류면 `effectiveCategoryFilter`가 실제 카테고리 1개일 때만
+- 월간 달력(`MonthCalendarView`) 카테고리 필터는 이 상태와 별개
+
+#### 필터 기억하기 (2026-09-23)
+- 필터 메뉴 맨 아래 토글 「필터 기억하기」. **기본 꺼짐**. 토글은 앱 공통 1개
+- 저장은 `UserDefaults.standard`만 사용 (App Group 아님)
+  - `todoKeepCategoryFilter` — Bool. 토글
+  - `todoCategoryFilterByPlanner` — JSON Data. `{ 플래너 id: [로컬 Category.id] }`. 미분류는 `__uncategorized__`
+- 켜는 순간 현재 플래너의 원본 필터를 저장하고, 이후 선택·해제·삭제·보관·숨김으로 정리된 원본만 그 플래너 키에 갱신
+- 콜드스타트·플래너 전환 시 그 플래너의 저장값을 복원. 이전 플래너 값이 새 플래너 키를 덮어쓰지 않음
+- 토글을 끄면 모든 플래너의 저장값을 삭제. 지금 화면의 필터는 그대로 두고, 다음 콜드스타트는 전체
+- 플래너 삭제 시 `TodoViewModel.removePersistedCategoryFilter(plannerId:)`로 그 플래너 값만 삭제
 
 #### 반복 투두 (Pro, v1.15)
 - 할일 추가·편집 시트에서 반복 주기를 설정한다. 무료는 Pro 배지와 함께 페이월이 열린다 (`RecurrenceSettingsSection`, `RecurringTodoManager` `isPro` 가드)
@@ -1041,7 +1053,7 @@ struct Category: Identifiable, Codable {
 
 > 새 할일 자동 카테고리: **peek 중인 실제 카테고리**가 있으면 그걸 지정. peek가 없거나 미분류면, 지속 필터가 **실제 카테고리 1개**일 때만. 전체·미분류·다중 필터에서는 지정하지 않음.
 
-> **카테고리 필터 (2026-09-21 peek):** 메뉴 = 지속 필터 다중선택, 칩 탭 = peek. 미분류 id `TodoViewModel.uncategorizedFilterId`. 2개 이상 선택은 Pro (`PaywallView` 「여러 카테고리 보기는 Pro 기능입니다.」). 미사용 「전체 칩 색상」(`AllChipColorStore`)은 제거됨.
+> **카테고리 필터 (2026-09-21 peek, 2026-09-23 기억하기):** 메뉴 = 지속 필터 다중선택, 칩 탭 = peek. 미분류 id `TodoViewModel.uncategorizedFilterId`. 2개 이상 선택은 Pro (`PaywallView` 「여러 카테고리 보기는 Pro 기능입니다.」). 화면은 `effectiveCategoryFilter`만 따른다. 「필터 기억하기」는 기본 꺼짐, 토글은 앱 공통, 저장은 플래너별 `UserDefaults.standard`. 미사용 「전체 칩 색상」(`AllChipColorStore`)은 제거됨. 월간 달력 필터는 별개.
 
 > **[확정] 완료율·별점·리뷰 카드 스타일**
 > - 날짜 행 바로 아래 단일 흰색 카드로 통합 (완료율 → 별점 → 리뷰 순)
@@ -1640,7 +1652,7 @@ SyncQueue에 createTodo 추가
 | 상태 항목 | 전환 시 동작 | 저장 위치 | 이유 |
 |---|---|---|---|
 | 선택된 날짜 | **유지** | 메모리 | 같은 날 두 플래너 비교가 자연스러움 |
-| 카테고리 필터 | **"전체"로 초기화** | 메모리 | 플래너마다 카테고리가 다를 수 있음 |
+| 카테고리 필터 | **「필터 기억하기」가 꺼져 있으면 메모리만** (전환 시 새 플래너 카테고리와 교집합). 켜져 있으면 그 플래너 저장값을 복원 | `UserDefaults.standard` (`todoKeepCategoryFilter` 앱 공통, `todoCategoryFilterByPlanner` 플래너별) | 플래너마다 카테고리가 다름. 무료 다중 제한은 저장값을 비우지 않고 `effectiveCategoryFilter`에서만 적용 |
 | 완료 숨기기 (`hideCompleted`) | **유지 (전역)** | UserDefaults | 취향 설정. UI는 「완료된 할일 보기」로 뒤집어 표시 |
 | 할일 메모 보기 | **유지 (전역)** | UserDefaults | 취향 설정, 플래너별 다를 필요 없음 |
 | 설정 시간 보기 | **유지 (전역)** | UserDefaults (`todoShowScheduledTime`, 기본 true) | 취향 설정, 플래너별 다를 필요 없음 |

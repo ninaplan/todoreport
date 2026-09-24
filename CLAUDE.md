@@ -14,7 +14,7 @@
 - v1.14 제출 예정 (투두탭 UI 미세 조정·FAB 유리 스타일·하단 탭 무반응·인박스 행 여백/액션 문구·위젯 숨김 카테고리. 마케팅 버전·빌드 번호는 Xcode에서만)
 - v1.15 제출 완료 (2026-09-21, 반복 투두·카테고리 필터 peek·카테고리 아이콘 보기·WhatsNew 팝업·페이월 체험 배지. 마케팅 버전·빌드 번호는 Xcode에서만)
 - v1.16 제출 완료 (2026-09-22, 리포트 목록→투두 이동·반복 할일 수집함 보내기·하루 리포트 카드 완료율 전체 기준. 마케팅 버전·빌드 번호는 Xcode에서만)
-- v1.17 제출 예정 (날짜 미정. 할 일 알림 문구·직접 입력 키패드·앱 사용 중 배너. 마케팅 버전·빌드 번호는 Xcode에서만)
+- v1.17 제출 예정 (날짜 미정. 할 일 알림 문구·직접 입력 키패드·앱 사용 중 배너·필터 기억하기. 마케팅 버전·빌드 번호는 Xcode에서만)
 
 ### 인박스 진행 (2026-09-11)
 - **완료:** `TodoItem`/`Todo.date` 옵셔널화 + 위젯 Predicate(`ed99bdf`·`aeed0c4`). 백엔드 `GET/POST /api/notion/todo/inbox` 배포(`todoreport-backend` `486bbce`). 편집 화면 「날짜 제거」→ 노션 date 속성 비움(`bb4992d` SyncQueue·AnyEncodable + 백엔드 PATCH). `+`에서 날짜 없이 저장 → 인박스 생성 UI 연결(`f6de244`, POST `/api/notion/todo/inbox`)
@@ -124,7 +124,7 @@
 
 - 메뉴 기반 **필터**(`selectedCategoryFilter`)는 지속. 칩 탭은 **peek**(`peekCategoryId`) — 필터 값을 바꾸지 않는 임시 보기
 - 필터 인 상태 주황 점은 캡슐 밖이 아니라 아이콘/텍스트 쪽에 붙임
-- `defaultCategoryIdForNewTodo`: ① peek가 실제 카테고리면 그 id ② peek가 없거나 미분류면 기존처럼 `selectedCategoryFilter`가 실제 카테고리 1개일 때만. 미분류 peek는 자동 지정 안 함
+- `defaultCategoryIdForNewTodo`: ① peek가 실제 카테고리면 그 id ② peek가 없거나 미분류면 `effectiveCategoryFilter`가 실제 카테고리 1개일 때만. 미분류 peek는 자동 지정 안 함
 
 ### 왓츠뉴 1.15 (2026-09-21)
 
@@ -266,6 +266,7 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- 필터 기억하기 (2026-09-23): 필터 메뉴 「필터 기억하기」(기본 꺼짐, 앱 공통). 켜면 플래너별 필터를 `UserDefaults.standard`에 저장·복원 (`todoKeepCategoryFilter`, `todoCategoryFilterByPlanner`). 무료 다중 제한은 `effectiveCategoryFilter`에서만 적용하고 저장값은 비우지 않음. peek·월간 달력 필터는 저장하지 않음. 커밋 `6f7608b`. 백엔드 변경 없음
 - 할 일 알림 (2026-09-23): body에 「오늘/내일/모레 + 시각」(`fireDate` 기준, 메모 제외). `alarmOffset`이 nil이면 기존 알림 취소. 직접 입력은 숫자 키패드(1~999), 다시 열면 기존 값. 앱 사용 중에도 배너·목록·소리. 커밋 `9da5043` · `e8f19e4` · `7d1fa1a`. 백엔드 변경 없음
 - v1.16 제출 (2026-09-22): 리포트 그래프·카테고리 목록 행 탭 → 투두 탭 날짜 이동·하이라이트 (`openTodoFromRow` → `MainTabCoordinator`, `navigationRevealTodoId`). 반복 할일 수집함 보내기. 하루 리포트 카드 완료율은 필터·peek과 무관하게 그날 전체. 커밋 `d7d13df` · `80dc94b`. WhatsNew 팝업 없음
 - 카테고리 필터 peek · WhatsNew 1.15 팝업 · 페이월 체험 배지 (2026-09-21): 칩 탭은 임시 peek, 메뉴만 지속 필터. 새 투두는 peek 카테고리 우선. 왓츠뉴 미리보기 이미지셋 추가. 연간 카드 `yearlyIntroOfferText` 배지, DEBUG 페이월 미리보기, 로컬 StoreKit 연간 7일 트라이얼
@@ -804,7 +805,9 @@ guard SubscriptionManager.shared.isPro else {
 
 **보기 옵션 규칙:** 앞으로 보기 on/off는 `Toggle`로만 추가한다. 아이콘+동작 문구 `Button`은 시도 후 되돌림 — iOS 메뉴 아이콘 슬롯이 1개라 체크마크와 충돌하고, 문구가 「동작」인지 「상태」인지 헷갈림.
 
-**카테고리 필터 바 (2026-09-21 peek):** 칩 가로 스크롤 — 맨 앞 `line.3.horizontal.decrease` 메뉴가 **지속 필터**(`selectedCategoryFilter`, 전체/카테고리/미분류 토글, 2개 이상은 Pro). 칩 탭은 **peek**(`peekCategoryId`)라 필터를 바꾸지 않음. 필터 인 주황 점은 캡슐 안 아이콘/텍스트 쪽. 칩이 아이콘 모드여도 필터 메뉴 버튼은 그대로. 달력 범례(`categoryLegendChip`)는 별개. 새 할일 자동 카테고리는 peek 실제 카테고리 우선, 없으면 필터가 실제 카테고리 1개일 때만.
+**카테고리 필터 바 (2026-09-21 peek, 2026-09-23 기억하기):** 칩 가로 스크롤 — 맨 앞 `line.3.horizontal.decrease` 메뉴가 **지속 필터**(`selectedCategoryFilter`, 전체/카테고리/미분류 토글, 2개 이상은 Pro). 칩 탭은 **peek**(`peekCategoryId`)라 필터를 바꾸지 않음. 필터 인 주황 점은 캡슐 안 아이콘/텍스트 쪽. 칩이 아이콘 모드여도 필터 메뉴 버튼은 그대로. 달력 범례(`categoryLegendChip`)는 별개. 새 할일 자동 카테고리는 peek 실제 카테고리 우선, 없으면 화면 필터가 실제 카테고리 1개일 때만. 메뉴 맨 아래 「필터 기억하기」는 기본 꺼짐·앱 공통. 켜면 플래너별 원본만 `UserDefaults.standard`에 남긴다. peek는 저장하지 않는다.
+
+**화면 표시용 필터는 `effectiveCategoryFilter`만 읽을 것. `selectedCategoryFilter`를 화면에서 직접 읽으면 무료 제한이 뚫림.** 구독 확인 후 Pro가 아니고 원본이 2개 이상이면 `effectiveCategoryFilter`는 전체다. 저장·복원·삭제·보관·숨김 정리는 원본(`selectedCategoryFilter`)만 다룬다.
 
 **TodoRow 레이아웃 (2026-09-12 확정, 인박스와 통일):** 체크 원–제목 `HStack` spacing 8, 행 `.padding(.vertical, 6)`, `listRowInsets` top/bottom 3·leading/trailing 24 → **한 쪽 9pt**. 메모는 제목 아래 14pt regular·secondary·최대 2줄 — `TodoRow`와 인박스 `InboxTodoRow` 동일. 인박스 List는 `.listRowSeparator(.hidden)`.
 
