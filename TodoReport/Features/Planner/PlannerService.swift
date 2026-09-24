@@ -462,6 +462,9 @@ final class PlannerService {
         let categoryDesc = FetchDescriptor<CategoryItem>(predicate: #Predicate { $0.plannerId == id })
         for item in (try? context.fetch(categoryDesc)) ?? [] { context.delete(item) }
 
+        let moodDesc = FetchDescriptor<MoodOptionItem>(predicate: #Predicate { $0.plannerId == id })
+        for item in (try? context.fetch(moodDesc)) ?? [] { context.delete(item) }
+
         let seriesDesc = FetchDescriptor<RecurringSeries>(predicate: #Predicate { $0.plannerId == id })
         for item in (try? context.fetch(seriesDesc)) ?? [] { context.delete(item) }
 

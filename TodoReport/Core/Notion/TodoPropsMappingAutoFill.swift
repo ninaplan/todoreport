@@ -508,6 +508,8 @@ enum ReportPropsMappingAutoFill {
         ) {
             reviewMode = .existing
         }
+        MoodPropsAutoFill.autoConnectIfUnset(mapping: &mapping, properties: properties)
+        let moodExclusion = MoodPropsAutoFill.ratingFallbackExclusion(mapping: mapping)
         if mapping.ratingStoredInAppOnly { return }
         let ratingTypes = ["select", "status"]
         for type in ratingTypes {
@@ -518,7 +520,9 @@ enum ReportPropsMappingAutoFill {
                 defaultName: "별점",
                 properties: properties,
                 allowFirstFallback: true,
-                preserveIfMissing: false
+                preserveIfMissing: false,
+                excludedFallbackIds: moodExclusion.ids,
+                excludedFallbackNames: moodExclusion.names
             ) {
                 applyRatingMetadata(mapping: &mapping, properties: properties)
                 ratingMode = .existing
@@ -546,6 +550,8 @@ enum ReportPropsMappingAutoFill {
             allowFirstFallback: true,
             preserveIfMissing: true
         )
+        MoodPropsAutoFill.autoConnectIfUnset(mapping: &mapping, properties: properties)
+        let moodExclusion = MoodPropsAutoFill.ratingFallbackExclusion(mapping: mapping)
         if !mapping.ratingStoredInAppOnly {
             if let ratingType = mapping.ratingPropType {
                 resolveStandard(
@@ -555,7 +561,9 @@ enum ReportPropsMappingAutoFill {
                     defaultName: "별점",
                     properties: properties,
                     allowFirstFallback: false,
-                    preserveIfMissing: true
+                    preserveIfMissing: true,
+                    excludedFallbackIds: moodExclusion.ids,
+                    excludedFallbackNames: moodExclusion.names
                 )
             } else {
                 for type in ["select", "status"] {
@@ -566,7 +574,9 @@ enum ReportPropsMappingAutoFill {
                         defaultName: "별점",
                         properties: properties,
                         allowFirstFallback: false,
-                        preserveIfMissing: true
+                        preserveIfMissing: true,
+                        excludedFallbackIds: moodExclusion.ids,
+                        excludedFallbackNames: moodExclusion.names
                     ) {
                         break
                     }
@@ -586,6 +596,7 @@ enum ReportPropsMappingAutoFill {
     }
 
     static func backfillIds(mapping: inout ReportPropsMapping, properties: [NotionProperty]) {
+        MoodPropsAutoFill.backfillIfNeeded(mapping: &mapping, properties: properties)
         backfillField(name: &mapping.date, id: &mapping.datePropId, type: "date", properties: properties)
         backfillField(name: &mapping.review, id: &mapping.reviewPropId, type: "rich_text", properties: properties)
         if !mapping.ratingStoredInAppOnly {
@@ -644,7 +655,9 @@ enum ReportPropsMappingAutoFill {
         defaultName: String,
         properties: [NotionProperty],
         allowFirstFallback: Bool,
-        preserveIfMissing: Bool
+        preserveIfMissing: Bool,
+        excludedFallbackIds: Set<String> = [],
+        excludedFallbackNames: Set<String> = []
     ) -> Bool {
         let typed = properties.filter { $0.type == type }
         let hadValue = name != nil || id != nil
@@ -669,12 +682,15 @@ enum ReportPropsMappingAutoFill {
             id = exact.id
             return true
         }
-        if allowFirstFallback, typed.count == 1, let only = typed.first {
+        let fallbackPool = typed.filter {
+            !excludedFallbackIds.contains($0.id) && !excludedFallbackNames.contains($0.name)
+        }
+        if allowFirstFallback, fallbackPool.count == 1, let only = fallbackPool.first {
             name = only.name
             id = only.id
             return true
         }
-        if allowFirstFallback, let first = typed.first {
+        if allowFirstFallback, let first = fallbackPool.first {
             name = first.name
             id = first.id
             return true

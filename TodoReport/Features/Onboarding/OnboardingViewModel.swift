@@ -45,6 +45,11 @@ struct ReportPropsMapping: Codable {
     var ratingPropType: String? = nil
     /// 사용자가 별점 「앱에만 저장」을 고른 경우. 저장 JSON에 키가 없으면 false.
     var ratingStoredInAppOnly: Bool = false
+    /// 노션 기분 속성 이름.
+    var mood: String? = nil
+    var moodPropId: String? = nil
+    /// 저장 JSON에 키가 없으면 nil(미설정).
+    var moodMode: MoodStorageMode? = nil
 
     private enum CodingKeys: String, CodingKey {
         case date
@@ -58,6 +63,9 @@ struct ReportPropsMapping: Codable {
         case dayRatingOptions
         case ratingPropType
         case ratingStoredInAppOnly
+        case mood
+        case moodPropId
+        case moodMode
     }
 
     init() {}
@@ -75,6 +83,10 @@ struct ReportPropsMapping: Codable {
         dayRatingOptions = try container.decodeIfPresent([String].self, forKey: .dayRatingOptions) ?? []
         ratingPropType = try container.decodeIfPresent(String.self, forKey: .ratingPropType)
         ratingStoredInAppOnly = try container.decodeIfPresent(Bool.self, forKey: .ratingStoredInAppOnly) ?? false
+        mood = try container.decodeIfPresent(String.self, forKey: .mood)
+        moodPropId = try container.decodeIfPresent(String.self, forKey: .moodPropId)
+        let moodModeRaw = try container.decodeIfPresent(String.self, forKey: .moodMode)
+        moodMode = moodModeRaw.flatMap(MoodStorageMode.init(rawValue:))
     }
 
     func encode(to encoder: Encoder) throws {
@@ -90,6 +102,9 @@ struct ReportPropsMapping: Codable {
         try container.encode(dayRatingOptions, forKey: .dayRatingOptions)
         try container.encode(ratingPropType, forKey: .ratingPropType)
         try container.encode(ratingStoredInAppOnly, forKey: .ratingStoredInAppOnly)
+        try container.encode(mood, forKey: .mood)
+        try container.encode(moodPropId, forKey: .moodPropId)
+        try container.encode(moodMode, forKey: .moodMode)
     }
 }
 

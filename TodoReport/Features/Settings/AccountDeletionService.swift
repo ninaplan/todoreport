@@ -43,6 +43,11 @@ final class AccountDeletionService {
             step: "5. CategoryItem"
         )
         try deleteAllEntities(
+            MoodOptionItem.self,
+            context: context,
+            step: "5b. MoodOptionItem"
+        )
+        try deleteAllEntities(
             PlannerItem.self,
             context: context,
             step: "6. PlannerItem"

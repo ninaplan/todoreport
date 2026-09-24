@@ -372,10 +372,21 @@ final class PlannerAddViewModel {
             let typed = reportProperties.filter { $0.type == type }
             return typed.first(where: { $0.name == name }) ?? typed.first
         }
+        func ratingCandidate(type: String) -> NotionProperty? {
+            let typed = reportProperties.filter { $0.type == type }
+            if let exact = typed.first(where: { $0.name == "별점" }) {
+                return exact
+            }
+            let exclusion = MoodPropsAutoFill.ratingFallbackExclusion(mapping: reportPropsMapping)
+            return typed.first {
+                !exclusion.ids.contains($0.id) && !exclusion.names.contains($0.name)
+            }
+        }
+        MoodPropsAutoFill.autoConnectIfUnset(mapping: &reportPropsMapping, properties: reportProperties)
         reportPropsMapping.date = best(type: "date", default: "날짜")?.name
         if let p = best(type: "rich_text", default: "하루 리뷰") { reportPropsMapping.review = p.name; reviewMode = .existing }
         if !reportPropsMapping.ratingStoredInAppOnly,
-           let p = best(type: "select", default: "별점") ?? best(type: "status", default: "별점") {
+           let p = ratingCandidate(type: "select") ?? ratingCandidate(type: "status") {
             selectRating(p.name)
         }
     }
