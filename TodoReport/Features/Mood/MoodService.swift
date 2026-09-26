@@ -30,12 +30,12 @@ final class MoodService {
     }
 
     func options(for plannerId: String) throws -> [MoodOption] {
-        if allowsDefaultOptions(plannerId: plannerId) {
-            let existing = try fetchItems(plannerId: plannerId)
-            if existing.isEmpty {
-                try insertDefaultOptions(plannerId: plannerId)
-            }
-        }
+        try ensureDefaultOptions(plannerId: plannerId)
+        return try storedOptions(for: plannerId)
+    }
+
+    /// 저장된 선택지만 읽는다. 기본 선택지를 만들지 않는다.
+    func storedOptions(for plannerId: String) throws -> [MoodOption] {
         let items = try fetchItems(plannerId: plannerId)
         if !backfilledPlannerIds.contains(plannerId) {
             if backfillDefaultKeys(in: items) {
@@ -166,11 +166,42 @@ final class MoodService {
         revision += 1
     }
 
-    private func allowsDefaultOptions(plannerId: String) -> Bool {
-        guard let planner = PlannerService.shared.store.first(where: { $0.id == plannerId }) else {
+    /// 플래너당 한 번. 개수가 0개인지는 보지 않고, 만든 기록이 없을 때만 넣는다.
+    /// 노션 모드·사용 안 함에서는 만들지 않는다. 토글은 이 함수를 부르지 않는다.
+    private func ensureDefaultOptions(plannerId: String) throws {
+        let existing = try fetchItems(plannerId: plannerId)
+        if !existing.isEmpty {
+            if !hasCreatedDefaultOptions(plannerId: plannerId) {
+                markDefaultOptionsCreated(plannerId: plannerId)
+            }
+            return
+        }
+        guard !hasCreatedDefaultOptions(plannerId: plannerId) else { return }
+        guard seedsDefaultOptions(plannerId: plannerId) else { return }
+        try insertDefaultOptions(plannerId: plannerId)
+        markDefaultOptionsCreated(plannerId: plannerId)
+    }
+
+    /// 앱에서만·미설정만. 노션 모드와 사용 안 함은 제외.
+    private func seedsDefaultOptions(plannerId: String) -> Bool {
+        switch storageMode(for: plannerId) {
+        case nil, .appOnly:
+            return true
+        case .notion, .disabled:
             return false
         }
-        return planner.decodedReportPropsMapping.moodMode != .disabled
+    }
+
+    private func defaultOptionsCreatedKey(plannerId: String) -> String {
+        "moodDefaultOptionsCreated.\(plannerId)"
+    }
+
+    private func hasCreatedDefaultOptions(plannerId: String) -> Bool {
+        UserDefaults.standard.bool(forKey: defaultOptionsCreatedKey(plannerId: plannerId))
+    }
+
+    private func markDefaultOptionsCreated(plannerId: String) {
+        UserDefaults.standard.set(true, forKey: defaultOptionsCreatedKey(plannerId: plannerId))
     }
 
     private func insertDefaultOptions(plannerId: String) throws {
