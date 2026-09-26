@@ -84,28 +84,41 @@ struct MoodEditorView: View {
     }
 
     private func optionRow(_ option: MoodOption) -> some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(Color(hex: option.colorHex))
-                .frame(width: 12, height: 12)
-                .accessibilityHidden(true)
-            Text(viewModel.displayName(for: option))
-                .font(.body)
-            Spacer()
-            if editMode?.wrappedValue.isEditing != true {
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
+        HStack(spacing: 10) {
+            if editMode?.wrappedValue.isEditing == true {
+                Button {
+                    viewModel.requestDelete(option)
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
             }
+
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(Color(hex: option.colorHex))
+                    .frame(width: 12, height: 12)
+                    .accessibilityHidden(true)
+                Text(viewModel.displayName(for: option))
+                    .font(.body)
+                Spacer()
+                if editMode?.wrappedValue.isEditing != true {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.bold())
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard editMode?.wrappedValue.isEditing != true else { return }
+                viewModel.openEdit(option)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
         }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            guard editMode?.wrappedValue.isEditing != true else { return }
-            viewModel.openEdit(option)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive) {
                 viewModel.requestDelete(option)
