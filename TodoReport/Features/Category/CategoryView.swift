@@ -20,7 +20,7 @@ struct CategoryView: View {
                 ContentUnavailableView(
                     "카테고리 없음",
                     systemImage: "tag.slash",
-                    description: Text("+ 버튼을 눌러 카테고리를 추가하세요.")
+                    description: Text("아래 + 카테고리 추가를 눌러 카테고리를 만드세요.")
                 )
                 .listRowBackground(Color.clear)
                 if !isEditing {
