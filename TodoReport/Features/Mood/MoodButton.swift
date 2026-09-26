@@ -5,8 +5,6 @@ struct MoodButton: View {
     var forMeasurement: Bool = false
     @Bindable var viewModel: MoodButtonViewModel
 
-    @Environment(\.colorScheme) private var colorScheme
-
     static let minimumWidth: CGFloat = 72
     static let minimumHeight: CGFloat = 30
     static let minimumHitLength: CGFloat = 44
@@ -85,10 +83,10 @@ struct MoodButton: View {
     }
 
     private var chipForeground: Color {
-        guard let hex = viewModel.chipColorHex else {
+        guard viewModel.chipColorHex != nil else {
             return .secondary
         }
-        return Color(hex: hex).readableText(on: colorScheme)
+        return .primary
     }
 }
 
