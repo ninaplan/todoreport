@@ -19,6 +19,7 @@ struct PlannerDetailView: View {
     @State private var showMigrationSheet = false
     @State private var selectedMigrationMode: PlannerMigrationViewModel.SyncMode?
     @State private var showPlannerDeleteAlert = false
+    @State private var activeCategoryCount: Int?
 
     private var canDeletePlanner: Bool {
         PlannerService.shared.store.count > 1
@@ -57,9 +58,7 @@ struct PlannerDetailView: View {
                 }
             }
             profileHeaderSection
-            basicSection
-            categorySection
-            moodSection
+            itemsSection
             if currentPlanner.isNotionConnected {
                 notionSection
             } else {
@@ -68,6 +67,7 @@ struct PlannerDetailView: View {
             if canDeletePlanner {
                 deletePlannerSection
             }
+            bottomSpacerSection
         }
         .disabled(currentPlanner.isReadOnly)
         .navigationTitle("플래너 설정")
@@ -78,6 +78,9 @@ struct PlannerDetailView: View {
                     .toolbarPrimaryActionStyle(isEnabled: !currentPlanner.isReadOnly)
                     .disabled(currentPlanner.isReadOnly)
             }
+        }
+        .onAppear {
+            Task { await reloadItemSummaries() }
         }
         .sheet(isPresented: $showIconSheet) {
             iconPickerSheet
@@ -142,27 +145,79 @@ struct PlannerDetailView: View {
                 .buttonStyle(.plain)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(name.isEmpty ? currentPlanner.name : name)
-                        .font(.headline)
+                    PlannerNameField(
+                        text: $name,
+                        placeholder: String(localized: "플래너 이름"),
+                        textStyle: .headline,
+                        isEnabled: !currentPlanner.isReadOnly
+                    )
+                    .accessibilityHint(String(localized: "이름 수정"))
                     Text(currentPlanner.isNotionConnected ? "Notion 연결됨" : "기기에 저장")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.vertical, 6)
         }
     }
 
-    // MARK: - 기본
+    // MARK: - 항목
 
-    private var basicSection: some View {
-        Section("기본") {
-            LabeledContent("이름") {
-                TextField("플래너 이름", text: $name)
-                    .multilineTextAlignment(.trailing)
+    private var itemsSection: some View {
+        Section("항목") {
+            NavigationLink {
+                CategoryView(plannerId: plannerId)
+                    .onDisappear {
+                        Task { await reloadItemSummaries() }
+                    }
+            } label: {
+                LabeledContent("카테고리") {
+                    if let activeCategoryCount {
+                        Text(String(localized: "\(activeCategoryCount)개"))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            NavigationLink {
+                MoodEditorView(plannerId: plannerId)
+                    .onDisappear {
+                        Task { await reloadItemSummaries() }
+                    }
+            } label: {
+                LabeledContent("기분") {
+                    Text(moodModeLabel)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
+    }
+
+    private var moodModeLabel: String {
+        switch MoodService.shared.storageMode(for: plannerId) {
+        case .notion:
+            return String(localized: "노션 연동")
+        case .disabled:
+            return String(localized: "사용 안 함")
+        case .appOnly, nil:
+            return String(localized: "앱에서만")
+        }
+    }
+
+    private func reloadItemSummaries() async {
+        activeCategoryCount = await CategoryService.shared.activeCategoryCount(for: plannerId)
+    }
+
+    // MARK: - 하단 여백
+
+    private var bottomSpacerSection: some View {
+        Section {
+            Color.clear
+                .frame(height: 120)
+                .accessibilityHidden(true)
+        }
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     // MARK: - 아이콘 선택 시트
@@ -228,24 +283,6 @@ struct PlannerDetailView: View {
             }
         }
         .padding(.vertical, 4)
-    }
-
-    // MARK: - 카테고리
-
-    private var categorySection: some View {
-        Section("카테고리") {
-            NavigationLink { CategoryView(plannerId: plannerId) } label: { Text("카테고리 관리") }
-        }
-    }
-
-    private var moodSection: some View {
-        Section {
-            NavigationLink {
-                MoodEditorView(plannerId: plannerId)
-            } label: {
-                Text("기분")
-            }
-        }
     }
 
     // MARK: - 노션 설정 (연결된 플래너)

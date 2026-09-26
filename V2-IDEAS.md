@@ -63,6 +63,9 @@
 ## 기술 개선
 - TodoService → DataRepository 패턴 통합
 - 영어 로컬라이제이션 잔여 점검 (프로세스: CLAUDE.md 「로컬라이제이션 (필수 체크)」)
+- **리뷰·별점 속성 ID 키 전송** — 지금은 이름(없으면 「별점」)으로만 맞춘다. 속성 ID를 요청에 넣어 이름이 바뀌어도 같은 속성을 읽게 한다
+- **Notion-Version 업그레이드** — 백엔드 `notionFetch`가 쓰는 Notion API 버전을 올린다. 구버전 앱이 같은 백엔드를 치므로 응답 필드는 빼지 않는다
+- **`RatingMoodRowLayout`을 `LayoutValueKey`로 전환** — 별점 줄이 자식 개수·순서로 라벨/별/칩을 구분한다. `EmptyView`는 자식에서 빠져 칩 없음이 3개가 된다. 값 키로 역할을 넘기면 순서에 안 묶인다
 
 ## 로컬 저장 사용자 iCloud 백업
 

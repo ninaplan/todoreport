@@ -1911,7 +1911,9 @@ v1 출시 — 노션에 자동 저장되는 투두 & 데일리 리포트. 지금
 - 설정 탭 언어 선택: v1 미노출 (시스템 언어 따름). 별도 설정 항목은 추후 검토
 
 ### 별점/기분 속성 옵션 매핑
-- 현재: iOS DayRating(⭐~⭐⭐⭐⭐⭐)을 Notion select 옵션값으로 그대로 전송
-- 문제: 사용자마다 Notion select 옵션명이 다름 (별이 아닌 숫자, 텍스트 등)
-- 해결 방향: 온보딩 속성 매핑 시 별점 1~5에 해당하는 Notion 옵션값을 사용자가 직접 매핑
-- 관련 파일: OnboardingViewModel.swift, DailyReportService.swift, ReportPropsMapping
+- **별점 「앱에만 저장」 (`bca59ff`):** `ratingStoredInAppOnly`가 켜지면 하루·기간 리포트의 노션 저장·불러오기에서 별점을 빼 둔다. 선택은 매핑에 남는다
+- **백엔드 별점 fallback (`6386eb4`, 운영 배포):** `ratingProp`이 있으면 그 이름만 읽는다. 없으면 select/status 이름 「별점」만. 다른 이름·ID 추정은 하지 않는다
+- **기분 (출시 불가):** 데이터 계층 `cc58246`(`MoodOptionItem`, 모드 nil/notion/appOnly/disabled). 칩·메뉴·편집 화면 `8c1f091`. 백엔드 GET이 `moodProp`/`moodPropId`로 기분을 읽고, `POST /api/notion/daily-report/mood`가 저장한다. **iOS는 이 API를 아직 호출하지 않는다.** 노션 연동 전이라 출시하지 않는다
+- 별점 줄: 별 20pt·간격 6, 줄 높이 24pt(캡션이 더 크면 캡션). 칩 유무는 줄 높이를 바꾸지 않는다. 별 칸은 ⭐와 `star.fill` 중 큰 쪽으로 고정
+- 미해결: 리뷰·별점 속성 ID 키 전송, 사용자별 별점 옵션명 매핑 (V2-IDEAS.md)
+- 관련 파일: OnboardingViewModel.swift, DailyReportService.swift, ReportPropsMapping, PawRatingView.swift, FittingPawRating.swift, RatingMoodRowLayout.swift

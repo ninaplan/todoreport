@@ -23,6 +23,12 @@ final class MoodService {
 
     private init() {}
 
+    func storageMode(for plannerId: String) -> MoodStorageMode? {
+        PlannerService.shared.store
+            .first { $0.id == plannerId }?
+            .decodedReportPropsMapping.moodMode
+    }
+
     func options(for plannerId: String) throws -> [MoodOption] {
         if allowsDefaultOptions(plannerId: plannerId) {
             let existing = try fetchItems(plannerId: plannerId)

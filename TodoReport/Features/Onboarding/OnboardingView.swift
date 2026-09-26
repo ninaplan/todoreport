@@ -115,7 +115,6 @@ struct OnboardingView: View {
 
 private struct PlannerNameStepView: View {
     @Bindable var viewModel: OnboardingViewModel
-    @FocusState private var focused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -135,9 +134,12 @@ private struct PlannerNameStepView: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
 
-                    TextField("예: 나의 투두", text: $viewModel.plannerName)
-                        .font(.title3)
-                        .focused($focused)
+                    PlannerNameField(
+                        text: $viewModel.plannerName,
+                        placeholder: String(localized: "예: 나의 투두"),
+                        textStyle: .title3,
+                        autoFocus: true
+                    )
                         .padding(.horizontal, 20)
                         .padding(.vertical, 18)
                         .frame(maxWidth: .infinity)
@@ -174,7 +176,6 @@ private struct PlannerNameStepView: View {
             .padding(.bottom, 52)
         }
         .onAppear {
-            focused = true
             if viewModel.plannerName.isEmpty {
                 viewModel.plannerName = PlannerService.defaultNamePool.randomElement() ?? "내 플래너"
             }

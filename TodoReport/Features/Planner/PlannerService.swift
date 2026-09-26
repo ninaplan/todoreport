@@ -5,6 +5,21 @@ import Observation
 // MARK: - Planner 모델
 
 struct Planner: Identifiable, Hashable, Codable {
+    /// 사람이 보는 글자 수. 이모지 1개 = 1자.
+    static let maxNameLength = 15
+
+    /// 새 입력은 maxNameLength를 넘기지 않는다. 이미 더 긴 값은 길어지지 않으면 유지한다.
+    static func clampedNameInput(_ proposed: String, replacing previous: String) -> String {
+        if proposed.count <= maxNameLength { return proposed }
+        if previous.count > maxNameLength, proposed.count <= previous.count {
+            return proposed
+        }
+        if previous.count > maxNameLength {
+            return previous
+        }
+        return String(proposed.prefix(maxNameLength))
+    }
+
     let id: String
     var name: String
     var colorHex: String

@@ -3,6 +3,7 @@ import SwiftUI
 struct CategoryView: View {
     @State private var viewModel: CategoryViewModel
     @Environment(\.editMode) private var editMode
+    @Environment(\.dismiss) private var dismiss
     /// 투두탭 시트만 true. 설정 네비게이션 push는 기본값(false) 유지.
     private let presentsAsSheet: Bool
 
@@ -22,27 +23,36 @@ struct CategoryView: View {
                     description: Text("+ 버튼을 눌러 카테고리를 추가하세요.")
                 )
                 .listRowBackground(Color.clear)
+                if !isEditing {
+                    addCategoryRow
+                }
             } else {
                 Section {
                     ForEach(viewModel.categories) { category in
                         categoryListRow(category)
                     }
                     .onMove { viewModel.moveCategory(from: $0, to: $1) }
+                    if !isEditing {
+                        addCategoryRow
+                    }
                 }
             }
         }
-        .navigationTitle("카테고리 관리")
+        .navigationTitle("카테고리")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: presentsAsSheet ? .topBarLeading : .topBarTrailing) {
-                EditButton()
+            if presentsAsSheet {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel(String(localized: "닫기"))
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    viewModel.openAddSheet()
-                } label: {
-                    Image(systemName: "plus")
-                }
+                EditButton()
             }
         }
         .sheet(isPresented: $viewModel.isSheetPresented) {
@@ -65,6 +75,14 @@ struct CategoryView: View {
             Button("확인") { viewModel.confirmOfflineCategoryAlert() }
         } message: {
             Text("노션과 연동된 카테고리는 인터넷에 연결된 상태에서 추가하거나 삭제할 수 있어요.")
+        }
+    }
+
+    private var addCategoryRow: some View {
+        Button {
+            viewModel.openAddSheet()
+        } label: {
+            Text("+ 카테고리 추가")
         }
     }
 

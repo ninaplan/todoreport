@@ -1,6 +1,11 @@
 import SwiftUI
 
 struct TodoView: View {
+    /// 이름 칸을 뺀 툴바 점유. `frame(maxWidth:)`는 제안 폭이 없을 때 ideal 폭을 줄이지 않아
+    /// 148이 툴바 계산에 들어가지 않았고, 긴 이름 ideal이 수집함을 overflow로 밀어냈다.
+    /// 아이콘 22 + 간격 12 + chevron 18 + 수집함 44 + ⋯ 44 + 좌우 여백·항목 패딩·글자 크기 한 단계 여유 130.
+    private static let plannerToolbarReservedWidth: CGFloat = 270
+
     @Environment(MainTabCoordinator.self) private var tabCoordinator
     @State private var viewModel = TodoViewModel()
     @State private var dailyReportViewModel = DailyReportViewModel()
@@ -28,6 +33,11 @@ struct TodoView: View {
     @State private var showInlineEditHint = false
     @AppStorage("hasSeenInlineEditHint") private var hasSeenInlineEditHint = false
     @AppStorage("lastSeenWhatsNewVersion") private var lastSeenWhatsNewVersion = ""
+    @State private var toolbarContentWidth: CGFloat = 375
+
+    private var plannerNameWidth: CGFloat {
+        max(72, toolbarContentWidth - Self.plannerToolbarReservedWidth)
+    }
 
     private var formattedDate: String {
         let cal = Calendar.current
@@ -67,6 +77,12 @@ struct TodoView: View {
                 .sensoryFeedback(.success, trigger: hapticSuccessTrigger)
                 .sensoryFeedback(.warning, trigger: hapticWarningTrigger)
                 .onAppear { refreshInboxBadge() }
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.width
+                } action: { width in
+                    guard width > 0 else { return }
+                    toolbarContentWidth = width
+                }
         }
     }
 
@@ -88,11 +104,17 @@ struct TodoView: View {
                             colorHex: planner.colorHex,
                             size: 22
                         )
+                        .layoutPriority(1)
                     }
-                    Text(PlannerService.shared.selectedPlanner?.name ?? "내 플래너")
-                        .font(.callout.weight(.semibold))
+                    ToolbarNameWidth(maxWidth: plannerNameWidth) {
+                        Text(PlannerService.shared.selectedPlanner?.name ?? "내 플래너")
+                            .font(.callout.weight(.semibold))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
                     Image(systemName: "chevron.down")
                         .font(.system(size: 9, weight: .thin))
+                        .layoutPriority(1)
                 }
             }
             .tint(.primary)
@@ -1567,6 +1589,8 @@ private struct PlannerCard: View {
                     Text(planner.name)
                         .font(.body.bold())
                         .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                     Text(planner.isReadOnly ? "읽기 전용" : (planner.isNotionConnected ? "노션에 연결됨" : "기기에 저장"))
                         .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(.secondary)
@@ -1704,5 +1728,28 @@ private struct FloatingCaptureButton: View {
         .buttonBorderShape(.circle)
         .padding(.trailing, 20)
         .padding(.bottom, 20)
+    }
+}
+
+/// 툴바는 제안 폭이 없어도 ideal 폭으로 넘침을 판단한다.
+/// maxWidth만 주면 ideal이 그대로라, 짧은 이름은 글자 폭·긴 이름은 상한으로 보고한다.
+private struct ToolbarNameWidth: Layout {
+    var maxWidth: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let subview = subviews.first else { return .zero }
+        let ideal = subview.sizeThatFits(.unspecified)
+        let width = min(max(ideal.width, 0), maxWidth)
+        let fitted = subview.sizeThatFits(ProposedViewSize(width: width, height: proposal.height))
+        return CGSize(width: width, height: fitted.height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard let subview = subviews.first else { return }
+        subview.place(
+            at: CGPoint(x: bounds.minX, y: bounds.minY),
+            anchor: .topLeading,
+            proposal: ProposedViewSize(width: bounds.width, height: bounds.height)
+        )
     }
 }

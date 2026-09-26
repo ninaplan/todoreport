@@ -130,6 +130,11 @@ final class CategoryService {
         return store.filter { $0.status == .active && $0.plannerId == plannerId }
     }
 
+    /// 활성 카테고리 수. 숨김 포함, 보관 제외.
+    func activeCategoryCount(for plannerId: String) async -> Int {
+        await fetchCategories(for: plannerId).count
+    }
+
     func fetchArchivedCategories(for plannerId: String) async -> [Category] {
         await refreshStore()
         return store.filter { $0.status == .archived && $0.plannerId == plannerId }
