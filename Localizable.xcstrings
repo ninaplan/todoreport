@@ -174,52 +174,22 @@
         }
       }
     },
-    "%lld번" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld times"
-          }
-        }
-      }
-    },
-    "%lld일" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld days"
-          }
-        }
-      }
-    },
-    "%lld일 보기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld-day view"
-          }
-        }
-      }
-    },
-    "%lld주차" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Week %lld"
-          }
-        }
-      }
-    },
     "%lld개월 전" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld months before"
+          }
+        }
+      }
+    },
+    "%lld번" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld times"
           }
         }
       }
@@ -244,6 +214,26 @@
         }
       }
     },
+    "%lld일" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld days"
+          }
+        }
+      }
+    },
+    "%lld일 보기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld-day view"
+          }
+        }
+      }
+    },
     "%lld일 전" : {
       "localizations" : {
         "en" : {
@@ -260,6 +250,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld weeks before"
+          }
+        }
+      }
+    },
+    "%lld주차" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Week %lld"
           }
         }
       }
@@ -290,6 +290,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "⭐"
+          }
+        }
+      }
+    },
+    "😆 최고" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "😆 Great"
+          }
+        }
+      }
+    },
+    "😐 보통" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "😐 Okay"
+          }
+        }
+      }
+    },
+    "😞 별로" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "😞 Bad"
+          }
+        }
+      }
+    },
+    "😫 힘듦" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "😫 Rough"
+          }
+        }
+      }
+    },
+    "🙂 좋음" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🙂 Good"
           }
         }
       }
@@ -621,6 +671,16 @@
         }
       }
     },
+    "갈색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Brown"
+          }
+        }
+      }
+    },
     "같은 워크스페이스 멀티 플래너 연동 끊김 수정" : {
       "localizations" : {
         "en" : {
@@ -689,6 +749,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Search"
+          }
+        }
+      }
+    },
+    "검은색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Black"
           }
         }
       }
@@ -799,6 +869,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "고정됨"
+          }
+        }
+      }
+    },
+    "과거 기록에는 이름만 남아요" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Past entries keep the name only."
           }
         }
       }
@@ -976,6 +1056,86 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "기본"
+          }
+        }
+      }
+    },
+    "기분" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mood"
+          }
+        }
+      }
+    },
+    "기분 사용" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Mood"
+          }
+        }
+      }
+    },
+    "기분 삭제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Mood"
+          }
+        }
+      }
+    },
+    "기분 추가" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Mood"
+          }
+        }
+      }
+    },
+    "+ 기분 추가" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ Add Mood"
+          }
+        }
+      }
+    },
+    "기분 편집" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Mood"
+          }
+        }
+      }
+    },
+    "기분 편집…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Mood…"
+          }
+        }
+      }
+    },
+    "기분을 저장하지 못했습니다. 다시 시도해 주세요." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t save the mood. Please try again."
           }
         }
       }
@@ -1196,6 +1356,16 @@
         }
       }
     },
+    "남색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indigo"
+          }
+        }
+      }
+    },
     "내 플래너" : {
       "localizations" : {
         "en" : {
@@ -1248,6 +1418,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Do Tomorrow"
+          }
+        }
+      }
+    },
+    "노란색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yellow"
+          }
+        }
+      }
+    },
+    "노션 '%@' 속성과 연동 중" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected to the Notion “%@” property"
           }
         }
       }
@@ -1408,6 +1598,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connect Notion"
+          }
+        }
+      }
+    },
+    "노션 연동 중에는 앱에서 이름을 바꿀 수 없습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Names can’t be changed in the app while connected to Notion."
           }
         }
       }
@@ -2158,16 +2358,6 @@
         }
       }
     },
-    "모레 %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In 2 days %@"
-          }
-        }
-      }
-    },
     "모든 데이터가 Notion에 업로드됐어요" : {
       "localizations" : {
         "en" : {
@@ -2184,6 +2374,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Thu"
+          }
+        }
+      }
+    },
+    "모레 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In 2 days %@"
           }
         }
       }
@@ -2280,6 +2480,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "미완료"
+          }
+        }
+      }
+    },
+    "민트색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mint"
           }
         }
       }
@@ -2444,6 +2654,16 @@
         }
       }
     },
+    "보라색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purple"
+          }
+        }
+      }
+    },
     "복원 실패: %@" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2471,6 +2691,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "There's no subscription to restore."
+          }
+        }
+      }
+    },
+    "분홍색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pink"
           }
         }
       }
@@ -2527,6 +2757,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Quick capture, auto sync"
+          }
+        }
+      }
+    },
+    "빨간색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Red"
+          }
+        }
+      }
+    },
+    "사용 안 함" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
           }
         }
       }
@@ -2717,6 +2967,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "None"
+          }
+        }
+      }
+    },
+    "선택 해제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear"
           }
         }
       }
@@ -3057,6 +3317,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Log in the app, build it up in Notion"
+          }
+        }
+      }
+    },
+    "앱에서만 저장" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved in the app only"
           }
         }
       }
@@ -3815,6 +4085,36 @@
         }
       }
     },
+    "이후 항목 모두 해제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Repeating This and Future Items"
+          }
+        }
+      }
+    },
+    "인덱스" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Index"
+          }
+        }
+      }
+    },
+    "일" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sun"
+          }
+        }
+      }
+    },
     "이름" : {
       "localizations" : {
         "en" : {
@@ -3931,36 +4231,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete This and Future Items"
-          }
-        }
-      }
-    },
-    "일" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sun"
-          }
-        }
-      }
-    },
-    "이후 항목 모두 해제" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stop Repeating This and Future Items"
-          }
-        }
-      }
-    },
-    "인덱스" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Index"
           }
         }
       }
@@ -4127,6 +4397,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Save Reminder"
+          }
+        }
+      }
+    },
+    "저장 중" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saving"
           }
         }
       }
@@ -4301,6 +4582,16 @@
         }
       }
     },
+    "주황색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Orange"
+          }
+        }
+      }
+    },
     "중요 할 일 모두 완료" : {
       "localizations" : {
         "en" : {
@@ -4407,6 +4698,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Add your\nfirst todo"
+          }
+        }
+      }
+    },
+    "초록색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Green"
           }
         }
       }
@@ -4857,6 +5158,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "TodoReport will be connected to Notion"
+          }
+        }
+      }
+    },
+    "파란색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blue"
           }
         }
       }
@@ -5330,6 +5641,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Activate"
+          }
+        }
+      }
+    },
+    "회색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gray"
           }
         }
       }

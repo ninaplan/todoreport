@@ -15,6 +15,9 @@ struct DailyReportCard: View {
     @State private var isExpanded = false
     @State private var lastAppliedExpandToken = 0
     @State private var expandedContentHeight: CGFloat = 0
+    @State private var moodButtonViewModel = MoodButtonViewModel()
+    @State private var moodChipFrame: CGRect = .zero
+    @State private var moodEditorPresented = false
     @FocusState private var isReviewFocused: Bool
 
     var body: some View {
@@ -39,12 +42,17 @@ struct DailyReportCard: View {
                     expandedContent(forMeasurement: true)
                         .padding(.top, 12)
                         .fixedSize(horizontal: false, vertical: true)
+                        .id(showsMoodChip)
                         .hidden()
                         .onGeometryChange(for: CGFloat.self) { proxy in
                             proxy.size.height
                         } action: { newHeight in
                             guard newHeight > 0, abs(expandedContentHeight - newHeight) > 0.5 else { return }
-                            expandedContentHeight = newHeight
+                            var transaction = Transaction()
+                            transaction.disablesAnimations = true
+                            withTransaction(transaction) {
+                                expandedContentHeight = newHeight
+                            }
                         }
                 }
         }
@@ -75,6 +83,28 @@ struct DailyReportCard: View {
         }
         .onChange(of: expandToken) { _, _ in
             applyExpandTokenIfNeeded()
+        }
+        .onChange(of: moodButtonViewModel.showEditor) { _, show in
+            if show { moodEditorPresented = true }
+        }
+        .onChange(of: showsMoodChip) { _, shown in
+            if !shown { moodButtonViewModel.dismissEditor() }
+        }
+        .sheet(isPresented: Binding(
+            get: { moodEditorPresented },
+            set: { isPresented in
+                moodEditorPresented = isPresented
+                if !isPresented { moodButtonViewModel.dismissEditor() }
+            }
+        )) {
+            NavigationStack {
+                MoodEditorView(
+                    plannerId: PlannerService.shared.selectedPlannerId,
+                    presentsAsSheet: true
+                )
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -107,11 +137,47 @@ struct DailyReportCard: View {
         .buttonStyle(.plain)
     }
 
+    @ViewBuilder
     private func expandedContent(forMeasurement: Bool) -> some View {
+        let stack = expandedStack(forMeasurement: forMeasurement)
+        if forMeasurement {
+            stack
+        } else {
+            stack
+                .backgroundPreferenceValue(MoodChipAnchorKey.self) { anchor in
+                    GeometryReader { proxy in
+                        Color.clear
+                            .preference(
+                                key: MoodChipFrameKey.self,
+                                value: anchor.map { proxy[$0] } ?? .zero
+                            )
+                    }
+                    .allowsHitTesting(false)
+                }
+                .onPreferenceChange(MoodChipFrameKey.self) { frame in
+                    guard abs(frame.minX - moodChipFrame.minX) > 0.5
+                            || abs(frame.minY - moodChipFrame.minY) > 0.5
+                            || abs(frame.width - moodChipFrame.width) > 0.5
+                            || abs(frame.height - moodChipFrame.height) > 0.5 else { return }
+                    moodChipFrame = frame
+                }
+                .overlay(alignment: .topLeading) {
+                    if moodChipFrame.width > 1 {
+                        MoodChipHitMenu(viewModel: moodButtonViewModel, width: moodChipFrame.width)
+                            .offset(
+                                x: moodChipFrame.minX,
+                                y: moodChipFrame.midY - MoodButton.minimumHitLength / 2
+                            )
+                    }
+                }
+        }
+    }
+
+    private func expandedStack(forMeasurement: Bool) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             completionRateSection
             Divider()
-            ratingRow
+            ratingRow(forMeasurement: forMeasurement)
             Divider()
             reviewRow(forMeasurement: forMeasurement)
         }
@@ -138,32 +204,47 @@ struct DailyReportCard: View {
 
     // MARK: - 별점 행
 
-    private var ratingRow: some View {
-        HStack(spacing: 0) {
+    private func ratingRow(forMeasurement: Bool) -> some View {
+        RatingMoodRowLayout {
             Text("별점")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .frame(width: 44, alignment: .leading)
+                .frame(minWidth: 44, alignment: .leading)
 
-            PawRatingView(
-                rating: currentRatingCount,
-                interactive: true,
-                size: 24,
-                spacing: 8,
-                onTap: { count in
-                    let tapped = DayRating.allCases[count - 1]
-                    let newRating: DayRating? = (viewModel.selectedRating == tapped) ? nil : tapped
-                    Task { await viewModel.selectRating(newRating) }
-                }
-            )
-
-            Spacer()
-
-            if viewModel.isSaving {
-                ProgressView()
-                    .scaleEffect(0.7)
+            FittingPawRating(rating: currentRatingCount) { count in
+                let tapped = DayRating.allCases[count - 1]
+                let newRating: DayRating? = (viewModel.selectedRating == tapped) ? nil : tapped
+                Task { await viewModel.selectRating(newRating) }
             }
+
+            Group {
+                if viewModel.isSaving {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .padding(.leading, 8)
+                } else {
+                    Color.clear
+                        .frame(width: 0, height: 0)
+                        .accessibilityHidden(true)
+                }
+            }
+
+            MoodButton(
+                date: date,
+                forMeasurement: forMeasurement,
+                viewModel: moodButtonViewModel
+            )
         }
+    }
+
+    private var showsMoodChip: Bool {
+        _ = MoodService.shared.revision
+        let plannerId = PlannerService.shared.selectedPlannerId
+        guard !plannerId.isEmpty,
+              let planner = PlannerService.shared.store.first(where: { $0.id == plannerId }) else {
+            return false
+        }
+        return planner.decodedReportPropsMapping.moodMode != .disabled
     }
 
     private var currentRatingCount: Int {

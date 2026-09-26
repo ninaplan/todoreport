@@ -59,6 +59,7 @@ struct PlannerDetailView: View {
             profileHeaderSection
             basicSection
             categorySection
+            moodSection
             if currentPlanner.isNotionConnected {
                 notionSection
             } else {
@@ -234,6 +235,16 @@ struct PlannerDetailView: View {
     private var categorySection: some View {
         Section("카테고리") {
             NavigationLink { CategoryView(plannerId: plannerId) } label: { Text("카테고리 관리") }
+        }
+    }
+
+    private var moodSection: some View {
+        Section {
+            NavigationLink {
+                MoodEditorView(plannerId: plannerId)
+            } label: {
+                Text("기분")
+            }
         }
     }
 

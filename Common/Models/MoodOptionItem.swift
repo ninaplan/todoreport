@@ -10,6 +10,8 @@ final class MoodOptionItem {
     var sortOrder: Int
     var notionOptionId: String? = nil
     var notionOptionName: String? = nil
+    /// 기본 5개 선택지면 great/good/okay/bad/rough. 이름을 바꾸면 nil.
+    var defaultKey: String? = nil
 
     init(
         id: String = UUID().uuidString,
@@ -18,7 +20,8 @@ final class MoodOptionItem {
         colorHex: String,
         sortOrder: Int,
         notionOptionId: String? = nil,
-        notionOptionName: String? = nil
+        notionOptionName: String? = nil,
+        defaultKey: String? = nil
     ) {
         self.id = id
         self.plannerId = plannerId
@@ -27,5 +30,6 @@ final class MoodOptionItem {
         self.sortOrder = sortOrder
         self.notionOptionId = notionOptionId
         self.notionOptionName = notionOptionName
+        self.defaultKey = defaultKey
     }
 }

@@ -23,16 +23,20 @@ struct PawRatingView: View {
     }
 
     private func starIcon(index: Int) -> some View {
-        Group {
-            if index <= rating {
-                Text("⭐")
-                    .font(.system(size: size))
-            } else {
-                Image(systemName: "star.fill")
-                    .font(.system(size: size))
-                    .foregroundStyle(Color(.systemFill))
-            }
+        let filled = index <= rating
+        return ZStack {
+            Text("⭐")
+                .font(.system(size: size))
+                .fixedSize()
+                .opacity(filled ? 1 : 0)
+                .accessibilityHidden(!filled)
+            Image(systemName: "star.fill")
+                .font(.system(size: size))
+                .foregroundStyle(Color(.systemFill))
+                .fixedSize()
+                .opacity(filled ? 0 : 1)
+                .accessibilityHidden(filled)
         }
-        .frame(width: size, height: size)
+        .fixedSize()
     }
 }
