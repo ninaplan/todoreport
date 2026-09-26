@@ -92,6 +92,12 @@ struct MoodEditorView: View {
             Text(viewModel.displayName(for: option))
                 .font(.body)
             Spacer()
+            if editMode?.wrappedValue.isEditing != true {
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture {
