@@ -7,6 +7,10 @@ struct MoodEditorView: View {
 
     private let presentsAsSheet: Bool
 
+    private var showsEmptyOptions: Bool {
+        viewModel.didLoadOptions && viewModel.options.isEmpty
+    }
+
     init(plannerId: String, presentsAsSheet: Bool = false) {
         self.presentsAsSheet = presentsAsSheet
         _viewModel = State(initialValue: MoodEditorViewModel(plannerId: plannerId))
@@ -50,8 +54,15 @@ struct MoodEditorView: View {
                     .accessibilityLabel(String(localized: "닫기"))
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                EditButton()
+            if !showsEmptyOptions {
+                ToolbarItem(placement: .topBarTrailing) {
+                    EditButton()
+                }
+            }
+        }
+        .onChange(of: showsEmptyOptions) { _, isEmpty in
+            if isEmpty {
+                editMode?.wrappedValue = .inactive
             }
         }
         .sheet(isPresented: Binding(

@@ -6,6 +6,7 @@ import SwiftUI
 @Observable
 final class MoodEditorViewModel {
     private(set) var options: [MoodOption] = []
+    private(set) var didLoadOptions = false
     private(set) var mode: MoodStorageMode?
     private(set) var moodPropertyName: String?
     private(set) var isSavingEdit = false
@@ -51,6 +52,7 @@ final class MoodEditorViewModel {
 
     func load() {
         refreshMode()
+        defer { didLoadOptions = true }
         do {
             options = try service.options(for: plannerId)
         } catch {
