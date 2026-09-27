@@ -115,6 +115,7 @@ struct OnboardingView: View {
 
 private struct PlannerNameStepView: View {
     @Bindable var viewModel: OnboardingViewModel
+    @FocusState private var focused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -134,12 +135,9 @@ private struct PlannerNameStepView: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
 
-                    PlannerNameField(
-                        text: $viewModel.plannerName,
-                        placeholder: String(localized: "예: 나의 투두"),
-                        textStyle: .title3,
-                        autoFocus: true
-                    )
+                    TextField("예: 나의 투두", text: $viewModel.plannerName)
+                        .font(.title3)
+                        .focused($focused)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 18)
                         .frame(maxWidth: .infinity)
@@ -176,6 +174,7 @@ private struct PlannerNameStepView: View {
             .padding(.bottom, 52)
         }
         .onAppear {
+            focused = true
             if viewModel.plannerName.isEmpty {
                 viewModel.plannerName = PlannerService.defaultNamePool.randomElement() ?? "내 플래너"
             }
@@ -298,10 +297,7 @@ private struct MapReportPropsStepView: View {
                         get: { viewModel.reportPropsMapping.rating },
                         set: { viewModel.selectRating($0) }
                     ),
-                    onCreateTap: { Task { await viewModel.createRatingProperty() } },
-                    occupiedPropertyId: viewModel.reportPropsMapping.moodPropId,
-                    occupiedPropertyName: viewModel.reportPropsMapping.mood,
-                    occupiedNote: moodInUsePropertyNote()
+                    onCreateTap: { Task { await viewModel.createRatingProperty() } }
                 )
             }
         )

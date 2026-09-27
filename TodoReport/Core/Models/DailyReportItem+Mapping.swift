@@ -27,7 +27,6 @@ extension DailyReportItem {
         periodCompletionRate = report.periodCompletionRate
         aiComment = report.aiComment
         // plannerId 고정
-        // 기분 필드(moodOptionId, moodName, moodNotionSyncPendingAt)는 기분 모듈만 갱신한다.
     }
 
     static func from(_ report: DailyReport) -> DailyReportItem {

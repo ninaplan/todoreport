@@ -3,7 +3,6 @@ import SwiftUI
 struct CategoryView: View {
     @State private var viewModel: CategoryViewModel
     @Environment(\.editMode) private var editMode
-    @Environment(\.dismiss) private var dismiss
     /// 투두탭 시트만 true. 설정 네비게이션 push는 기본값(false) 유지.
     private let presentsAsSheet: Bool
 
@@ -14,59 +13,36 @@ struct CategoryView: View {
 
     private var isEditing: Bool { editMode?.wrappedValue.isEditing == true }
 
-    private var showsEmptyState: Bool {
-        viewModel.categories.isEmpty && !viewModel.isLoading
-    }
-
     var body: some View {
         List {
-            if showsEmptyState {
+            if viewModel.categories.isEmpty && !viewModel.isLoading {
                 ContentUnavailableView(
                     "카테고리 없음",
                     systemImage: "tag.slash",
-                    description: Text("아래 + 카테고리 추가를 눌러 카테고리를 만드세요.")
+                    description: Text("+ 버튼을 눌러 카테고리를 추가하세요.")
                 )
                 .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                if !isEditing {
-                    Section {
-                        addCategoryRow
-                    }
-                }
             } else {
                 Section {
                     ForEach(viewModel.categories) { category in
                         categoryListRow(category)
                     }
                     .onMove { viewModel.moveCategory(from: $0, to: $1) }
-                    if !isEditing {
-                        addCategoryRow
-                    }
                 }
             }
         }
-        .navigationTitle("카테고리")
+        .navigationTitle("카테고리 관리")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if presentsAsSheet {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .accessibilityLabel(String(localized: "닫기"))
-                }
+            ToolbarItem(placement: presentsAsSheet ? .topBarLeading : .topBarTrailing) {
+                EditButton()
             }
-            if !showsEmptyState {
-                ToolbarItem(placement: .topBarTrailing) {
-                    EditButton()
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    viewModel.openAddSheet()
+                } label: {
+                    Image(systemName: "plus")
                 }
-            }
-        }
-        .onChange(of: showsEmptyState) { _, isEmpty in
-            if isEmpty {
-                editMode?.wrappedValue = .inactive
             }
         }
         .sheet(isPresented: $viewModel.isSheetPresented) {
@@ -89,14 +65,6 @@ struct CategoryView: View {
             Button("확인") { viewModel.confirmOfflineCategoryAlert() }
         } message: {
             Text("노션과 연동된 카테고리는 인터넷에 연결된 상태에서 추가하거나 삭제할 수 있어요.")
-        }
-    }
-
-    private var addCategoryRow: some View {
-        Button {
-            viewModel.openAddSheet()
-        } label: {
-            Text("+ 카테고리 추가")
         }
     }
 

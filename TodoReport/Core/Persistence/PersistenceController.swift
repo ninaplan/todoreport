@@ -40,7 +40,6 @@ final class PersistenceController {
             RecurringSeries.self,
             DailyReportItem.self,
             CategoryItem.self,
-            MoodOptionItem.self,
             SyncQueueItem.self
         ])
 
@@ -640,10 +639,7 @@ final class PersistenceController {
                 endDate: source.endDate,
                 periodCompletionRate: source.periodCompletionRate,
                 aiComment: source.aiComment,
-                notionSyncPendingAt: source.notionSyncPendingAt,
-                moodOptionId: source.moodOptionId,
-                moodName: source.moodName,
-                moodNotionSyncPendingAt: source.moodNotionSyncPendingAt
+                notionSyncPendingAt: source.notionSyncPendingAt
             )
             shared.insert(copy)
             merged += 1

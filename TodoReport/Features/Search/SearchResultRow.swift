@@ -35,7 +35,9 @@ struct SearchResultRow: View {
                     .lineLimit(2)
             }
 
-            plannerSubtitle(todoSubtitleSuffix(todo))
+            Text(todoSubtitle(todo))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -56,32 +58,17 @@ struct SearchResultRow: View {
                 .foregroundStyle(.primary)
                 .lineLimit(2)
 
-            plannerSubtitle(AppDateFormat.reviewTimeline(date))
+            Text(reviewSubtitle(date: date))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
-    }
-
-    private func todoSubtitleSuffix(_ todo: Todo) -> String {
-        if let date = todo.date {
-            return AppDateFormat.reviewTimeline(date)
-        }
-        return String(localized: "수집함")
-    }
-
-    private func plannerSubtitle(_ suffix: String) -> some View {
-        HStack(spacing: 0) {
-            Text(plannerName)
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Text(" · \(suffix)")
-                .lineLimit(1)
-                .layoutPriority(1)
-        }
-        .font(.caption2)
-        .foregroundStyle(.secondary)
     }
 
     private func todoSubtitle(_ todo: Todo) -> String {
-        "\(plannerName) · \(todoSubtitleSuffix(todo))"
+        if let date = todo.date {
+            return "\(plannerName) · \(AppDateFormat.reviewTimeline(date))"
+        }
+        return "\(plannerName) · \(String(localized: "수집함"))"
     }
 
     private func reviewSubtitle(date: Date) -> String {

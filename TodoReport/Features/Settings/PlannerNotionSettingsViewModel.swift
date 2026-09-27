@@ -28,8 +28,6 @@ final class PlannerNotionSettingsViewModel {
 
     private let planner: Planner
     @ObservationIgnored private var databasesFetchTask: Task<Void, Never>?
-    @ObservationIgnored private var pendingMoodRestoreMode: String?
-    @ObservationIgnored private var shouldPersistMoodRestoreMode = false
 
     init(planner: Planner) {
         self.planner = planner
@@ -193,26 +191,6 @@ final class PlannerNotionSettingsViewModel {
         )
     }
 
-    func selectMood(_ selection: MoodPropsAutoFill.MoodUserSelection) {
-        switch MoodPropsAutoFill.applyUserSelection(
-            mapping: &reportPropsMapping,
-            selection: selection
-        ) {
-        case .rejected:
-            return
-        case .applied(let restoreModeOnDisable):
-            switch selection {
-            case .disabled:
-                if let restoreModeOnDisable {
-                    pendingMoodRestoreMode = restoreModeOnDisable
-                    shouldPersistMoodRestoreMode = true
-                }
-            case .appOnly, .notionProperty:
-                shouldPersistMoodRestoreMode = false
-            }
-        }
-    }
-
     // MARK: - 속성 생성
 
     func createMemoProperty() async {
@@ -337,7 +315,6 @@ final class PlannerNotionSettingsViewModel {
             updated.reportPropsMapping = json
         }
         try? await PlannerService.shared.savePlanner(updated)
-        persistMoodRestoreModeIfNeeded(plannerId: updated.id)
         CategoryNotionSync.shared.onCategoryMappingEnabled(
             plannerId: planner.id,
             previousCategoryProp: previousCategoryProp,
@@ -347,16 +324,6 @@ final class PlannerNotionSettingsViewModel {
 
     func clearAlert() {
         alertMessage = nil
-    }
-
-    private func persistMoodRestoreModeIfNeeded(plannerId: String) {
-        guard shouldPersistMoodRestoreMode,
-              reportPropsMapping.moodMode == .disabled,
-              let pendingMoodRestoreMode else { return }
-        UserDefaults.standard.set(
-            pendingMoodRestoreMode,
-            forKey: MoodPropsAutoFill.usageRestoreDefaultsKey(plannerId: plannerId)
-        )
     }
 }
 

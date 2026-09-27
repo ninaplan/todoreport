@@ -272,10 +272,7 @@ struct PlannerMigrationView: View {
                         get: { viewModel.reportPropsMapping.rating },
                         set: { viewModel.selectRating($0) }
                     ),
-                    onCreateTap: { Task { await viewModel.createRatingProperty() } },
-                    occupiedPropertyId: viewModel.reportPropsMapping.moodPropId,
-                    occupiedPropertyName: viewModel.reportPropsMapping.mood,
-                    occupiedNote: moodInUsePropertyNote()
+                    onCreateTap: { Task { await viewModel.createRatingProperty() } }
                 )
             }
         )

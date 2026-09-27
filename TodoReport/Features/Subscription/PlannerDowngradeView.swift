@@ -31,8 +31,6 @@ struct PlannerDowngradeView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(planner.name)
                                 .font(.body)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
                             if planner.isNotionConnected {
                                 Text("Notion 연동")
                                     .font(.caption)

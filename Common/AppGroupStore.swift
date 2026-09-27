@@ -13,7 +13,6 @@ enum AppGroupStore {
             RecurringSeries.self,
             DailyReportItem.self,
             CategoryItem.self,
-            MoodOptionItem.self,
             SyncQueueItem.self
         ])
     }
