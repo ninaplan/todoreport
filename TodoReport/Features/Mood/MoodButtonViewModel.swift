@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 @MainActor
 @Observable
@@ -142,12 +143,16 @@ final class MoodButtonViewModel {
             presentReadOnly()
             return false
         }
-        persistGeneration += 1
-        selectedOptionId = optionId
-        if let optionId {
-            snapshotName = options.first { $0.id == optionId }?.name
-        } else {
-            snapshotName = nil
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            persistGeneration += 1
+            selectedOptionId = optionId
+            if let optionId {
+                snapshotName = options.first { $0.id == optionId }?.name
+            } else {
+                snapshotName = nil
+            }
         }
         return true
     }

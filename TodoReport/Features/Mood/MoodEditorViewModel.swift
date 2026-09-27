@@ -70,7 +70,9 @@ final class MoodEditorViewModel {
             do {
                 try await service.setUsageEnabled(enabled, plannerId: plannerId)
                 refreshMode()
-                options = try service.storedOptions(for: plannerId)
+                options = try enabled
+                    ? service.options(for: plannerId)
+                    : service.storedOptions(for: plannerId)
             } catch {
                 presentSaveError()
                 refreshMode()

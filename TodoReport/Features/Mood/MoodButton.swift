@@ -66,9 +66,6 @@ struct MoodButton: View {
             .padding(.vertical, Self.chipVerticalPadding)
             .frame(minWidth: Self.minimumWidth, minHeight: Self.minimumHeight, alignment: .center)
             .background(Capsule().fill(chipFill))
-            .transaction { transaction in
-                transaction.animation = nil
-            }
     }
 
     private var chipLabel: Text {
@@ -110,6 +107,8 @@ struct MoodChipFrameKey: PreferenceKey {
 }
 
 /// 칩 위에 얹는 44pt 메뉴. 줄 높이 계산에는 들어가지 않는다.
+/// 기본 Menu는 닫힐 때까지 라벨을 갱신하지 않아, 라벨에 칩을 두면 선택이 칩에 바로 보이지 않는다.
+/// 44pt 누르는 영역도 줄 높이 밖에 두려고 투명 라벨로 칩 위에 얹는다.
 struct MoodChipHitMenu: View {
     @Bindable var viewModel: MoodButtonViewModel
     var width: CGFloat

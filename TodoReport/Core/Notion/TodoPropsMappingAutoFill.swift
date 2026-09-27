@@ -482,6 +482,19 @@ enum TodoPropsMappingAutoFill {
 
 enum ReportPropsMappingAutoFill {
 
+    /// 이미 연결된 속성과 같은지 본다. 연결 ID가 있으면 ID만 비교하고, 없으면 이름으로 비교한다.
+    static func isLinkedProperty(
+        _ property: NotionProperty,
+        linkedId: String?,
+        linkedName: String?
+    ) -> Bool {
+        if let linkedId, !linkedId.isEmpty {
+            return property.id == linkedId
+        }
+        guard let linkedName, !linkedName.isEmpty else { return false }
+        return property.name == linkedName
+    }
+
     static func applyInitialSetup(
         mapping: inout ReportPropsMapping,
         properties: [NotionProperty],
@@ -624,6 +637,11 @@ enum ReportPropsMappingAutoFill {
         properties: [NotionProperty],
         ratingMode: inout PropMappingMode
     ) {
+        if let name,
+           let prop = properties.first(where: { $0.name == name }),
+           isLinkedProperty(prop, linkedId: mapping.moodPropId, linkedName: mapping.mood) {
+            return
+        }
         mapping.rating = name
         mapping.ratingStoredInAppOnly = name == nil
         if let name, let prop = properties.first(where: { $0.name == name }) {

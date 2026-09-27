@@ -40,6 +40,26 @@
         }
       }
     },
+    "%@ (기분에 사용 중)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (Used for Mood)"
+          }
+        }
+      }
+    },
+    "%@ (별점에 사용 중)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (Used for Rating)"
+          }
+        }
+      }
+    },
     "%@ 만료" : {
       "localizations" : {
         "en" : {

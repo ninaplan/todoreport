@@ -191,7 +191,15 @@ struct PlannerNotionSettingsView: View {
                     get: { viewModel.reportPropsMapping.rating },
                     set: { viewModel.selectRating($0) }
                 ),
-                onCreate: { Task { await viewModel.createRatingProperty() } }
+                onCreate: { Task { await viewModel.createRatingProperty() } },
+                occupiedPropertyId: viewModel.reportPropsMapping.moodPropId,
+                occupiedPropertyName: viewModel.reportPropsMapping.mood,
+                occupiedNote: moodInUsePropertyNote()
+            )
+            SettingsMoodPropRow(
+                properties: viewModel.reportProperties.filter { $0.type == "select" },
+                mapping: viewModel.reportPropsMapping,
+                onSelect: { viewModel.selectMood($0) }
             )
         }
     }
@@ -311,6 +319,9 @@ private struct SettingsOptionalPropRow: View {
     var isRecommended: Bool = false
     var onCreate: (() -> Void)? = nil
     var hint: String? = nil
+    var occupiedPropertyId: String? = nil
+    var occupiedPropertyName: String? = nil
+    var occupiedNote: String? = nil
 
     private var iconName: String {
         propTypeIcon(for: candidates.first?.type, label: label)
@@ -351,12 +362,19 @@ private struct SettingsOptionalPropRow: View {
                 if !candidates.isEmpty {
                     Divider()
                     ForEach(candidates, id: \.name) { prop in
-                        Button(prop.name) {
-                            if let onPropertySelect {
-                                onPropertySelect(prop)
-                            } else {
-                                mode = .existing
-                                selection = prop.name
+                        if isOccupied(prop), let occupiedNote {
+                            Button {} label: {
+                                Text(reportOccupiedPropertyTitle(name: prop.name, note: occupiedNote))
+                            }
+                            .disabled(true)
+                        } else {
+                            Button(prop.name) {
+                                if let onPropertySelect {
+                                    onPropertySelect(prop)
+                                } else {
+                                    mode = .existing
+                                    selection = prop.name
+                                }
                             }
                         }
                     }
@@ -379,6 +397,121 @@ private struct SettingsOptionalPropRow: View {
                 .padding(.leading, 28)
         }
         }
+    }
+
+    private func isOccupied(_ property: NotionProperty) -> Bool {
+        guard occupiedNote != nil else { return false }
+        return ReportPropsMappingAutoFill.isLinkedProperty(
+            property,
+            linkedId: occupiedPropertyId,
+            linkedName: occupiedPropertyName
+        )
+    }
+}
+
+// MARK: - 기분 행
+
+private struct SettingsMoodPropRow: View {
+    let properties: [NotionProperty]
+    let mapping: ReportPropsMapping
+    let onSelect: (MoodPropsAutoFill.MoodUserSelection) -> Void
+
+    private var displayLabel: String {
+        switch mapping.moodMode {
+        case .disabled:
+            return String(localized: "사용 안 함")
+        case .notion:
+            return mapping.mood ?? String(localized: "선택")
+        case .appOnly, nil:
+            return String(localized: "앱에서만 저장")
+        }
+    }
+
+    var body: some View {
+        HStack {
+            Image(systemName: propTypeIcon(for: "select", label: "기분"))
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+            Text("기분")
+            Spacer()
+            Menu {
+                Button {
+                    onSelect(.appOnly)
+                } label: {
+                    HStack {
+                        Text("앱에서만 저장")
+                        if mapping.moodMode == nil || mapping.moodMode == .appOnly {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+                Button {
+                    onSelect(.disabled)
+                } label: {
+                    HStack {
+                        Text("사용 안 함")
+                        if mapping.moodMode == .disabled {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+                if !properties.isEmpty {
+                    Divider()
+                    ForEach(properties) { prop in
+                        moodPropertyButton(prop)
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(displayLabel)
+                        .font(.subheadline)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                }
+                .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private func moodPropertyButton(_ property: NotionProperty) -> some View {
+        let usedByRating = ReportPropsMappingAutoFill.isLinkedProperty(
+            property,
+            linkedId: mapping.ratingPropId,
+            linkedName: mapping.rating
+        )
+        if usedByRating {
+            Button {} label: {
+                HStack {
+                    Text(reportOccupiedPropertyTitle(name: property.name, note: ratingInUsePropertyNote()))
+                    if isCurrentNotionProperty(property) {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+            .disabled(true)
+        } else {
+            Button {
+                onSelect(.notionProperty(property))
+            } label: {
+                HStack {
+                    Text(property.name)
+                    if isCurrentNotionProperty(property) {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+        }
+    }
+
+    private func isCurrentNotionProperty(_ property: NotionProperty) -> Bool {
+        guard mapping.moodMode == .notion else { return false }
+        return ReportPropsMappingAutoFill.isLinkedProperty(
+            property,
+            linkedId: mapping.moodPropId,
+            linkedName: mapping.mood
+        )
     }
 }
 

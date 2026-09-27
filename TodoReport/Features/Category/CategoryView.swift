@@ -14,17 +14,24 @@ struct CategoryView: View {
 
     private var isEditing: Bool { editMode?.wrappedValue.isEditing == true }
 
+    private var showsEmptyState: Bool {
+        viewModel.categories.isEmpty && !viewModel.isLoading
+    }
+
     var body: some View {
         List {
-            if viewModel.categories.isEmpty && !viewModel.isLoading {
+            if showsEmptyState {
                 ContentUnavailableView(
                     "카테고리 없음",
                     systemImage: "tag.slash",
                     description: Text("아래 + 카테고리 추가를 눌러 카테고리를 만드세요.")
                 )
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
                 if !isEditing {
-                    addCategoryRow
+                    Section {
+                        addCategoryRow
+                    }
                 }
             } else {
                 Section {
@@ -51,8 +58,15 @@ struct CategoryView: View {
                     .accessibilityLabel(String(localized: "닫기"))
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                EditButton()
+            if !showsEmptyState {
+                ToolbarItem(placement: .topBarTrailing) {
+                    EditButton()
+                }
+            }
+        }
+        .onChange(of: showsEmptyState) { _, isEmpty in
+            if isEmpty {
+                editMode?.wrappedValue = .inactive
             }
         }
         .sheet(isPresented: $viewModel.isSheetPresented) {

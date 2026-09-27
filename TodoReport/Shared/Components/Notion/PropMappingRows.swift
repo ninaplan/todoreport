@@ -79,6 +79,21 @@ struct RequiredPropRow: View {
     }
 }
 
+func moodInUsePropertyNote() -> String {
+    String(localized: "%@ (기분에 사용 중)")
+}
+
+func ratingInUsePropertyNote() -> String {
+    String(localized: "%@ (별점에 사용 중)")
+}
+
+func reportOccupiedPropertyTitle(name: String, note: String) -> String {
+    if note == ratingInUsePropertyNote() {
+        return String(localized: "\(name) (별점에 사용 중)")
+    }
+    return String(localized: "\(name) (기분에 사용 중)")
+}
+
 struct OptionalPropMenu: View {
     let label: String
     @Binding var mode: PropMappingMode
@@ -86,6 +101,9 @@ struct OptionalPropMenu: View {
     @Binding var selection: String?
     var onCreateTap: (() -> Void)? = nil
     var hint: String? = nil
+    var occupiedPropertyId: String? = nil
+    var occupiedPropertyName: String? = nil
+    var occupiedNote: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -109,13 +127,23 @@ struct OptionalPropMenu: View {
                     }
                     Divider()
                     ForEach(props) { prop in
-                        Button {
-                            mode = .existing
-                            selection = prop.name
-                        } label: {
-                            HStack {
-                                Text(prop.name)
-                                if selection == prop.name { Image(systemName: "checkmark") }
+                        if isOccupied(prop), let occupiedNote {
+                            Button {} label: {
+                                HStack {
+                                    Text(reportOccupiedPropertyTitle(name: prop.name, note: occupiedNote))
+                                    if selection == prop.name { Image(systemName: "checkmark") }
+                                }
+                            }
+                            .disabled(true)
+                        } else {
+                            Button {
+                                mode = .existing
+                                selection = prop.name
+                            } label: {
+                                HStack {
+                                    Text(prop.name)
+                                    if selection == prop.name { Image(systemName: "checkmark") }
+                                }
                             }
                         }
                     }
@@ -144,5 +172,14 @@ struct OptionalPropMenu: View {
                     .padding(.leading, 28)
             }
         }
+    }
+
+    private func isOccupied(_ property: NotionProperty) -> Bool {
+        guard occupiedNote != nil else { return false }
+        return ReportPropsMappingAutoFill.isLinkedProperty(
+            property,
+            linkedId: occupiedPropertyId,
+            linkedName: occupiedPropertyName
+        )
     }
 }

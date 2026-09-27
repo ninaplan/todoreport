@@ -131,21 +131,14 @@ final class MoodService {
             throw Failure.plannerNotFound
         }
         var mapping = planner.decodedReportPropsMapping
-        let key = restoreModeKey(plannerId: plannerId)
+        let key = MoodPropsAutoFill.usageRestoreDefaultsKey(plannerId: plannerId)
         let modeToRemember: String?
         if enabled {
             modeToRemember = nil
             let stored = UserDefaults.standard.string(forKey: key)
             mapping.moodMode = stored == MoodStorageMode.notion.rawValue ? .notion : .appOnly
         } else {
-            switch mapping.moodMode {
-            case .notion, .appOnly:
-                modeToRemember = mapping.moodMode?.rawValue
-            case nil:
-                modeToRemember = MoodStorageMode.appOnly.rawValue
-            case .disabled:
-                modeToRemember = nil
-            }
+            modeToRemember = MoodPropsAutoFill.restoreModeRawValue(beforeDisable: mapping.moodMode)
             mapping.moodMode = .disabled
         }
         let data = try JSONEncoder().encode(mapping)
@@ -158,16 +151,12 @@ final class MoodService {
         bump()
     }
 
-    private func restoreModeKey(plannerId: String) -> String {
-        "moodUsageRestoreMode.\(plannerId)"
-    }
-
     private func bump() {
         revision += 1
     }
 
     /// 플래너당 한 번. 개수가 0개인지는 보지 않고, 만든 기록이 없을 때만 넣는다.
-    /// 노션 모드·사용 안 함에서는 만들지 않는다. 토글은 이 함수를 부르지 않는다.
+    /// 노션 모드·사용 안 함에서는 만들지 않는다. 사용을 켤 때도 이 경로를 쓴다.
     private func ensureDefaultOptions(plannerId: String) throws {
         let existing = try fetchItems(plannerId: plannerId)
         if !existing.isEmpty {

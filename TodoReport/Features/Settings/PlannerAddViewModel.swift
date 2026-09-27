@@ -392,6 +392,15 @@ final class PlannerAddViewModel {
     }
 
     func selectRating(_ name: String?) {
+        if let name,
+           let prop = reportProperties.first(where: { $0.name == name }),
+           ReportPropsMappingAutoFill.isLinkedProperty(
+               prop,
+               linkedId: reportPropsMapping.moodPropId,
+               linkedName: reportPropsMapping.mood
+           ) {
+            return
+        }
         reportPropsMapping.rating = name
         reportPropsMapping.ratingStoredInAppOnly = name == nil
         if let name, let prop = reportProperties.first(where: { $0.name == name }) {
