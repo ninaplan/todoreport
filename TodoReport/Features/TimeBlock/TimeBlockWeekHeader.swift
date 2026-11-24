@@ -57,6 +57,7 @@ struct TimeBlockWeekHeader: View {
         .padding(.horizontal, 20)
         .padding(.top, 4)
         .padding(.bottom, 10)
+        .background(alignment: .top) { fadeCover }
         .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 30)
@@ -66,6 +67,23 @@ struct TimeBlockWeekHeader: View {
                     if width < 0 { onNextWeek() } else { onPreviousWeek() }
                 }
         )
+    }
+
+    /// 뒤로 지나가는 블록을 더 가리는 덮개. 아래쪽 24pt는 점점 투명해져 선 없이 이어진다.
+    private var fadeCover: some View {
+        let base = Color(.systemGroupedBackground)
+        return LinearGradient(
+            stops: [
+                .init(color: base.opacity(0.9), location: 0),
+                .init(color: base.opacity(0.75), location: 0.75),
+                .init(color: base.opacity(0), location: 1)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .padding(.bottom, -24)
+        .ignoresSafeArea(edges: .top)
+        .allowsHitTesting(false)
     }
 
     private func weekButton(systemName: String, label: String, action: @escaping () -> Void) -> some View {

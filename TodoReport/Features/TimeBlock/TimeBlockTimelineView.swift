@@ -107,7 +107,8 @@ struct TimeBlockTimelineView: View {
                 .offset(x: TimeBlockLayout.railX - 0.75, y: TimeBlockLayout.verticalPadding)
             ForEach(viewModel.entries) { entry in
                 railDot(for: entry.status(now: now))
-                    .offset(y: TimeBlockLayout.y(for: viewModel.displayStartMinute(for: entry)) + 12)
+                    // 점 가운데 = 블록 시작 시각 (왼쪽 시각 눈금과 같은 높이)
+                    .offset(y: TimeBlockLayout.y(for: viewModel.displayStartMinute(for: entry)))
             }
         }
         .allowsHitTesting(false)

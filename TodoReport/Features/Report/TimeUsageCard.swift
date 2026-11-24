@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 리포트 「시간 사용」: 타임라인에서 완료한 블록 시간을 카테고리 색으로 쌓은 막대 + 카테고리별 시간.
+/// 리포트 「집중한 시간」: 타임라인에서 완료한 블록 시간을 카테고리 색으로 쌓은 막대 + 카테고리별 시간.
 /// 카테고리 색은 하루 타임라인이 아니라 여기(돌아보기)에서 주로 쓴다.
 struct TimeUsageCard: View {
     let summary: TimeBlockUsageSummary
@@ -14,7 +14,7 @@ struct TimeUsageCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("시간 사용")
+            Text("집중한 시간")
                 .font(.subheadline.bold())
 
             if isLocked {

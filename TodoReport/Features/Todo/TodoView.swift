@@ -1647,7 +1647,7 @@ private struct DatePickerSheet: View {
                     } label: {
                         Image(systemName: "checkmark")
                             .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(hasFocusedDate ? Color.nockOrange : Color(.tertiaryLabel))
+                            .foregroundStyle(hasFocusedDate ? AppTheme.shared.accent : Color(.tertiaryLabel))
                     }
                 }
             }

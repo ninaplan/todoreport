@@ -30,8 +30,6 @@ struct TimeBlockCardView: View {
     @State private var completeFeedbackTrigger = 0
     @State private var moveFeedbackTrigger = 0
     @State private var isMoveGestureActive = false
-    /// 제스처가 취소돼 onEnded가 안 불려도 이동 상태를 풀기 위한 안전장치
-    @GestureState private var isMovePressing = false
 
     private static let cornerRadius: CGFloat = 12
     private static let moveLongPressDuration: Double = 0.3
@@ -73,6 +71,10 @@ struct TimeBlockCardView: View {
     }
 
     private var isCompact: Bool { durationMinutes < 30 }
+    /// 체크 원 크기 (짧은 블록은 작게)
+    private var checkSide: CGFloat { isCompact ? 16 : 20 }
+    /// 둘째 줄을 제목 글자와 맞추는 들여쓰기 = 체크 원 칸(side + 8) - 왼쪽 당김(4) + 간격(6)
+    private var titleLeadingInset: CGFloat { checkSide + 10 }
     /// 50분 이상이면 둘째 줄(길이·알림·진행 중) 표시
     private var showsDetailRow: Bool { durationMinutes >= 50 }
 
@@ -110,11 +112,6 @@ struct TimeBlockCardView: View {
         .animation(.easeOut(duration: 0.15), value: isMoving)
         .sensoryFeedback(.success, trigger: completeFeedbackTrigger)
         .sensoryFeedback(.impact(weight: .medium), trigger: moveFeedbackTrigger)
-        .onChange(of: isMovePressing) { _, pressing in
-            guard !pressing, isMoveGestureActive else { return }
-            isMoveGestureActive = false
-            onMoveEnded()
-        }
     }
 
     private var card: some View {
@@ -122,6 +119,7 @@ struct TimeBlockCardView: View {
             headerRow
             if showsDetailRow {
                 detailRow
+                    .padding(.leading, titleLeadingInset)
             }
         }
         .padding(.horizontal, 10)
@@ -138,8 +136,9 @@ struct TimeBlockCardView: View {
             guard isInteractive else { return }
             onTap()
         }
-        // 스와이프(DragGesture)는 블록 위에서 세로 스크롤을 막아서 없앴다. 완료는 체크 원으로.
-        .gesture(moveGesture, including: isInteractive ? .all : .none)
+        // SwiftUI DragGesture·LongPressGesture는 블록 위에서 세로 스크롤을 막는다 →
+        // 완료는 체크 원, 이동은 UIKit 길게 누르기로.
+        .gesture(moveGesture)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
         .accessibilityAddTraits(.isButton)
@@ -214,7 +213,7 @@ struct TimeBlockCardView: View {
     /// 완료 체크 원 (투두 탭과 같은 모양)
     private var completionButton: some View {
         let isDone = status == .completed
-        let side: CGFloat = isCompact ? 16 : 20
+        let side = checkSide
         let tint: Color = isCurrent ? foreground : (categoryColor ?? AppTheme.shared.accent)
         return Button {
             guard isInteractive else { return }
@@ -261,29 +260,25 @@ struct TimeBlockCardView: View {
     // MARK: - 제스처
 
     /// 길게 누른 뒤 위아래로 끌면 이동 (시작 시각만 바뀌고 길이는 유지)
-    private var moveGesture: some Gesture {
-        LongPressGesture(minimumDuration: Self.moveLongPressDuration)
-            // 블록이 손가락을 따라 움직이므로 화면 기준 좌표로 이동량을 잰다
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
-            .updating($isMovePressing) { value, state, _ in
-                if case .second(true, _) = value { state = true }
-            }
-            .onChanged { value in
-                guard case .second(true, let drag) = value else { return }
-                if !isMoveGestureActive {
-                    isMoveGestureActive = true
-                    moveFeedbackTrigger += 1
-                    onMoveBegan()
-                }
-                if let drag {
-                    onMoveChanged(drag.translation.height)
-                }
-            }
-            .onEnded { _ in
+    private var moveGesture: TimeBlockLongPressDragGesture {
+        TimeBlockLongPressDragGesture(
+            minimumDuration: Self.moveLongPressDuration,
+            isEnabled: isInteractive,
+            onBegan: {
+                isMoveGestureActive = true
+                moveFeedbackTrigger += 1
+                onMoveBegan()
+            },
+            onChanged: { translation in
+                guard isMoveGestureActive else { return }
+                onMoveChanged(translation)
+            },
+            onEnded: {
                 guard isMoveGestureActive else { return }
                 isMoveGestureActive = false
                 onMoveEnded()
             }
+        )
     }
 
     private var accessibilityText: String {

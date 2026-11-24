@@ -275,7 +275,8 @@ private struct SummaryCard: View {
             summaryItem(
                 value: isFocusLocked ? "Pro" : focusText,
                 label: "집중 시간",
-                prefix: isFocusLocked ? "🔒" : "⏱️",
+                symbolName: isFocusLocked ? "lock.fill" : nil,
+                symbolColor: .secondary,
                 color: isFocusLocked ? .secondary : .primary
             )
         }

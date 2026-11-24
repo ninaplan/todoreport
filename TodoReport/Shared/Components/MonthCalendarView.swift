@@ -195,7 +195,7 @@ struct MonthCalendarView: View {
                     } else {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(Color.nockOrange)
+                            .foregroundStyle(AppTheme.shared.accent)
                             .frame(width: fetchSlotWidth, height: 44)
                     }
                 }

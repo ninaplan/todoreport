@@ -13,7 +13,6 @@ struct SettingsView: View {
     private var isPro: Bool { subscriptionManager.isPro }
 
     @AppStorage("startWeekday") private var startWeekday = "월"
-    @AppStorage(StreakCriteria.storageKey) private var streakCriteriaRaw = StreakCriteria.allCompleted.rawValue
     @AppStorage("appColorScheme") private var appColorScheme: String = "system"
     @State private var notificationAuthStatus: UNAuthorizationStatus = .notDetermined
     @State private var showAddPlannerSheet = false
@@ -285,16 +284,18 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            Picker("연속 달성 기준", selection: $streakCriteriaRaw) {
-                ForEach(StreakCriteria.allCases, id: \.rawValue) { criteria in
-                    Text(criteria.displayName).tag(criteria.rawValue)
+            // 리포트에서 연속 달성을 빼면서 「연속 달성 기준」 대신 포인트 컬러 설정 (2026-11-24)
+            NavigationLink {
+                AccentColorSettingsView()
+            } label: {
+                LabeledContent("포인트 컬러") {
+                    Circle()
+                        .fill(AppTheme.shared.accent)
+                        .frame(width: 18, height: 18)
                 }
             }
-            .tint(.secondary)
         } header: {
             Text("환경 설정")
-        } footer: {
-            Text("리포트의 연속 달성은 어제까지 기준으로 계산됩니다.")
         }
     }
 

@@ -94,8 +94,8 @@ struct TimeBlockView: View {
                 onToday: { viewModel.goToToday() }
             )
         }
-        // 주간 달력은 높아서 soft로는 뒤 글자가 비친다 → hard
-        .scrollEdgeEffectStyle(.hard, for: .top)
+        // hard는 아래가 선으로 뚝 끊겨서 soft 유지. 대신 주간 달력 뒤에 그라데이션 덮개를 깔아 더 가린다
+        .scrollEdgeEffectStyle(.soft, for: .top)
         // safeAreaBar·scrollEdgeEffectStyle은 ScrollView에 바로 붙어야 날짜행 뒤 블러가 생긴다.
         // 다른 modifier는 반드시 그 뒤에 둘 것.
         .scrollDisabled(viewModel.isDraggingBlock)
