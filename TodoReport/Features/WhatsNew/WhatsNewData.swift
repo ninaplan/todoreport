@@ -2,6 +2,38 @@ import Foundation
 
 let whatsNewReleases: [WhatsNewRelease] = [
     WhatsNewRelease(
+        id: "1.18",
+        symbolName: "clock",
+        items: [
+            String(localized: "타임블록"),
+            String(localized: "집중한 시간 리포트"),
+            String(localized: "포인트 컬러 설정")
+        ],
+        showsPopup: true,
+        popupTitle: String(localized: "새로 추가된 기능"),
+        popupSubtitle: String(localized: "하루를 시간으로 계획하는 타임블록이 생겼습니다"),
+        popupItems: [
+            WhatsNewRelease.PopupItem(
+                symbolName: "clock",
+                title: String(localized: "타임블록"),
+                description: String(localized: "할 일을 시간 블록에 넣어 하루를 계획합니다. 블록이 시작하고 끝날 때 알림도 받을 수 있습니다."),
+                isPro: true
+            ),
+            WhatsNewRelease.PopupItem(
+                symbolName: "chart.bar",
+                title: String(localized: "집중한 시간 리포트"),
+                description: String(localized: "타임블록으로 완료한 시간이 주간·월간 리포트에 카테고리별로 쌓입니다."),
+                isPro: true
+            ),
+            WhatsNewRelease.PopupItem(
+                symbolName: "paintpalette",
+                title: String(localized: "포인트 컬러 설정"),
+                description: String(localized: "설정에서 앱의 포인트 컬러를 원하는 색으로 바꿀 수 있습니다.")
+            )
+        ],
+        popupButtonTitle: String(localized: "시작하기")
+    ),
+    WhatsNewRelease(
         id: "1.15",
         symbolName: "repeat",
         items: [

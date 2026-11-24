@@ -149,14 +149,10 @@ struct TimeBlockTimelineView: View {
     /// 진행 중 블록이 있으면 그 블록의 점이 지금 시각을 따라 내려온 모양: 안쪽 원은 작게, 연한 테두리는 그만큼 넓게 (전체 크기는 그대로)
     private var nowIndicator: some View {
         let y = TimeBlockLayout.y(for: nowMinute)
-        let accent = AppTheme.shared.accent
         let isInBlock = viewModel.entries.contains { $0.status(now: now) == .current }
         let dotSize: CGFloat = isInBlock ? 9 : 8
         let ringWidth: CGFloat = isInBlock ? 8 : 4
-        return Circle()
-            .fill(accent)
-            .overlay(Circle().stroke(accent.opacity(0.25), lineWidth: ringWidth))
-            .frame(width: dotSize, height: dotSize)
+        return TimeBlockNowDot(dotSize: dotSize, ringWidth: ringWidth)
             .offset(x: TimeBlockLayout.railX - dotSize / 2, y: y - dotSize / 2)
             .allowsHitTesting(false)
             .accessibilityHidden(true)

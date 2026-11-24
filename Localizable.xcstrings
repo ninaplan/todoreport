@@ -5994,6 +5994,36 @@
           }
         }
       }
+    },
+    "하루를 시간으로 계획하는 타임블록이 생겼습니다" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan your day by the hour with Time Blocks"
+          }
+        }
+      }
+    },
+    "할 일을 시간 블록에 넣어 하루를 계획합니다. 블록이 시작하고 끝날 때 알림도 받을 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan your day by placing to-dos into time blocks. You can also get alerts when a block starts and ends."
+          }
+        }
+      }
+    },
+    "설정에서 앱의 포인트 컬러를 원하는 색으로 바꿀 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change the app's accent color to any color you like in Settings."
+          }
+        }
+      }
     }
   },
   "version" : "1.2"
