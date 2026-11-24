@@ -38,6 +38,7 @@ final class PersistenceController {
             NotionWorkspaceConnection.self,
             TodoItem.self,
             RecurringSeries.self,
+            TimeBlockItem.self,
             DailyReportItem.self,
             CategoryItem.self,
             SyncQueueItem.self

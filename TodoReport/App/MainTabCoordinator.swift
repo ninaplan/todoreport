@@ -6,6 +6,7 @@ final class MainTabCoordinator {
 
     enum Tab: Hashable {
         case todo
+        case timeline
         case report
         case settings
         case search

@@ -1,6 +1,6 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-09-23 기준)
+## 현재 상황 (2026-11-24 기준)
 
 2026-09-27 기분 기능을 bca59ff 시점으로 되돌림. 작업은 mood-wip 브랜치에 보관. 같이 사라진 작업 목록은 프로젝트 문서 mood-rollback-list.md 참고.
 
@@ -17,6 +17,22 @@
 - v1.15 제출 완료 (2026-09-21, 반복 투두·카테고리 필터 peek·카테고리 아이콘 보기·WhatsNew 팝업·페이월 체험 배지. 마케팅 버전·빌드 번호는 Xcode에서만)
 - v1.16 제출 완료 (2026-09-22, 리포트 목록→투두 이동·반복 할일 수집함 보내기·하루 리포트 카드 완료율 전체 기준. 마케팅 버전·빌드 번호는 Xcode에서만)
 - v1.17 제출 예정 (날짜 미정. 할 일 알림 문구·직접 입력 키패드·앱 사용 중 배너·필터 기억하기. 마케팅 버전·빌드 번호는 Xcode에서만)
+
+### 타임라인 (타임블로킹) — 진행 중 (2026-11-24, 브랜치 `feature/timeline`)
+
+백엔드 변경 없음 (iOS만). **Pro 전용**, 새 탭 「타임라인」(투두와 리포트 사이). 아직 미출시·실기기 테스트 중.
+
+- **저장:** `Common/Models/TimeBlockItem.swift` — 로컬 전용(노션 X). `plannerId`·`todoId`·`day`(0시)·`startMinute`/`endMinute`(0시부터 분). 할 일과는 `todoId`로만 연결. 스키마는 `AppGroupStore`·`PersistenceController` 두 곳에 등록. 플래너 삭제 시 `PlannerService.deletePlanner`가 블록도 삭제
+- **모듈:** `Features/TimeBlock/` 독립. 할 일 읽기·완료·생성은 `TodoService.shared`(`fetchTodos`/`updateTodo`/`saveTodo`)만 호출 → 노션 동기화·알림·위젯 경로가 투두 탭과 같음. 할 일 코드는 수정하지 않음
+- **블록 숨김/정리:** 할 일이 다른 날로 옮겨지면 숨김(블록 유지), 할 일이 삭제되면 블록 삭제(`fetchEntries` 시)
+- **조작:** 빈 칸 탭 → 고르기 시트(아직 안 넣은 할 일 / 이미 넣은 할 일+시간 태그 / 새 할 일). 블록 탭 → 시간 편집·블록 삭제. 아래 손잡이 드래그 → 길이. 길게 누른 뒤 드래그 → 이동(겹치면 원위치). 오른쪽 스와이프 → 완료 토글
+- **규칙:** 겹침 금지. 스냅 단위 15/30/60분(⋯ 메뉴, `timeBlockSnapMinutes`, 기본 30). 1시간 = 66pt
+- **색·상태:** 카테고리 있으면 진한 카테고리 색 블록(`readableForeground` 글자), 없으면 흰 블록. 상태는 글자로만 — 완료 = 연한 글자+줄긋기, 지남·미완료 = 연한 글자. ⋯ 「카테고리 색상 보기」(`timeBlockShowsCategoryColor`, 기본 켜짐) 끄면 모두 흰 블록
+- **무료:** 고정 예시 블록을 흐리게 + 안내 카드 「Pro 시작하기」→ `PaywallView`
+- **플래너 이름:** 투두 탭과 같은 버튼·`PlannerSelectionSheet`(투두 탭과 공용, `private` 해제)
+- **주의(핵심 학습):** `.safeAreaBar` + `.scrollEdgeEffectStyle`은 ScrollView에 **바로** 붙여야 날짜행 블러가 생김. 다른 modifier는 그 뒤에. 드래그로 움직이는 뷰의 DragGesture는 `coordinateSpace: .global` (손잡이 기준이면 깜박임)
+- **미확인:** 깜박임 수정·플래너 알약·길게 눌러 이동·카테고리 색 토글은 아직 빌드/실기기 확인 전. 스와이프·길게 누르기·스크롤 제스처 충돌 여부 확인 필요
+- **참고:** 2026-11-24 날짜행 블러가 세 탭 모두 안 보인 건 앱스토어 버전에서도 같아 코드 문제 아님(니나 폰 환경 — iOS 업데이트·「투명도 줄이기」 확인 중)
 
 ### 인박스 진행 (2026-09-11)
 - **완료:** `TodoItem`/`Todo.date` 옵셔널화 + 위젯 Predicate(`ed99bdf`·`aeed0c4`). 백엔드 `GET/POST /api/notion/todo/inbox` 배포(`todoreport-backend` `486bbce`). 편집 화면 「날짜 제거」→ 노션 date 속성 비움(`bb4992d` SyncQueue·AnyEncodable + 백엔드 PATCH). `+`에서 날짜 없이 저장 → 인박스 생성 UI 연결(`f6de244`, POST `/api/notion/todo/inbox`)

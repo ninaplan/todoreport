@@ -465,6 +465,9 @@ final class PlannerService {
         let seriesDesc = FetchDescriptor<RecurringSeries>(predicate: #Predicate { $0.plannerId == id })
         for item in (try? context.fetch(seriesDesc)) ?? [] { context.delete(item) }
 
+        let timeBlockDesc = FetchDescriptor<TimeBlockItem>(predicate: #Predicate { $0.plannerId == id })
+        for item in (try? context.fetch(timeBlockDesc)) ?? [] { context.delete(item) }
+
         let queueDesc = FetchDescriptor<SyncQueueItem>(predicate: #Predicate { $0.plannerId == id })
         for item in (try? context.fetch(queueDesc)) ?? [] { context.delete(item) }
 

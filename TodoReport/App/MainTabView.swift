@@ -17,6 +17,9 @@ struct MainTabView: View {
             Tab("투두", systemImage: "checklist", value: MainTabCoordinator.Tab.todo) {
                 TodoView()
             }
+            Tab("타임라인", systemImage: "calendar.day.timeline.left", value: MainTabCoordinator.Tab.timeline) {
+                TimeBlockView()
+            }
             Tab("리포트", systemImage: "chart.bar.fill", value: MainTabCoordinator.Tab.report) {
                 ReportView()
             }

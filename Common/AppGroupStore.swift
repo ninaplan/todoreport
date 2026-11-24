@@ -11,6 +11,7 @@ enum AppGroupStore {
             NotionWorkspaceConnection.self,
             TodoItem.self,
             RecurringSeries.self,
+            TimeBlockItem.self,
             DailyReportItem.self,
             CategoryItem.self,
             SyncQueueItem.self

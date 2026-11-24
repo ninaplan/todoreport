@@ -1473,7 +1473,8 @@ private struct AddTodoRow: View {
 
 // MARK: - 플래너 선택 시트
 
-private struct PlannerSelectionSheet: View {
+/// 투두 탭·타임라인 탭 공용 (플래너 이름 탭 시)
+struct PlannerSelectionSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showAddPlanner = false
     @State private var showPaywall = false

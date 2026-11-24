@@ -5343,6 +5343,296 @@
           }
         }
       }
+    },
+    "타임라인" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Timeline"
+          }
+        }
+      }
+    },
+    "아직 안 넣은 할 일" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Scheduled"
+          }
+        }
+      }
+    },
+    "이미 넣은 할 일" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Already Scheduled"
+          }
+        }
+      }
+    },
+    "이 날짜에 할 일이 없습니다. 새 할 일을 추가해 주세요." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No to-dos on this day. Add a new one."
+          }
+        }
+      }
+    },
+    "새 할 일" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New To-Do"
+          }
+        }
+      }
+    },
+    "추가" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add"
+          }
+        }
+      }
+    },
+    "시작" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starts"
+          }
+        }
+      }
+    },
+    "끝나는 시각은 시작 시각보다 늦어야 합니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End time must be after start time."
+          }
+        }
+      }
+    },
+    "블록 삭제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Block"
+          }
+        }
+      }
+    },
+    "블록만 삭제되고 할 일은 그대로 남습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the block is deleted. The to-do stays."
+          }
+        }
+      }
+    },
+    "시간 변경" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change Time"
+          }
+        }
+      }
+    },
+    "집중 작업" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deep Work"
+          }
+        }
+      }
+    },
+    "점심" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lunch"
+          }
+        }
+      }
+    },
+    "운동" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Workout"
+          }
+        }
+      }
+    },
+    "공부" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Study"
+          }
+        }
+      }
+    },
+    "하루를 시간으로 계획하기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan Your Day by the Hour"
+          }
+        }
+      }
+    },
+    "할 일을 시간 블록에 넣고, 계획대로 했는지 한눈에 확인합니다. 타임라인은 Pro 기능입니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put to-dos into time blocks and see at a glance whether you stuck to the plan. Timeline is a Pro feature."
+          }
+        }
+      }
+    },
+    "Pro 시작하기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Pro"
+          }
+        }
+      }
+    },
+    "타임라인은 Pro 기능입니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Timeline is a Pro feature."
+          }
+        }
+      }
+    },
+    "블록 단위" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Block Length"
+          }
+        }
+      }
+    },
+    "%@ 단위" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ Blocks"
+          }
+        }
+      }
+    },
+    "보기 옵션" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Options"
+          }
+        }
+      }
+    },
+    "다른 블록과 시간이 겹칩니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This overlaps another block."
+          }
+        }
+      }
+    },
+    "읽기 전용 플래너에는 할 일을 추가할 수 없습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can't add to-dos to a read-only planner."
+          }
+        }
+      }
+    },
+    "저장하지 못했습니다. 다시 시도해 주세요." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't save. Please try again."
+          }
+        }
+      }
+    },
+    "완료 취소" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as Incomplete"
+          }
+        }
+      }
+    },
+    "완료로 표시" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as Complete"
+          }
+        }
+      }
+    },
+    "지난 시간" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Past"
+          }
+        }
+      }
+    },
+    "카테고리 색상 보기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Category Colors"
+          }
+        }
+      }
     }
   },
   "version" : "1.2"
