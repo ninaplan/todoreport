@@ -13,6 +13,7 @@ struct SettingsView: View {
     private var isPro: Bool { subscriptionManager.isPro }
 
     @AppStorage("startWeekday") private var startWeekday = "월"
+    @AppStorage(MainTabCoordinator.launchTabKey) private var launchTab = "todo"
     @AppStorage("appColorScheme") private var appColorScheme: String = "system"
     @State private var notificationAuthStatus: UNAuthorizationStatus = .notDetermined
     @State private var showAddPlannerSheet = false
@@ -232,6 +233,12 @@ struct SettingsView: View {
 
     private var globalSettingsSection: some View {
         Section {
+            Picker("시작 화면", selection: $launchTab) {
+                Text("투두").tag("todo")
+                Text("타임라인").tag(MainTabCoordinator.launchTabTimeline)
+            }
+            .tint(.secondary)
+
             Picker("시작 요일", selection: $startWeekday) {
                 Text("일요일").tag("일")
                 Text("월요일").tag("월")

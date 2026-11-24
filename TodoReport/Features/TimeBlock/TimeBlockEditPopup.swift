@@ -1,36 +1,54 @@
 import SwiftUI
 
-/// 블록을 눌렀을 때 뜨는 간단한 팝업: 시작·끝 시각, 시작 알림, 블록 삭제 (할 일은 지우지 않음).
+/// 블록을 눌렀을 때 뜨는 간단한 팝업.
+/// 위: ✕(닫기) · 할 일 제목 · ✓(저장) / 가운데: 시작·종료 시각, 시작·종료 알림 / 아래: 블록 삭제 (할 일은 지우지 않음)
 struct TimeBlockEditPopup: View {
     let entry: TimeBlockEntry
-    /// 메뉴 「블록 시작 알림」 전체 설정
-    let isGlobalAlarmEnabled: Bool
-    let onSave: (Date, Date, Bool) -> Void
+    /// 메뉴 「블록 시작 알림」·「블록 종료 알림」 전체 설정. 꺼져 있으면 그 체크박스는 흐리게
+    let isStartAlarmGloballyEnabled: Bool
+    let isEndAlarmGloballyEnabled: Bool
+    /// (시작, 종료, 시작 알림, 종료 알림)
+    let onSave: (Date, Date, Bool, Bool) -> Void
     let onDelete: () -> Void
     let onClose: () -> Void
 
     @State private var start: Date
     @State private var end: Date
-    @State private var alarmEnabled: Bool
+    @State private var startAlarm: Bool
+    @State private var endAlarm: Bool
 
     init(
         entry: TimeBlockEntry,
-        isGlobalAlarmEnabled: Bool,
-        onSave: @escaping (Date, Date, Bool) -> Void,
+        isStartAlarmGloballyEnabled: Bool,
+        isEndAlarmGloballyEnabled: Bool,
+        onSave: @escaping (Date, Date, Bool, Bool) -> Void,
         onDelete: @escaping () -> Void,
         onClose: @escaping () -> Void
     ) {
         self.entry = entry
-        self.isGlobalAlarmEnabled = isGlobalAlarmEnabled
+        self.isStartAlarmGloballyEnabled = isStartAlarmGloballyEnabled
+        self.isEndAlarmGloballyEnabled = isEndAlarmGloballyEnabled
         self.onSave = onSave
         self.onDelete = onDelete
         self.onClose = onClose
         _start = State(initialValue: TimeBlockLayout.date(day: entry.block.day, minute: entry.block.startMinute))
         _end = State(initialValue: TimeBlockLayout.date(day: entry.block.day, minute: entry.block.endMinute))
-        _alarmEnabled = State(initialValue: entry.block.alarmEnabled)
+        _startAlarm = State(initialValue: entry.block.alarmEnabled)
+        _endAlarm = State(initialValue: entry.block.endAlarmEnabled)
     }
 
     private var isValid: Bool { end > start }
+    private var accent: Color { AppTheme.shared.accent }
+
+    /// 처음 연 값과 달라졌는지 → 저장 ✓를 진하게
+    private var hasChanges: Bool {
+        TimeBlockLayout.minute(of: start, day: entry.block.day) != entry.block.startMinute
+            || TimeBlockLayout.minute(of: end, day: entry.block.day) != entry.block.endMinute
+            || startAlarm != entry.block.alarmEnabled
+            || endAlarm != entry.block.endAlarmEnabled
+    }
+
+    private var canSave: Bool { isValid && hasChanges }
 
     var body: some View {
         ZStack {
@@ -39,7 +57,7 @@ struct TimeBlockEditPopup: View {
                 .onTapGesture(perform: onClose)
                 .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(spacing: 0) {
                 header
                 Divider()
                 VStack(spacing: 12) {
@@ -52,11 +70,15 @@ struct TimeBlockEditPopup: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     Divider()
-                    Toggle("시작 알림", isOn: $alarmEnabled)
-                        .tint(AppTheme.shared.accent)
-                        .disabled(!isGlobalAlarmEnabled)
-                    if !isGlobalAlarmEnabled {
-                        Text("블록 시작 알림이 모두 꺼져 있습니다. 타임라인 오른쪽 위 메뉴에서 켤 수 있습니다.")
+                    // 시작·종료 줄과 같은 모양: 왼쪽 「알림」, 오른쪽 시작 ☐ 종료 ☐
+                    HStack(spacing: 16) {
+                        Text("알림")
+                        Spacer(minLength: 8)
+                        checkbox(title: "시작", isOn: $startAlarm, isAvailable: isStartAlarmGloballyEnabled)
+                        checkbox(title: "종료", isOn: $endAlarm, isAvailable: isEndAlarmGloballyEnabled)
+                    }
+                    if !isStartAlarmGloballyEnabled || !isEndAlarmGloballyEnabled {
+                        Text("흐린 알림은 타임라인 오른쪽 위 메뉴에서 켤 수 있습니다.")
                             .font(.footnote)
                             .foregroundStyle(Color(.secondaryLabel))
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -64,9 +86,14 @@ struct TimeBlockEditPopup: View {
                 }
                 .padding(16)
                 Divider()
-                footer
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                Button(role: .destructive, action: onDelete) {
+                    Text("블록 삭제")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color(.systemRed))
             }
             .frame(maxWidth: 340)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -76,22 +103,39 @@ struct TimeBlockEditPopup: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(spacing: 12) {
+            circleButton(systemName: "xmark", label: "닫기", isProminent: false, action: onClose)
             Text(entry.title)
                 .font(.headline)
                 .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color(.secondaryLabel))
-                    .frame(width: 28, height: 28)
-                    .background(Color(.tertiarySystemFill), in: Circle())
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+            circleButton(systemName: "checkmark", label: "저장", isProminent: canSave) {
+                onSave(start, end, startAlarm, endAlarm)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(Text("닫기"))
+            .disabled(!canSave)
+            .animation(.easeOut(duration: 0.15), value: canSave)
         }
-        .padding(16)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    private func circleButton(
+        systemName: String,
+        label: LocalizedStringKey,
+        isProminent: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 13, weight: .bold))
+                // 평소엔 연한 회색 원, 저장할 변화가 생기면(isProminent) 포인트 컬러로 채움
+                .foregroundStyle(isProminent ? Color.white : Color(.secondaryLabel))
+                .frame(width: 32, height: 32)
+                .background(isProminent ? accent : Color(.tertiarySystemFill), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(label))
     }
 
     private func timeRow(title: LocalizedStringKey, selection: Binding<Date>) -> some View {
@@ -104,24 +148,24 @@ struct TimeBlockEditPopup: View {
         }
     }
 
-    private var footer: some View {
-        HStack {
-            Button(role: .destructive, action: onDelete) {
-                Text("블록 삭제")
+    private func checkbox(title: LocalizedStringKey, isOn: Binding<Bool>, isAvailable: Bool) -> some View {
+        Button {
+            isOn.wrappedValue.toggle()
+        } label: {
+            HStack(spacing: 6) {
+                Text(title)
+                    .foregroundStyle(Color(.label))
+                    .fixedSize()
+                Image(systemName: isOn.wrappedValue ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 20))
+                    // 연한 색은 "꺼진 것"처럼 보여서 진하게 (라이트 = 검정, 다크 = 흰색)
+                    .foregroundStyle(isOn.wrappedValue ? Color(.label) : Color(.tertiaryLabel))
             }
-            .buttonStyle(.borderless)
-            .tint(Color(.systemRed))
-            Spacer()
-            Button {
-                onSave(start, end, alarmEnabled)
-            } label: {
-                Text("저장")
-                    .font(.body.weight(.semibold))
-                    .padding(.horizontal, 10)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(AppTheme.shared.accent)
-            .disabled(!isValid)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .disabled(!isAvailable)
+        .opacity(isAvailable ? 1 : 0.45)
+        .accessibilityAddTraits(isOn.wrappedValue ? .isSelected : [])
     }
 }

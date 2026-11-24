@@ -103,16 +103,20 @@ struct TimeBlockWeekHeader: View {
         return Button {
             onSelect(day)
         } label: {
+            // 오늘 = 포인트 컬러 숫자 + 점 (회색 원 없음), 오늘이 아닌 고른 날 = 회색 원 + 굵은 숫자
             VStack(spacing: 3) {
                 Text(day.formatted(.dateTime.weekday(.abbreviated)))
                     .font(.caption)
-                    .foregroundStyle(isSelected ? accent : Color(.secondaryLabel))
-                Text(day.formatted(.dateTime.day()))
+                    .foregroundStyle(isToday ? accent : (isSelected ? Color(.label) : Color(.secondaryLabel)))
+                // .dateTime.day()는 한국어에서 「24일」이 되므로 숫자만
+                Text(calendar.component(.day, from: day), format: .number)
                     .font(.body.weight(isSelected ? .bold : .regular))
                     .monospacedDigit()
-                    .foregroundStyle(isSelected || isToday ? accent : Color(.label))
+                    .foregroundStyle(isToday ? accent : Color(.label))
+                    .frame(width: 34, height: 34)
+                    .background(isSelected && !isToday ? Color(.tertiarySystemFill) : Color.clear, in: Circle())
                 Circle()
-                    .fill(isSelected ? accent : Color.clear)
+                    .fill(isToday ? accent : Color.clear)
                     .frame(width: 4, height: 4)
             }
             .frame(maxWidth: .infinity)

@@ -40,8 +40,9 @@ struct TimeBlockView: View {
             if let entry = viewModel.editingEntry {
                 TimeBlockEditPopup(
                     entry: entry,
-                    isGlobalAlarmEnabled: viewModel.isStartAlarmEnabled,
-                    onSave: { viewModel.saveEdit(start: $0, end: $1, alarmEnabled: $2) },
+                    isStartAlarmGloballyEnabled: viewModel.isStartAlarmEnabled,
+                    isEndAlarmGloballyEnabled: viewModel.isEndAlarmEnabled,
+                    onSave: { viewModel.saveEdit(start: $0, end: $1, startAlarm: $2, endAlarm: $3) },
                     onDelete: { viewModel.deleteEditingBlock() },
                     onClose: { viewModel.dismissEditor() }
                 )
@@ -61,7 +62,13 @@ struct TimeBlockView: View {
         .animation(.easeOut(duration: 0.18), value: viewModel.pickerRequest)
         .animation(.easeOut(duration: 0.18), value: viewModel.editingEntry)
         .onAppear {
-            Task { await viewModel.onAppear() }
+            Task {
+                await viewModel.onAppear()
+                // 시작 화면을 타임라인으로 정했어도 Pro가 아니면 투두에서 시작
+                if tabCoordinator.consumeLaunchedIntoTimeline(), !SubscriptionManager.shared.isPro {
+                    tabCoordinator.openTodoTab()
+                }
+            }
         }
         .onChange(of: tabCoordinator.selectedTab) { _, tab in
             guard tab == .timeline else { return }
@@ -159,6 +166,7 @@ struct TimeBlockView: View {
                     Section {
                         Toggle("카테고리 색상 보기", isOn: categoryColorBinding)
                         Toggle("블록 시작 알림", isOn: startAlarmBinding)
+                        Toggle("블록 종료 알림", isOn: endAlarmBinding)
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -188,6 +196,13 @@ struct TimeBlockView: View {
         Binding(
             get: { viewModel.showErrorAlert },
             set: { if !$0 { viewModel.dismissErrorAlert() } }
+        )
+    }
+
+    private var endAlarmBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.isEndAlarmEnabled },
+            set: { viewModel.setEndAlarmEnabled($0) }
         )
     }
 

@@ -10,8 +10,9 @@ final class TimeBlockViewModel {
     private(set) var snapMinutes: Int
     /// 메뉴 「카테고리 색상 보기」. 끄면 모든 블록이 흰 블록.
     private(set) var showsCategoryColor: Bool
-    /// 메뉴 「블록 시작 알림」 (전체)
+    /// 메뉴 「블록 시작 알림」·「블록 종료 알림」 (전체)
     private(set) var isStartAlarmEnabled: Bool = TimeBlockNotificationManager.shared.isGloballyEnabled
+    private(set) var isEndAlarmEnabled: Bool = TimeBlockNotificationManager.shared.isEndGloballyEnabled
 
     // 이동 (블록 길게 누른 뒤 드래그)
     private(set) var movingBlockId: String?
@@ -112,6 +113,15 @@ final class TimeBlockViewModel {
         guard TimeBlockLayout.snapOptions.contains(minutes) else { return }
         snapMinutes = minutes
         UserDefaults.standard.set(minutes, forKey: TimeBlockLayout.snapMinutesKey)
+    }
+
+    func setEndAlarmEnabled(_ enabled: Bool) {
+        isEndAlarmEnabled = enabled
+        TimeBlockNotificationManager.shared.setEndGloballyEnabled(enabled)
+        if enabled {
+            TodoNotificationManager.shared.requestPermission()
+        }
+        service.resyncUpcomingAlarms()
     }
 
     func setStartAlarmEnabled(_ enabled: Bool) {
@@ -351,14 +361,14 @@ final class TimeBlockViewModel {
         editingEntry = nil
     }
 
-    func saveEdit(start: Date, end: Date, alarmEnabled: Bool) {
+    func saveEdit(start: Date, end: Date, startAlarm: Bool, endAlarm: Bool) {
         guard let entry = editingEntry else { return }
         let day = entry.block.day
         let startMinute = TimeBlockLayout.minute(of: start, day: day)
         let endMinute = TimeBlockLayout.minute(of: end, day: day)
         do {
             try service.updateBlockTime(id: entry.id, startMinute: startMinute, endMinute: endMinute)
-            try service.setAlarmEnabled(id: entry.id, enabled: alarmEnabled)
+            try service.setAlarms(id: entry.id, startEnabled: startAlarm, endEnabled: endAlarm)
             dismissEditor()
             Task { await reload() }
         } catch {

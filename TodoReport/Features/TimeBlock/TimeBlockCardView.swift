@@ -12,8 +12,8 @@ struct TimeBlockCardView: View {
     var now: Date = .now
     /// 메뉴 「카테고리 색상 보기」를 끄면 false → 흰 카드, 진행 중은 포인트 컬러
     var usesCategoryColor: Bool = true
-    /// 블록 시작 알림이 실제로 켜져 있는지 (전체 설정 + 블록 설정)
-    var showsAlarmIcon: Bool = false
+    /// 시작 알림을 이 블록만 꺼 둔 경우에만 표시 (기본이 켜짐이라 예외만 보여준다)
+    var showsAlarmOffIcon: Bool = false
     /// 길게 눌러 이동 중 (떠오른 모양)
     var isMoving: Bool = false
     /// false면 예시 화면용 (탭·스와이프·길이 조절 없음)
@@ -202,10 +202,11 @@ struct TimeBlockCardView: View {
                     .font(.caption)
                     .foregroundStyle(secondaryForeground)
             }
-            if showsAlarmIcon {
-                Image(systemName: "bell.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(secondaryForeground)
+            if showsAlarmOffIcon {
+                Image(systemName: "bell.slash")
+                    .font(.system(size: 10, weight: .light))
+                    .foregroundStyle(secondaryForeground.opacity(0.7))
+                    .accessibilityLabel(Text("알림 꺼짐"))
             }
         }
     }

@@ -15,43 +15,75 @@ final class TimeBlockNotificationManager {
         return defaults.bool(forKey: TimeBlockLayout.startAlarmEnabledKey)
     }
 
+    /// ⋯ 메뉴 「블록 종료 알림」 (기본 꺼짐)
+    var isEndGloballyEnabled: Bool {
+        UserDefaults.standard.bool(forKey: TimeBlockLayout.endAlarmEnabledKey)
+    }
+
     func setGloballyEnabled(_ enabled: Bool) {
         UserDefaults.standard.set(enabled, forKey: TimeBlockLayout.startAlarmEnabledKey)
     }
 
-    /// 조건이 맞으면 등록, 아니면 취소. 블록·할 일이 바뀔 때마다 호출한다.
+    func setEndGloballyEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: TimeBlockLayout.endAlarmEnabledKey)
+    }
+
+    /// 조건이 맞으면 등록, 아니면 취소. 블록·할 일이 바뀔 때마다 호출한다. (시작·종료 알림 각각)
     func sync(block: TimeBlock, todo: Todo?) {
-        let identifier = Self.identifier(for: block.id)
+        let startId = Self.identifier(for: block.id)
+        let endId = Self.endIdentifier(for: block.id)
         let center = UNUserNotificationCenter.current()
-        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        center.removePendingNotificationRequests(withIdentifiers: [startId, endId])
 
-        guard isGloballyEnabled, block.alarmEnabled, let todo, !todo.isCompleted else { return }
-        let fireDate = TimeBlockLayout.date(day: block.day, minute: block.startMinute)
-        guard fireDate > .now else { return }
+        guard let todo, !todo.isCompleted else { return }
+        let startDate = TimeBlockLayout.date(day: block.day, minute: block.startMinute)
+        let endDate = TimeBlockLayout.date(day: block.day, minute: block.endMinute)
+        let startText = startDate.formatted(date: .omitted, time: .shortened)
+        let endText = endDate.formatted(date: .omitted, time: .shortened)
 
-        // 할 일 자체 알림이 같은 시각에 울리면 블록 알림은 생략 (두 번 울리지 않게)
-        if let scheduled = todo.scheduledTime, todo.alarmOffset == 0,
-           abs(scheduled.timeIntervalSince(fireDate)) < 60 {
-            return
+        if isGloballyEnabled, block.alarmEnabled, startDate > .now, !isDuplicateOfTodoAlarm(todo: todo, fireDate: startDate) {
+            add(
+                identifier: startId,
+                title: todo.title,
+                body: String(localized: "\(startText) – \(endText) 블록을 시작할 시간입니다."),
+                fireDate: startDate
+            )
         }
-
-        let start = fireDate.formatted(date: .omitted, time: .shortened)
-        let end = TimeBlockLayout.date(day: block.day, minute: block.endMinute)
-            .formatted(date: .omitted, time: .shortened)
-        let content = UNMutableNotificationContent()
-        content.title = todo.title
-        content.body = String(localized: "\(start) – \(end) 블록을 시작할 시간입니다.")
-        content.sound = .default
-
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-        center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: trigger))
+        if isEndGloballyEnabled, block.endAlarmEnabled, endDate > .now {
+            add(
+                identifier: endId,
+                title: todo.title,
+                body: String(localized: "\(startText) – \(endText) 블록이 끝날 시간입니다."),
+                fireDate: endDate
+            )
+        }
     }
 
     func cancel(blockIds: [String]) {
         guard !blockIds.isEmpty else { return }
+        let ids = blockIds.flatMap { [Self.identifier(for: $0), Self.endIdentifier(for: $0)] }
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+    }
+
+    /// 할 일 자체 알림이 같은 시각에 울리면 블록 시작 알림은 생략 (두 번 울리지 않게)
+    private func isDuplicateOfTodoAlarm(todo: Todo, fireDate: Date) -> Bool {
+        guard let scheduled = todo.scheduledTime, todo.alarmOffset == 0 else { return false }
+        return abs(scheduled.timeIntervalSince(fireDate)) < 60
+    }
+
+    private func add(identifier: String, title: String, body: String, fireDate: Date) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         UNUserNotificationCenter.current()
-            .removePendingNotificationRequests(withIdentifiers: blockIds.map(Self.identifier(for:)))
+            .add(UNNotificationRequest(identifier: identifier, content: content, trigger: trigger))
+    }
+
+    private static func endIdentifier(for blockId: String) -> String {
+        identifierPrefix + "end-" + blockId
     }
 
     private static func identifier(for blockId: String) -> String {

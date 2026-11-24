@@ -71,7 +71,6 @@ struct TimeBlockLockedView: View {
                     displayStartMinute: entry.block.startMinute,
                     displayEndMinute: entry.block.endMinute,
                     now: TimeBlockLayout.date(day: Self.sampleDay, minute: 14 * 60),
-                    showsAlarmIcon: true,
                     isInteractive: false
                 )
                 .padding(.leading, TimeBlockLayout.blockLeading)

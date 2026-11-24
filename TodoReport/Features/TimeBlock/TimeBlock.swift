@@ -9,6 +9,7 @@ struct TimeBlock: Identifiable, Equatable {
     var startMinute: Int
     var endMinute: Int
     var alarmEnabled: Bool
+    var endAlarmEnabled: Bool = true
 
     var durationMinutes: Int { endMinute - startMinute }
 
@@ -27,7 +28,8 @@ extension TimeBlock {
             day: item.day,
             startMinute: item.startMinute,
             endMinute: item.endMinute,
-            alarmEnabled: item.alarmEnabled
+            alarmEnabled: item.alarmEnabled,
+            endAlarmEnabled: item.endAlarmEnabled
         )
     }
 }

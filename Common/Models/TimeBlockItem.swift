@@ -15,6 +15,8 @@ final class TimeBlockItem {
     var endMinute: Int
     /// 블록 시작 시각 알림 (기본 켜짐). 메뉴의 전체 끄기가 우선한다.
     var alarmEnabled: Bool = true
+    /// 블록 끝 시각 알림. 블록별 기본은 켜짐이지만, 메뉴의 「블록 종료 알림」(기본 꺼짐)을 켜야 실제로 울린다.
+    var endAlarmEnabled: Bool = true
     var createdAt: Date
 
     init(
@@ -24,7 +26,8 @@ final class TimeBlockItem {
         day: Date,
         startMinute: Int,
         endMinute: Int,
-        alarmEnabled: Bool = true
+        alarmEnabled: Bool = true,
+        endAlarmEnabled: Bool = true
     ) {
         self.id = id
         self.plannerId = plannerId
@@ -33,6 +36,7 @@ final class TimeBlockItem {
         self.startMinute = startMinute
         self.endMinute = endMinute
         self.alarmEnabled = alarmEnabled
+        self.endAlarmEnabled = endAlarmEnabled
         self.createdAt = .now
     }
 }

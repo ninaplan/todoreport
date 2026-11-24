@@ -2632,26 +2632,6 @@
         }
       }
     },
-    "블록 시작 알림" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Block Start Alerts"
-          }
-        }
-      }
-    },
-    "블록 시작 알림이 모두 꺼져 있습니다. 타임라인 오른쪽 위 메뉴에서 켤 수 있습니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Block start alerts are turned off. You can turn them on from the menu at the top right of Timeline."
-          }
-        }
-      }
-    },
     "빠르게 기록, 자동 동기화" : {
       "localizations" : {
         "en" : {
@@ -3048,16 +3028,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Starts"
-          }
-        }
-      }
-    },
-    "시작 알림" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Start Alert"
           }
         }
       }
@@ -5901,6 +5871,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Very light colors may make white text on buttons hard to read."
+          }
+        }
+      }
+    },
+    "%@ – %@ 블록이 끝날 시간입니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your %1$@ – %2$@ block is ending."
+          }
+        }
+      }
+    },
+    "시작 화면" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Screen"
+          }
+        }
+      }
+    },
+    "블록 시작 알림" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Block Start Alerts"
+          }
+        }
+      }
+    },
+    "블록 종료 알림" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Block End Alerts"
+          }
+        }
+      }
+    },
+    "흐린 알림은 타임라인 오른쪽 위 메뉴에서 켤 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on dimmed alerts from the menu at the top right of Timeline."
+          }
+        }
+      }
+    },
+    "알림 꺼짐" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alert Off"
           }
         }
       }

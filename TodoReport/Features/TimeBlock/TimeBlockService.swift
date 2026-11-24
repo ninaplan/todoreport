@@ -70,7 +70,7 @@ final class TimeBlockService {
         )
         context.insert(item)
         try saveContext()
-        if TimeBlockNotificationManager.shared.isGloballyEnabled {
+        if TimeBlockNotificationManager.shared.isGloballyEnabled || TimeBlockNotificationManager.shared.isEndGloballyEnabled {
             // 이미 허용·거부한 경우엔 다시 묻지 않는다 (시스템 동작)
             TodoNotificationManager.shared.requestPermission()
         }
@@ -86,9 +86,11 @@ final class TimeBlockService {
         syncAlarm(for: item)
     }
 
-    func setAlarmEnabled(id: String, enabled: Bool) throws {
-        guard let item = fetchItem(id: id), item.alarmEnabled != enabled else { return }
-        item.alarmEnabled = enabled
+    func setAlarms(id: String, startEnabled: Bool, endEnabled: Bool) throws {
+        guard let item = fetchItem(id: id) else { return }
+        guard item.alarmEnabled != startEnabled || item.endAlarmEnabled != endEnabled else { return }
+        item.alarmEnabled = startEnabled
+        item.endAlarmEnabled = endEnabled
         try saveContext()
         syncAlarm(for: item)
     }
