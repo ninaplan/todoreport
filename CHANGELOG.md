@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.18] - 2026-11-24
+
+### 새 기능
+- 할 일을 시간 블록에 넣어 하루를 계획하는 「타임블록」 탭이 생겼습니다 (Pro). 블록이 시작하고 끝날 때 알림을 받을 수 있습니다
+- 주간·월간 리포트에서 타임블록으로 완료한 시간을 카테고리별로 볼 수 있습니다 (Pro)
+- 설정에서 앱의 포인트 컬러를 원하는 색으로 바꿀 수 있습니다
+- 앱을 열 때 처음 보일 화면을 투두와 타임블록 중에서 고를 수 있습니다
+- Added Time Blocks: plan your day by placing to-dos into time blocks, with start and end alerts (Pro)
+- Weekly and monthly reports now show the time you completed in Time Blocks, by category (Pro)
+- You can change the app's accent color in Settings
+- You can choose whether the app opens to To-Do or Time Blocks
+
+### 개선
+- 아래 탭을 다시 누르면 오늘(이번 기간)이나 맨 처음 화면으로 돌아갑니다
+- 날짜를 넘기면 목록이 넘기는 방향으로 부드럽게 바뀝니다
+- 반복 할 일 이름 옆에 반복 아이콘이 표시됩니다
+- 앞으로의 날짜에는 반복 할 일이 「예정」으로 미리 보이고, 진짜 할 일은 그날 만들어집니다
+- 새 카테고리에 서로 다른 아이콘이 자동으로 정해집니다
+- 리포트 요약의 「연속 달성」 대신 집중 시간이 표시됩니다
+
+### 버그 수정
+- 앱을 다시 설치하면 반복 설정이 「반복 안 함」으로 바뀌던 문제를 수정했습니다 (노션 연결 플래너, iCloud에 반복 설정을 보관)
+- 반복 할 일이 같은 날 두 개씩 생기던 문제를 수정했습니다
+
 ## [1.17] - 2026-09-27
 
 ### 새 기능
