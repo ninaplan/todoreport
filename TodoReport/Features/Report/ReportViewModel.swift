@@ -17,6 +17,8 @@ final class ReportViewModel {
 
     private(set) var weeklyReport: WeeklyReportData?
     private(set) var monthlyReport: MonthlyReportData?
+    /// 「집중 시간」·「시간 사용」 (타임라인 블록 집계). 기간 리포트가 바뀔 때마다 다시 계산
+    private(set) var timeUsage: TimeBlockUsageSummary = .empty
 
     // 현재 보여주는 기간의 오프셋 (0 = 이번 주/월)
     private(set) var periodOffset: Int = 0
@@ -287,6 +289,38 @@ final class ReportViewModel {
             let (year, month) = yearMonthOfCurrent(offset: periodOffset)
             monthlyReport = await service.fetchMonthlyReport(year: year, month: month)
         }
+        refreshTimeUsage()
+    }
+
+    /// 막대 구간은 완료율 그래프와 같게: 주간 = 하루씩, 월간 = 7일씩
+    private func refreshTimeUsage() {
+        let calendar = Calendar.current
+        switch selectedPeriod {
+        case .weekly:
+            guard let report = weeklyReport else { timeUsage = .empty; return }
+            let ranges: [Range<Date>] = (0..<7).compactMap { offset in
+                guard let start = calendar.date(byAdding: .day, value: offset, to: report.period.start),
+                      let end = calendar.date(byAdding: .day, value: 1, to: start) else { return nil }
+                return start..<end
+            }
+            timeUsage = TimeBlockService.shared.usageSummary(
+                ranges: ranges,
+                labels: report.dailyCompletionRates.map(\.weekday)
+            )
+        case .monthly:
+            guard let report = monthlyReport else { timeUsage = .empty; return }
+            var ranges: [Range<Date>] = []
+            var weekStart = report.period.start
+            while weekStart < report.period.end {
+                let weekEnd = min(calendar.date(byAdding: .day, value: 7, to: weekStart) ?? report.period.end, report.period.end)
+                ranges.append(weekStart..<weekEnd)
+                weekStart = weekEnd
+            }
+            timeUsage = TimeBlockService.shared.usageSummary(
+                ranges: ranges,
+                labels: report.weeklyCompletionRates.map(\.label)
+            )
+        }
     }
 
     @MainActor
@@ -300,6 +334,7 @@ final class ReportViewModel {
             } else {
                 weeklyReport = updated
             }
+            refreshTimeUsage()
         case .monthly:
             let (year, month) = yearMonthOfCurrent(offset: periodOffset)
             let updated = await service.fetchMonthlyReport(year: year, month: month)
@@ -308,6 +343,7 @@ final class ReportViewModel {
             } else {
                 monthlyReport = updated
             }
+            refreshTimeUsage()
         }
     }
 

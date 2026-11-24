@@ -47,6 +47,13 @@ struct Category: Identifiable, Codable {
         "#A2845E", "#8E8E93", "#FD6845", "#000000"
     ]
 
+    /// 같은 플래너에서 아직 안 쓴 아이콘 중 랜덤. 모두 쓰였으면 전체에서 랜덤.
+    /// 새 카테고리가 전부 태그 모양으로 보이지 않게 하기 위함.
+    static func randomIcon(excluding used: Set<String>) -> String {
+        let unused = iconPalette.filter { !used.contains($0) && $0 != "tag.fill" }
+        return unused.randomElement() ?? iconPalette.randomElement() ?? "tag.fill"
+    }
+
     /// 미사용 색 우선. 기본색이 모두 쓰이면 baseColors 내 랜덤.
     static func pickColor(used: Set<String>) -> String {
         let usedNormalized = Set(used.map { $0.uppercased() })

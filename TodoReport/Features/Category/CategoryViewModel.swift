@@ -108,7 +108,7 @@ final class CategoryViewModel {
         editingId = nil
         editName = ""
         editColorHex = pickDefaultColor()
-        editIcon = "tag.fill"
+        editIcon = Category.randomIcon(excluding: Set(categories.map(\.icon)))
         userDidSelectIcon = false
         isSheetPresented = true
     }

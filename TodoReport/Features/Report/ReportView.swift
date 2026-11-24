@@ -167,7 +167,8 @@ struct ReportView: View {
         SummaryCard(
             completionRate: report.completionRate,
             averageRating: report.averageRating,
-            streakDays: report.streakDays
+            focusMinutes: viewModel.timeUsage.completedMinutes,
+            isFocusLocked: !isPro
         )
         ExpandableCompletionCard(
             title: "완료율",
@@ -181,6 +182,7 @@ struct ReportView: View {
             labels: report.dailyRatings.map(\.weekday),
             values: report.dailyRatings.map(\.rating)
         )
+        TimeUsageCard(summary: viewModel.timeUsage, isLocked: !isPro)
         CategoryStatsCard(stats: report.categoryStats)
         ReviewTimelineCard(entries: report.reviewTimeline)
         NotionSaveButton(
@@ -211,7 +213,8 @@ struct ReportView: View {
         SummaryCard(
             completionRate: report.completionRate,
             averageRating: report.averageRating,
-            streakDays: report.streakDays
+            focusMinutes: viewModel.timeUsage.completedMinutes,
+            isFocusLocked: !isPro
         )
         ExpandableCompletionCard(
             title: "완료율",
@@ -225,6 +228,7 @@ struct ReportView: View {
             labels: report.dailyRatings.map(\.weekday),
             values: report.dailyRatings.map(\.rating)
         )
+        TimeUsageCard(summary: viewModel.timeUsage, isLocked: !isPro)
         CategoryStatsCard(stats: report.categoryStats)
         ReviewTimelineCard(entries: report.reviewTimeline)
         NotionSaveButton(
@@ -242,7 +246,16 @@ struct ReportView: View {
 private struct SummaryCard: View {
     let completionRate: Double
     let averageRating: Double
-    let streakDays: Int
+    /// 집중 시간 = 완료한 타임라인 블록 시간 합 (분)
+    let focusMinutes: Int
+    let isFocusLocked: Bool
+
+    private var focusText: String {
+        let hours = Double(focusMinutes) / 60
+        return Measurement(value: hours, unit: UnitDuration.hours).formatted(
+            .measurement(width: .narrow, usage: .asProvided, numberFormatStyle: .number.precision(.fractionLength(0...1)))
+        )
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -260,10 +273,10 @@ private struct SummaryCard: View {
             )
             Divider().frame(height: 48)
             summaryItem(
-                value: String(localized: "\(streakDays)일"),
-                label: "연속 달성",
-                prefix: "🔥",
-                color: .primary
+                value: isFocusLocked ? "Pro" : focusText,
+                label: "집중 시간",
+                prefix: isFocusLocked ? "🔒" : "⏱️",
+                color: isFocusLocked ? .secondary : .primary
             )
         }
         .padding(.vertical, 16)
@@ -869,7 +882,8 @@ private struct NotionSaveButton: View {
 
 // MARK: - 카드 스타일 ViewModifier
 
-private extension View {
+extension View {
+    /// 리포트 카드 공통 모양 (TimeUsageCard 등 다른 파일에서도 사용)
     func reportCard() -> some View {
         self
             .frame(maxWidth: .infinity, alignment: .leading)

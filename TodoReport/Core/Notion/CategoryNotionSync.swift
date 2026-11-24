@@ -439,11 +439,20 @@ final class CategoryNotionSync {
         let category = Category(
             name: option.name,
             colorHex: colorHex,
+            icon: randomUnusedIcon(plannerId: plannerId),
             plannerId: plannerId,
             notionOptionId: option.id,
             notionOptionName: option.name
         )
         context.insert(CategoryItem.from(category, sortOrder: sortOrder))
+    }
+
+    /// 노션에서 처음 불러온 카테고리도 태그 모양 일색이 되지 않게, 플래너 안에서 겹치지 않는 아이콘을 고른다.
+    /// 같은 동기화 중 먼저 넣은 항목도 포함되도록 저장 전 변경분까지 조회한다.
+    private func randomUnusedIcon(plannerId: String) -> String {
+        let items = (try? context.fetch(FetchDescriptor<CategoryItem>())) ?? []
+        let used = Set(items.filter { $0.plannerId == plannerId }.map(\.icon))
+        return Category.randomIcon(excluding: used)
     }
 
     private func linkedOptionIds(plannerId: String) -> [String] {

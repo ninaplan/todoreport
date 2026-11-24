@@ -8,19 +8,28 @@ struct TimeBlockLockedView: View {
     private static let sampleDay = Calendar.current.startOfDay(for: .now)
 
     private static let sampleEntries: [TimeBlockEntry] = [
-        sample(id: "sample-1", title: String(localized: "집중 작업"), start: 9 * 60, end: 11 * 60, colorHex: "#5B8DEF", completed: true),
-        sample(id: "sample-2", title: String(localized: "점심"), start: 12 * 60, end: 13 * 60, colorHex: nil, completed: false),
-        sample(id: "sample-3", title: String(localized: "운동"), start: 13 * 60 + 30, end: 14 * 60 + 30, colorHex: "#34C38F", completed: false),
-        sample(id: "sample-4", title: String(localized: "공부"), start: 15 * 60, end: 17 * 60, colorHex: "#FD6845", completed: false)
+        sample(id: "sample-1", title: String(localized: "집중 작업"), start: 9 * 60, end: 11 * 60, colorHex: "#5B8DEF", icon: "briefcase.fill", completed: true),
+        sample(id: "sample-2", title: String(localized: "점심"), start: 12 * 60, end: 13 * 60, colorHex: nil, icon: nil, completed: false),
+        sample(id: "sample-3", title: String(localized: "운동"), start: 13 * 60 + 30, end: 14 * 60 + 30, colorHex: "#34C38F", icon: "figure.run", completed: false),
+        sample(id: "sample-4", title: String(localized: "공부"), start: 15 * 60, end: 17 * 60, colorHex: "#FD6845", icon: "book.fill", completed: false)
     ]
 
-    private static func sample(id: String, title: String, start: Int, end: Int, colorHex: String?, completed: Bool) -> TimeBlockEntry {
+    /// 예시에서 「진행 중」으로 보여줄 블록
+    private static let sampleCurrentId = "sample-3"
+
+    private static func sample(id: String, title: String, start: Int, end: Int, colorHex: String?, icon: String?, completed: Bool) -> TimeBlockEntry {
         TimeBlockEntry(
-            block: TimeBlock(id: id, plannerId: nil, todoId: id, day: sampleDay, startMinute: start, endMinute: end),
+            block: TimeBlock(id: id, plannerId: nil, todoId: id, day: sampleDay, startMinute: start, endMinute: end, alarmEnabled: true),
             title: title,
             isCompleted: completed,
-            categoryColorHex: colorHex
+            categoryColorHex: colorHex,
+            categoryIcon: icon
         )
+    }
+
+    private static func sampleStatus(_ entry: TimeBlockEntry) -> TimeBlockStatus {
+        if entry.isCompleted { return .completed }
+        return entry.id == sampleCurrentId ? .current : .planned
     }
 
     /// 예시는 9시~17시만 보여준다
@@ -58,12 +67,14 @@ struct TimeBlockLockedView: View {
             ForEach(Self.sampleEntries) { entry in
                 TimeBlockCardView(
                     entry: entry,
-                    status: entry.isCompleted ? .completed : .planned,
+                    status: Self.sampleStatus(entry),
                     displayStartMinute: entry.block.startMinute,
                     displayEndMinute: entry.block.endMinute,
+                    now: TimeBlockLayout.date(day: Self.sampleDay, minute: 14 * 60),
+                    showsAlarmIcon: true,
                     isInteractive: false
                 )
-                .padding(.leading, TimeBlockLayout.labelColumnWidth + 6)
+                .padding(.leading, TimeBlockLayout.blockLeading)
                 .padding(.trailing, TimeBlockLayout.blockTrailingPadding)
                 .offset(y: TimeBlockLayout.y(for: entry.block.startMinute) - offsetY + 1)
             }

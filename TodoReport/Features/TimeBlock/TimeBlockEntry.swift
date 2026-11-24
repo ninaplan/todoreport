@@ -7,12 +7,16 @@ struct TimeBlockEntry: Identifiable, Equatable {
     let isCompleted: Bool
     /// 카테고리가 없으면 nil → 흰 블록
     let categoryColorHex: String?
+    /// 카테고리 아이콘 (SF Symbol). 미분류면 nil
+    let categoryIcon: String?
 
     var id: String { block.id }
 
     func status(now: Date) -> TimeBlockStatus {
         if isCompleted { return .completed }
+        let start = TimeBlockLayout.date(day: block.day, minute: block.startMinute)
         let end = TimeBlockLayout.date(day: block.day, minute: block.endMinute)
-        return end <= now ? .missed : .planned
+        if end <= now { return .missed }
+        return start <= now ? .current : .planned
     }
 }

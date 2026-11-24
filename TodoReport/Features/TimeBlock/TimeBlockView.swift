@@ -10,16 +10,6 @@ struct TimeBlockView: View {
 
     private var isPro: Bool { SubscriptionManager.shared.isPro }
 
-    private var formattedDate: String {
-        let calendar = Calendar.current
-        let date = viewModel.selectedDate
-        let base = AppDateFormat.todoNavigationBase(date, includeWeekday: true)
-        if calendar.isDateInToday(date) { return String(localized: "오늘, \(base)") }
-        if calendar.isDateInYesterday(date) { return String(localized: "어제, \(base)") }
-        if calendar.isDateInTomorrow(date) { return String(localized: "내일, \(base)") }
-        return base
-    }
-
     var body: some View {
         NavigationStack {
             Group {
@@ -32,23 +22,6 @@ struct TimeBlockView: View {
             .background(Color(.systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
-            .sheet(item: pickerBinding) { request in
-                TimeBlockTodoPickerSheet(
-                    request: request,
-                    options: viewModel.todoOptions,
-                    onPick: { viewModel.placeTodo($0) },
-                    onCreate: { viewModel.createTodoInSlot(title: $0) },
-                    onClose: { viewModel.dismissPicker() }
-                )
-            }
-            .sheet(item: editorBinding) { entry in
-                TimeBlockEditSheet(
-                    entry: entry,
-                    onSave: { viewModel.saveEdit(start: $0, end: $1) },
-                    onDelete: { viewModel.deleteEditingBlock() },
-                    onClose: { viewModel.dismissEditor() }
-                )
-            }
             .sheet(isPresented: $showPlannerSheet) {
                 PlannerSelectionSheet()
                     .presentationDragIndicator(.visible)
@@ -62,6 +35,31 @@ struct TimeBlockView: View {
                 Button("확인", role: .cancel) { viewModel.dismissErrorAlert() }
             }
         }
+        .overlay {
+            // 블록 탭 → 시간 편집 팝업, 빈 칸 탭 → 할 일 고르기 팝업 (둘 다 시트 대신)
+            if let entry = viewModel.editingEntry {
+                TimeBlockEditPopup(
+                    entry: entry,
+                    isGlobalAlarmEnabled: viewModel.isStartAlarmEnabled,
+                    onSave: { viewModel.saveEdit(start: $0, end: $1, alarmEnabled: $2) },
+                    onDelete: { viewModel.deleteEditingBlock() },
+                    onClose: { viewModel.dismissEditor() }
+                )
+                .id(entry.id)
+                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+            } else if let request = viewModel.pickerRequest {
+                TimeBlockTodoPickerPopup(
+                    request: request,
+                    options: viewModel.todoOptions,
+                    onPick: { viewModel.placeTodo($0) },
+                    onCreate: { viewModel.createTodoInSlot(title: $0) },
+                    onClose: { viewModel.dismissPicker() }
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+            }
+        }
+        .animation(.easeOut(duration: 0.18), value: viewModel.pickerRequest)
+        .animation(.easeOut(duration: 0.18), value: viewModel.editingEntry)
         .onAppear {
             Task { await viewModel.onAppear() }
         }
@@ -87,18 +85,17 @@ struct TimeBlockView: View {
         }
         .scrollPosition($scrollPosition)
         .safeAreaBar(edge: .top, spacing: 0) {
-            DateNavigationRow(
-                title: formattedDate,
-                onPrev: { viewModel.goToPreviousDay() },
-                onNext: { viewModel.goToNextDay() },
-                showTodayButton: !viewModel.isToday,
-                onGoToday: { viewModel.goToToday() }
+            TimeBlockWeekHeader(
+                selectedDate: viewModel.selectedDate,
+                weekDays: viewModel.weekDays,
+                onSelect: { viewModel.selectDate($0) },
+                onPreviousWeek: { viewModel.goToPreviousWeek() },
+                onNextWeek: { viewModel.goToNextWeek() },
+                onToday: { viewModel.goToToday() }
             )
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity)
-            .frame(height: 40)
         }
-        .scrollEdgeEffectStyle(.soft, for: .top)
+        // 주간 달력은 높아서 soft로는 뒤 글자가 비친다 → hard
+        .scrollEdgeEffectStyle(.hard, for: .top)
         // safeAreaBar·scrollEdgeEffectStyle은 ScrollView에 바로 붙어야 날짜행 뒤 블러가 생긴다.
         // 다른 modifier는 반드시 그 뒤에 둘 것.
         .scrollDisabled(viewModel.isDraggingBlock)
@@ -161,6 +158,7 @@ struct TimeBlockView: View {
                     .pickerStyle(.inline)
                     Section {
                         Toggle("카테고리 색상 보기", isOn: categoryColorBinding)
+                        Toggle("블록 시작 알림", isOn: startAlarmBinding)
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -179,20 +177,6 @@ struct TimeBlockView: View {
 
     // MARK: - Bindings (상태 변경은 ViewModel 메서드로만)
 
-    private var pickerBinding: Binding<TimeBlockSlotRequest?> {
-        Binding(
-            get: { viewModel.pickerRequest },
-            set: { if $0 == nil { viewModel.dismissPicker() } }
-        )
-    }
-
-    private var editorBinding: Binding<TimeBlockEntry?> {
-        Binding(
-            get: { viewModel.editingEntry },
-            set: { if $0 == nil { viewModel.dismissEditor() } }
-        )
-    }
-
     private var paywallBinding: Binding<Bool> {
         Binding(
             get: { viewModel.showPaywall },
@@ -204,6 +188,13 @@ struct TimeBlockView: View {
         Binding(
             get: { viewModel.showErrorAlert },
             set: { if !$0 { viewModel.dismissErrorAlert() } }
+        )
+    }
+
+    private var startAlarmBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.isStartAlarmEnabled },
+            set: { viewModel.setStartAlarmEnabled($0) }
         )
     }
 

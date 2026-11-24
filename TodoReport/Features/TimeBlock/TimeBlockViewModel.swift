@@ -10,6 +10,8 @@ final class TimeBlockViewModel {
     private(set) var snapMinutes: Int
     /// 메뉴 「카테고리 색상 보기」. 끄면 모든 블록이 흰 블록.
     private(set) var showsCategoryColor: Bool
+    /// 메뉴 「블록 시작 알림」 (전체)
+    private(set) var isStartAlarmEnabled: Bool = TimeBlockNotificationManager.shared.isGloballyEnabled
 
     // 이동 (블록 길게 누른 뒤 드래그)
     private(set) var movingBlockId: String?
@@ -81,6 +83,23 @@ final class TimeBlockViewModel {
         Task { await reload() }
     }
 
+    func selectDate(_ date: Date) {
+        let day = Calendar.current.startOfDay(for: date)
+        guard day != selectedDate else { return }
+        selectedDate = day
+        Task { await reload() }
+    }
+
+    func goToPreviousWeek() { moveDay(by: -7) }
+    func goToNextWeek() { moveDay(by: 7) }
+
+    /// 상단 주간 달력에 보여줄 7일 (설정의 시작 요일 기준)
+    var weekDays: [Date] {
+        let calendar = AppCalendar.localized
+        guard let interval = calendar.dateInterval(of: .weekOfYear, for: selectedDate) else { return [selectedDate] }
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: interval.start) }
+    }
+
     private func moveDay(by value: Int) {
         guard let next = Calendar.current.date(byAdding: .day, value: value, to: selectedDate) else { return }
         selectedDate = Calendar.current.startOfDay(for: next)
@@ -93,6 +112,12 @@ final class TimeBlockViewModel {
         guard TimeBlockLayout.snapOptions.contains(minutes) else { return }
         snapMinutes = minutes
         UserDefaults.standard.set(minutes, forKey: TimeBlockLayout.snapMinutesKey)
+    }
+
+    func setStartAlarmEnabled(_ enabled: Bool) {
+        isStartAlarmEnabled = enabled
+        TimeBlockNotificationManager.shared.setGloballyEnabled(enabled)
+        service.resyncUpcomingAlarms()
     }
 
     func setShowsCategoryColor(_ shows: Bool) {
@@ -298,7 +323,8 @@ final class TimeBlockViewModel {
             block: block,
             title: old.title,
             isCompleted: old.isCompleted,
-            categoryColorHex: old.categoryColorHex
+            categoryColorHex: old.categoryColorHex,
+            categoryIcon: old.categoryIcon
         )
     }
 
@@ -325,13 +351,14 @@ final class TimeBlockViewModel {
         editingEntry = nil
     }
 
-    func saveEdit(start: Date, end: Date) {
+    func saveEdit(start: Date, end: Date, alarmEnabled: Bool) {
         guard let entry = editingEntry else { return }
         let day = entry.block.day
         let startMinute = TimeBlockLayout.minute(of: start, day: day)
         let endMinute = TimeBlockLayout.minute(of: end, day: day)
         do {
             try service.updateBlockTime(id: entry.id, startMinute: startMinute, endMinute: endMinute)
+            try service.setAlarmEnabled(id: entry.id, enabled: alarmEnabled)
             dismissEditor()
             Task { await reload() }
         } catch {

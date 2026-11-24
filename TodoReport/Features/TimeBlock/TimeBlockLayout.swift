@@ -6,7 +6,11 @@ enum TimeBlockLayout {
     static let minutesPerDay = 1440
     /// 1시간 = 66pt
     static let pointsPerMinute: CGFloat = 1.1
-    static let labelColumnWidth: CGFloat = 56
+    static let labelColumnWidth: CGFloat = 52
+    /// 시각 표시와 블록 사이 세로 줄(레일)의 x 위치
+    static let railX: CGFloat = 64
+    /// 블록 카드가 시작하는 x 위치
+    static let blockLeading: CGFloat = 78
     static let blockTrailingPadding: CGFloat = 16
     static let verticalPadding: CGFloat = 14
     static let defaultDurationMinutes = 60
@@ -14,6 +18,7 @@ enum TimeBlockLayout {
     static let defaultSnapMinutes = 30
     static let snapMinutesKey = "timeBlockSnapMinutes"
     static let showsCategoryColorKey = "timeBlockShowsCategoryColor"
+    static let startAlarmEnabledKey = "timeBlockStartAlarmEnabled"
     /// 화면을 처음 열 때 보여줄 시각 (오늘이 아니면 이 시각부터)
     static let defaultScrollHour = 8
 

@@ -135,7 +135,8 @@ final class ReportService {
         let avgRate = elapsedCount == 0 ? 0 : dailyRates.prefix(elapsedCount).map(\.rate).reduce(0, +) / Double(elapsedCount)
         let ratedDays = dailyRatings.filter { $0.rating > 0 }
         let avgRating = ratedDays.isEmpty ? 0 : ratedDays.map(\.rating).reduce(0, +) / Double(ratedDays.count)
-        let streak = calculateStreak(plannerId: plannerId, calendar: calendar)
+        // 연속 달성은 요약 카드에서 「집중 시간」으로 교체됨 → 365일 스캔 생략 (필드는 호환용으로 0)
+        let streak = 0
 
         let todoEntries = todos
             .compactMap { item -> ReportTodoEntry? in
@@ -213,7 +214,8 @@ final class ReportService {
         let avgRate = elapsedWeekCount == 0 ? 0 : weeklyRates.prefix(elapsedWeekCount).map(\.rate).reduce(0, +) / Double(elapsedWeekCount)
         let ratedWeeks = weeklyRatings.filter { $0.rating > 0 }
         let avgRating = ratedWeeks.isEmpty ? 0 : ratedWeeks.map(\.rating).reduce(0, +) / Double(ratedWeeks.count)
-        let streak = calculateStreak(plannerId: plannerId, calendar: calendar)
+        // 연속 달성은 요약 카드에서 「집중 시간」으로 교체됨 → 365일 스캔 생략 (필드는 호환용으로 0)
+        let streak = 0
 
         // 일별 별점 집계 (꺾은선 그래프용)
         let daysInMonth = calendar.range(of: .day, in: .month, for: start)?.count ?? 30

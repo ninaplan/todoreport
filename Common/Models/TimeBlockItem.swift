@@ -13,6 +13,8 @@ final class TimeBlockItem {
     /// 그날 0시부터 지난 분 (0...1440).
     var startMinute: Int
     var endMinute: Int
+    /// 블록 시작 시각 알림 (기본 켜짐). 메뉴의 전체 끄기가 우선한다.
+    var alarmEnabled: Bool = true
     var createdAt: Date
 
     init(
@@ -21,7 +23,8 @@ final class TimeBlockItem {
         todoId: String,
         day: Date,
         startMinute: Int,
-        endMinute: Int
+        endMinute: Int,
+        alarmEnabled: Bool = true
     ) {
         self.id = id
         self.plannerId = plannerId
@@ -29,6 +32,7 @@ final class TimeBlockItem {
         self.day = day
         self.startMinute = startMinute
         self.endMinute = endMinute
+        self.alarmEnabled = alarmEnabled
         self.createdAt = .now
     }
 }

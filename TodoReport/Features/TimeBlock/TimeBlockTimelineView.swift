@@ -5,12 +5,13 @@ struct TimeBlockTimelineView: View {
     let viewModel: TimeBlockViewModel
     let now: Date
 
-    private var blockLeading: CGFloat { TimeBlockLayout.labelColumnWidth + 6 }
+    private var blockLeading: CGFloat { TimeBlockLayout.blockLeading }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             hourGrid
             tapLayer
+            rail
             blocks
             if viewModel.isToday {
                 nowIndicator
@@ -58,7 +59,7 @@ struct TimeBlockTimelineView: View {
     private var tapLayer: some View {
         Color.clear
             .contentShape(Rectangle())
-            .padding(.leading, TimeBlockLayout.labelColumnWidth)
+            .padding(.leading, TimeBlockLayout.railX)
             .onTapGesture(coordinateSpace: .local) { location in
                 viewModel.requestSlot(atMinute: TimeBlockLayout.minute(for: location.y))
             }
@@ -74,10 +75,12 @@ struct TimeBlockTimelineView: View {
                 status: entry.status(now: now),
                 displayStartMinute: viewModel.displayStartMinute(for: entry),
                 displayEndMinute: viewModel.displayEndMinute(for: entry),
+                now: now,
                 usesCategoryColor: viewModel.showsCategoryColor,
+                showsAlarmIcon: viewModel.isStartAlarmEnabled && entry.block.alarmEnabled,
                 isMoving: viewModel.movingBlockId == entry.id,
                 onTap: { viewModel.openEditor(entry) },
-                onSwipeComplete: { viewModel.toggleCompletion(entry) },
+                onToggleComplete: { viewModel.toggleCompletion(entry) },
                 onResizeChanged: { height in
                     viewModel.beginResize(entry)
                     viewModel.updateResize(translationHeight: height)
@@ -92,6 +95,47 @@ struct TimeBlockTimelineView: View {
             .offset(y: TimeBlockLayout.y(for: viewModel.displayStartMinute(for: entry)) + 1)
             .zIndex(viewModel.movingBlockId == entry.id ? 1 : 0)
         }
+    }
+
+    // MARK: - 레일 (세로 줄 + 블록 시작 점)
+
+    private var rail: some View {
+        ZStack(alignment: .topLeading) {
+            Rectangle()
+                .fill(AppTheme.shared.accent.opacity(0.18))
+                .frame(width: 1.5, height: TimeBlockLayout.contentHeight - TimeBlockLayout.verticalPadding * 2)
+                .offset(x: TimeBlockLayout.railX - 0.75, y: TimeBlockLayout.verticalPadding)
+            ForEach(viewModel.entries) { entry in
+                railDot(for: entry.status(now: now))
+                    .offset(y: TimeBlockLayout.y(for: viewModel.displayStartMinute(for: entry)) + 12)
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    /// 진행 중 = 크게 채운 점 + 테두리, 완료·지남 = 회색 점, 예정 = 빈 점
+    @ViewBuilder
+    private func railDot(for status: TimeBlockStatus) -> some View {
+        let accent = AppTheme.shared.accent
+        let size: CGFloat = status == .current ? 13 : 9
+        Group {
+            switch status {
+            case .current:
+                Circle()
+                    .fill(accent)
+                    .overlay(Circle().stroke(accent.opacity(0.25), lineWidth: 4))
+            case .completed, .missed:
+                Circle()
+                    .fill(Color(.tertiaryLabel))
+            case .planned:
+                Circle()
+                    .fill(Color(.systemGroupedBackground))
+                    .overlay(Circle().stroke(accent, lineWidth: 1.5))
+            }
+        }
+        .frame(width: size, height: size)
+        .offset(x: TimeBlockLayout.railX - size / 2, y: -size / 2)
     }
 
     // MARK: - 현재 시각
