@@ -75,7 +75,7 @@ struct TimeBlockLockedView: View {
                 )
                 .padding(.leading, TimeBlockLayout.blockLeading)
                 .padding(.trailing, TimeBlockLayout.blockTrailingPadding)
-                .offset(y: TimeBlockLayout.y(for: entry.block.startMinute) - offsetY + 1)
+                .offset(y: TimeBlockLayout.y(for: entry.block.startMinute) - offsetY + TimeBlockLayout.blockGap / 2)
             }
         }
         .frame(height: height, alignment: .topLeading)

@@ -12,6 +12,8 @@ enum TimeBlockLayout {
     /// 블록 카드가 시작하는 x 위치
     static let blockLeading: CGFloat = 78
     static let blockTrailingPadding: CGFloat = 16
+    /// 이어지는 블록 사이 틈 (블록 위아래 절반씩)
+    static let blockGap: CGFloat = 3
     static let verticalPadding: CGFloat = 14
     static let defaultDurationMinutes = 60
     static let snapOptions: [Int] = [15, 30, 60]

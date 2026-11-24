@@ -93,7 +93,7 @@ struct TimeBlockTimelineView: View {
             )
             .padding(.leading, blockLeading)
             .padding(.trailing, TimeBlockLayout.blockTrailingPadding)
-            .offset(y: TimeBlockLayout.y(for: viewModel.displayStartMinute(for: entry)) + 1)
+            .offset(y: TimeBlockLayout.y(for: viewModel.displayStartMinute(for: entry)) + TimeBlockLayout.blockGap / 2)
             .zIndex(viewModel.movingBlockId == entry.id ? 1 : 0)
         }
     }

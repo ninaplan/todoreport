@@ -66,8 +66,9 @@ struct TimeBlockCardView: View {
         max(displayEndMinute - displayStartMinute, 1)
     }
 
+    /// 이어지는 블록끼리 붙어 보이지 않게 위아래 1.5pt씩 줄여 사이에 3pt 틈을 둔다 (시각 계산은 그대로)
     private var height: CGFloat {
-        CGFloat(durationMinutes) * TimeBlockLayout.pointsPerMinute
+        max(CGFloat(durationMinutes) * TimeBlockLayout.pointsPerMinute - TimeBlockLayout.blockGap, 8)
     }
 
     private var isCompact: Bool { durationMinutes < 30 }
