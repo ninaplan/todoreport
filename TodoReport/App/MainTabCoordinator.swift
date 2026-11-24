@@ -34,6 +34,11 @@ final class MainTabCoordinator {
     private(set) var expandDailyReportToken: Int = 0
     /// 포그라운드 복귀 시 데이터 갱신 트리거
     private(set) var foregroundRefreshToken: Int = 0
+    /// 이미 선택된 탭을 다시 탭했을 때 증가 → 각 탭이 「현재로 돌아오기」
+    private(set) var todoReselectToken: Int = 0
+    private(set) var timelineReselectToken: Int = 0
+    private(set) var reportReselectToken: Int = 0
+    private(set) var settingsReselectToken: Int = 0
 
     private init() {
         if UserDefaults.standard.string(forKey: Self.launchTabKey) == Self.launchTabTimeline {
@@ -55,6 +60,21 @@ final class MainTabCoordinator {
             expandDailyReportToken += 1
         }
         selectedTab = .todo
+    }
+
+    /// 탭바에서 탭을 눌렀을 때. 이미 선택된 탭이면 다시 탭 동작.
+    func select(_ tab: Tab) {
+        guard tab == selectedTab else {
+            selectedTab = tab
+            return
+        }
+        switch tab {
+        case .todo: todoReselectToken += 1
+        case .timeline: timelineReselectToken += 1
+        case .report: reportReselectToken += 1
+        case .settings: settingsReselectToken += 1
+        case .search: break
+        }
     }
 
     func openTodoTab() {

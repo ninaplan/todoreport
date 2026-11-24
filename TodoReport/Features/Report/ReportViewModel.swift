@@ -115,6 +115,12 @@ final class ReportViewModel {
         }
     }
 
+    /// 리포트 탭을 다시 탭 → 이번 주(이번 달)로
+    func goToCurrentPeriod() {
+        guard periodOffset != 0 else { return }
+        onPeriodChanged()
+    }
+
     func onPlannerChanged() {
         weeklyReport = nil
         monthlyReport = nil

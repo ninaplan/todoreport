@@ -29,6 +29,9 @@ struct TodoView: View {
     @AppStorage("hasSeenInlineEditHint") private var hasSeenInlineEditHint = false
     @AppStorage("lastSeenWhatsNewVersion") private var lastSeenWhatsNewVersion = ""
 
+    /// 투두 탭 다시 탭 시 스크롤 목적지 (목록 맨 위 하루 리포트 카드)
+    private static let listTopId = "todoListTop"
+
     private var formattedDate: String {
         let cal = Calendar.current
         let date = viewModel.selectedDate
@@ -256,6 +259,7 @@ struct TodoView: View {
                         onFirstAppear: { presentDailyReportExpandHintIfNeeded() },
                         expandToken: tabCoordinator.expandDailyReportToken
                     )
+                    .id(Self.listTopId)
                 }
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
@@ -345,6 +349,11 @@ struct TodoView: View {
             }
             .onChange(of: tabCoordinator.todoRootResetToken) { _, _ in
                 resetTodoNavigationToRoot()
+            }
+            // 투두 탭을 다시 탭 → 오늘로 + 목록 맨 위로
+            .onChange(of: tabCoordinator.todoReselectToken) { _, _ in
+                viewModel.goToToday()
+                withAnimation { proxy.scrollTo(Self.listTopId, anchor: .top) }
             }
             .onChange(of: tabCoordinator.pendingTodoDate) { _, _ in
                 consumePendingTodoNavigation(proxy: proxy)

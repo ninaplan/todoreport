@@ -77,6 +77,9 @@ struct ReportView: View {
                 }
             }
             .onAppear { Task { await viewModel.fetchReportWithNotionSync() } }
+            .onChange(of: tabCoordinator.reportReselectToken) { _, _ in
+                viewModel.goToCurrentPeriod()
+            }
             .onChange(of: tabCoordinator.foregroundRefreshToken) { _, _ in
                 Task { await viewModel.handleForegroundRefresh() }
             }

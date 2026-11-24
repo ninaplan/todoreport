@@ -74,6 +74,11 @@ struct TimeBlockView: View {
             guard tab == .timeline else { return }
             Task { await viewModel.reload() }
         }
+        // 타임라인 탭을 다시 탭 → 오늘로 + 지금 시각으로
+        .onChange(of: tabCoordinator.timelineReselectToken) { _, _ in
+            viewModel.goToToday()
+            scrollToNow(animated: true)
+        }
         .onChange(of: tabCoordinator.foregroundRefreshToken) { _, _ in
             Task { await viewModel.reload() }
         }
@@ -114,17 +119,29 @@ struct TimeBlockView: View {
     private func scrollToInitialPositionIfNeeded() {
         guard !didInitialScroll else { return }
         didInitialScroll = true
-        let targetMinute: Int
         if viewModel.isToday {
-            targetMinute = max(TimeBlockLayout.minute(of: .now, day: viewModel.selectedDate) - 60, 0)
+            scrollToNow(animated: false)
         } else {
-            targetMinute = TimeBlockLayout.defaultScrollHour * 60
+            scroll(toMinute: TimeBlockLayout.defaultScrollHour * 60, animated: false)
         }
-        let targetY = max(TimeBlockLayout.y(for: targetMinute) - 8, 0)
+    }
+
+    /// 지금 1시간 전이 화면 위에 오도록
+    private func scrollToNow(animated: Bool) {
+        let nowMinute = TimeBlockLayout.minute(of: .now, day: Calendar.current.startOfDay(for: .now))
+        scroll(toMinute: max(nowMinute - 60, 0), animated: animated)
+    }
+
+    private func scroll(toMinute minute: Int, animated: Bool) {
+        let targetY = max(TimeBlockLayout.y(for: minute) - 8, 0)
         Task { @MainActor in
             // 첫 레이아웃이 끝난 뒤 스크롤해야 위치가 적용된다
             try? await Task.sleep(for: .milliseconds(50))
-            scrollPosition.scrollTo(y: targetY)
+            if animated {
+                withAnimation(.easeInOut(duration: 0.3)) { scrollPosition.scrollTo(y: targetY) }
+            } else {
+                scrollPosition.scrollTo(y: targetY)
+            }
         }
     }
 

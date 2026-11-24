@@ -12,8 +12,11 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        @Bindable var tabs = tabCoordinator
-        TabView(selection: $tabs.selectedTab) {
+        // set을 거쳐야 이미 선택된 탭을 다시 탭한 것도 알 수 있다
+        TabView(selection: Binding(
+            get: { tabCoordinator.selectedTab },
+            set: { tabCoordinator.select($0) }
+        )) {
             Tab("투두", systemImage: "checklist", value: MainTabCoordinator.Tab.todo) {
                 TodoView()
             }
@@ -27,6 +30,8 @@ struct MainTabView: View {
                 NavigationStack {
                     SettingsView(onAccountDeleted: onAccountDeleted)
                 }
+                // 설정 탭을 다시 탭하면 첫 화면으로 (스택을 새로 만든다)
+                .id(tabCoordinator.settingsReselectToken)
                 .background(Color(.systemGroupedBackground))
             }
             Tab(value: MainTabCoordinator.Tab.search, role: .search) {
