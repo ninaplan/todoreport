@@ -32,7 +32,7 @@
 - **플래너 이름:** 투두 탭과 같은 버튼·`PlannerSelectionSheet`(투두 탭과 공용, `private` 해제)
 - **주의(핵심 학습):** `.safeAreaBar` + `.scrollEdgeEffectStyle`은 ScrollView에 **바로** 붙여야 날짜행 블러가 생김. 다른 modifier는 그 뒤에. 드래그로 움직이는 뷰의 DragGesture는 `coordinateSpace: .global` (손잡이 기준이면 깜박임)
 - **미확인:** 깜박임 수정·플래너 알약·길게 눌러 이동·카테고리 색 토글은 아직 빌드/실기기 확인 전. 스와이프·길게 누르기·스크롤 제스처 충돌 여부 확인 필요
-- **참고:** 2026-11-24 날짜행 블러가 세 탭 모두 안 보인 건 앱스토어 버전에서도 같아 코드 문제 아님(니나 폰 환경 — iOS 업데이트·「투명도 줄이기」 확인 중)
+- **참고:** 2026-11-24 날짜행 블러가 세 탭 모두 안 보인 건 앱스토어 버전에서도 같아 코드 문제 아님. 니나 폰 iOS 업데이트 후 블러 복구 확인(해결)
 
 ### 인박스 진행 (2026-09-11)
 - **완료:** `TodoItem`/`Todo.date` 옵셔널화 + 위젯 Predicate(`ed99bdf`·`aeed0c4`). 백엔드 `GET/POST /api/notion/todo/inbox` 배포(`todoreport-backend` `486bbce`). 편집 화면 「날짜 제거」→ 노션 date 속성 비움(`bb4992d` SyncQueue·AnyEncodable + 백엔드 PATCH). `+`에서 날짜 없이 저장 → 인박스 생성 UI 연결(`f6de244`, POST `/api/notion/todo/inbox`)
