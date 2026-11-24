@@ -92,7 +92,7 @@ struct TimeBlockLockedView: View {
             Text("하루를 시간으로 계획하기")
                 .font(.headline)
                 .multilineTextAlignment(.center)
-            Text("할 일을 시간 블록에 넣고, 계획대로 했는지 한눈에 확인합니다. 타임라인은 Pro 기능입니다.")
+            Text("할 일을 시간 블록에 넣고, 계획대로 했는지 한눈에 확인합니다. 타임블록은 Pro 기능입니다.")
                 .font(.subheadline)
                 .foregroundStyle(Color(.secondaryLabel))
                 .multilineTextAlignment(.center)

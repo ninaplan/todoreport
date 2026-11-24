@@ -78,7 +78,7 @@ struct TimeBlockEditPopup: View {
                         checkbox(title: "종료", isOn: $endAlarm, isAvailable: isEndAlarmGloballyEnabled)
                     }
                     if !isStartAlarmGloballyEnabled || !isEndAlarmGloballyEnabled {
-                        Text("흐린 알림은 타임라인 오른쪽 위 메뉴에서 켤 수 있습니다.")
+                        Text("흐린 알림은 타임블록 오른쪽 위 메뉴에서 켤 수 있습니다.")
                             .font(.footnote)
                             .foregroundStyle(Color(.secondaryLabel))
                             .frame(maxWidth: .infinity, alignment: .leading)

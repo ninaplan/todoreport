@@ -123,6 +123,16 @@ struct PaywallView: View {
     private var proFeaturesSection: some View {
         VStack(spacing: 0) {
             ProFeatureRow(
+                title: "타임블록",
+                description: "할 일을 시간 블록에 넣어 하루를 계획하고, 시작·종료 알림을 받습니다.",
+                isComingSoon: false,
+                primaryText: primaryText,
+                secondaryText: secondaryText
+            )
+
+            proFeatureDivider
+
+            ProFeatureRow(
                 title: "주간·월간 리포트 노션에 저장",
                 description: "리포트를 노션 DB에 저장해 나만의 기록 아카이브를 만드세요.",
                 isComingSoon: false,
@@ -163,8 +173,18 @@ struct PaywallView: View {
             proFeatureDivider
 
             ProFeatureRow(
-                title: "집중시간 트래커",
-                description: "측정한 집중시간이 리포트에 함께 기록됩니다.",
+                title: "집중한 시간 리포트",
+                description: "타임블록으로 완료한 시간이 주간·월간 리포트에 카테고리별로 쌓입니다.",
+                isComingSoon: false,
+                primaryText: primaryText,
+                secondaryText: secondaryText
+            )
+
+            proFeatureDivider
+
+            ProFeatureRow(
+                title: "집중 타이머",
+                description: "할 일을 하는 동안 시간을 재고 리포트에 기록합니다.",
                 isComingSoon: true,
                 primaryText: primaryText,
                 secondaryText: secondaryText
@@ -173,8 +193,8 @@ struct PaywallView: View {
             proFeatureDivider
 
             ProFeatureRow(
-                title: "카테고리 → 노션 DB 연동",
-                description: "카테고리가 노션 프로젝트·목표 DB와 연결됩니다.",
+                title: "노션 프로젝트 DB 연동",
+                description: "앱의 카테고리를 노션 프로젝트·목표 DB와 연결합니다.",
                 isComingSoon: true,
                 primaryText: primaryText,
                 secondaryText: secondaryText
@@ -210,6 +230,7 @@ struct PaywallView: View {
                 FreeFeatureChip(label: "할 일 검색", primaryText: primaryText, secondaryText: secondaryText)
                 FreeFeatureChip(label: "카테고리 필터", primaryText: primaryText, secondaryText: secondaryText)
                 FreeFeatureChip(label: "카테고리를 아이콘으로 보기", primaryText: primaryText, secondaryText: secondaryText)
+                FreeFeatureChip(label: "포인트 컬러 설정", primaryText: primaryText, secondaryText: secondaryText)
             }
         }
         .padding(.top, 20)

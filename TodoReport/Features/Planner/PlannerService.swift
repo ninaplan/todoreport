@@ -463,7 +463,9 @@ final class PlannerService {
         for item in (try? context.fetch(categoryDesc)) ?? [] { context.delete(item) }
 
         let seriesDesc = FetchDescriptor<RecurringSeries>(predicate: #Predicate { $0.plannerId == id })
-        for item in (try? context.fetch(seriesDesc)) ?? [] { context.delete(item) }
+        let seriesItems = (try? context.fetch(seriesDesc)) ?? []
+        RecurringSeriesBackupStore.shared.remove(seriesIds: seriesItems.map(\.id))
+        for item in seriesItems { context.delete(item) }
 
         let timeBlockDesc = FetchDescriptor<TimeBlockItem>(predicate: #Predicate { $0.plannerId == id })
         let timeBlocks = (try? context.fetch(timeBlockDesc)) ?? []

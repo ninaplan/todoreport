@@ -261,6 +261,7 @@ struct TodoView: View {
                     )
                     .id(Self.listTopId)
                 }
+                .daySlide(viewModel.daySlide)
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(
@@ -346,6 +347,14 @@ struct TodoView: View {
                         completionRate: viewModel.completionRate
                     )
                 }
+            }
+            .alert("반복 할 일은 그날 만들어집니다.", isPresented: Binding(
+                get: { viewModel.showRecurringPreviewInfo },
+                set: { if !$0 { viewModel.cancelRecurringPreviewInfo() } }
+            )) {
+                Button("확인", role: .cancel) { viewModel.confirmRecurringPreviewInfo() }
+            } message: {
+                Text("미리 완료하거나 수정할 수 없습니다.")
             }
             .onChange(of: tabCoordinator.todoRootResetToken) { _, _ in
                 resetTodoNavigationToRoot()
@@ -617,10 +626,22 @@ struct TodoView: View {
         } else {
             Section {
                 todoRows(for: viewModel.filteredTodos)
+                // 미래 날짜: 아직 만들어지지 않은 반복 할 일 미리보기 (탭하면 안내만)
+                ForEach(viewModel.visibleRecurringPreviews) { preview in
+                    RecurringPreviewRow(preview: preview)
+                        .contentShape(Rectangle())
+                        .onTapGesture { viewModel.tapRecurringPreview() }
+                        .daySlide(viewModel.daySlide)
+                        .listRowInsets(TodoListRowSpacing.listRowInsets)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
                 addTodoRow
+                    .daySlide(viewModel.daySlide)
                     .id("addTodoRow")
                 if viewModel.emptyStateKind == .notionPullHint {
                     emptyTodoListHint
+                        .daySlide(viewModel.daySlide)
                 }
                 Color.clear.frame(height: 120)
             }
@@ -699,6 +720,8 @@ struct TodoView: View {
                 onOpenDetailFromInline: { draft in openDetailFromInline(todo: todo, draft: draft) },
                 onAction: { performRowAction($0, for: todo) }
             )
+            // 날짜를 넘길 때 줄마다 옆에서 밀려 들어옴 (Section에 붙이면 할 일 줄까지 안 닿아서 줄에 직접)
+            .daySlide(viewModel.daySlide)
             .id(todo.id)
             .listRowInsets(TodoListRowSpacing.listRowInsets)
             .listRowBackground(
@@ -707,7 +730,8 @@ struct TodoView: View {
                     : Color.clear
             )
         }
-        .animation(.easeInOut(duration: 0.3), value: todos.map(\.id))
+        // 같은 날 추가·삭제는 기존처럼 페이드, 날짜가 바뀐 직후엔 끄고 슬라이드만 (둘이 겹치면 슬라이드가 안 보임)
+        .animation(viewModel.daySlide.isRecent ? nil : .easeInOut(duration: 0.3), value: todos.map(\.id))
     }
 
     private var addTodoRow: some View {
@@ -1197,6 +1221,31 @@ private struct TodoInlineTitleEditor: View {
 }
 
 /// 투두 목록 행 세로 여백. inset은 공통, padding은 메모 표시 여부로 나눔.
+/// 미래 날짜 반복 할 일 미리보기 행 — 흐린 글자 + 점선 원 + 순환 화살표 + 「예정」. 저장되지 않은 줄이라 체크·편집 없음.
+private struct RecurringPreviewRow: View {
+    let preview: RecurringOccurrencePreview
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "circle.dashed")
+                .font(.title3)
+                .foregroundStyle(Color(.tertiaryLabel))
+            (Text(preview.title) + Text("\u{00A0}") + Text(Image(systemName: "arrow.triangle.2.circlepath")).font(.footnote).baselineOffset(1))
+                .font(.body)
+                .foregroundStyle(Color(.secondaryLabel))
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("예정")
+                .font(.caption)
+                .foregroundStyle(Color(.tertiaryLabel))
+        }
+        .padding(.vertical, TodoListRowSpacing.verticalPadding)
+        .opacity(0.8)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: "\(preview.title), \(String(localized: "예정"))"))
+    }
+}
+
 private enum TodoListRowSpacing {
     static let verticalInset: CGFloat = 4
     static let verticalPadding: CGFloat = 8
@@ -1360,16 +1409,24 @@ private struct TodoRow: View {
             .strikethrough(todo.isCompleted)
             .foregroundStyle(todo.isCompleted ? Color.secondary : Color.primary)
 
-        guard todo.isPinned else { return title }
-
-        let pin = Text(Image(systemName: "pin.fill"))
-            .font(.caption)
-            .foregroundStyle(
-                AppTheme.shared.accent.opacity(todo.isCompleted ? completedCheckboxOpacity : 1)
-            )
-
-        // 일반 공백은 줄바꿈 가능 → NBSP로 마지막 글자와 핀을 한 덩어리로 유지
-        return title + Text("\u{00A0}") + pin
+        var label = title
+        if todo.isPinned {
+            let pin = Text(Image(systemName: "pin.fill"))
+                .font(.caption)
+                .foregroundStyle(
+                    AppTheme.shared.accent.opacity(todo.isCompleted ? completedCheckboxOpacity : 1)
+                )
+            // 일반 공백은 줄바꿈 가능 → NBSP로 마지막 글자와 핀을 한 덩어리로 유지
+            label = label + Text("\u{00A0}") + pin
+        }
+        if todo.recurrenceId != nil {
+            // 반복 할 일 표시 (연회색 순환 화살표, 글자 가운데에 맞추려 baselineOffset)
+            label = label + Text("\u{00A0}") + Text(Image(systemName: "arrow.triangle.2.circlepath"))
+                .font(.footnote)
+                .baselineOffset(1)
+                .foregroundStyle(Color(.tertiaryLabel))
+        }
+        return label
     }
 
     @ViewBuilder
@@ -1401,6 +1458,9 @@ private struct TodoRow: View {
         var parts: [String] = [todo.title]
         if todo.isPinned {
             parts.append(String(localized: "고정됨"))
+        }
+        if todo.recurrenceId != nil {
+            parts.append(String(localized: "반복"))
         }
         if todo.isCompleted {
             parts.append(String(localized: "완료됨"))

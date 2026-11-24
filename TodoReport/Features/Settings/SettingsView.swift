@@ -235,7 +235,7 @@ struct SettingsView: View {
         Section {
             Picker("시작 화면", selection: $launchTab) {
                 Text("투두").tag("todo")
-                Text("타임라인").tag(MainTabCoordinator.launchTabTimeline)
+                Text("타임블록").tag(MainTabCoordinator.launchTabTimeline)
             }
             .tint(.secondary)
 

@@ -7,6 +7,7 @@ struct TimeBlockView: View {
     @State private var scrollPosition = ScrollPosition(edge: .top)
     @State private var didInitialScroll = false
     @State private var showPlannerSheet = false
+    @State private var daySlide = DaySlide.initial
 
     private var isPro: Bool { SubscriptionManager.shared.isPro }
 
@@ -27,7 +28,7 @@ struct TimeBlockView: View {
                     .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: paywallBinding) {
-                PaywallView(message: String(localized: "타임라인은 Pro 기능입니다."))
+                PaywallView(message: String(localized: "타임블록은 Pro 기능입니다."))
                     .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
             }
@@ -79,6 +80,9 @@ struct TimeBlockView: View {
             viewModel.goToToday()
             scrollToNow(animated: true)
         }
+        .onChange(of: viewModel.entriesDay) { oldDay, newDay in
+            daySlide = daySlide.next(forward: newDay > oldDay)
+        }
         .onChange(of: tabCoordinator.foregroundRefreshToken) { _, _ in
             Task { await viewModel.reload() }
         }
@@ -94,6 +98,7 @@ struct TimeBlockView: View {
             TimelineView(.everyMinute) { context in
                 TimeBlockTimelineView(viewModel: viewModel, now: context.date)
             }
+            .daySlide(daySlide)
         }
         .scrollPosition($scrollPosition)
         .safeAreaBar(edge: .top, spacing: 0) {
@@ -101,17 +106,22 @@ struct TimeBlockView: View {
                 selectedDate: viewModel.selectedDate,
                 weekDays: viewModel.weekDays,
                 onSelect: { viewModel.selectDate($0) },
-                onPreviousWeek: { viewModel.goToPreviousWeek() },
-                onNextWeek: { viewModel.goToNextWeek() },
+                onShiftWeeks: { viewModel.shiftWeeks(by: $0) },
                 onToday: { viewModel.goToToday() }
             )
         }
-        // hard는 아래가 선으로 뚝 끊겨서 soft 유지. 대신 주간 달력 뒤에 그라데이션 덮개를 깔아 더 가린다
-        .scrollEdgeEffectStyle(.soft, for: .top)
+        // 타임라인만 hard: 반투명 유리 + 아래가 딱 끊기는 경계. 시간 줄·블록이 흐리게 번져 겹쳐 보이지 않게.
+        // (투두·리포트는 날짜 한 줄이라 soft 유지)
+        .scrollEdgeEffectStyle(.hard, for: .top)
         // safeAreaBar·scrollEdgeEffectStyle은 ScrollView에 바로 붙어야 날짜행 뒤 블러가 생긴다.
         // 다른 modifier는 반드시 그 뒤에 둘 것.
         .scrollDisabled(viewModel.isDraggingBlock)
         .sensoryFeedback(.error, trigger: viewModel.moveRejectedToken)
+        // 투두·리포트 탭과 같은 화면 가장자리 스와이프로 하루씩 이동 (가운데 스크롤·블록 드래그와 안 겹침)
+        .edgeSwipeNavigation(
+            onPrev: { viewModel.goToPreviousDay() },
+            onNext: { viewModel.goToNextDay() }
+        )
         .onAppear { scrollToInitialPositionIfNeeded() }
     }
 

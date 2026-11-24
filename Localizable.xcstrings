@@ -4612,16 +4612,6 @@
         }
       }
     },
-    "집중시간 트래커" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Focus Time Tracker"
-          }
-        }
-      }
-    },
     "찾는 데이터베이스가 목록에 없으면 우상단 새로고침 버튼을 눌러 다시 불러오세요." : {
       "localizations" : {
         "en" : {
@@ -4702,32 +4692,12 @@
         }
       }
     },
-    "측정한 집중시간이 리포트에 함께 기록됩니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your tracked focus time is recorded in your reports too."
-          }
-        }
-      }
-    },
     "카테고리" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Category"
-          }
-        }
-      }
-    },
-    "카테고리 → 노션 DB 연동" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Category → Notion DB Sync"
           }
         }
       }
@@ -4862,16 +4832,6 @@
         }
       }
     },
-    "카테고리가 노션 프로젝트·목표 DB와 연결됩니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Categories are linked to your Notion project/goal database."
-          }
-        }
-      }
-    },
     "카테고리를 아이콘으로 보기" : {
       "localizations" : {
         "en" : {
@@ -4902,42 +4862,42 @@
         }
       }
     },
-    "타임라인" : {
+    "타임블록" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Timeline"
+            "value" : "Time Blocks"
           }
         }
       }
     },
-    "타임라인에서 시간 블록을 만들고 완료하면 여기에 모입니다." : {
+    "타임블록에서 시간 블록을 만들고 완료하면 여기에 모입니다." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Create and complete time blocks in Timeline to see them here."
+            "value" : "Create and complete blocks in Time Blocks to see them here."
           }
         }
       }
     },
-    "타임라인으로 계획하고 완료한 시간을 카테고리별로 돌아봅니다. Pro 기능입니다." : {
+    "타임블록으로 계획하고 완료한 시간을 카테고리별로 돌아봅니다. Pro 기능입니다." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Review the time you planned and completed in Timeline, by category. This is a Pro feature."
+            "value" : "Review the time you planned and completed in Time Blocks, by category. This is a Pro feature."
           }
         }
       }
     },
-    "타임라인은 Pro 기능입니다." : {
+    "타임블록은 Pro 기능입니다." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Timeline is a Pro feature."
+            "value" : "Time Blocks are a Pro feature."
           }
         }
       }
@@ -5485,12 +5445,12 @@
         }
       }
     },
-    "할 일을 시간 블록에 넣고, 계획대로 했는지 한눈에 확인합니다. 타임라인은 Pro 기능입니다." : {
+    "할 일을 시간 블록에 넣고, 계획대로 했는지 한눈에 확인합니다. 타임블록은 Pro 기능입니다." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Put to-dos into time blocks and see at a glance whether you stuck to the plan. Timeline is a Pro feature."
+            "value" : "Put to-dos into time blocks and see at a glance whether you stuck to the plan. Time Blocks are a Pro feature."
           }
         }
       }
@@ -5915,12 +5875,12 @@
         }
       }
     },
-    "흐린 알림은 타임라인 오른쪽 위 메뉴에서 켤 수 있습니다." : {
+    "흐린 알림은 타임블록 오른쪽 위 메뉴에서 켤 수 있습니다." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Turn on dimmed alerts from the menu at the top right of Timeline."
+            "value" : "Turn on dimmed alerts from the menu at the top right of Time Blocks."
           }
         }
       }
@@ -5931,6 +5891,106 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alert Off"
+          }
+        }
+      }
+    },
+    "반복 할 일은 그날 만들어집니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repeating to-dos are created on their day."
+          }
+        }
+      }
+    },
+    "미리 완료하거나 수정할 수 없습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can't complete or edit them in advance."
+          }
+        }
+      }
+    },
+    "할 일을 시간 블록에 넣어 하루를 계획하고, 시작·종료 알림을 받습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan your day by placing to-dos into time blocks, with start and end alerts."
+          }
+        }
+      }
+    },
+    "집중한 시간 리포트" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Focused Time Report"
+          }
+        }
+      }
+    },
+    "타임블록으로 완료한 시간이 주간·월간 리포트에 카테고리별로 쌓입니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time you complete in Time Blocks adds up by category in weekly and monthly reports."
+          }
+        }
+      }
+    },
+    "집중 타이머" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Focus Timer"
+          }
+        }
+      }
+    },
+    "할 일을 하는 동안 시간을 재고 리포트에 기록합니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time your to-dos as you work and log it in your reports."
+          }
+        }
+      }
+    },
+    "노션 프로젝트 DB 연동" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notion Project DB Sync"
+          }
+        }
+      }
+    },
+    "앱의 카테고리를 노션 프로젝트·목표 DB와 연결합니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link your categories to your Notion project/goal database."
+          }
+        }
+      }
+    },
+    "포인트 컬러 설정" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accent color"
           }
         }
       }

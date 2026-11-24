@@ -32,6 +32,8 @@ final class AccountDeletionService {
             context: context,
             step: "3b. RecurringSeries"
         )
+        // iCloud에 백업한 반복 규칙도 삭제 (계정 삭제 = 데이터 전부 삭제)
+        RecurringSeriesBackupStore.shared.removeAll()
         try deleteAllEntities(
             DailyReportItem.self,
             context: context,

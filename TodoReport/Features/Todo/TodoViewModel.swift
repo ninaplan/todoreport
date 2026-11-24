@@ -41,9 +41,23 @@ final class TodoViewModel {
     private(set) var peekCategoryId: String? = nil
     /// 검색에서 들어온 항목이 숨김(완료/카테고리 필터)이어도 잠깐 목록에 보이게 한다.
     private(set) var navigationRevealTodoId: String?
+    /// 미래 날짜의 반복 할 일 미리보기 (저장 안 함). 오늘·과거는 빈 배열
+    private(set) var recurringPreviews: [RecurringOccurrencePreview] = []
+    /// 미리보기를 탭했을 때 안내
+    private(set) var showRecurringPreviewInfo = false
+    /// 목록이 실제로 불러와진 날짜. 바뀌는 순간 목록이 좌우로 슬라이드된다 (불러온 뒤라 깜박임 없음)
+    private(set) var loadedDay: Date?
+    /// 날짜가 바뀌는 순간 바뀌는 슬라이드 신호. 목록과 같은 순간에 바뀌어야
+    /// 새로 생기는 할 일 줄도 처음부터 슬라이드를 탄다 (View에서 onChange로 바꾸면 한 박자 늦음)
+    private(set) var daySlide = DaySlide.initial
 
     var selectedDate: Date = .now {
         didSet {
+            // 목록은 이미 불러온 다른 날 할 일을 바로 보여 줄 수 있어서, 날짜가 바뀌는 그 순간 슬라이드 신호를 낸다
+            let calendar = Calendar.current
+            if !calendar.isDate(oldValue, inSameDayAs: selectedDate) {
+                daySlide = daySlide.next(forward: selectedDate > oldValue)
+            }
             Task {
                 await RecurringTodoManager.shared.materializeThrough(date: selectedDate)
                 await fetchLocalTodos()
@@ -359,6 +373,33 @@ final class TodoViewModel {
         guard !Task.isCancelled else { return }
         guard Calendar.current.isDate(selectedDate, inSameDayAs: date) else { return }
         applyTodosUpdate(fetched, animated: animated)
+        recurringPreviews = RecurringTodoManager.shared.previewOccurrences(
+            on: date,
+            existingTitles: Set(fetched.map(\.title))
+        )
+        loadedDay = Calendar.current.startOfDay(for: date)
+    }
+
+    /// 카테고리 필터·peek을 미리보기에도 똑같이 적용
+    var visibleRecurringPreviews: [RecurringOccurrencePreview] {
+        recurringPreviews.filter { preview in
+            let key = preview.categoryId ?? Self.uncategorizedFilterId
+            if let peekId = peekCategoryId { return key == peekId }
+            let filter = effectiveCategoryFilter
+            return filter.isEmpty || filter.contains(key)
+        }
+    }
+
+    func tapRecurringPreview() {
+        showRecurringPreviewInfo = true
+    }
+
+    func confirmRecurringPreviewInfo() {
+        showRecurringPreviewInfo = false
+    }
+
+    func cancelRecurringPreviewInfo() {
+        showRecurringPreviewInfo = false
     }
 
     @MainActor

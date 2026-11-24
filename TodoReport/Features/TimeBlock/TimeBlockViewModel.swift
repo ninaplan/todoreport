@@ -7,6 +7,8 @@ final class TimeBlockViewModel {
 
     private(set) var selectedDate: Date = Calendar.current.startOfDay(for: .now)
     private(set) var entries: [TimeBlockEntry] = []
+    /// `entries`가 어느 날짜 것인지. 바뀌는 순간 화면이 좌우로 슬라이드된다 (새 블록이 다 불러와진 뒤라 깜박임 없음)
+    private(set) var entriesDay: Date = Calendar.current.startOfDay(for: .now)
     private(set) var snapMinutes: Int
     /// 메뉴 「카테고리 색상 보기」. 끄면 모든 블록이 흰 블록.
     private(set) var showsCategoryColor: Bool
@@ -63,7 +65,12 @@ final class TimeBlockViewModel {
     }
 
     func reload() async {
-        entries = await service.fetchEntries(for: selectedDate)
+        let day = selectedDate
+        let loaded = await service.fetchEntries(for: day)
+        // 빠르게 날짜를 넘기면 늦게 끝난 옛 날짜 결과가 덮어쓰지 않게
+        guard day == selectedDate else { return }
+        entries = loaded
+        entriesDay = day
     }
 
     /// 앱 시작 직후엔 `isPro`가 아직 false일 수 있어 1회 확인 (Pro 사용자가 잠금 화면을 잠깐 보는 것 방지)
@@ -91,8 +98,11 @@ final class TimeBlockViewModel {
         Task { await reload() }
     }
 
-    func goToPreviousWeek() { moveDay(by: -7) }
-    func goToNextWeek() { moveDay(by: 7) }
+    /// 주간 달력에서 n주 넘기기 (요일은 그대로)
+    func shiftWeeks(by weeks: Int) {
+        guard weeks != 0 else { return }
+        moveDay(by: weeks * 7)
+    }
 
     /// 상단 주간 달력에 보여줄 7일 (설정의 시작 요일 기준)
     var weekDays: [Date] {

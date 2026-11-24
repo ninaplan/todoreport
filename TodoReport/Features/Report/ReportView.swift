@@ -4,6 +4,7 @@ import Charts
 struct ReportView: View {
     @Environment(MainTabCoordinator.self) private var tabCoordinator
     @State private var viewModel = ReportViewModel()
+    @State private var daySlide = DaySlide.initial
     private var isPro: Bool { SubscriptionManager.shared.isPro }
 
     var body: some View {
@@ -37,6 +38,7 @@ struct ReportView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                             }
                             content
+                                .daySlide(daySlide)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -82,6 +84,11 @@ struct ReportView: View {
             }
             .onChange(of: tabCoordinator.foregroundRefreshToken) { _, _ in
                 Task { await viewModel.handleForegroundRefresh() }
+            }
+            // 기간을 옮겨 새 리포트가 불러와지면 방향에 맞춰 슬라이드 (첫 로드는 제외)
+            .onChange(of: viewModel.loadedPeriodOffset) { oldOffset, newOffset in
+                guard let oldOffset, let newOffset, oldOffset != newOffset else { return }
+                daySlide = daySlide.next(forward: newOffset > oldOffset)
             }
             .onChange(of: viewModel.selectedPeriod) { _, _ in
                 viewModel.onPeriodChanged()

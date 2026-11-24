@@ -22,6 +22,8 @@ final class ReportViewModel {
 
     // 현재 보여주는 기간의 오프셋 (0 = 이번 주/월)
     private(set) var periodOffset: Int = 0
+    /// 화면에 불러와진 기간. 바뀌는 순간 본문이 좌우로 슬라이드된다
+    private(set) var loadedPeriodOffset: Int?
 
     // Paywall
     var showPaywall: Bool = false
@@ -296,6 +298,7 @@ final class ReportViewModel {
             monthlyReport = await service.fetchMonthlyReport(year: year, month: month)
         }
         refreshTimeUsage()
+        loadedPeriodOffset = periodOffset
     }
 
     /// 막대 구간은 완료율 그래프와 같게: 주간 = 하루씩, 월간 = 7일씩

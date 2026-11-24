@@ -20,7 +20,7 @@ struct TimeUsageCard: View {
             if isLocked {
                 lockedMessage
             } else if !summary.hasBlocks {
-                Text("타임라인에서 시간 블록을 만들고 완료하면 여기에 모입니다.")
+                Text("타임블록에서 시간 블록을 만들고 완료하면 여기에 모입니다.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -39,7 +39,7 @@ struct TimeUsageCard: View {
         HStack(spacing: 8) {
             Image(systemName: "lock.fill")
                 .foregroundStyle(AppTheme.shared.accent)
-            Text("타임라인으로 계획하고 완료한 시간을 카테고리별로 돌아봅니다. Pro 기능입니다.")
+            Text("타임블록으로 계획하고 완료한 시간을 카테고리별로 돌아봅니다. Pro 기능입니다.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
