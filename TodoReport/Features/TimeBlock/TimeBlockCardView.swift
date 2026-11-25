@@ -254,6 +254,12 @@ struct TimeBlockCardView: View {
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
                     .background(foreground.opacity(0.2), in: Capsule())
+                    .fixedSize()
+                // 남은 시간만 보이면 블록 전체 길이를 알 수 없어서 옆에 연하게
+                Text(durationText)
+                    .font(.caption)
+                    .foregroundStyle(secondaryForeground)
+                    .lineLimit(1)
             } else {
                 Text(durationText)
                     .font(.caption)
