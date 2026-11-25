@@ -1,6 +1,6 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-11-24 기준)
+## 현재 상황 (2026-11-25 기준)
 
 2026-09-27 기분 기능을 bca59ff 시점으로 되돌림. 작업은 mood-wip 브랜치에 보관. 같이 사라진 작업 목록은 프로젝트 문서 mood-rollback-list.md 참고.
 
@@ -17,9 +17,11 @@
 - v1.15 제출 완료 (2026-09-21, 반복 투두·카테고리 필터 peek·카테고리 아이콘 보기·WhatsNew 팝업·페이월 체험 배지. 마케팅 버전·빌드 번호는 Xcode에서만)
 - v1.16 제출 완료 (2026-09-22, 리포트 목록→투두 이동·반복 할일 수집함 보내기·하루 리포트 카드 완료율 전체 기준. 마케팅 버전·빌드 번호는 Xcode에서만)
 - v1.17 제출 완료 (2026-09-27. 할 일 알림 문구·직접 입력 키패드·앱 사용 중 배너·필터 기억하기)
-- v1.18 제출 완료 (2026-11-24, 빌드 34. 타임블록 탭·집중한 시간 리포트·포인트 컬러·반복 백업/미리보기·날짜 슬라이드·탭 다시 탭·시작 화면 선택. WhatsNew 팝업 있음. 마케팅 버전·빌드 번호는 Xcode에서만)
+- v1.18 (빌드 34) 2026-11-24 제출 후 **취소** (출시 안 됨)
+- **v2.0.0 제출 완료 (2026-11-25, 빌드 35).** 1.18 내용 + 타임블록 추가 작업(일과 시간·핀치 확대·블록 팝업 편집·일찍 끝내기·할 일까지 삭제) + 카테고리 꾸미기(아이콘 페이지·검색, 색 세트·커스텀) + 리포트 순서·「완료율」 통일. WhatsNew 2.0.0 팝업 4개(타임블록·집중한 시간·카테고리 꾸미기·포인트 컬러). 제출 문구·심사 메모: 프로젝트 문서 `claude/release-1.18-copy.md`(2.0.0 내용으로 갱신됨)
+- **버전 규칙 (2.0.0부터):** 세 자리. 버그만 고치면 2.0.1, 기능 추가면 2.1.0. WhatsNew `id`도 같은 문자열. 앱·위젯 두 타깃 마케팅 버전이 같아야 함 (2.0.0 때 위젯이 2.0.2로 잘못 들어갔던 적 있음). 마케팅 버전·빌드 번호는 Xcode에서만
 
-### 타임블록 (v1.18, 2026-11-24)
+### 타임블록 (v2.0.0, 2026-11-25)
 
 백엔드 변경 없음 (iOS만). **Pro 전용**, 탭 이름 「타임블록」(아이콘 `clock`, 투두와 리포트 사이). 코드·키 이름은 `timeline`/`TimeBlock` 그대로(탭 enum `.timeline`, `timelineReselectToken`). 처음 이름은 「타임라인」이었다가 출시 전 「타임블록」으로 바꿈.
 
@@ -27,17 +29,32 @@
 - **모듈:** `Features/TimeBlock/` 독립. 할 일 읽기·완료·생성은 `TodoService.shared`만 호출 → 노션 동기화·알림·위젯 경로가 투두 탭과 같음
 - **블록 정리:** 할 일이 다른 날로 가면 숨김, 할 일이 삭제되면 블록·알림 삭제(`fetchEntries`)
 - **조작:** 빈 칸 탭 → 할 일 고르기 **팝업**(안 넣은 할 일 먼저, 넣은 할 일은 아래에 시간 태그, 새 할 일 입력). 블록 탭 → 편집 팝업(✕ / 제목 / ✓ 저장 — 바뀐 게 있을 때만 포인트 컬러, 시작·종료 시각, 「알림」 시작☐ 종료☐, 블록 삭제). 오른쪽 아래 모서리 손잡이 → 길이. 길게 누른 뒤 드래그 → 이동(겹치면 원위치+진동). 완료는 제목 앞 체크 원
-- **규칙:** 겹침 금지. 한 할 일을 여러 블록에 넣을 수 있음. 스냅 15/30/60분(⋯, 기본 30). 1시간 = 66pt 고정. 이어지는 블록 사이 3pt 틈(`TimeBlockLayout.blockGap`, 블록 위아래 1.5pt씩 줄임, 시각 계산은 그대로)
+- **규칙:** 겹침 금지. 한 할 일을 여러 블록에 넣을 수 있음(블록마다 완료, 그날 블록을 다 체크하면 할 일 완료). 스냅 15/30/60분(⋯, 기본 30). 이어지는 블록 사이 1pt 틈(`TimeBlockLayout.blockGap`, 시각 계산은 그대로)
+- **일과 시간 (`TimeBlockDayRange`):** 플래너별, 기본 06~24시, 1시간 단위, 다음 날 새벽까지. ⋯ 맨 위 「일과 시간 · 06–24」 → `TimeBlockDayRangePopup`. 범위 밖 블록은 아래 작은 안내
+- **확대·축소:** 핀치(`MagnifyGesture`), 1분 0.4~2.2pt(기본 1.1), `timeBlockPointsPerMinute` 저장. ⋯ 「하루 한눈에 보기」/「기본 크기로」. 핀치·드래그가 취소되면 상태가 남아 스크롤이 막혔음 → `@GestureState isPinching`, `cancelBlockDrags()`
+- **블록 카드 (`TimeBlockCardView`):** `.frame(minHeight: 0)` 필수(30~40분 블록 내용이 넘쳐 틈을 덮었음). 40pt 미만 한 줄. 둘째 줄 소요 시간(진행 중이면 캡슐 + 전체 길이), 남는 높이에 메모 최대 3줄(탭 → 팝업 메모 칸 포커스, 블록 안에서는 입력 안 함)
+- **편집 팝업 (B안, `TimeBlockEditPopup`):** 이름 TextField, `TimeBlockTimePill` [종 | 시각] — 시각 탭 → 아래 휠(높이 자르면 숨은 윗부분이 터치를 가로채 시각이 바뀜 → 자르지 말 것), 밖 탭하면 휠 닫힘. 카테고리 칩, 메모, 맨 아래 작은 「삭제」 → `confirmationDialog`(iOS 26은 말풍선이라 취소 버튼 없음·글자 크기 못 바꿈 — 니나 OK). 블록만 / 할 일까지(`TimeBlockTodoDeleteScope` .single / .allFuture → `TimeBlockService.deleteTodo`: 할 일 블록 전부 삭제 + `TodoService.deleteTodo` 또는 `capSeriesEndDate`)
+- **일찍 끝내기:** 진행 중 블록 완료 체크 → 「지금으로 바꾸기 / 그대로 두기」. `finishBlockEarly`, 원래 종료는 `TimeBlockItem.plannedEndMinute`(체크 해제 시 복원). 리포트 「계획」도 줄어든 길이 — 계획만큼 못 한 게 아니라서 니나 결정으로 그대로
+- **할 일 고르기 팝업:** 넣은 할 일은 블록 시간 합계(`placedTotalText`). 할 일 설정 시각은 표시 안 함(니나 결정)
 - **위쪽:** 작은 날짜 + 큰 제목(오늘/어제/내일/요일) + 「오늘」 태그 + ‹ › + 주간 7칸. 주간 줄은 **가로 페이징 ScrollView**(앞뒤 520주, `scrollPosition(id:)`, 손으로 넘겨 멈췄을 때만 날짜 이동 — `onScrollPhaseChange` interacting/decelerating→idle). 경계는 `.scrollEdgeEffectStyle(.hard)`(타임블록만, 투두·리포트는 soft)
 - **날짜 이동:** 화면 가장자리 스와이프(투두·리포트와 같은 `edgeSwipeNavigation`), 본문은 `DaySlide` 슬라이드(아래 「날짜 슬라이드」)
 - **색:** 기본 흰 블록. ⋯ 「카테고리 색상 보기」 켜면 연한 카테고리 틴트, 진행 중 블록은 카테고리 색(없으면 포인트 컬러) 그라데이션
 - **레일·지금:** 세로 레일(연한 포인트 컬러) + 블록 시작 시각에 빈 원. 진행 중 블록의 점은 시작 자리에서 빠지고 **지금 점**이 되어 시각을 따라 내려감(안쪽 9pt + 테두리 8pt). 블록이 끝나면 다시 빈 원. 진행 중 블록이 없으면 작은 지금 점(8pt). 가로 시각선·시각 글씨 없음. 지금 점은 숨쉬기(`TimeBlockNowDot`, `phaseAnimator` 2초 — 진한 점 0.85↔1.25배 + 테두리 1↔1.6배·옅어짐. 테두리만 움직이면 눈에 안 띔. 동작 줄이기면 정지)
-- **알림:** `TimeBlockNotificationManager` — 시작(`timeblock-<id>`, 전체 토글 기본 켜짐), 종료(`timeblock-end-<id>`, 전체 토글 기본 꺼짐). 블록별 체크. 할 일 자체 알림과 같은 시각이면 시작 알림 생략. 꺼진 블록은 `bell.slash`
+- **알림:** `TimeBlockNotificationManager` — 시작(`timeblock-<id>`), 종료(`timeblock-end-<id>`). **블록별 체크만** 따른다. ⋯ 「새 블록 기본 알림」 시작·종료는 새 블록 기본값(예전 전체 토글 → `migrateAlarmFlagsIfNeeded` 1회, 키 `timeBlockAlarmFlagsMigratedV1`). 할 일 자체 알림과 같은 시각이면 시작 알림 생략. 꺼진 쪽은 알약 안 종에 사선
 - **무료:** 예시 블록 흐리게 + 잠금 카드 「Pro 시작하기」→ `PaywallView`
 - **시작 화면:** 설정 「시작 화면」 투두/타임블록(`launchTab`). Pro 아니면 투두로
-- **리포트:** 요약 카드 「연속 달성」 자리에 「집중 시간」(Pro, 아니면 자물쇠). 「집중한 시간」 카드(카테고리 색 누적 막대 + 카테고리별 완료/계획 시간)를 카테고리별 달성률 위에. 스트릭 계산은 끔(`let streak = 0`)
+- **리포트:** 요약 카드 「연속 달성」 자리에 「집중 시간」(Pro, 아니면 자물쇠, `11h48m` — 단위는 작게). 「집중한 시간」 카드(주간 시간표 / 월간 주별 막대 + 카테고리별 완료/계획 시간). 스트릭 계산은 끔(`let streak = 0`). 하루 리포트 카드에도 그날 집중 시간(`TimeBlockService.completedMinutes(on:)`, Pro·기록 있을 때만)
+- **리포트 카드 순서 (2026-11-25):** 요약 → 완료율 → 카테고리별 완료율 → 집중한 시간 → 별점 → 하루 리뷰 → 노션 저장. 「달성률」은 모두 「완료율」로 통일
 
-### 반복 할 일 보존·중복 (v1.18, 2026-11-24)
+### 카테고리 꾸미기 (v2.0.0, 2026-11-25)
+
+백엔드 변경 없음. 무료.
+
+- **아이콘:** `CategoryIconPagePicker` — 분야별 페이지(`CategoryIconGroup`) 가로 넘김 + 점, 채움/라인 세그먼트(`CategoryIconName`, 카테고리마다 저장된 이름으로 판단), 영어 검색(`SFSymbolCatalog.swift` + `SFSymbolCatalog.json` 4159개, Mac CoreGlyphs에서 추출). 새 카테고리는 이름으로 아이콘 추정(`CategoryIconGuesser`, 가장 긴 낱말 일치. 노션에서 가져올 때도)
+- **색 세트:** `CategoryColorSet` 노션 · 클래식(구 「기본」, iOS 시스템 색) · 모던 · 파스텔 · 커스텀, 세트마다 12색. 플래너당 1세트 `PlannerItem.categoryPaletteSetId`(새 플래너 `notion`, 예전 `basic`·모르는 값은 `migrateCategoryColorSetDefaultIfNeeded` 1회 `notion`, 키 `categoryColorSetDefaultMigratedV1`). 다른 세트 색을 고르고 저장 → 450ms 뒤 「이 플래너 카테고리 색을 모두 이 세트로 바꿀까요?」(바꾸기 / 이 카테고리만, `recolorCategories` 같은 순번 매핑)
+- **커스텀:** `CategoryCustomColorStore`(앱 공통, `categoryCustomColors`, 최대 11). 맨 끝 「＋」 → `CategoryColorPickerSheet`(UIKit `UIColorPickerViewController` — SwiftUI `ColorPicker`는 닫힘 신호가 없음). 고르는 동안 첫 칸 점선 미리보기, 닫을 때 1개 저장, 카테고리 색은 안 바뀜. 「편집」 → ⊖ 빼기. **Form/List 안 `contextMenu`는 줄 전체에 하나만 붙어 엉뚱한 칩이 빠짐 → 쓰지 말 것.** 세트에 없는 현재 색은 커스텀 첫 칸 임시 표시·저장 시 추가, 이번 편집에서 뺀 색(`removedCustomHexes`)은 제외
+
+### 반복 할 일 보존·중복 (v2.0.0, 2026-11-24)
 
 - **원인:** `RecurringSeries`는 기기 전용이라 앱 삭제·재설치 시 규칙이 사라져 「반복 안 함」. 또 예전엔 미래 날짜를 넘겨 보면 발생분을 미리 만들어 노션에도 올라감 → 재설치·복원 때 시리즈가 2개가 되어 날마다 2개씩
 - **iCloud 백업:** `RecurringSeriesBackupStore`(NSUbiquitousKeyValueStore, 키 `recurringSeriesBackup.v1`) — 노션 플래너 시리즈만, `notionTodoDBId`로 플래너 매칭, 카테고리는 노션 옵션 id → 이름 순. 재설치 시 `restoreMissing()`. iCloud가 늦게 내려오면 `didChangeExternallyNotification`에서 다시 materialize. entitlements에 iCloud 키값 저장 추가
@@ -46,13 +63,13 @@
 - **아이콘:** 반복 할 일 제목 끝에 `arrow.triangle.2.circlepath`(footnote, tertiaryLabel, baselineOffset 1)
 - **참고:** 2026-11-24 이전 빌드가 미리 만든 12월 초까지의 할 일은 진짜 할 일로 남아 있음(정상)
 
-### 날짜 슬라이드 (v1.18)
+### 날짜 슬라이드 (v2.0.0)
 
 - `Shared/Components/DaySlide.swift` + `DaySlideModifier.swift`. 날짜·기간이 바뀌면 본문이 방향대로 48pt 옆에서 밀려 들어옴
 - 투두: 하루 리포트 카드 Section + **할 일 줄마다 직접**(Section에 붙이면 ForEach 줄까지 안 닿음). 신호는 `TodoViewModel.selectedDate` didSet에서(목록이 캐시된 다른 날 할 일을 바로 보여 주므로). 날짜 바뀐 직후 0.3초는 목록 페이드 `.animation` 끔. 카테고리 칩·날짜 줄은 고정
 - 타임블록: `entriesDay`(불러온 날짜) 바뀔 때 본문 전체(시간 눈금 포함). 리포트: `loadedPeriodOffset` 바뀔 때 본문
 
-### 탭·설정 (v1.18)
+### 탭·설정 (v2.0.0)
 
 - 탭 다시 탭 → 현재로: 투두 오늘+맨 위, 타임블록 오늘+지금, 리포트 이번 기간, 설정 첫 화면 (`MainTabCoordinator.select`, reselect 토큰)
 - 설정 「연속 달성 기준」 삭제, 「포인트 컬러」 추가(`AppTheme.accentHex`, 12색 + 직접 고르기). 달력 두 곳·탭바가 따라감. 페이월·위젯은 오렌지 고정
@@ -288,7 +305,9 @@
   - 조치: 가드 및 showDatePaywall/datePaywallMessage/dismissDatePaywall() 관련 코드 전체 제거
 
 ### 다음 할 일
-- **타임블록 블록 안 할 일 메모 표시·인라인 수정·「+ 메모」** (V2-IDEAS 상세)
+- **다음 세션: 노크 사이트(nock.kr) 수정** — changelog 페이지에 2.0.0 추가(초안: 프로젝트 문서 `claude/changelog-draft.md`), 개인정보처리방침·이용약관 투두x리포트 반영 여부 확인
+- **2027년 4월 전 Xcode 27(iOS 27 SDK)로 빌드** — 2.0.0 업로드 때 App Store Connect 경고. 4월부터 iOS 26 SDK 빌드는 업로드 불가
+- 「어느 세트에도 없는 예전 색」 카테고리 편집 화면 확인 (2.0.0 테스트 중 보류한 항목)
 - **앱스토어 맞춤형 헤더 이미지** — App Store Connect 「헤더 및 검색 결과」 탭(새 마케팅 기능). 다음 제출 때 제작
 - **iPhone Duo 대응** — 펼친 화면 레이아웃 + Duo 스크린샷(올리면 제품 페이지에 최적화 배지). 필수 시점은 공식 문서로 확인
 - 앱스토어 스크린샷: Figma 프레임 1206×2622(중형, 필수), 내보내기 시 채우기 「내보내기에서 표시」 체크 필수. Face ID 대형 칸 예전 8장은 정리 필요 여부 확인
@@ -311,11 +330,12 @@
 - 노션 업로드 마이그레이션 버그 수정 — `PlannerMigrationViewModel.uploadToNotion()`에서 `plannerId`가 nil인 기존 투두가 `SyncQueueManager`의 `isPlannerNotionConnected(nil)` 가드에 걸려 조용히 스킵됨 (설계만 완료, 미적용)
 - 노션 연결 시작 전 안내 팝업 추가 — 기존 "같은 워크스페이스" 인라인 문구를 조건부 alert("페이지 선택 시 주의해주세요")로 교체 (설계만 완료, 미적용)
 - 구독 상태 카드 (설정 화면) 페이월 스타일 통일
-- ~~리포트 스트릭 계산 범위 축소/캐싱~~ — v1.18에서 연속 달성 표시를 없애고 계산도 끔
+- ~~리포트 스트릭 계산 범위 축소/캐싱~~ — v2.0.0에서 연속 달성 표시를 없애고 계산도 끔
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
-- v1.18 제출 준비 (2026-11-24): 타임블록 탭·반복 백업/중복 정리/미래 미리보기·날짜 슬라이드·탭 다시 탭·시작 화면·포인트 컬러·페이월·WhatsNew 1.18 팝업. 커밋 `b8e3869`~`dcff78b` (feature/timeline → main)
+- **v2.0.0 제출 (2026-11-25, 빌드 35):** 타임블록 추가 작업·카테고리 꾸미기·리포트 순서/완료율 통일·WhatsNew 2.0.0. 커밋 `feb7e07`~`76795d4` (feature/timeblock-day-range → main)
+- v1.18 제출 준비 (2026-11-24, 이후 제출 취소): 타임블록 탭·반복 백업/중복 정리/미래 미리보기·날짜 슬라이드·탭 다시 탭·시작 화면·포인트 컬러·페이월·WhatsNew 1.18 팝업. 커밋 `b8e3869`~`dcff78b` (feature/timeline → main)
 - 필터 기억하기 (2026-09-23): 필터 메뉴 「필터 기억하기」(기본 꺼짐, 앱 공통). 켜면 플래너별 필터를 `UserDefaults.standard`에 저장·복원 (`todoKeepCategoryFilter`, `todoCategoryFilterByPlanner`). 무료 다중 제한은 `effectiveCategoryFilter`에서만 적용하고 저장값은 비우지 않음. peek·월간 달력 필터는 저장하지 않음. 커밋 `6f7608b`. 백엔드 변경 없음
 - 할 일 알림 (2026-09-23): body에 「오늘/내일/모레 + 시각」(`fireDate` 기준, 메모 제외). `alarmOffset`이 nil이면 기존 알림 취소. 직접 입력은 숫자 키패드(1~999), 다시 열면 기존 값. 앱 사용 중에도 배너·목록·소리. 커밋 `9da5043` · `e8f19e4` · `7d1fa1a`. 백엔드 변경 없음
 - v1.16 제출 (2026-09-22): 리포트 그래프·카테고리 목록 행 탭 → 투두 탭 날짜 이동·하이라이트 (`openTodoFromRow` → `MainTabCoordinator`, `navigationRevealTodoId`). 반복 할일 수집함 보내기. 하루 리포트 카드 완료율은 필터·peek과 무관하게 그날 전체. 커밋 `d7d13df` · `80dc94b`. WhatsNew 팝업 없음
@@ -840,7 +860,7 @@ guard SubscriptionManager.shared.isPro else {
 - 멀티 플래너 (2개 이상)
 - 카테고리 필터 2개 이상 선택
 - 반복 투두
-- 타임블록 탭 전체 + 리포트 집중 시간·집중한 시간 카드 (v1.18)
+- 타임블록 탭 전체 + 리포트 집중 시간·집중한 시간 카드 (v2.0.0)
 
 ---
 
@@ -888,7 +908,7 @@ guard SubscriptionManager.shared.isPro else {
 화면 가장자리 엣지 스와이프 → 이전/다음 날 (`edgeSwipeNavigation`, 스크롤 우선)
 ```
 
-날짜가 바뀌면 할 일 줄·리포트 카드가 방향대로 슬라이드(`DaySlide`, v1.18). 타임블록·리포트 탭도 같은 방식.
+날짜가 바뀌면 할 일 줄·리포트 카드가 방향대로 슬라이드(`DaySlide`, v2.0.0). 타임블록·리포트 탭도 같은 방식.
 
 `DateNavigationRow`는 List/ScrollView `.safeAreaBar(edge: .top)` 높이 40 + `.scrollEdgeEffectStyle(.soft, for: .top)` (리포트 탭 동일). `safeAreaInset`은 스크롤 엣지 블러를 못 받음. **하단 스크롤 여백은 `safeAreaInset(edge: .bottom)` 금지** — iOS 26이 흡수 영역을 같이 키워 할일 줄 탭이 먹통이 됨. List 콘텐츠 안 빈 행으로 준다 (「핵심 학습」).
 
