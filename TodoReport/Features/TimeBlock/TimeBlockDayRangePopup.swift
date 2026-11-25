@@ -46,7 +46,7 @@ struct TimeBlockDayRangePopup: View {
                 VStack(spacing: 12) {
                     pickerRow(title: "시작", selection: startBinding, options: Self.startOptions)
                     pickerRow(title: "종료", selection: $endMinute, options: endOptions)
-                    Text("타임블록에 보이는 시간 범위입니다. 종료를 다음 날 새벽으로 정하면 자정이 지나도 그날 화면에 이어서 보입니다.")
+                    Text("자정을 넘기면 그날 화면 아래에 이어서 보입니다.")
                         .font(.footnote)
                         .foregroundStyle(Color(.secondaryLabel))
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -103,6 +103,9 @@ struct TimeBlockDayRangePopup: View {
             .pickerStyle(.menu)
             .labelsHidden()
             .tint(.primary)
+            // 「다음 날 오전 1:00」도 한 줄로 → 시작·종료의 오른쪽 끝이 맞는다
+            .lineLimit(1)
+            .fixedSize()
         }
     }
 
@@ -134,6 +137,16 @@ struct TimeBlockDayRangePopup: View {
         let time = date.formatted(date: .omitted, time: .shortened)
         guard minute > minutesPerDay else { return time }
         return String(localized: "다음 날 \(time)")
+    }
+
+    /// 메뉴 한 줄용 짧은 표시: 「6시–24시」 / 자정을 넘으면 「10시–새벽 2시」
+    static func compactSummary(of range: TimeBlockDayRange) -> String {
+        let start = range.startMinute / 60
+        let end = range.endMinute / 60
+        guard range.spansMidnight else {
+            return String(localized: "\(start)시–\(end)시")
+        }
+        return String(localized: "\(start)시–새벽 \(end - 24)시")
     }
 
     static func summary(of range: TimeBlockDayRange) -> String {

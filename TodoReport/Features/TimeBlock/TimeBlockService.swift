@@ -35,7 +35,9 @@ final class TimeBlockService {
                 // 할 일이 완료면 모든 블록 완료, 아니면 블록마다 체크한 것만
                 isCompleted: todo.isCompleted || block.isCompleted,
                 categoryColorHex: category?.colorHex,
-                categoryIcon: category?.icon
+                categoryIcon: category?.icon,
+                categoryId: todo.categoryId,
+                memo: todo.memo
             )
         }
     }
@@ -157,6 +159,42 @@ final class TimeBlockService {
         for block in siblings {
             TimeBlockNotificationManager.shared.sync(block: TimeBlock(item: block), todo: todo)
         }
+    }
+
+    /// 블록 팝업에서 할 일 이름·카테고리를 고친다. 투두 탭과 같은 `TodoService.updateTodo` 경로(노션 반영).
+    /// 반복 할 일은 이 날 할 일만 바뀐다 (투두 탭 「이 항목만」과 같음)
+    func updateTodoDetails(todoId: String, title: String, categoryId: String?) async throws {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        try await updateTodo(id: todoId) { todo in
+            guard todo.title != trimmed || todo.categoryId != categoryId else { return false }
+            todo.title = trimmed
+            todo.categoryId = categoryId
+            return true
+        }
+    }
+
+    /// 블록 안에서 할 일 메모를 고친다 (투두 탭·노션과 같은 메모). 빈 글은 메모 없음
+    func updateTodoMemo(todoId: String, memo: String) async throws {
+        let trimmed = memo.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newMemo: String? = trimmed.isEmpty ? nil : trimmed
+        try await updateTodo(id: todoId) { todo in
+            guard (todo.memo ?? "") != (newMemo ?? "") else { return false }
+            todo.memo = newMemo
+            return true
+        }
+    }
+
+    /// 할 일 하나를 읽어 고친 뒤 `TodoService.updateTodo`로 저장. change가 false면 저장하지 않음
+    private func updateTodo(id: String, change: (inout Todo) -> Bool) async throws {
+        if PlannerService.shared.selectedPlanner?.isReadOnly == true {
+            throw TimeBlockError.readOnlyPlanner
+        }
+        guard var todo = fetchTodo(id: id) else { return }
+        guard change(&todo) else { return }
+        todo.markLocallyModified()
+        try await TodoService.shared.updateTodo(todo)
+        await refreshWidgetIfToday(todo.date)
     }
 
     /// 새 할 일을 만들고 바로 블록에 넣는다. 할 일 생성은 투두 탭과 같은 `TodoService.saveTodo` 경로.

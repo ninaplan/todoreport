@@ -9,6 +9,10 @@ struct TimeBlockEntry: Identifiable, Equatable {
     let categoryColorHex: String?
     /// 카테고리 아이콘 (SF Symbol). 미분류면 nil
     let categoryIcon: String?
+    /// 할 일의 카테고리 id (편집 팝업에서 바꿀 때). 미분류면 nil
+    var categoryId: String? = nil
+    /// 할 일 메모 (투두 탭·노션과 같은 메모). 블록 안에 보여 준다
+    var memo: String? = nil
 
     var id: String { block.id }
 

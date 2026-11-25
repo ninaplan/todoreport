@@ -4,8 +4,16 @@ import Foundation
 /// 타임라인의 분 ↔ 좌표 변환과 스냅 규칙. 화면·뷰모델이 같은 값을 쓰도록 한곳에 모은다.
 enum TimeBlockLayout {
     static let minutesPerDay = 1440
-    /// 1시간 = 66pt
+    /// 기본 높이: 1시간 = 66pt. 타임블록 화면은 핀치로 바꾼 값(`TimeBlockViewModel.pointsPerMinute`)을 쓴다
     static let pointsPerMinute: CGFloat = 1.1
+    /// 확대·축소 한계: 1시간 24pt ~ 132pt
+    static let minPointsPerMinute: CGFloat = 0.4
+    static let maxPointsPerMinute: CGFloat = 2.2
+    static let pointsPerMinuteKey = "timeBlockPointsPerMinute"
+
+    static func clampPointsPerMinute(_ value: CGFloat) -> CGFloat {
+        min(max(value, minPointsPerMinute), maxPointsPerMinute)
+    }
     static let labelColumnWidth: CGFloat = 52
     /// 시각 표시와 블록 사이 세로 줄(레일)의 x 위치
     static let railX: CGFloat = 64
@@ -35,16 +43,16 @@ enum TimeBlockLayout {
 
     // MARK: - 일과 시간 범위 기준 (화면 맨 위 = 범위 시작)
 
-    static func contentHeight(for range: TimeBlockDayRange) -> CGFloat {
-        CGFloat(range.durationMinutes) * pointsPerMinute + verticalPadding * 2
+    static func contentHeight(for range: TimeBlockDayRange, pointsPerMinute scale: CGFloat = pointsPerMinute) -> CGFloat {
+        CGFloat(range.durationMinutes) * scale + verticalPadding * 2
     }
 
-    static func y(for minute: Int, in range: TimeBlockDayRange) -> CGFloat {
-        verticalPadding + CGFloat(minute - range.startMinute) * pointsPerMinute
+    static func y(for minute: Int, in range: TimeBlockDayRange, pointsPerMinute scale: CGFloat = pointsPerMinute) -> CGFloat {
+        verticalPadding + CGFloat(minute - range.startMinute) * scale
     }
 
-    static func minute(for y: CGFloat, in range: TimeBlockDayRange) -> Int {
-        range.clamp(range.startMinute + Int(((y - verticalPadding) / pointsPerMinute).rounded(.down)))
+    static func minute(for y: CGFloat, in range: TimeBlockDayRange, pointsPerMinute scale: CGFloat = pointsPerMinute) -> Int {
+        range.clamp(range.startMinute + Int(((y - verticalPadding) / scale).rounded(.down)))
     }
 
     /// 그날 0시부터 지난 분. 다음 날이면 1440을 넘는다 (자르지 않음)

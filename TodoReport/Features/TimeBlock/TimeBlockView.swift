@@ -8,6 +8,16 @@ struct TimeBlockView: View {
     @State private var didInitialScroll = false
     @State private var showPlannerSheet = false
     @State private var daySlide = DaySlide.initial
+    /// 지금 스크롤 위치·보이는 높이 (핀치 기준점, 「하루 한눈에 보기」용)
+    @State private var scrollOffsetY: CGFloat = 0
+    @State private var viewportHeight: CGFloat = 0
+    /// 위 날짜 바(safeAreaBar)만큼 가려진 높이
+    @State private var topInset: CGFloat = 0
+    /// 핀치 시작 때 값 (scale, 손가락 사이 지점의 분, 그 지점의 화면 y)
+    @State private var pinchStart: (scale: CGFloat, minute: CGFloat, viewY: CGFloat)?
+    /// 핀치 중인지. 손가락이 화면 밖으로 나가 끝 신호(onEnded) 없이 취소돼도 자동으로 false로 돌아온다
+    /// (예전엔 pinchStart만 보고 스크롤을 막아, 끝 신호를 못 받으면 스크롤이 계속 멈춰 있었다)
+    @GestureState private var isPinching = false
 
     private var isPro: Bool { SubscriptionManager.shared.isPro }
 
@@ -51,7 +61,8 @@ struct TimeBlockView: View {
                     dayRange: viewModel.dayRange,
                     isStartAlarmGloballyEnabled: viewModel.isStartAlarmEnabled,
                     isEndAlarmGloballyEnabled: viewModel.isEndAlarmEnabled,
-                    onSave: { viewModel.saveEdit(start: $0, end: $1, startAlarm: $2, endAlarm: $3) },
+                    categories: viewModel.editableCategories,
+                    onSave: { viewModel.saveEdit($0) },
                     onDelete: { viewModel.deleteEditingBlock() },
                     onClose: { viewModel.dismissEditor() }
                 )
@@ -125,13 +136,41 @@ struct TimeBlockView: View {
         .scrollEdgeEffectStyle(.hard, for: .top)
         // safeAreaBar·scrollEdgeEffectStyle은 ScrollView에 바로 붙어야 날짜행 뒤 블러가 생긴다.
         // 다른 modifier는 반드시 그 뒤에 둘 것.
-        .scrollDisabled(viewModel.isDraggingBlock)
+        // 묶어 받기: x = 위 가림 높이, y = 보이는 영역 맨 위의 내용 y, height = 가림을 뺀 보이는 높이
+        .onScrollGeometryChange(for: CGRect.self) { geometry in
+            CGRect(
+                x: geometry.contentInsets.top,
+                y: geometry.contentOffset.y + geometry.contentInsets.top,
+                width: 0,
+                height: geometry.containerSize.height - geometry.contentInsets.top - geometry.contentInsets.bottom
+            )
+        } action: { _, value in
+            topInset = value.minX
+            scrollOffsetY = value.minY
+            viewportHeight = value.height
+        }
+        .scrollDisabled(viewModel.isDraggingBlock || isPinching)
         .sensoryFeedback(.error, trigger: viewModel.moveRejectedToken)
         // 투두·리포트 탭과 같은 화면 가장자리 스와이프로 하루씩 이동 (가운데 스크롤·블록 드래그와 안 겹침)
         .edgeSwipeNavigation(
             onPrev: { viewModel.goToPreviousDay() },
             onNext: { viewModel.goToNextDay() }
         )
+        // 두 손가락으로 오므리면 하루가 한눈에, 벌리면 크게 (손가락 사이 시각이 제자리에 남게)
+        .simultaneousGesture(pinchGesture)
+        // 핀치가 끝나거나 취소되면 기준값을 비우고 크기를 저장
+        .onChange(of: isPinching) { _, pinching in
+            guard !pinching, pinchStart != nil else { return }
+            pinchStart = nil
+            viewModel.commitPointsPerMinute()
+        }
+        // 메모 입력 중 다른 곳을 누르면 키보드만 내리고 저장 (팝업은 이 아래라 영향 없음)
+        .tapToDismissKeyboard()
+        .onChange(of: viewModel.memoEditingBlockId) { _, id in
+            guard let id, let entry = viewModel.entries.first(where: { $0.id == id }) else { return }
+            // 키보드에 가리지 않게 그 블록을 화면 위쪽으로
+            scroll(toMinute: entry.block.startMinute - 30, animated: true)
+        }
         .overlay(alignment: .bottom) { outOfRangeNotice }
         .onAppear { scrollToInitialPositionIfNeeded() }
     }
@@ -174,9 +213,39 @@ struct TimeBlockView: View {
         scroll(toMinute: nowMinute - 60, animated: animated)
     }
 
+    // MARK: - 확대·축소
+
+    private var pinchGesture: some Gesture {
+        MagnifyGesture(minimumScaleDelta: 0.02)
+            .updating($isPinching) { _, state, _ in
+                state = true
+            }
+            .onChanged { value in
+                let range = viewModel.dayRange
+                if pinchStart == nil {
+                    viewModel.cancelBlockDrags()
+                    let scale = viewModel.pointsPerMinute
+                    // 손가락 사이 지점을 날짜 바 아래 보이는 영역 기준으로
+                    let viewY = value.startLocation.y - topInset
+                    let contentY = scrollOffsetY + viewY
+                    let minute = CGFloat(range.startMinute) + (contentY - TimeBlockLayout.verticalPadding) / scale
+                    pinchStart = (scale, minute, viewY)
+                }
+                guard let start = pinchStart else { return }
+                viewModel.setPointsPerMinute(start.scale * value.magnification)
+                let newScale = viewModel.pointsPerMinute
+                let anchorY = TimeBlockLayout.verticalPadding + (start.minute - CGFloat(range.startMinute)) * newScale
+                scrollPosition.scrollTo(y: max(anchorY - start.viewY, 0))
+            }
+            .onEnded { _ in
+                pinchStart = nil
+                viewModel.commitPointsPerMinute()
+            }
+    }
+
     private func scroll(toMinute minute: Int, animated: Bool) {
         let range = viewModel.dayRange
-        let targetY = max(TimeBlockLayout.y(for: range.clamp(minute), in: range) - 8, 0)
+        let targetY = max(TimeBlockLayout.y(for: range.clamp(minute), in: range, pointsPerMinute: viewModel.pointsPerMinute) - 8, 0)
         Task { @MainActor in
             // 첫 레이아웃이 끝난 뒤 스크롤해야 위치가 적용된다
             try? await Task.sleep(for: .milliseconds(50))
@@ -218,14 +287,26 @@ struct TimeBlockView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Section {
+                        // iOS 메뉴는 오른쪽 보조 글자를 지원하지 않아 한 줄로 (아이콘 없음)
                         Button {
                             viewModel.openDayRangeEditor()
                         } label: {
-                            Label {
-                                Text("일과 시간")
-                                Text(verbatim: TimeBlockDayRangePopup.summary(of: viewModel.dayRange))
-                            } icon: {
-                                Image(systemName: "sun.horizon")
+                            Text("일과 시간 · \(TimeBlockDayRangePopup.compactSummary(of: viewModel.dayRange))")
+                        }
+                    }
+                    Section {
+                        Button("하루 한눈에 보기") {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                viewModel.fitDayToHeight(viewportHeight)
+                            }
+                            scroll(toMinute: viewModel.dayRange.startMinute, animated: true)
+                        }
+                        if !viewModel.isDefaultScale {
+                            Button("기본 크기로") {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    viewModel.resetPointsPerMinute()
+                                }
+                                if viewModel.isToday { scrollToNow(animated: true) }
                             }
                         }
                     }

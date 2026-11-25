@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// 블록을 눌렀을 때 뜨는 간단한 팝업.
-/// 위: ✕(닫기) · 할 일 제목 · ✓(저장) / 가운데: 시작·종료 시각, 시작·종료 알림 / 아래: 블록 삭제 (할 일은 지우지 않음)
+/// 위: ✕(닫기) · 할 일 이름(바로 고치기) · ✓(저장) / 가운데: 시작·종료 시각 + 옆 종(알림), 카테고리 / 아래: 블록 삭제 (할 일은 지우지 않음)
+/// 이름·카테고리는 할 일 자체를 바꾼다 → 투두 탭·노션에도 반영
 struct TimeBlockEditPopup: View {
     let entry: TimeBlockEntry
     /// 일과 시간. 고른 시각을 그날 화면의 분으로 바꿀 때 쓴다 (범위가 새벽까지면 01:00 = 다음 날)
@@ -9,8 +10,9 @@ struct TimeBlockEditPopup: View {
     /// 메뉴 「블록 시작 알림」·「블록 종료 알림」 전체 설정. 꺼져 있으면 그 체크박스는 흐리게
     let isStartAlarmGloballyEnabled: Bool
     let isEndAlarmGloballyEnabled: Bool
-    /// (시작, 종료, 시작 알림, 종료 알림)
-    let onSave: (Date, Date, Bool, Bool) -> Void
+    /// 고를 수 있는 카테고리 (이 플래너)
+    let categories: [Category]
+    let onSave: (TimeBlockEditResult) -> Void
     let onDelete: () -> Void
     let onClose: () -> Void
 
@@ -18,13 +20,16 @@ struct TimeBlockEditPopup: View {
     @State private var end: Date
     @State private var startAlarm: Bool
     @State private var endAlarm: Bool
+    @State private var title: String
+    @State private var categoryId: String?
 
     init(
         entry: TimeBlockEntry,
         dayRange: TimeBlockDayRange,
         isStartAlarmGloballyEnabled: Bool,
         isEndAlarmGloballyEnabled: Bool,
-        onSave: @escaping (Date, Date, Bool, Bool) -> Void,
+        categories: [Category],
+        onSave: @escaping (TimeBlockEditResult) -> Void,
         onDelete: @escaping () -> Void,
         onClose: @escaping () -> Void
     ) {
@@ -32,6 +37,7 @@ struct TimeBlockEditPopup: View {
         self.dayRange = dayRange
         self.isStartAlarmGloballyEnabled = isStartAlarmGloballyEnabled
         self.isEndAlarmGloballyEnabled = isEndAlarmGloballyEnabled
+        self.categories = categories
         self.onSave = onSave
         self.onDelete = onDelete
         self.onClose = onClose
@@ -39,13 +45,17 @@ struct TimeBlockEditPopup: View {
         _end = State(initialValue: TimeBlockLayout.date(day: entry.block.day, minute: entry.block.endMinute))
         _startAlarm = State(initialValue: entry.block.alarmEnabled)
         _endAlarm = State(initialValue: entry.block.endAlarmEnabled)
+        _title = State(initialValue: entry.title)
+        _categoryId = State(initialValue: entry.categoryId)
     }
 
     private var startMinute: Int { dayRange.pageMinute(of: start) }
     private var endMinute: Int { dayRange.pageEndMinute(of: end, start: startMinute) }
 
     /// 날짜 부분은 무시하고 시각만 비교 (종료 01:00이 다음 날일 수 있음)
-    private var isValid: Bool { endMinute > startMinute }
+    private var isTimeValid: Bool { endMinute > startMinute }
+    private var trimmedTitle: String { title.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var isValid: Bool { isTimeValid && !trimmedTitle.isEmpty }
     private var accent: Color { AppTheme.shared.accent }
 
     /// 처음 연 값과 달라졌는지 → 저장 ✓를 진하게
@@ -54,6 +64,8 @@ struct TimeBlockEditPopup: View {
             || endMinute != entry.block.endMinute
             || startAlarm != entry.block.alarmEnabled
             || endAlarm != entry.block.endAlarmEnabled
+            || trimmedTitle != entry.title
+            || categoryId != entry.categoryId
     }
 
     private var canSave: Bool { isValid && hasChanges }
@@ -69,22 +81,17 @@ struct TimeBlockEditPopup: View {
                 header
                 Divider()
                 VStack(spacing: 12) {
-                    timeRow(title: "시작", selection: $start)
-                    timeRow(title: "종료", selection: $end)
-                    if !isValid {
+                    // 시각 옆 종 = 그 시각 알림 (켜짐 bell.fill / 꺼짐 bell.slash)
+                    timeRow(title: "시작", selection: $start, alarm: $startAlarm, isAlarmAvailable: isStartAlarmGloballyEnabled)
+                    timeRow(title: "종료", selection: $end, alarm: $endAlarm, isAlarmAvailable: isEndAlarmGloballyEnabled)
+                    if !isTimeValid {
                         Text("끝나는 시각은 시작 시각보다 늦어야 합니다.")
                             .font(.footnote)
                             .foregroundStyle(Color(.systemRed))
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     Divider()
-                    // 시작·종료 줄과 같은 모양: 왼쪽 「알림」, 오른쪽 시작 ☐ 종료 ☐
-                    HStack(spacing: 16) {
-                        Text("알림")
-                        Spacer(minLength: 8)
-                        checkbox(title: "시작", isOn: $startAlarm, isAvailable: isStartAlarmGloballyEnabled)
-                        checkbox(title: "종료", isOn: $endAlarm, isAvailable: isEndAlarmGloballyEnabled)
-                    }
+                    categoryRow
                     if !isStartAlarmGloballyEnabled || !isEndAlarmGloballyEnabled {
                         Text("흐린 알림은 타임블록 오른쪽 위 메뉴에서 켤 수 있습니다.")
                             .font(.footnote)
@@ -113,13 +120,22 @@ struct TimeBlockEditPopup: View {
     private var header: some View {
         HStack(spacing: 12) {
             circleButton(systemName: "xmark", label: "닫기", isProminent: false, action: onClose)
-            Text(entry.title)
+            // 탭하면 바로 이름을 고칠 수 있다 (할 일 이름 = 투두 탭과 같음)
+            TextField("할 일 이름", text: $title, axis: .vertical)
                 .font(.headline)
-                .lineLimit(2)
+                .lineLimit(1...2)
                 .multilineTextAlignment(.center)
+                .submitLabel(.done)
                 .frame(maxWidth: .infinity)
             circleButton(systemName: "checkmark", label: "저장", isProminent: canSave) {
-                onSave(start, end, startAlarm, endAlarm)
+                onSave(TimeBlockEditResult(
+                    start: start,
+                    end: end,
+                    startAlarm: startAlarm,
+                    endAlarm: endAlarm,
+                    title: trimmedTitle,
+                    categoryId: categoryId
+                ))
             }
             .disabled(!canSave)
             .animation(.easeOut(duration: 0.15), value: canSave)
@@ -146,34 +162,79 @@ struct TimeBlockEditPopup: View {
         .accessibilityLabel(Text(label))
     }
 
-    private func timeRow(title: LocalizedStringKey, selection: Binding<Date>) -> some View {
-        HStack {
+    private func timeRow(
+        title: LocalizedStringKey,
+        selection: Binding<Date>,
+        alarm: Binding<Bool>,
+        isAlarmAvailable: Bool
+    ) -> some View {
+        HStack(spacing: 8) {
             Text(title)
             Spacer()
             DatePicker(title, selection: selection, displayedComponents: .hourAndMinute)
                 .labelsHidden()
                 .datePickerStyle(.compact)
+            alarmButton(isOn: alarm, isAvailable: isAlarmAvailable, timeTitle: title)
         }
     }
 
-    private func checkbox(title: LocalizedStringKey, isOn: Binding<Bool>, isAvailable: Bool) -> some View {
-        Button {
+    /// 시각 옆 종. 탭하면 그 시각 알림 켜기/끄기. 메뉴 전체 알림이 꺼져 있으면 흐리게
+    private func alarmButton(isOn: Binding<Bool>, isAvailable: Bool, timeTitle: LocalizedStringKey) -> some View {
+        let showsOn = isOn.wrappedValue && isAvailable
+        return Button {
             isOn.wrappedValue.toggle()
         } label: {
-            HStack(spacing: 6) {
-                Text(title)
-                    .foregroundStyle(Color(.label))
-                    .fixedSize()
-                Image(systemName: isOn.wrappedValue ? "checkmark.square.fill" : "square")
-                    .font(.system(size: 20))
-                    // 연한 색은 "꺼진 것"처럼 보여서 진하게 (라이트 = 검정, 다크 = 흰색)
-                    .foregroundStyle(isOn.wrappedValue ? Color(.label) : Color(.tertiaryLabel))
-            }
-            .contentShape(Rectangle())
+            Image(systemName: showsOn ? "bell.fill" : "bell.slash")
+                .font(.system(size: 16))
+                .foregroundStyle(showsOn ? accent : Color(.tertiaryLabel))
+                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
+                .animation(.easeOut(duration: 0.15), value: showsOn)
         }
         .buttonStyle(.plain)
         .disabled(!isAvailable)
         .opacity(isAvailable ? 1 : 0.45)
-        .accessibilityAddTraits(isOn.wrappedValue ? .isSelected : [])
+        .accessibilityLabel(Text("알림"))
+        .accessibilityValue(showsOn ? Text("켜짐") : Text("꺼짐"))
+    }
+
+    // MARK: - 카테고리
+
+    private var selectedCategory: Category? {
+        categories.first { $0.id == categoryId }
+    }
+
+    private var categoryRow: some View {
+        HStack {
+            Text("카테고리")
+            Spacer()
+            Menu {
+                Picker("카테고리", selection: $categoryId) {
+                    Label("미분류", systemImage: "tag.slash")
+                        .tag(String?.none)
+                    ForEach(categories) { category in
+                        Label(category.name, systemImage: CategoryIconName.resolved(category.icon))
+                            .tag(Optional(category.id))
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    if let selectedCategory {
+                        Circle()
+                            .fill(Color(hex: selectedCategory.colorHex))
+                            .frame(width: 8, height: 8)
+                        Text(selectedCategory.name)
+                            .lineLimit(1)
+                    } else {
+                        Text("미분류")
+                            .foregroundStyle(Color(.secondaryLabel))
+                    }
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color(.tertiaryLabel))
+                }
+                .foregroundStyle(Color(.label))
+            }
+        }
     }
 }

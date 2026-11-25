@@ -41,7 +41,8 @@ struct DaySlideModifier: ViewModifier {
             }
     }
 
-    private static func opacity(for offsetX: CGFloat) -> Double {
+    /// 계산만 하는 함수라 어느 스레드에서 불러도 안전 (keyframeAnimator 안에서 부름)
+    nonisolated private static func opacity(for offsetX: CGFloat) -> Double {
         1 - min(abs(offsetX) / 80, 0.6)
     }
 }

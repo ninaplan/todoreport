@@ -38,6 +38,13 @@ final class TimeBlockViewModel {
     // 블록 탭 → 시간 편집 시트
     private(set) var editingEntry: TimeBlockEntry?
 
+    // 블록 안 메모 바로 입력 (할 일 메모)
+    private(set) var memoEditingBlockId: String?
+    private(set) var memoDraft = ""
+
+    /// 1분 = 몇 pt (두 손가락으로 오므리거나 벌려 바꿈, 기기에 저장). 기본 1.1 = 1시간 66pt
+    private(set) var pointsPerMinute: CGFloat
+
     // 오류 알림
     private(set) var showErrorAlert = false
     private(set) var errorMessage = ""
@@ -56,6 +63,10 @@ final class TimeBlockViewModel {
         selectedDate = today
         entriesDay = today
         let defaults = UserDefaults.standard
+        let storedScale = defaults.double(forKey: TimeBlockLayout.pointsPerMinuteKey)
+        pointsPerMinute = storedScale > 0
+            ? TimeBlockLayout.clampPointsPerMinute(CGFloat(storedScale))
+            : TimeBlockLayout.pointsPerMinute
         showsCategoryColor = defaults.object(forKey: TimeBlockLayout.showsCategoryColorKey) == nil
             ? true
             : defaults.bool(forKey: TimeBlockLayout.showsCategoryColorKey)
@@ -63,6 +74,42 @@ final class TimeBlockViewModel {
 
     /// 길이 조절·이동 중에는 바깥 스크롤을 멈춘다
     var isDraggingBlock: Bool { resizingBlockId != nil || movingBlockId != nil }
+
+    // MARK: - 확대·축소 (시간 높이)
+
+    /// 핀치를 시작하면 두 손가락에 같이 걸린 블록 이동·길이 조절은 저장하지 않고 취소
+    /// (끝 신호 없이 남으면 스크롤이 계속 막힌다)
+    func cancelBlockDrags() {
+        clearMove()
+        clearResize()
+    }
+
+    /// 핀치 중에는 화면만 바꾸고, 끝나면 `commitPointsPerMinute`로 저장
+    func setPointsPerMinute(_ value: CGFloat) {
+        let clamped = TimeBlockLayout.clampPointsPerMinute(value)
+        guard abs(clamped - pointsPerMinute) > 0.001 else { return }
+        pointsPerMinute = clamped
+    }
+
+    func commitPointsPerMinute() {
+        UserDefaults.standard.set(Double(pointsPerMinute), forKey: TimeBlockLayout.pointsPerMinuteKey)
+    }
+
+    /// 메뉴 「하루 한눈에 보기」: 일과 시간 전체가 화면 높이에 들어가게
+    func fitDayToHeight(_ height: CGFloat) {
+        let usable = height - TimeBlockLayout.verticalPadding * 2
+        guard usable > 0, dayRange.durationMinutes > 0 else { return }
+        setPointsPerMinute(usable / CGFloat(dayRange.durationMinutes))
+        commitPointsPerMinute()
+    }
+
+    /// 메뉴 「기본 크기로」
+    func resetPointsPerMinute() {
+        setPointsPerMinute(TimeBlockLayout.pointsPerMinute)
+        commitPointsPerMinute()
+    }
+
+    var isDefaultScale: Bool { abs(pointsPerMinute - TimeBlockLayout.pointsPerMinute) < 0.01 }
 
     /// 타임블록의 오늘 (일과 시간이 새벽까지면 새벽엔 전날). 투두 탭의 오늘과는 별개
     var todayDate: Date { dayRange.logicalDay(for: .now) }
@@ -87,6 +134,10 @@ final class TimeBlockViewModel {
     }
 
     func reload() async {
+        // 다른 날로 넘어가기 전에 입력 중인 메모부터 저장
+        if memoEditingBlockId != nil, entriesDay != selectedDate {
+            commitMemoEdit()
+        }
         refreshDayRange()
         let day = selectedDate
         let loaded = await service.fetchEntries(for: day)
@@ -273,7 +324,7 @@ final class TimeBlockViewModel {
         guard let id = resizingBlockId,
               let original = resizeOriginalEndMinute,
               let entry = entries.first(where: { $0.id == id }) else { return }
-        let deltaMinutes = Int((translationHeight / TimeBlockLayout.pointsPerMinute).rounded())
+        let deltaMinutes = Int((translationHeight / pointsPerMinute).rounded())
         let snapped = TimeBlockLayout.snapNearest(original + deltaMinutes, unit: snapMinutes)
         let minimumEnd = entry.block.startMinute + min(snapMinutes, 15)
         let maximumEnd = min(nextBlockStart(after: entry) ?? dayRange.endMinute, dayRange.endMinute)
@@ -315,7 +366,9 @@ final class TimeBlockViewModel {
     // MARK: - 이동 (길게 누른 뒤 드래그)
 
     func beginMove(_ entry: TimeBlockEntry) {
-        guard movingBlockId == nil, resizingBlockId == nil else { return }
+        // 이전 이동이 끝 신호 없이 남아 있으면(블록이 떠 있는 채로 멈춤) 먼저 정리
+        if movingBlockId != nil { clearMove() }
+        guard resizingBlockId == nil else { return }
         movingBlockId = entry.id
         moveOriginalStartMinute = entry.block.startMinute
         moveDraftStartMinute = entry.block.startMinute
@@ -326,7 +379,7 @@ final class TimeBlockViewModel {
         guard let id = movingBlockId,
               let original = moveOriginalStartMinute,
               let entry = entries.first(where: { $0.id == id }) else { return }
-        let deltaMinutes = Int((translationHeight / TimeBlockLayout.pointsPerMinute).rounded())
+        let deltaMinutes = Int((translationHeight / pointsPerMinute).rounded())
         let snapped = TimeBlockLayout.snapNearest(original + deltaMinutes, unit: snapMinutes)
         // 일과 시간 안에서만 움직인다
         let earliestStart = dayRange.startMinute
@@ -393,7 +446,9 @@ final class TimeBlockViewModel {
             title: old.title,
             isCompleted: old.isCompleted,
             categoryColorHex: old.categoryColorHex,
-            categoryIcon: old.categoryIcon
+            categoryIcon: old.categoryIcon,
+            categoryId: old.categoryId,
+            memo: old.memo
         )
     }
 
@@ -413,25 +468,92 @@ final class TimeBlockViewModel {
     // MARK: - 편집 시트
 
     func openEditor(_ entry: TimeBlockEntry) {
+        commitMemoEdit()
         editingEntry = entry
+    }
+
+    /// 편집 팝업의 카테고리 목록 (이 플래너의 보이는 카테고리 + 지금 할 일의 카테고리가 숨김이면 그것도)
+    var editableCategories: [Category] {
+        let service = CategoryService.shared
+        var list = service.activeCategories
+        if let currentId = editingEntry?.categoryId,
+           !list.contains(where: { $0.id == currentId }),
+           let current = service.store.first(where: { $0.id == currentId }) {
+            list.append(current)
+        }
+        return list
     }
 
     func dismissEditor() {
         editingEntry = nil
     }
 
-    func saveEdit(start: Date, end: Date, startAlarm: Bool, endAlarm: Bool) {
+    func saveEdit(_ result: TimeBlockEditResult) {
         guard let entry = editingEntry else { return }
         // 시각만 보고 일과 시간 화면의 분으로 바꾼다 (범위가 새벽까지면 01:00 = 다음 날 01:00)
-        let startMinute = dayRange.pageMinute(of: start)
-        let endMinute = dayRange.pageEndMinute(of: end, start: startMinute)
+        let startMinute = dayRange.pageMinute(of: result.start)
+        let endMinute = dayRange.pageEndMinute(of: result.end, start: startMinute)
         do {
             try service.updateBlockTime(id: entry.id, startMinute: startMinute, endMinute: endMinute)
-            try service.setAlarms(id: entry.id, startEnabled: startAlarm, endEnabled: endAlarm)
+            try service.setAlarms(id: entry.id, startEnabled: result.startAlarm, endEnabled: result.endAlarm)
             dismissEditor()
-            Task { await reload() }
         } catch {
             presentError(error)
+            return
+        }
+        let todoChanged = result.title != entry.title || result.categoryId != entry.categoryId
+        let todoId = entry.block.todoId
+        Task {
+            if todoChanged {
+                do {
+                    try await service.updateTodoDetails(todoId: todoId, title: result.title, categoryId: result.categoryId)
+                } catch {
+                    presentError(error)
+                }
+            }
+            await reload()
+        }
+    }
+
+    // MARK: - 블록 안 메모 (할 일 메모)
+
+    func beginMemoEdit(_ entry: TimeBlockEntry) {
+        guard !isDraggingBlock else { return }
+        if memoEditingBlockId != nil, memoEditingBlockId != entry.id {
+            commitMemoEdit()
+        }
+        memoDraft = entry.memo ?? ""
+        memoEditingBlockId = entry.id
+    }
+
+    func updateMemoDraft(_ text: String) {
+        memoDraft = text
+    }
+
+    /// 키보드가 내려가면(다른 곳 탭·완료) 저장. 노션에는 이때 한 번만 보낸다
+    func commitMemoEdit() {
+        guard let id = memoEditingBlockId else { return }
+        memoEditingBlockId = nil
+        guard let entry = entries.first(where: { $0.id == id }) else { return }
+        let draft = memoDraft
+        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed != (entry.memo ?? "") else { return }
+        let newMemo: String? = trimmed.isEmpty ? nil : trimmed
+        // 같은 할 일의 블록은 메모를 함께 보여 주므로 모두 바로 바꾼다
+        entries = entries.map { item in
+            guard item.block.todoId == entry.block.todoId else { return item }
+            var updated = item
+            updated.memo = newMemo
+            return updated
+        }
+        let todoId = entry.block.todoId
+        Task {
+            do {
+                try await service.updateTodoMemo(todoId: todoId, memo: draft)
+            } catch {
+                presentError(error)
+                await reload()
+            }
         }
     }
 

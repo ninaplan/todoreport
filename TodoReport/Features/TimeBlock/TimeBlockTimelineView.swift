@@ -8,10 +8,16 @@ struct TimeBlockTimelineView: View {
 
     private var blockLeading: CGFloat { TimeBlockLayout.blockLeading }
     private var range: TimeBlockDayRange { viewModel.dayRange }
-    private var rangeHeight: CGFloat { CGFloat(range.durationMinutes) * TimeBlockLayout.pointsPerMinute }
+    private var scale: CGFloat { viewModel.pointsPerMinute }
+    private var rangeHeight: CGFloat { CGFloat(range.durationMinutes) * scale }
+    private var contentHeight: CGFloat { TimeBlockLayout.contentHeight(for: range, pointsPerMinute: scale) }
+    /// 많이 줄이면 30분 점선은 빼서 덜 복잡하게
+    private var showsHalfHourLines: Bool { scale >= 0.8 }
+    /// 아주 많이 줄이면 시각 글자는 2시간마다
+    private var hourLabelStep: Int { scale < 0.55 ? 2 : 1 }
 
     private func y(_ minute: Int) -> CGFloat {
-        TimeBlockLayout.y(for: minute, in: range)
+        TimeBlockLayout.y(for: minute, in: range, pointsPerMinute: scale)
     }
 
     var body: some View {
@@ -25,7 +31,7 @@ struct TimeBlockTimelineView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .frame(height: TimeBlockLayout.contentHeight(for: range), alignment: .topLeading)
+        .frame(height: contentHeight, alignment: .topLeading)
     }
 
     // MARK: - 격자
@@ -38,6 +44,7 @@ struct TimeBlockTimelineView: View {
                     TimeBlockHourLabel(hour: hour)
                         .frame(width: TimeBlockLayout.labelColumnWidth - 8, alignment: .trailing)
                         .padding(.trailing, 8)
+                        .opacity(hour % hourLabelStep == 0 ? 1 : 0)
                     Rectangle()
                         .fill(Color(.separator))
                         .frame(height: 0.5)
@@ -51,7 +58,7 @@ struct TimeBlockTimelineView: View {
                         .offset(y: lineY + 9)
                 }
 
-                if hour < lastHour {
+                if hour < lastHour, showsHalfHourLines {
                     halfHourLine
                         .padding(.leading, TimeBlockLayout.labelColumnWidth)
                         .offset(y: y(hour * 60 + 30))
@@ -88,12 +95,20 @@ struct TimeBlockTimelineView: View {
             .contentShape(Rectangle())
             .padding(.leading, TimeBlockLayout.railX)
             .onTapGesture(coordinateSpace: .local) { location in
-                viewModel.requestSlot(atMinute: TimeBlockLayout.minute(for: location.y, in: range))
+                viewModel.requestSlot(atMinute: TimeBlockLayout.minute(for: location.y, in: range, pointsPerMinute: scale))
             }
             .accessibilityHidden(true)
     }
 
     // MARK: - 블록
+
+    /// 상태 변경은 ViewModel 메서드로만
+    private var memoDraftBinding: Binding<String> {
+        Binding(
+            get: { viewModel.memoDraft },
+            set: { viewModel.updateMemoDraft($0) }
+        )
+    }
 
     /// 일과 시간에 걸친 블록은 범위 밖 부분을 잘라서 보여준다 (mask)
     private var blocks: some View {
@@ -101,7 +116,7 @@ struct TimeBlockTimelineView: View {
             blockCards
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .frame(height: TimeBlockLayout.contentHeight(for: range), alignment: .topLeading)
+        .frame(height: contentHeight, alignment: .topLeading)
         .mask(alignment: .topLeading) {
             Rectangle()
                 .frame(height: rangeHeight)
@@ -130,7 +145,12 @@ struct TimeBlockTimelineView: View {
                 onResizeEnded: { viewModel.endResize() },
                 onMoveBegan: { viewModel.beginMove(entry) },
                 onMoveChanged: { viewModel.updateMove(translationHeight: $0) },
-                onMoveEnded: { viewModel.endMove() }
+                onMoveEnded: { viewModel.endMove() },
+                pointsPerMinute: scale,
+                isEditingMemo: viewModel.memoEditingBlockId == entry.id,
+                memoDraft: memoDraftBinding,
+                onBeginMemoEdit: { viewModel.beginMemoEdit(entry) },
+                onCommitMemo: { viewModel.commitMemoEdit() }
             )
             .padding(.leading, blockLeading)
             .padding(.trailing, TimeBlockLayout.blockTrailingPadding)
