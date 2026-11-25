@@ -11,6 +11,9 @@ struct DailyReportCard: View {
     /// 최초 1회, 리포트 카드가 처음 나타났을 때 호출 (화살표 안내 말풍선은 List 밖 상위 뷰에서 표시)
     var onFirstAppear: (() -> Void)? = nil
     var expandToken: Int = 0
+    /// 그날 집중 시간(분). nil이면 줄을 안 보인다 (Pro가 아니거나 완료한 블록이 없는 날).
+    /// 하루 리포트 모듈은 타임블록을 직접 읽지 않고 이 숫자만 받는다 (모듈 독립)
+    var focusMinutes: Int? = nil
 
     @State private var isExpanded = false
     @State private var lastAppliedExpandToken = 0
@@ -133,7 +136,28 @@ struct DailyReportCard: View {
             ProgressView(value: displayRate)
                 .tint(AppTheme.shared.accent)
                 .scaleEffect(y: 1.4)
+            // 그날 집중 시간 (Pro이고 완료한 블록이 있을 때만)
+            if let focusMinutes, focusMinutes > 0 {
+                HStack {
+                    Text("집중 시간")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(verbatim: Self.focusText(focusMinutes))
+                        .font(.caption.bold())
+                        .foregroundStyle(.primary)
+                }
+                .padding(.top, 4)
+            }
         }
+    }
+
+    /// 11h48m / 분이 0이면 11h / 1시간 미만이면 45m (리포트 탭 집중 시간과 같은 규칙. 모듈을 나누려고 여기 따로 둠)
+    private static func focusText(_ minutes: Int) -> String {
+        let hours = minutes / 60
+        let rest = minutes % 60
+        if hours == 0 { return "\(rest)m" }
+        return rest == 0 ? "\(hours)h" : "\(hours)h\(rest)m"
     }
 
     // MARK: - 별점 행

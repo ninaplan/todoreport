@@ -19,6 +19,8 @@ struct TodoView: View {
     @State private var highlightScrollTask: Task<Void, Never>? = nil
 
     @State private var hapticImpactTrigger = false
+    /// 하루 리포트 카드의 집중 시간(분). Pro이고 그날 완료한 블록이 있을 때만 값이 있다
+    @State private var dailyFocusMinutes: Int?
     @State private var hapticSuccessTrigger = false
     @State private var hapticWarningTrigger = false
     @State private var showCalendarOpenHint = false
@@ -257,8 +259,13 @@ struct TodoView: View {
                         displayCompleted: viewModel.completedCount,
                         displayTotal: viewModel.totalCount,
                         onFirstAppear: { presentDailyReportExpandHintIfNeeded() },
-                        expandToken: tabCoordinator.expandDailyReportToken
+                        expandToken: tabCoordinator.expandDailyReportToken,
+                        focusMinutes: dailyFocusMinutes
                     )
+                    // 날짜·완료 수가 바뀌거나 탭으로 돌아오면 다시 계산 (타임블록에서 완료했을 수 있음)
+                    .task(id: dailyFocusRefreshKey) {
+                        refreshDailyFocusMinutes()
+                    }
                     .id(Self.listTopId)
                 }
                 .daySlide(viewModel.daySlide)
@@ -744,6 +751,22 @@ struct TodoView: View {
         // TodoRow와 동일한 세로 padding — defaultMinListRowHeight=0에서도 한 줄 할일과 높이 맞춤.
         .padding(.vertical, TodoListRowSpacing.verticalPadding)
         .listRowInsets(TodoListRowSpacing.listRowInsets)
+    }
+
+    // MARK: - 하루 리포트 집중 시간
+
+    private var dailyFocusRefreshKey: String {
+        "\(viewModel.selectedDate.timeIntervalSince1970)-\(viewModel.completedCount)-\(tabCoordinator.selectedTab == .todo)-\(SubscriptionManager.shared.isPro)"
+    }
+
+    /// 집중 시간은 Pro 기능 → 무료면 숨김. 완료한 블록이 없는 날도 숨김
+    private func refreshDailyFocusMinutes() {
+        guard SubscriptionManager.shared.isPro else {
+            dailyFocusMinutes = nil
+            return
+        }
+        let minutes = TimeBlockService.shared.completedMinutes(on: viewModel.selectedDate)
+        dailyFocusMinutes = minutes > 0 ? minutes : nil
     }
 }
 

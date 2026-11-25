@@ -8,9 +8,6 @@ struct TimeBlockEditPopup: View {
     let entry: TimeBlockEntry
     /// 일과 시간. 고른 시각을 그날 화면의 분으로 바꿀 때 쓴다 (범위가 새벽까지면 01:00 = 다음 날)
     let dayRange: TimeBlockDayRange
-    /// 메뉴 「블록 시작 알림」·「블록 종료 알림」 전체 설정. 꺼져 있으면 그 체크박스는 흐리게
-    let isStartAlarmGloballyEnabled: Bool
-    let isEndAlarmGloballyEnabled: Bool
     /// 고를 수 있는 카테고리 (이 플래너)
     let categories: [Category]
     /// 블록의 메모·「+ 메모 추가」로 열었으면 메모 칸에 바로 커서
@@ -38,8 +35,6 @@ struct TimeBlockEditPopup: View {
     init(
         entry: TimeBlockEntry,
         dayRange: TimeBlockDayRange,
-        isStartAlarmGloballyEnabled: Bool,
-        isEndAlarmGloballyEnabled: Bool,
         categories: [Category],
         focusesMemo: Bool = false,
         onSave: @escaping (TimeBlockEditResult) -> Void,
@@ -48,8 +43,6 @@ struct TimeBlockEditPopup: View {
     ) {
         self.entry = entry
         self.dayRange = dayRange
-        self.isStartAlarmGloballyEnabled = isStartAlarmGloballyEnabled
-        self.isEndAlarmGloballyEnabled = isEndAlarmGloballyEnabled
         self.categories = categories
         self.focusesMemo = focusesMemo
         self.onSave = onSave
@@ -98,8 +91,8 @@ struct TimeBlockEditPopup: View {
                 header
                 Divider()
                 VStack(spacing: 12) {
-                    timeRow(title: "시작", field: .start, selection: $start, alarm: $startAlarm, isAlarmAvailable: isStartAlarmGloballyEnabled)
-                    timeRow(title: "종료", field: .end, selection: $end, alarm: $endAlarm, isAlarmAvailable: isEndAlarmGloballyEnabled)
+                    timeRow(title: "시작", field: .start, selection: $start, alarm: $startAlarm)
+                    timeRow(title: "종료", field: .end, selection: $end, alarm: $endAlarm)
                     if !isTimeValid {
                         Text("끝나는 시각은 시작 시각보다 늦어야 합니다.")
                             .font(.footnote)
@@ -194,8 +187,7 @@ struct TimeBlockEditPopup: View {
         title: LocalizedStringKey,
         field: TimeField,
         selection: Binding<Date>,
-        alarm: Binding<Bool>,
-        isAlarmAvailable: Bool
+        alarm: Binding<Bool>
     ) -> some View {
         let isExpanded = expandedTime == field
         VStack(spacing: 4) {
@@ -205,7 +197,6 @@ struct TimeBlockEditPopup: View {
                 TimeBlockTimePill(
                     time: selection.wrappedValue,
                     isAlarmOn: alarm,
-                    isAlarmAvailable: isAlarmAvailable,
                     isExpanded: isExpanded,
                     onTapTime: {
                         isMemoFocused = false

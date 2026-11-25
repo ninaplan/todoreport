@@ -8,14 +8,14 @@ final class TimeBlockNotificationManager {
 
     private static let identifierPrefix = "timeblock-"
 
-    /// ⋯ 메뉴 「블록 시작 알림」 (기본 켜짐)
+    /// ⋯ 메뉴 「새 블록 기본 알림 › 시작 알림」 (기본 켜짐). 새로 만드는 블록의 기본값일 뿐, 이미 있는 블록은 블록 설정을 따른다
     var isGloballyEnabled: Bool {
         let defaults = UserDefaults.standard
         guard defaults.object(forKey: TimeBlockLayout.startAlarmEnabledKey) != nil else { return true }
         return defaults.bool(forKey: TimeBlockLayout.startAlarmEnabledKey)
     }
 
-    /// ⋯ 메뉴 「블록 종료 알림」 (기본 꺼짐)
+    /// ⋯ 메뉴 「새 블록 기본 알림 › 종료 알림」 (기본 꺼짐). 새 블록의 기본값
     var isEndGloballyEnabled: Bool {
         UserDefaults.standard.bool(forKey: TimeBlockLayout.endAlarmEnabledKey)
     }
@@ -42,7 +42,8 @@ final class TimeBlockNotificationManager {
         let startText = startDate.formatted(date: .omitted, time: .shortened)
         let endText = endDate.formatted(date: .omitted, time: .shortened)
 
-        if isGloballyEnabled, block.alarmEnabled, startDate > .now, !isDuplicateOfTodoAlarm(todo: todo, fireDate: startDate) {
+        // 울릴지는 블록 설정만 본다 (메뉴는 새 블록 기본값이라 여기서 막지 않음)
+        if block.alarmEnabled, startDate > .now, !isDuplicateOfTodoAlarm(todo: todo, fireDate: startDate) {
             add(
                 identifier: startId,
                 title: todo.title,
@@ -50,7 +51,7 @@ final class TimeBlockNotificationManager {
                 fireDate: startDate
             )
         }
-        if isEndGloballyEnabled, block.endAlarmEnabled, endDate > .now {
+        if block.endAlarmEnabled, endDate > .now {
             add(
                 identifier: endId,
                 title: todo.title,

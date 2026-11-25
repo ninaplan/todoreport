@@ -65,16 +65,20 @@ final class TimeBlockService {
     func createBlock(todoId: String, day: Date, startMinute: Int, endMinute: Int) throws {
         let dayStart = Calendar.current.startOfDay(for: day)
         try validate(day: dayStart, startMinute: startMinute, endMinute: endMinute, excludingId: nil)
+        // 알림은 메뉴 「새 블록 기본 알림」 값으로 시작 (블록마다 나중에 바꿀 수 있음)
+        let alarms = TimeBlockNotificationManager.shared
         let item = TimeBlockItem(
             plannerId: currentPlannerId,
             todoId: todoId,
             day: dayStart,
             startMinute: startMinute,
-            endMinute: endMinute
+            endMinute: endMinute,
+            alarmEnabled: alarms.isGloballyEnabled,
+            endAlarmEnabled: alarms.isEndGloballyEnabled
         )
         context.insert(item)
         try saveContext()
-        if TimeBlockNotificationManager.shared.isGloballyEnabled || TimeBlockNotificationManager.shared.isEndGloballyEnabled {
+        if item.alarmEnabled || item.endAlarmEnabled {
             // 이미 허용·거부한 경우엔 다시 묻지 않는다 (시스템 동작)
             TodoNotificationManager.shared.requestPermission()
         }
@@ -106,7 +110,31 @@ final class TimeBlockService {
         TimeBlockNotificationManager.shared.cancel(blockIds: [id])
     }
 
-    /// 메뉴 「블록 시작 알림」을 바꾼 뒤 오늘 이후 블록 알림을 다시 맞춘다 (모든 플래너).
+    /// 기존 블록 알림을 한 번 정리하기 전에 쓰던 규칙: 메뉴가 꺼져 있으면 블록 설정과 상관없이 안 울렸다.
+    /// 규칙이 바뀌어도 울리던 것만 울리게, 처음 한 번 블록 설정을 그때 메뉴 상태에 맞춘다
+    /// (예: 메뉴 종료 알림이 꺼져 있었으면 모든 블록의 종료 알림을 끔). 이후로는 블록 설정만 따른다
+    func migrateAlarmFlagsIfNeeded() {
+        let key = "timeBlockAlarmFlagsMigratedV1"
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: key) else { return }
+        let alarms = TimeBlockNotificationManager.shared
+        let startOn = alarms.isGloballyEnabled
+        let endOn = alarms.isEndGloballyEnabled
+        let items = (try? context.fetch(FetchDescriptor<TimeBlockItem>())) ?? []
+        for item in items {
+            if !startOn { item.alarmEnabled = false }
+            if !endOn { item.endAlarmEnabled = false }
+        }
+        do {
+            try saveContext()
+        } catch {
+            return
+        }
+        defaults.set(true, forKey: key)
+        resyncUpcomingAlarms()
+    }
+
+    /// 오늘 이후 블록 알림을 다시 맞춘다 (모든 플래너).
     /// 일과 시간이 새벽까지면 어제 블록이 아직 남았을 수 있어 어제부터 본다 (지난 알림은 예약 단계에서 걸러짐)
     func resyncUpcomingAlarms() {
         let calendar = Calendar.current
@@ -239,6 +267,14 @@ final class TimeBlockService {
     }
 
     // MARK: - 리포트용 집계
+
+    /// 그날 완료한 블록 시간 합(분). 투두 탭 하루 리포트 카드용 — 현재 플래너만
+    func completedMinutes(on day: Date) -> Int {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: day)
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return 0 }
+        return usageSummary(ranges: [start..<end], labels: [""]).completedMinutes
+    }
 
     /// 리포트 막대 구간(주간 = 하루씩, 월간 = 7일씩)별 시간 사용. 현재 플래너만.
     func usageSummary(ranges: [Range<Date>], labels: [String]) -> TimeBlockUsageSummary {

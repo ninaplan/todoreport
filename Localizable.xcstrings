@@ -2922,26 +2922,6 @@
         }
       }
     },
-    "블록 시작 알림" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Block Start Alerts"
-          }
-        }
-      }
-    },
-    "블록 종료 알림" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Block End Alerts"
-          }
-        }
-      }
-    },
     "블록이 지금까지로 줄어들고, 집중한 시간도 그만큼 계산됩니다." : {
       "localizations" : {
         "en" : {
@@ -3478,16 +3458,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notification Permission Needed"
-          }
-        }
-      }
-    },
-    "알림 꺼짐" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alert Off"
           }
         }
       }
@@ -6411,6 +6381,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hobbies"
+          }
+        }
+      }
+    },
+    "새 블록 기본 알림" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Block Alerts"
+          }
+        }
+      }
+    },
+    "시작 알림" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Alert"
+          }
+        }
+      }
+    },
+    "종료 알림" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End Alert"
           }
         }
       }

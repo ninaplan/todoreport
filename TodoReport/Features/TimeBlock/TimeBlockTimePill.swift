@@ -6,14 +6,12 @@ import SwiftUI
 struct TimeBlockTimePill: View {
     let time: Date
     @Binding var isAlarmOn: Bool
-    /// 메뉴 전체 알림이 꺼져 있으면 흐리게 (알림 규칙을 바꾸기 전까지)
-    var isAlarmAvailable: Bool = true
     /// 이 시각의 휠이 펼쳐져 있는지 (알약 글자를 포인트 컬러로)
     let isExpanded: Bool
     let onTapTime: () -> Void
 
     private var accent: Color { AppTheme.shared.accent }
-    private var showsAlarmOn: Bool { isAlarmOn && isAlarmAvailable }
+    private var showsAlarmOn: Bool { isAlarmOn }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -28,8 +26,6 @@ struct TimeBlockTimePill: View {
                     .animation(.easeOut(duration: 0.15), value: showsAlarmOn)
             }
             .buttonStyle(.plain)
-            .disabled(!isAlarmAvailable)
-            .opacity(isAlarmAvailable ? 1 : 0.45)
             .accessibilityLabel(Text("알림"))
             .accessibilityValue(showsAlarmOn ? Text("켜짐") : Text("꺼짐"))
 

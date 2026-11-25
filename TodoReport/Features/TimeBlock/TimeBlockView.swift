@@ -66,8 +66,6 @@ struct TimeBlockView: View {
                 TimeBlockEditPopup(
                     entry: entry,
                     dayRange: viewModel.dayRange,
-                    isStartAlarmGloballyEnabled: viewModel.isStartAlarmEnabled,
-                    isEndAlarmGloballyEnabled: viewModel.isEndAlarmEnabled,
                     categories: viewModel.editableCategories,
                     focusesMemo: viewModel.editorFocusesMemo,
                     onSave: { viewModel.saveEdit($0) },
@@ -319,8 +317,11 @@ struct TimeBlockView: View {
                     .pickerStyle(.inline)
                     Section {
                         Toggle("카테고리 색상 보기", isOn: categoryColorBinding)
-                        Toggle("블록 시작 알림", isOn: startAlarmBinding)
-                        Toggle("블록 종료 알림", isOn: endAlarmBinding)
+                    }
+                    // 새로 만드는 블록의 기본값. 이미 있는 블록은 블록 팝업의 종으로 따로 켜고 끈다
+                    Section("새 블록 기본 알림") {
+                        Toggle("시작 알림", isOn: startAlarmBinding)
+                        Toggle("종료 알림", isOn: endAlarmBinding)
                     }
                 } label: {
                     Image(systemName: "ellipsis")

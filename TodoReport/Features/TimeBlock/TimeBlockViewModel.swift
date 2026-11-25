@@ -15,7 +15,7 @@ final class TimeBlockViewModel {
     private(set) var showDayRangeEditor = false
     /// 메뉴 「카테고리 색상 보기」. 끄면 모든 블록이 흰 블록.
     private(set) var showsCategoryColor: Bool
-    /// 메뉴 「블록 시작 알림」·「블록 종료 알림」 (전체)
+    /// 메뉴 「새 블록 기본 알림」 시작·종료 (새 블록 기본값. 이미 있는 블록은 건드리지 않음)
     private(set) var isStartAlarmEnabled: Bool = TimeBlockNotificationManager.shared.isGloballyEnabled
     private(set) var isEndAlarmEnabled: Bool = TimeBlockNotificationManager.shared.isEndGloballyEnabled
 
@@ -134,6 +134,8 @@ final class TimeBlockViewModel {
     // MARK: - 로드
 
     func onAppear() async {
+        // 알림 규칙 변경(메뉴 = 새 블록 기본값) 전에 만든 블록을 한 번 정리
+        service.migrateAlarmFlagsIfNeeded()
         await confirmSubscriptionIfNeeded()
         await reload()
     }
@@ -230,13 +232,14 @@ final class TimeBlockViewModel {
         if enabled {
             TodoNotificationManager.shared.requestPermission()
         }
-        service.resyncUpcomingAlarms()
     }
 
     func setStartAlarmEnabled(_ enabled: Bool) {
         isStartAlarmEnabled = enabled
         TimeBlockNotificationManager.shared.setGloballyEnabled(enabled)
-        service.resyncUpcomingAlarms()
+        if enabled {
+            TodoNotificationManager.shared.requestPermission()
+        }
     }
 
     func setShowsCategoryColor(_ shows: Bool) {

@@ -126,8 +126,6 @@ struct TimeBlockTimelineView: View {
                 displayEndMinute: viewModel.displayEndMinute(for: entry),
                 now: now,
                 usesCategoryColor: viewModel.showsCategoryColor,
-                // 전체 시작 알림은 켜져 있는데 이 블록만 끈 경우
-                showsAlarmOffIcon: viewModel.isStartAlarmEnabled && !entry.block.alarmEnabled,
                 isMoving: viewModel.movingBlockId == entry.id,
                 onTap: { viewModel.openEditor(entry) },
                 onToggleComplete: { viewModel.toggleCompletion(entry) },

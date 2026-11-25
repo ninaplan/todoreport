@@ -13,8 +13,6 @@ struct TimeBlockCardView: View {
     var now: Date = .now
     /// 메뉴 「카테고리 색상 보기」를 끄면 false → 흰 카드, 진행 중은 포인트 컬러
     var usesCategoryColor: Bool = true
-    /// 시작 알림을 이 블록만 꺼 둔 경우에만 표시 (기본이 켜짐이라 예외만 보여준다)
-    var showsAlarmOffIcon: Bool = false
     /// 길게 눌러 이동 중 (떠오른 모양)
     var isMoving: Bool = false
     /// false면 예시 화면용 (탭·스와이프·길이 조절 없음)
@@ -90,29 +88,16 @@ struct TimeBlockCardView: View {
     /// 기본 크기에서 50분 이상(약 54pt)이면 둘째 줄(길이·알림·진행 중) 표시
     private var showsDetailRow: Bool { height >= 54 }
 
-    /// 메모 줄 수 (0이면 안 보임). 기본 크기에서 1시간(63pt)부터 1줄, 1시간 20분부터 2줄, 1시간 40분부터 3줄
+    /// 메모 줄 수 (0이면 안 보임). 제목·길이 줄(약 62pt)을 먼저 채우고 남는 높이만큼 (1줄 ≈ 16pt, 최대 3줄)
+    /// 기본 크기에서 1시간 20분부터 1줄
     private var memoLineLimit: Int {
         guard isInteractive || entry.memo != nil else { return 0 }
-        switch height {
-        case ..<60: return 0
-        case ..<84: return 1
-        case ..<108: return 2
-        default: return 3
-        }
+        let spare = height - 62
+        guard spare >= 20 else { return 0 }
+        return min(Int(spare / 16), 3)
     }
 
-    /// 세 줄(제목·길이·메모)이 다 안 들어가는 높이 (기본 크기에서 1시간 20분 미만)
-    private var isTight: Bool { height < 84 }
-
-    /// 좁을 때 진행 중 블록은 「N분 남음」을, 나머지는 메모를 먼저 보여준다
-    private var showsMemo: Bool {
-        guard memoLineLimit > 0 else { return false }
-        return !(isTight && isCurrent)
-    }
-
-    private var showsDetail: Bool {
-        showsDetailRow && !(isTight && showsMemo)
-    }
+    private var showsMemo: Bool { memoLineLimit > 0 }
 
     private var memoText: String? {
         guard let memo = entry.memo?.trimmingCharacters(in: .whitespacesAndNewlines), !memo.isEmpty else { return nil }
@@ -161,12 +146,8 @@ struct TimeBlockCardView: View {
             if !isTiny {
                 headerRow
             }
-            if showsDetail {
-                detailRow
-                    .padding(.leading, titleLeadingInset)
-            }
-            if showsMemo {
-                memoArea
+            if showsDetailRow {
+                secondRow
                     .padding(.leading, titleLeadingInset)
             }
         }
@@ -230,7 +211,7 @@ struct TimeBlockCardView: View {
                 .font(isCompact ? .caption.weight(.semibold) : .subheadline.weight(.semibold))
                 .strikethrough(status == .completed, color: foreground)
                 .foregroundStyle(foreground)
-                .lineLimit(showsDetailRow && !showsMemo ? 2 : 1)
+                .lineLimit(1)
             Spacer(minLength: 4)
             Text(startText)
                 .font(.caption)
@@ -241,36 +222,33 @@ struct TimeBlockCardView: View {
         }
     }
 
-    private var detailRow: some View {
-        HStack(spacing: 6) {
-            if let remainingText {
-                Text(remainingText)
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(foreground)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(foreground.opacity(0.2), in: Capsule())
-                    .fixedSize()
-                // 남은 시간만 보이면 블록 전체 길이를 알 수 없어서 옆에 연하게
+    /// 둘째 줄: 길이 (진행 중이면 「진행 중 · N분 남음」 캡슐 + 전체 길이). 셋째 줄부터: 메모 (자리 있을 때, 폭 전체)
+    /// ○ 앱 홍보                   오후 3:00
+    ///   1시간
+    ///   + 메모 추가
+    private var secondRow: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                if let remainingText {
+                    Text(remainingText)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(foreground)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(foreground.opacity(0.2), in: Capsule())
+                        .fixedSize()
+                }
+                // 진행 중에도 전체 길이를 함께 (남은 시간만으로는 블록 길이를 모름)
                 Text(durationText)
                     .font(.caption)
                     .foregroundStyle(secondaryForeground)
                     .lineLimit(1)
-            } else {
-                Text(durationText)
-                    .font(.caption)
-                    .foregroundStyle(secondaryForeground)
             }
-            if showsAlarmOffIcon {
-                Image(systemName: "bell.slash")
-                    .font(.system(size: 10, weight: .light))
-                    .foregroundStyle(secondaryForeground.opacity(0.7))
-                    .accessibilityLabel(Text("알림 꺼짐"))
+            if showsMemo {
+                memoArea
             }
         }
     }
-
-    // MARK: - 메모
 
     /// 메모 부분은 따로 누르는 버튼 → 블록 탭(빈 팝업)과 달리 팝업의 메모 칸에 커서를 둔 채로 연다.
     /// 안쪽 Button이 탭을 먼저 받고, 바깥 onTapGesture는 나머지 영역에서만 동작한다.
