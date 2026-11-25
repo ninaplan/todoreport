@@ -110,14 +110,16 @@ struct TimeBlockTodoPickerPopup: View {
                     .strikethrough(option.isCompleted, color: Color(.secondaryLabel))
                     .lineLimit(1)
                 Spacer(minLength: 8)
-                ForEach(option.placedStartMinutes, id: \.self) { minute in
-                    Text(TimeBlockLayout.date(day: request.day, minute: minute).formatted(date: .omitted, time: .shortened))
+                // 이미 넣은 할 일: 시작 시각 대신 그날 블록 시간 합계 하나 (블록이 여러 개여도 한 칸)
+                if option.isPlaced {
+                    Text(verbatim: option.placedTotalText)
                         .font(.caption)
                         .monospacedDigit()
                         .foregroundStyle(Color(.secondaryLabel))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .fixedSize()
                 }
             }
             .frame(height: Self.rowHeight)

@@ -26,6 +26,8 @@ struct TimeBlockEditPopup: View {
     /// 휠이 펼쳐진 시각 (한 번에 하나)
     @State private var expandedTime: TimeField?
     @FocusState private var isMemoFocused: Bool
+    /// 「블록 삭제」를 한 번 눌렀는지. 한 번 더 눌러야 지운다 (실수로 지우지 않게). 3초 지나면 원래대로
+    @State private var isConfirmingDelete = false
 
     private enum TimeField {
         case start
@@ -119,17 +121,12 @@ struct TimeBlockEditPopup: View {
                 }
                 .animation(.easeInOut(duration: 0.2), value: expandedTime)
                 Divider()
-                Button(role: .destructive, action: onDelete) {
-                    Text("블록 삭제")
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color(.systemRed))
+                deleteButton
             }
             .frame(maxWidth: 340)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            // 삭제 확인 때 빨간 아래 줄이 둥근 모서리 밖으로 나가지 않게
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
             .padding(.horizontal, 24)
         }
@@ -213,6 +210,36 @@ struct TimeBlockEditPopup: View {
                     .transition(.opacity)
             }
         }
+    }
+
+    // MARK: - 블록 삭제 (두 번 눌러서)
+
+    private var deleteButton: some View {
+        Button(role: .destructive) {
+            if isConfirmingDelete {
+                onDelete()
+            } else {
+                isConfirmingDelete = true
+            }
+        } label: {
+            Text(isConfirmingDelete ? "한 번 더 누르면 삭제" : "블록 삭제")
+                .fontWeight(isConfirmingDelete ? .semibold : .regular)
+                .foregroundStyle(isConfirmingDelete ? Color.white : Color(.systemRed))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(isConfirmingDelete ? Color(.systemRed) : Color.clear)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .animation(.easeOut(duration: 0.15), value: isConfirmingDelete)
+        .sensoryFeedback(.warning, trigger: isConfirmingDelete) { _, confirming in confirming }
+        // 3초 안에 다시 안 누르면 원래대로
+        .task(id: isConfirmingDelete) {
+            guard isConfirmingDelete else { return }
+            try? await Task.sleep(for: .seconds(3))
+            isConfirmingDelete = false
+        }
+        .accessibilityHint(isConfirmingDelete ? Text("다시 누르면 블록이 삭제됩니다.") : Text(verbatim: ""))
     }
 
     // MARK: - 메모 (할 일 메모 = 투두 탭·노션과 같음)

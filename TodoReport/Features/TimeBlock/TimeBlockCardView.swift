@@ -71,14 +71,15 @@ struct TimeBlockCardView: View {
         max(displayEndMinute - displayStartMinute, 1)
     }
 
-    /// 이어지는 블록끼리 붙어 보이지 않게 위아래 1.5pt씩 줄여 사이에 3pt 틈을 둔다 (시각 계산은 그대로)
-    /// 최소 높이(2pt)도 틈을 넘지 않게 → 많이 줄여도 블록 사이 3pt 틈이 남는다
+    /// 이어지는 블록끼리 붙어 보이지 않게 위아래 0.5pt씩 줄여 사이에 1pt 틈을 둔다 (시각 계산은 그대로)
+    /// 최소 높이(2pt)도 틈을 넘지 않게 → 많이 줄여도 블록 사이 1pt 틈이 남는다
     private var height: CGFloat {
         max(CGFloat(durationMinutes) * pointsPerMinute - TimeBlockLayout.blockGap, 2)
     }
 
-    /// 크기 기준은 분이 아니라 실제 높이 (확대·축소해도 글자가 넘치지 않게). 기본 크기에서 30분 = 33pt
-    private var isCompact: Bool { height < 32 }
+    /// 크기 기준은 분이 아니라 실제 높이 (확대·축소해도 글자가 넘치지 않게).
+    /// 보통 모양(위아래 여백 8)은 약 40pt가 필요해서, 그보다 낮으면 여백을 줄인 작은 모양으로 (기본 크기에서 40분 미만)
+    private var isCompact: Bool { height < 40 }
     /// 많이 줄여서 글자가 안 들어가면 색만 보여준다
     private var isTiny: Bool { height < 15 }
     /// 체크 원 크기 (짧은 블록은 작게)
@@ -153,7 +154,9 @@ struct TimeBlockCardView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, isCompact ? 2 : 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: isCompact ? .leading : .topLeading)
+        // minHeight 0: 내용이 카드보다 커도 카드(배경)가 블록 높이를 넘지 않게 → 위아래 틈을 덮지 않는다.
+        // (최소값을 안 주면 내용 크기만큼 커져서 위아래로 삐져나왔다)
+        .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: isCompact ? .leading : .topLeading)
         .clipped()
         .background { cardBackground }
         .overlay(alignment: .bottomTrailing) {

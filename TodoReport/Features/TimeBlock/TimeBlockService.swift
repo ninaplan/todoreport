@@ -47,15 +47,18 @@ final class TimeBlockService {
         let dayStart = Calendar.current.startOfDay(for: day)
         let todos = await TodoService.shared.fetchTodos(for: dayStart)
         var startsByTodo: [String: [Int]] = [:]
+        var minutesByTodo: [String: Int] = [:]
         for block in fetchBlocks(day: dayStart) {
             startsByTodo[block.todoId, default: []].append(block.startMinute)
+            minutesByTodo[block.todoId, default: 0] += block.durationMinutes
         }
         return todos.map { todo in
             TimeBlockTodoOption(
                 id: todo.id,
                 title: todo.title,
                 isCompleted: todo.isCompleted,
-                placedStartMinutes: (startsByTodo[todo.id] ?? []).sorted()
+                placedStartMinutes: (startsByTodo[todo.id] ?? []).sorted(),
+                placedTotalMinutes: minutesByTodo[todo.id] ?? 0
             )
         }
     }

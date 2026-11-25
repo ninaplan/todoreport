@@ -6414,6 +6414,26 @@
           }
         }
       }
+    },
+    "한 번 더 누르면 삭제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Again to Delete"
+          }
+        }
+      }
+    },
+    "다시 누르면 블록이 삭제됩니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap again to delete the block."
+          }
+        }
+      }
     }
   },
   "version" : "1.2"
