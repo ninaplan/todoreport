@@ -45,6 +45,13 @@ struct TimeBlockView: View {
             .alert(viewModel.errorMessage, isPresented: errorAlertBinding) {
                 Button("확인", role: .cancel) { viewModel.dismissErrorAlert() }
             }
+            // 진행 중 블록 완료 → 일찍 끝났으면 종료를 지금으로 줄이기
+            .alert(finishEarlyTitle, isPresented: finishEarlyAlertBinding) {
+                Button("지금으로 바꾸기") { viewModel.confirmFinishEarly() }
+                Button("그대로 두기", role: .cancel) { viewModel.cancelFinishEarly() }
+            } message: {
+                Text("블록이 지금까지로 줄어들고, 집중한 시간도 그만큼 계산됩니다.")
+            }
         }
         .overlay {
             // 블록 탭 → 시간 편집 팝업, 빈 칸 탭 → 할 일 고르기 팝업 (둘 다 시트 대신)
@@ -342,6 +349,18 @@ struct TimeBlockView: View {
         Binding(
             get: { viewModel.showPaywall },
             set: { if !$0 { viewModel.dismissPaywall() } }
+        )
+    }
+
+    private var finishEarlyTitle: String {
+        let time = viewModel.finishEarlyTime.formatted(date: .omitted, time: .shortened)
+        return String(localized: "종료 시각을 지금(\(time))으로 바꿀까요?")
+    }
+
+    private var finishEarlyAlertBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.showFinishEarlyAlert },
+            set: { if !$0 { viewModel.dismissFinishEarlyAlert() } }
         )
     }
 

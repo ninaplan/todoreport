@@ -120,6 +120,32 @@ final class TimeBlockService {
 
     // MARK: - 할 일 (기존 TodoService 경유)
 
+    /// 진행 중 블록을 일찍 끝낸다: 종료를 지금(분 단위)으로 줄이고, 원래 종료는 `plannedEndMinute`에 남긴 뒤 완료.
+    /// 이미 줄인 적이 있으면 처음 계획한 종료를 그대로 둔다. 시작한 지 1분이 안 됐으면 1분짜리로
+    func finishBlockEarly(blockId: String, now: Date = .now) async throws {
+        guard let item = fetchItem(id: blockId) else { return }
+        let nowMinute = TimeBlockLayout.minutesSince(day: item.day, until: now)
+        let newEnd = max(item.startMinute + 1, nowMinute)
+        if newEnd < item.endMinute {
+            if item.plannedEndMinute == nil {
+                item.plannedEndMinute = item.endMinute
+            }
+            item.endMinute = newEnd
+            try saveContext()
+        }
+        try await toggleBlockCompletion(blockId: blockId)
+    }
+
+    /// 완료를 푼 블록이 일찍 끝내 줄인 블록이면 원래 길이로. 비운 자리에 다른 블록이 들어와 겹치면 줄인 길이 그대로
+    /// (그때는 원래 계획 값을 남겨 둔다). 저장은 부르는 쪽에서
+    private func restorePlannedEndIfPossible(_ item: TimeBlockItem) {
+        guard !item.isCompleted, let planned = item.plannedEndMinute, planned > item.endMinute else { return }
+        let others = fetchBlocks(day: item.day).filter { $0.id != item.id }
+        guard !others.contains(where: { $0.overlaps(start: item.startMinute, end: planned) }) else { return }
+        item.endMinute = planned
+        item.plannedEndMinute = nil
+    }
+
     /// 블록 체크 원. 그 블록만 완료/취소하고, 그날 이 할 일의 블록이 모두 완료면 할 일도 완료한다.
     /// 할 일 완료·취소는 투두 탭 체크와 같은 경로: 로컬 저장 → 알림 재예약 → SyncQueue(노션) → 위젯
     func toggleBlockCompletion(blockId: String) async throws {
@@ -145,6 +171,7 @@ final class TimeBlockService {
         } else {
             item.isCompleted = true
         }
+        restorePlannedEndIfPossible(item)
         try saveContext()
 
         let allDone = !siblings.isEmpty && siblings.allSatisfy(\.isCompleted)
@@ -364,12 +391,22 @@ final class TimeBlockService {
         }
         guard !staleTodoIds.isEmpty else { return blocks }
         let stale = Set(staleTodoIds)
+        var updatedById: [String: TimeBlock] = [:]
         for block in blocks where stale.contains(block.todoId) {
-            fetchItem(id: block.id)?.isCompleted = false
+            guard let item = fetchItem(id: block.id) else { continue }
+            item.isCompleted = false
+            // 투두 탭에서 완료를 풀었을 때도 일찍 끝내 줄인 블록은 원래 길이로
+            restorePlannedEndIfPossible(item)
+            updatedById[block.id] = TimeBlock(item: item)
         }
         try? context.save()
+        // 완료가 풀린 블록은 알림을 다시 맞춘다 (원래 길이로 돌아왔으면 종료 알림도 그 시각으로)
+        for id in updatedById.keys {
+            if let item = fetchItem(id: id) { syncAlarm(for: item) }
+        }
         return blocks.map { block in
             guard stale.contains(block.todoId) else { return block }
+            if let updated = updatedById[block.id] { return updated }
             var cleared = block
             cleared.isCompleted = false
             return cleared

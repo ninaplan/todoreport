@@ -19,6 +19,9 @@ final class TimeBlockItem {
     var endAlarmEnabled: Bool = true
     /// 이 블록만 완료 (한 할 일을 여러 블록에 넣었을 때 블록마다 체크). 그날 블록을 모두 체크하면 할 일도 완료
     var isCompleted: Bool = false
+    /// 진행 중에 일찍 끝내 종료를 지금으로 줄였을 때 원래 계획한 종료 분. 줄인 적 없으면 nil
+    /// (완료를 풀면 이 값으로 되돌림, 나중 「계획 vs 실제」용)
+    var plannedEndMinute: Int? = nil
     var createdAt: Date
 
     init(

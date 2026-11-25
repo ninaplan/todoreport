@@ -38,6 +38,12 @@ final class TimeBlockViewModel {
     // 블록 탭 → 시간 편집 시트
     private(set) var editingEntry: TimeBlockEntry?
 
+    // 진행 중 블록 완료 → 「종료 시각을 지금으로 바꿀까요?」
+    private(set) var showFinishEarlyAlert = false
+    private(set) var finishEarlyEntry: TimeBlockEntry?
+    /// 확인 창에 보여 줄 지금 시각 (창을 연 순간 기준)
+    private(set) var finishEarlyTime: Date = .now
+
     // 블록 안 메모 바로 입력 (할 일 메모)
     private(set) var memoEditingBlockId: String?
     private(set) var memoDraft = ""
@@ -455,6 +461,53 @@ final class TimeBlockViewModel {
     // MARK: - 완료 (블록 체크 원)
 
     func toggleCompletion(_ entry: TimeBlockEntry) {
+        // 진행 중인 블록을 완료하면 일찍 끝난 것 → 종료를 지금으로 줄일지 묻는다
+        let now = Date.now
+        if entry.status(now: now) == .current {
+            finishEarlyEntry = entry
+            finishEarlyTime = now
+            showFinishEarlyAlert = true
+            return
+        }
+        completeBlock(entry)
+    }
+
+    /// 「지금으로 바꾸기」: 종료를 지금(분 단위)으로 줄이고 완료
+    func confirmFinishEarly() {
+        guard let entry = finishEarlyEntry else { return }
+        let now = finishEarlyTime
+        clearFinishEarly()
+        Task {
+            do {
+                try await service.finishBlockEarly(blockId: entry.id, now: now)
+                await reload()
+            } catch {
+                presentError(error)
+            }
+        }
+    }
+
+    /// 「그대로 두기」: 길이는 그대로 두고 완료만
+    func cancelFinishEarly() {
+        guard let entry = finishEarlyEntry else {
+            clearFinishEarly()
+            return
+        }
+        clearFinishEarly()
+        completeBlock(entry)
+    }
+
+    /// 창이 닫힐 때 (버튼 동작과 순서가 바뀌어도 안전하게 창만 닫고, 고른 블록은 버튼 동작이 쓰고 비운다)
+    func dismissFinishEarlyAlert() {
+        showFinishEarlyAlert = false
+    }
+
+    private func clearFinishEarly() {
+        showFinishEarlyAlert = false
+        finishEarlyEntry = nil
+    }
+
+    private func completeBlock(_ entry: TimeBlockEntry) {
         Task {
             do {
                 try await service.toggleBlockCompletion(blockId: entry.id)

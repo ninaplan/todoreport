@@ -6384,6 +6384,46 @@
           }
         }
       }
+    },
+    "종료 시각을 지금(%@)으로 바꿀까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End the block now (%@)?"
+          }
+        }
+      }
+    },
+    "블록이 지금까지로 줄어들고, 집중한 시간도 그만큼 계산됩니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The block will be shortened to now, and your focus time will count only up to now."
+          }
+        }
+      }
+    },
+    "지금으로 바꾸기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End Now"
+          }
+        }
+      }
+    },
+    "그대로 두기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Time"
+          }
+        }
+      }
     }
   },
   "version" : "1.2"
