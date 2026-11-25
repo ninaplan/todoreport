@@ -37,7 +37,8 @@ final class TimeBlockService {
                 categoryColorHex: category?.colorHex,
                 categoryIcon: category?.icon,
                 categoryId: todo.categoryId,
-                memo: todo.memo
+                memo: todo.memo,
+                recurrenceId: todo.recurrenceId
             )
         }
     }
@@ -104,6 +105,33 @@ final class TimeBlockService {
         item.endAlarmEnabled = endEnabled
         try saveContext()
         syncAlarm(for: item)
+    }
+
+    /// 할 일까지 삭제. 할 일 삭제는 투두 탭과 같은 경로(`TodoService.deleteTodo` → 노션 삭제 큐·알림 취소),
+    /// 「이후 모두」는 투두 탭과 같이 `capSeriesEndDate`(시리즈를 이 날 전에 끝내고 이 날부터 지움).
+    /// 이 할 일의 블록은 모든 날짜에서 지운다 (다른 날 블록 알림이 남지 않게)
+    func deleteTodo(todoId: String, scope: TimeBlockTodoDeleteScope) async throws {
+        if PlannerService.shared.selectedPlanner?.isReadOnly == true {
+            throw TimeBlockError.readOnlyPlanner
+        }
+        guard let todo = fetchTodo(id: todoId) else { return }
+        try deleteBlocks(ofTodo: todoId)
+        if scope == .allFuture, let seriesId = todo.recurrenceId, let date = todo.date {
+            await RecurringTodoManager.shared.capSeriesEndDate(seriesId: seriesId, beforeDate: date)
+        } else {
+            try await TodoService.shared.deleteTodo(id: todoId)
+        }
+        await refreshWidgetIfToday(todo.date)
+    }
+
+    private func deleteBlocks(ofTodo todoId: String) throws {
+        let descriptor = FetchDescriptor<TimeBlockItem>(predicate: #Predicate { $0.todoId == todoId })
+        let items = (try? context.fetch(descriptor)) ?? []
+        guard !items.isEmpty else { return }
+        let ids = items.map(\.id)
+        items.forEach { context.delete($0) }
+        try saveContext()
+        TimeBlockNotificationManager.shared.cancel(blockIds: ids)
     }
 
     func deleteBlock(id: String) throws {

@@ -216,8 +216,10 @@ final class CategoryNotionSync {
                 .filter { $0.status != .archived }
                 .map(\.colorHex)
         )
+        // 플래너가 고른 색 세트 안에서
+        let colorSetId = PlannerService.shared.categoryColorSetId(plannerId: plannerId)
         for (offset, option) in toImport.enumerated() {
-            let colorHex = Category.pickColor(used: usedColors)
+            let colorHex = Category.pickColor(used: usedColors, setId: colorSetId)
             usedColors.insert(colorHex)
             importNotionOnlyOption(
                 option,

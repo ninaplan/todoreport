@@ -163,6 +163,7 @@ final class PlannerService {
         }
 
         migrateGlobalNotionContextIfNeeded()
+        migrateCategoryColorSetDefaultIfNeeded()
         AppGroupUserDefaults.syncTodoHideCompletedFromStandard()
         if let savedId = AppGroupUserDefaults.selectedPlannerId(),
            store.contains(where: { $0.id == savedId }) {
@@ -280,6 +281,39 @@ final class PlannerService {
         context.insert(connection)
         try context.save()
         return connection.id
+    }
+
+    // MARK: - 카테고리 색 세트 (플래너별, 예전 팔레트 세트 칸 `categoryPaletteSetId`를 다시 씀)
+
+    func categoryColorSetId(plannerId: String?) -> String {
+        guard let plannerId else { return CategoryColorSet.defaultId }
+        let descriptor = FetchDescriptor<PlannerItem>(predicate: #Predicate { $0.id == plannerId })
+        return CategoryColorSet.normalizedId((try? context.fetch(descriptor).first)?.categoryPaletteSetId)
+    }
+
+    /// 세트 고르기가 생기기 전(앱 기본 = 「기본」) 플래너를 한 번 앱 기본(노션)으로. 사용자가 고른 적이 없으므로 안전
+    private func migrateCategoryColorSetDefaultIfNeeded() {
+        let key = "categoryColorSetDefaultMigratedV1"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        let items = (try? context.fetch(FetchDescriptor<PlannerItem>())) ?? []
+        for item in items where item.categoryPaletteSetId == CategoryColorSet.basicId
+            || !CategoryColorSet.all.contains(where: { $0.id == item.categoryPaletteSetId }) {
+            item.categoryPaletteSetId = CategoryColorSet.defaultId
+        }
+        do {
+            try context.save()
+            UserDefaults.standard.set(true, forKey: key)
+        } catch {
+            return
+        }
+    }
+
+    func setCategoryColorSetId(_ setId: String, plannerId: String?) {
+        guard let plannerId else { return }
+        let descriptor = FetchDescriptor<PlannerItem>(predicate: #Predicate { $0.id == plannerId })
+        guard let item = try? context.fetch(descriptor).first, item.categoryPaletteSetId != setId else { return }
+        item.categoryPaletteSetId = setId
+        try? context.save()
     }
 
     func otherPlannersSharing(connectionId: String, excluding plannerId: String) -> Int {

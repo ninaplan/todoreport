@@ -13,6 +13,8 @@ struct TimeBlockEntry: Identifiable, Equatable {
     var categoryId: String? = nil
     /// 할 일 메모 (투두 탭·노션과 같은 메모). 블록 안에 보여 준다
     var memo: String? = nil
+    /// 반복 할 일이면 시리즈 id (삭제할 때 「이후 모두」를 물을지)
+    var recurrenceId: String? = nil
 
     var id: String { block.id }
 

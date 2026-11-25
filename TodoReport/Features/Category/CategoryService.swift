@@ -57,14 +57,16 @@ struct Category: Identifiable, Codable {
         return CategoryIconName.make(base: base, filled: true)
     }
 
-    /// 미사용 색 우선. 기본색이 모두 쓰이면 baseColors 내 랜덤.
-    static func pickColor(used: Set<String>) -> String {
+    /// 미사용 색 우선. 세트 색이 모두 쓰이면 세트 안에서 랜덤. 세트가 비어 있으면(커스텀이 빈 경우) 기본 세트
+    static func pickColor(used: Set<String>, setId: String = CategoryColorSet.defaultId) -> String {
+        var palette = CategoryColorSet.colors(for: setId)
+        if palette.isEmpty { palette = CategoryColorSet.colors(for: CategoryColorSet.defaultId) }
         let usedNormalized = Set(used.map { $0.uppercased() })
-        let unused = baseColors.filter { !usedNormalized.contains($0.uppercased()) }
+        let unused = palette.filter { !usedNormalized.contains($0.uppercased()) }
         if let pick = unused.randomElement() {
             return pick
         }
-        return baseColors.randomElement() ?? baseColors[0]
+        return palette.randomElement() ?? baseColors[0]
     }
 
     /// 이름으로 추정한 아이콘, 없으면 겹치지 않는 무작위 (추정한 아이콘은 겹쳐도 그대로 쓴다)
@@ -214,6 +216,27 @@ final class CategoryService {
         await refreshStore()
         let saved = cat
         await CategoryNotionSync.shared.onCategorySaved(saved)
+    }
+
+    /// 세트를 바꿀 때 「모두 이 세트로」: 옛 세트 색을 쓰던 카테고리를 새 세트의 같은 자리 색으로 (직접 고른 색은 그대로).
+    /// 새 세트 색이 더 적으면(커스텀) 돌려 가며 쓴다. 바뀐 개수를 돌려준다
+    @discardableResult
+    func recolorCategories(plannerId: String, from oldColors: [String], to newColors: [String]) async -> Int {
+        guard !newColors.isEmpty else { return 0 }
+        let upperOld = oldColors.map { $0.uppercased() }
+        let items = (try? context.fetch(FetchDescriptor<CategoryItem>())) ?? []
+        var changed = 0
+        for item in items where item.plannerId == plannerId {
+            guard let index = upperOld.firstIndex(of: item.colorHex.uppercased()) else { continue }
+            let newHex = newColors[index % newColors.count]
+            guard newHex.uppercased() != item.colorHex.uppercased() else { continue }
+            item.colorHex = newHex
+            changed += 1
+        }
+        guard changed > 0 else { return 0 }
+        try? context.save()
+        await refreshStore()
+        return changed
     }
 
     func archiveCategory(id: String) async throws {

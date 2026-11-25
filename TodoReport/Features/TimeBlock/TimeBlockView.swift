@@ -70,6 +70,7 @@ struct TimeBlockView: View {
                     focusesMemo: viewModel.editorFocusesMemo,
                     onSave: { viewModel.saveEdit($0) },
                     onDelete: { viewModel.deleteEditingBlock() },
+                    onDeleteTodo: { viewModel.deleteEditingTodo($0) },
                     onClose: { viewModel.dismissEditor() }
                 )
                 .id(entry.id)

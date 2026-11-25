@@ -585,6 +585,22 @@ final class TimeBlockViewModel {
         }
     }
 
+    /// 팝업 「할 일까지 삭제」
+    func deleteEditingTodo(_ scope: TimeBlockTodoDeleteScope) {
+        guard let entry = editingEntry else { return }
+        let todoId = entry.block.todoId
+        dismissEditor()
+        entries.removeAll { $0.block.todoId == todoId }
+        Task {
+            do {
+                try await service.deleteTodo(todoId: todoId, scope: scope)
+            } catch {
+                presentError(error)
+            }
+            await reload()
+        }
+    }
+
     // MARK: - 결제 화면
 
     func requestPaywall() {

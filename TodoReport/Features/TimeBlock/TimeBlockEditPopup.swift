@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 블록을 눌렀을 때 뜨는 팝업 (B안).
 /// 위: ✕ · 할 일 이름(바로 고치기) · ✓ / 시작·종료 줄: [종 | 시각] 알약, 시각을 누르면 아래에 휠
-/// / 카테고리 칩 / 메모 (여러 줄) / 블록 삭제 (할 일은 지우지 않음)
+/// / 카테고리 칩 / 메모 (여러 줄) / 삭제 (블록만 또는 할 일까지)
 /// 이름·카테고리·메모는 할 일 자체를 바꾼다 → 투두 탭·노션에도 반영
 struct TimeBlockEditPopup: View {
     let entry: TimeBlockEntry
@@ -14,6 +14,8 @@ struct TimeBlockEditPopup: View {
     var focusesMemo: Bool = false
     let onSave: (TimeBlockEditResult) -> Void
     let onDelete: () -> Void
+    /// 할 일까지 삭제 (반복이면 이번 것만 / 이후 모두)
+    let onDeleteTodo: (TimeBlockTodoDeleteScope) -> Void
     let onClose: () -> Void
 
     @State private var start: Date
@@ -26,8 +28,8 @@ struct TimeBlockEditPopup: View {
     /// 휠이 펼쳐진 시각 (한 번에 하나)
     @State private var expandedTime: TimeField?
     @FocusState private var isMemoFocused: Bool
-    /// 「블록 삭제」를 한 번 눌렀는지. 한 번 더 눌러야 지운다 (실수로 지우지 않게). 3초 지나면 원래대로
-    @State private var isConfirmingDelete = false
+    /// 삭제 선택 창 (블록만 / 할 일까지)
+    @State private var showDeleteOptions = false
 
     private enum TimeField {
         case start
@@ -41,6 +43,7 @@ struct TimeBlockEditPopup: View {
         focusesMemo: Bool = false,
         onSave: @escaping (TimeBlockEditResult) -> Void,
         onDelete: @escaping () -> Void,
+        onDeleteTodo: @escaping (TimeBlockTodoDeleteScope) -> Void,
         onClose: @escaping () -> Void
     ) {
         self.entry = entry
@@ -49,6 +52,7 @@ struct TimeBlockEditPopup: View {
         self.focusesMemo = focusesMemo
         self.onSave = onSave
         self.onDelete = onDelete
+        self.onDeleteTodo = onDeleteTodo
         self.onClose = onClose
         _start = State(initialValue: TimeBlockLayout.date(day: entry.block.day, minute: entry.block.startMinute))
         _end = State(initialValue: TimeBlockLayout.date(day: entry.block.day, minute: entry.block.endMinute))
@@ -120,12 +124,10 @@ struct TimeBlockEditPopup: View {
                     if expandedTime != nil { expandedTime = nil }
                 }
                 .animation(.easeInOut(duration: 0.2), value: expandedTime)
-                Divider()
                 deleteButton
             }
             .frame(maxWidth: 340)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            // 삭제 확인 때 빨간 아래 줄이 둥근 모서리 밖으로 나가지 않게
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
             .padding(.horizontal, 24)
@@ -212,34 +214,34 @@ struct TimeBlockEditPopup: View {
         }
     }
 
-    // MARK: - 블록 삭제 (두 번 눌러서)
+    // MARK: - 삭제 (블록만 / 할 일까지)
 
+    /// 작은 「삭제」 글자 → iOS 선택 창에서 블록만 / 할 일까지 고른다 (선택 창이 실수 방지 확인 역할도 함)
     private var deleteButton: some View {
         Button(role: .destructive) {
-            if isConfirmingDelete {
-                onDelete()
-            } else {
-                isConfirmingDelete = true
-            }
+            showDeleteOptions = true
         } label: {
-            Text(isConfirmingDelete ? "한 번 더 누르면 삭제" : "블록 삭제")
-                .fontWeight(isConfirmingDelete ? .semibold : .regular)
-                .foregroundStyle(isConfirmingDelete ? Color.white : Color(.systemRed))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(isConfirmingDelete ? Color(.systemRed) : Color.clear)
+            Text("삭제")
+                .font(.subheadline)
+                .foregroundStyle(Color(.systemRed))
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .animation(.easeOut(duration: 0.15), value: isConfirmingDelete)
-        .sensoryFeedback(.warning, trigger: isConfirmingDelete) { _, confirming in confirming }
-        // 3초 안에 다시 안 누르면 원래대로
-        .task(id: isConfirmingDelete) {
-            guard isConfirmingDelete else { return }
-            try? await Task.sleep(for: .seconds(3))
-            isConfirmingDelete = false
+        .padding(.bottom, 8)
+        .confirmationDialog("무엇을 삭제할까요?", isPresented: $showDeleteOptions, titleVisibility: .visible) {
+            Button("블록만 삭제", role: .destructive) { onDelete() }
+            if entry.recurrenceId != nil {
+                Button("이 할 일만 삭제", role: .destructive) { onDeleteTodo(.single) }
+                Button("이후 반복 모두 삭제", role: .destructive) { onDeleteTodo(.allFuture) }
+            } else {
+                Button("할 일까지 삭제", role: .destructive) { onDeleteTodo(.single) }
+            }
+            Button("취소", role: .cancel) {}
+        } message: {
+            Text("할 일을 삭제하면 투두 탭과 노션에서도 지워집니다.")
         }
-        .accessibilityHint(isConfirmingDelete ? Text("다시 누르면 블록이 삭제됩니다.") : Text(verbatim: ""))
     }
 
     // MARK: - 메모 (할 일 메모 = 투두 탭·노션과 같음)

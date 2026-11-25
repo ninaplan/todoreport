@@ -66,6 +66,21 @@ struct CategoryView: View {
         } message: {
             Text("노션과 연동된 카테고리는 인터넷에 연결된 상태에서 추가하거나 삭제할 수 있어요.")
         }
+        // 다른 색 세트의 색으로 저장했을 때: 이 플래너 카테고리 색을 모두 그 세트로?
+        .alert("이 플래너 카테고리 색을 모두 이 세트로 바꿀까요?", isPresented: recolorAlertBinding) {
+            Button("바꾸기") { Task { await viewModel.confirmRecolor() } }
+            Button("이 카테고리만", role: .cancel) { viewModel.cancelRecolor() }
+        } message: {
+            Text("이전 세트 색을 쓰던 카테고리만 같은 자리 색으로 바뀌고, 직접 고른 색은 그대로입니다.")
+        }
+    }
+
+    private var recolorAlertBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.showRecolorAlert },
+            // 창만 닫는다 (버튼 동작보다 먼저 불려도 「바꾸기」가 쓸 값을 지우지 않게)
+            set: { if !$0 { viewModel.dismissRecolorAlert() } }
+        )
     }
 
     @ViewBuilder
@@ -118,69 +133,6 @@ struct CategoryView: View {
     }
 }
 
-// MARK: - 색상 스와치 + ColorPicker
-
-private struct ColorSwatchPicker: View {
-    let selectedHex: String
-    let onSelect: (String) -> Void
-
-    private let columns = Array(repeating: GridItem(.flexible()), count: 6)
-    /// 칩 11개 + 맨 끝 칸은 직접 고르기 (예전 「직접 선택」 줄 대신). 검정 등 나머지 색은 직접 고르기로
-    private var presetHexes: [String] { Array(Category.baseColors.prefix(11)) }
-
-    private var isCustomSelected: Bool {
-        !presetHexes.contains { $0.uppercased() == selectedHex.uppercased() }
-    }
-
-    var body: some View {
-        LazyVGrid(columns: columns, spacing: 14) {
-            ForEach(presetHexes, id: \.self) { hex in
-                Button {
-                    onSelect(hex)
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(Color(hex: hex))
-                            .frame(width: 36, height: 36)
-                        if selectedHex.uppercased() == hex.uppercased() {
-                            Image(systemName: "checkmark")
-                                .font(.caption.bold())
-                                .foregroundStyle(Color(hex: hex).readableForeground)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-            customColorChip
-        }
-        .padding(.vertical, 4)
-    }
-
-    /// 맨 끝 칸: 누르면 색 고르기 창. 칩에 없는 색을 골라 두면 체크 표시
-    private var customColorChip: some View {
-        ZStack {
-            ColorPicker(
-                "직접 선택",
-                selection: Binding(
-                    get: { Color(hex: selectedHex) },
-                    set: { onSelect($0.hexString) }
-                ),
-                supportsOpacity: false
-            )
-            .labelsHidden()
-            .scaleEffect(36.0 / 28.0)
-            if isCustomSelected {
-                Image(systemName: "checkmark")
-                    .font(.caption.bold())
-                    .foregroundStyle(Color(hex: selectedHex).readableForeground)
-                    .allowsHitTesting(false)
-            }
-        }
-        .frame(width: 36, height: 36)
-        .accessibilityLabel(Text("직접 선택"))
-    }
-}
-
 // MARK: - 카테고리 배지 (TodoView에서도 사용)
 
 struct CategoryBadge: View {
@@ -194,7 +146,8 @@ struct CategoryBadge: View {
                 .frame(width: size, height: size)
             Image(systemName: CategoryIconName.resolved(category.icon))
                 .font(.system(size: size * 0.44, weight: .semibold))
-                .foregroundStyle(.white)
+                // 파스텔처럼 밝은 색 위에서도 보이게 배경에 맞춰 흰색/진한 색
+                .foregroundStyle(Color(hex: category.colorHex).readableForeground)
         }
     }
 }
@@ -270,9 +223,15 @@ private struct CategoryEditSheet: View {
                 }
 
                 Section("색상") {
-                    ColorSwatchPicker(selectedHex: viewModel.editColorHex) { hex in
-                        viewModel.selectColor(hex)
-                    }
+                    CategoryColorSetPicker(
+                        selectedHex: viewModel.editColorHex,
+                        setId: viewModel.editColorSetTab,
+                        onSelectSet: { viewModel.selectColorSetTab($0) },
+                        onSelect: { viewModel.selectColor($0) },
+                        onAddCustom: { viewModel.addCustomColor($0) },
+                        onRemoveCustom: { viewModel.removeCustomColor($0) },
+                        removedHexes: viewModel.removedCustomHexes
+                    )
                 }
 
                 Section("아이콘") {

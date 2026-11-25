@@ -1131,6 +1131,16 @@
         }
       }
     },
+    "꽉 차면 가장 오래된 색이 빠집니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When full, the oldest color is removed."
+          }
+        }
+      }
+    },
     "끝나는 시각은 시작 시각보다 늦어야 합니다." : {
       "localizations" : {
         "en" : {
@@ -1429,6 +1439,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Do Tomorrow"
+          }
+        }
+      }
+    },
+    "노션" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notion"
           }
         }
       }
@@ -2908,16 +2928,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Block Length"
-          }
-        }
-      }
-    },
-    "블록 삭제" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete Block"
           }
         }
       }
@@ -5102,16 +5112,6 @@
         }
       }
     },
-    "직접 선택" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Custom"
-          }
-        }
-      }
-    },
     "직접 입력" : {
       "localizations" : {
         "en" : {
@@ -6415,22 +6415,192 @@
         }
       }
     },
-    "한 번 더 누르면 삭제" : {
+    "모던" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap Again to Delete"
+            "value" : "Modern"
           }
         }
       }
     },
-    "다시 누르면 블록이 삭제됩니다." : {
+    "무엇을 삭제할까요?" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap again to delete the block."
+            "value" : "What do you want to delete?"
+          }
+        }
+      }
+    },
+    "바꾸기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change"
+          }
+        }
+      }
+    },
+    "블록만 삭제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Block Only"
+          }
+        }
+      }
+    },
+    "빼려는 색을 누르세요." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap a color to remove it."
+          }
+        }
+      }
+    },
+    "색 세트" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Color Set"
+          }
+        }
+      }
+    },
+    "이 카테고리만" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only This Category"
+          }
+        }
+      }
+    },
+    "이 플래너 카테고리 색을 모두 이 세트로 바꿀까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change this planner's category colors to this set?"
+          }
+        }
+      }
+    },
+    "이 할 일만 삭제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete This To-Do Only"
+          }
+        }
+      }
+    },
+    "이전 세트 색을 쓰던 카테고리만 같은 자리 색으로 바뀌고, 직접 고른 색은 그대로입니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only categories using the previous set's colors change to the matching colors. Colors you picked yourself stay the same."
+          }
+        }
+      }
+    },
+    "이후 반복 모두 삭제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete All Future Repeats"
+          }
+        }
+      }
+    },
+    "커스텀" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom"
+          }
+        }
+      }
+    },
+    "커스텀 색 추가" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Custom Color"
+          }
+        }
+      }
+    },
+    "커스텀에서 빼기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove from Custom"
+          }
+        }
+      }
+    },
+    "클래식" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Classic"
+          }
+        }
+      }
+    },
+    "파스텔" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pastel"
+          }
+        }
+      }
+    },
+    "할 일까지 삭제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Block and To-Do"
+          }
+        }
+      }
+    },
+    "할 일을 삭제하면 투두 탭과 노션에서도 지워집니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleting the to-do also removes it from the To-Do tab and Notion."
+          }
+        }
+      }
+    },
+    "＋를 눌러 색을 모아 두세요." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap ＋ to collect colors."
           }
         }
       }

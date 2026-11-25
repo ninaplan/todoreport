@@ -40,7 +40,7 @@ extension PlannerItem {
     }
 
     static func from(_ planner: Planner) -> PlannerItem {
-        PlannerItem(
+        let item = PlannerItem(
             id: planner.id, name: planner.name, colorHex: planner.colorHex,
             isNotionConnected: planner.isNotionConnected,
             notionTodoDBId: planner.notionTodoDBId,
@@ -57,5 +57,8 @@ extension PlannerItem {
             isReadOnly: planner.isReadOnly,
             sortOrder: planner.sortOrder
         )
+        // 새 플래너의 카테고리 색 세트는 앱 기본(노션)
+        item.categoryPaletteSetId = CategoryColorSet.defaultId
+        return item
     }
 }
