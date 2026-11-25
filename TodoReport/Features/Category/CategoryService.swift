@@ -48,10 +48,13 @@ struct Category: Identifiable, Codable {
     ]
 
     /// 같은 플래너에서 아직 안 쓴 아이콘 중 랜덤. 모두 쓰였으면 전체에서 랜덤.
-    /// 새 카테고리가 전부 태그 모양으로 보이지 않게 하기 위함.
+    /// 새 카테고리가 전부 태그 모양으로 보이지 않게 하기 위함. 채움·라인은 같은 아이콘으로 본다 (`house` = `house.fill`)
+    /// 새 카테고리 기본 모양은 채움
     static func randomIcon(excluding used: Set<String>) -> String {
-        let unused = iconPalette.filter { !used.contains($0) && $0 != "tag.fill" }
-        return unused.randomElement() ?? iconPalette.randomElement() ?? "tag.fill"
+        let usedBase = Set(used.map(CategoryIconName.baseName))
+        let unused = iconPalette.filter { !usedBase.contains($0) && $0 != "tag" }
+        let base = unused.randomElement() ?? iconPalette.randomElement() ?? "tag"
+        return CategoryIconName.make(base: base, filled: true)
     }
 
     /// 미사용 색 우선. 기본색이 모두 쓰이면 baseColors 내 랜덤.
@@ -64,31 +67,68 @@ struct Category: Identifiable, Codable {
         return baseColors.randomElement() ?? baseColors[0]
     }
 
-    static let iconPalette: [String] = [
-        // 업무/생산성
-        "briefcase.fill", "desktopcomputer", "laptopcomputer", "doc.text.fill", "chart.line.uptrend.xyaxis",
-        "clock.fill", "calendar", "tray.full.fill", "paperplane.fill", "flag.fill",
-        // 학습
-        "book.fill", "pencil", "graduationcap.fill", "brain.head.profile", "note.text",
-        "magnifyingglass", "lightbulb.fill", "newspaper.fill",
-        // 건강/운동
-        "heart.fill", "figure.run", "dumbbell.fill", "bicycle", "leaf.fill",
-        "cross.fill", "flame.fill", "drop.fill",
-        // 식생활
-        "fork.knife", "cup.and.saucer.fill", "cart.fill",
-        // 생활/이동
-        "house.fill", "car.fill", "airplane", "bag.fill", "creditcard.fill",
-        // 취미/문화
-        "music.note", "headphones", "camera.fill", "paintbrush.fill", "gamecontroller.fill",
-        "tv.fill", "film.fill", "theatermasks.fill",
-        // 소셜/기타
-        "star.fill", "tag.fill", "gift.fill", "bell.fill", "person.2.fill",
-        "globe", "map.fill", "location.fill", "lock.fill",
-        // 집안일
-        "flame", "refrigerator", "cup.and.saucer", "washer", "dryer",
-        "bed.double", "trash", "arrow.3.trianglepath", "cart", "pawprint",
-        "leaf", "shower", "lightbulb", "figure.and.child.holdinghands"
+    /// 이름으로 추정한 아이콘, 없으면 겹치지 않는 무작위 (추정한 아이콘은 겹쳐도 그대로 쓴다)
+    static func suggestedIcon(for name: String, excluding used: Set<String>) -> String {
+        if let guessed = CategoryIconGuesser.icon(for: name) {
+            return CategoryIconName.make(base: guessed, filled: true)
+        }
+        return randomIcon(excluding: used)
+    }
+
+    /// 아이콘 고르기 페이지 (분야별, 한 페이지 최대 18개 = 3줄 × 6칸).
+    /// 이름은 라인 기본 이름. 채움·라인은 카테고리마다 고른다 (`CategoryIconName`).
+    static let iconGroups: [CategoryIconGroup] = [
+        CategoryIconGroup(id: "study", title: "공부", icons: [
+            "book", "books.vertical", "text.book.closed", "character.book.closed", "pencil", "pencil.and.ruler",
+            "graduationcap", "brain.head.profile", "note.text", "function", "magnifyingglass", "lightbulb",
+        ]),
+        CategoryIconGroup(id: "work", title: "업무", icons: [
+            "briefcase", "desktopcomputer", "laptopcomputer", "keyboard", "doc.text", "folder",
+            "list.clipboard", "checklist", "tray.full", "paperplane", "envelope", "phone",
+            "bubble.left.and.bubble.right", "printer", "chart.line.uptrend.xyaxis", "newspaper",
+        ]),
+        CategoryIconGroup(id: "health", title: "운동·건강", icons: [
+            "figure.run", "figure.walk", "figure.yoga", "figure.pool.swim", "figure.strengthtraining.traditional", "dumbbell",
+            "bicycle", "soccerball", "tennis.racket", "heart", "cross", "pills",
+            "drop", "moon.zzz", "figure.mind.and.body",
+        ]),
+        CategoryIconGroup(id: "food", title: "식생활", icons: [
+            "fork.knife", "frying.pan", "carrot", "takeoutbag.and.cup.and.straw", "cup.and.saucer", "mug",
+            "birthday.cake", "refrigerator", "cart",
+        ]),
+        CategoryIconGroup(id: "home", title: "집안일", icons: [
+            "house", "sofa", "bubbles.and.sparkles", "washer", "dryer", "basket",
+            "shower", "bathtub", "bed.double", "trash", "wrench.and.screwdriver",
+        ]),
+        CategoryIconGroup(id: "family", title: "육아·가족", icons: [
+            "figure.and.child.holdinghands", "figure.2.and.child.holdinghands", "stroller", "teddybear", "person.2", "gift",
+        ]),
+        CategoryIconGroup(id: "money", title: "돈", icons: [
+            "wonsign.circle", "banknote", "creditcard", "chart.pie", "building.columns", "bag",
+        ]),
+        CategoryIconGroup(id: "nature", title: "반려동물·자연", icons: [
+            "pawprint", "dog", "cat", "fish", "bird", "leaf",
+            "tree", "sun.max",
+        ]),
+        CategoryIconGroup(id: "travel", title: "이동", icons: [
+            "car", "bus", "tram", "airplane", "suitcase", "map",
+            "location", "globe",
+        ]),
+        CategoryIconGroup(id: "hobby", title: "휴식·취미", icons: [
+            "music.note", "headphones", "music.mic", "guitars", "camera", "paintbrush",
+            "gamecontroller", "puzzlepiece", "tv", "film", "theatermasks", "face.smiling",
+        ]),
+        CategoryIconGroup(id: "goal", title: "목표·시간", icons: [
+            "target", "flag", "trophy", "star", "flame", "arrow.3.trianglepath",
+            "timer", "hourglass", "clock", "calendar", "bell",
+        ]),
+        CategoryIconGroup(id: "etc", title: "기타", icons: [
+            "tag", "lock",
+        ]),
     ]
+
+    /// 전체 아이콘 (무작위 배정용)
+    static let iconPalette: [String] = iconGroups.flatMap(\.icons)
 }
 
 // MARK: - Service

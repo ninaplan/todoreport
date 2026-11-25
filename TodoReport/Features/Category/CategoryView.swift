@@ -125,34 +125,40 @@ private struct ColorSwatchPicker: View {
     let onSelect: (String) -> Void
 
     private let columns = Array(repeating: GridItem(.flexible()), count: 6)
+    /// 칩 11개 + 맨 끝 칸은 직접 고르기 (예전 「직접 선택」 줄 대신). 검정 등 나머지 색은 직접 고르기로
+    private var presetHexes: [String] { Array(Category.baseColors.prefix(11)) }
+
+    private var isCustomSelected: Bool {
+        !presetHexes.contains { $0.uppercased() == selectedHex.uppercased() }
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            LazyVGrid(columns: columns, spacing: 14) {
-                ForEach(Category.baseColors, id: \.self) { hex in
-                    Button {
-                        onSelect(hex)
-                    } label: {
-                        ZStack {
-                            Circle()
-                                .fill(Color(hex: hex))
-                                .frame(width: 36, height: 36)
-                            if selectedHex.uppercased() == hex.uppercased() {
-                                Image(systemName: "checkmark")
-                                    .font(.caption.bold())
-                                    .foregroundStyle(Color(hex: hex).readableForeground)
-                            }
+        LazyVGrid(columns: columns, spacing: 14) {
+            ForEach(presetHexes, id: \.self) { hex in
+                Button {
+                    onSelect(hex)
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(Color(hex: hex))
+                            .frame(width: 36, height: 36)
+                        if selectedHex.uppercased() == hex.uppercased() {
+                            Image(systemName: "checkmark")
+                                .font(.caption.bold())
+                                .foregroundStyle(Color(hex: hex).readableForeground)
                         }
                     }
-                    .buttonStyle(.plain)
                 }
+                .buttonStyle(.plain)
             }
-            .padding(.vertical, 4)
+            customColorChip
+        }
+        .padding(.vertical, 4)
+    }
 
-            Divider()
-                .padding(.top, 16)
-                .padding(.bottom, 12)
-
+    /// 맨 끝 칸: 누르면 색 고르기 창. 칩에 없는 색을 골라 두면 체크 표시
+    private var customColorChip: some View {
+        ZStack {
             ColorPicker(
                 "직접 선택",
                 selection: Binding(
@@ -161,7 +167,17 @@ private struct ColorSwatchPicker: View {
                 ),
                 supportsOpacity: false
             )
+            .labelsHidden()
+            .scaleEffect(36.0 / 28.0)
+            if isCustomSelected {
+                Image(systemName: "checkmark")
+                    .font(.caption.bold())
+                    .foregroundStyle(Color(hex: selectedHex).readableForeground)
+                    .allowsHitTesting(false)
+            }
         }
+        .frame(width: 36, height: 36)
+        .accessibilityLabel(Text("직접 선택"))
     }
 }
 
@@ -176,7 +192,7 @@ struct CategoryBadge: View {
             Circle()
                 .fill(Color(hex: category.colorHex))
                 .frame(width: size, height: size)
-            Image(systemName: category.icon)
+            Image(systemName: CategoryIconName.resolved(category.icon))
                 .font(.system(size: size * 0.44, weight: .semibold))
                 .foregroundStyle(.white)
         }
@@ -223,8 +239,6 @@ private struct CategoryEditSheet: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isNameFocused: Bool
 
-    private let iconColumns  = Array(repeating: GridItem(.flexible()), count: 5)
-
     var body: some View {
         NavigationStack {
             Form {
@@ -262,32 +276,11 @@ private struct CategoryEditSheet: View {
                 }
 
                 Section("아이콘") {
-                    LazyVGrid(columns: iconColumns, spacing: 12) {
-                        ForEach(Category.iconPalette, id: \.self) { symbol in
-                            Button {
-                                viewModel.selectIcon(symbol)
-                            } label: {
-                                ZStack {
-                                    Circle()
-                                        .fill(
-                                            viewModel.editIcon == symbol
-                                                ? Color(hex: viewModel.editColorHex)
-                                                : Color(hex: viewModel.editColorHex).opacity(0.12)
-                                        )
-                                        .frame(width: 44, height: 44)
-                                    Image(systemName: symbol)
-                                        .font(.system(size: 18))
-                                        .foregroundStyle(
-                                            viewModel.editIcon == symbol
-                                                ? .white
-                                                : Color(hex: viewModel.editColorHex)
-                                        )
-                                }
-                            }
-                            .buttonStyle(.plain)
-                            .animation(.easeInOut(duration: 0.15), value: viewModel.editColorHex)
-                        }
-                    }
+                    CategoryIconPagePicker(
+                        selectedIcon: viewModel.editIcon,
+                        colorHex: viewModel.editColorHex,
+                        onSelect: { viewModel.selectIcon($0) }
+                    )
                     .padding(.vertical, 4)
                 }
 

@@ -987,7 +987,7 @@ private struct CategoryFilterBar: View {
                 ForEach(categories) { category in
                     FilterChip(
                         label: category.name,
-                        systemImage: category.icon,
+                        systemImage: CategoryIconName.resolved(category.icon),
                         showsIcon: showCategoryChipIcon,
                         color: Color(hex: category.colorHex),
                         isSelected: peekCategoryId == category.id,

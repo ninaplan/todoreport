@@ -598,7 +598,7 @@ private struct CategoryStatRow: View {
         VStack(spacing: 6) {
             VStack(spacing: 6) {
                 HStack {
-                    Image(systemName: stat.icon)
+                    Image(systemName: CategoryIconName.resolved(stat.icon))
                         .font(.system(size: 12))
                         .foregroundStyle(iconColor)
                         .frame(width: 14, height: 14)
