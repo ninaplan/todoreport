@@ -192,7 +192,7 @@ struct ReportView: View {
             labels: report.dailyRatings.map(\.weekday),
             values: report.dailyRatings.map(\.rating)
         )
-        TimeUsageCard(summary: viewModel.timeUsage, isLocked: !isPro)
+        TimeUsageCard(summary: viewModel.timeUsage, layout: .weekTimetable, isLocked: !isPro)
         CategoryStatsCard(stats: report.categoryStats)
         ReviewTimelineCard(entries: report.reviewTimeline)
         NotionSaveButton(
@@ -238,7 +238,7 @@ struct ReportView: View {
             labels: report.dailyRatings.map(\.weekday),
             values: report.dailyRatings.map(\.rating)
         )
-        TimeUsageCard(summary: viewModel.timeUsage, isLocked: !isPro)
+        TimeUsageCard(summary: viewModel.timeUsage, layout: .bars, isLocked: !isPro, barRanges: monthBarRanges)
         CategoryStatsCard(stats: report.categoryStats)
         ReviewTimelineCard(entries: report.reviewTimeline)
         NotionSaveButton(
@@ -260,11 +260,9 @@ private struct SummaryCard: View {
     let focusMinutes: Int
     let isFocusLocked: Bool
 
+    /// 6.8h 처럼 짧게 (언어와 무관하게 h)
     private var focusText: String {
-        let hours = Double(focusMinutes) / 60
-        return Measurement(value: hours, unit: UnitDuration.hours).formatted(
-            .measurement(width: .narrow, usage: .asProvided, numberFormatStyle: .number.precision(.fractionLength(0...1)))
-        )
+        TimeUsageCard.hoursText(focusMinutes)
     }
 
     var body: some View {

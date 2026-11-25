@@ -81,6 +81,12 @@ final class MainTabCoordinator {
         selectedTab = .todo
     }
 
+    /// 오래 쉬었다 돌아왔을 때 등 「처음 화면」으로: 설정 > 시작 화면을 따른다 (타임블록은 Pro일 때만)
+    func openLaunchTab() {
+        let wantsTimeline = UserDefaults.standard.string(forKey: Self.launchTabKey) == Self.launchTabTimeline
+        selectedTab = wantsTimeline && SubscriptionManager.shared.isPro ? .timeline : .todo
+    }
+
     func openInbox(highlightTodoId: String) {
         pendingInboxHighlightTodoId = highlightTodoId
         selectedTab = .todo

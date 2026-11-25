@@ -10,6 +10,8 @@ struct TimeBlock: Identifiable, Equatable {
     var endMinute: Int
     var alarmEnabled: Bool
     var endAlarmEnabled: Bool = true
+    /// 블록 자체 완료 체크 (할 일 완료와 별개로 저장)
+    var isCompleted: Bool = false
 
     var durationMinutes: Int { endMinute - startMinute }
 
@@ -29,7 +31,8 @@ extension TimeBlock {
             startMinute: item.startMinute,
             endMinute: item.endMinute,
             alarmEnabled: item.alarmEnabled,
-            endAlarmEnabled: item.endAlarmEnabled
+            endAlarmEnabled: item.endAlarmEnabled,
+            isCompleted: item.isCompleted
         )
     }
 }

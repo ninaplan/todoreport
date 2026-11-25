@@ -3,6 +3,8 @@ import SwiftUI
 /// 왼쪽 시각 표시. 숫자는 크게, 오전/오후는 작게. 24시간제 기기는 0~23만 표시.
 struct TimeBlockHourLabel: View {
     let hour: Int
+    /// 리포트 주간 시간표처럼 작은 곳에 쓸 때
+    var isCompact: Bool = false
 
     private static let uses12HourClock: Bool = {
         let format = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current) ?? ""
@@ -24,12 +26,12 @@ struct TimeBlockHourLabel: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 2) {
             Text(displayHour, format: .number)
-                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .font(.system(size: isCompact ? 10 : 15, weight: .medium, design: .rounded))
                 .foregroundStyle(Color(.secondaryLabel))
                 .monospacedDigit()
             if let periodSymbol {
                 Text(periodSymbol)
-                    .font(.system(size: 10, weight: .regular))
+                    .font(.system(size: isCompact ? 7 : 10, weight: .regular))
                     .foregroundStyle(Color(.tertiaryLabel))
             }
         }

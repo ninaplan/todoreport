@@ -35,7 +35,8 @@ final class TimeBlockNotificationManager {
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: [startId, endId])
 
-        guard let todo, !todo.isCompleted else { return }
+        // 할 일 전체 완료 또는 이 블록만 완료면 알림 없음 (같은 할 일의 다른 블록 알림은 그대로)
+        guard let todo, !todo.isCompleted, !block.isCompleted else { return }
         let startDate = TimeBlockLayout.date(day: block.day, minute: block.startMinute)
         let endDate = TimeBlockLayout.date(day: block.day, minute: block.endMinute)
         let startText = startDate.formatted(date: .omitted, time: .shortened)

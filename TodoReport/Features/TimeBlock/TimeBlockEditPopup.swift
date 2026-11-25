@@ -4,6 +4,8 @@ import SwiftUI
 /// 위: ✕(닫기) · 할 일 제목 · ✓(저장) / 가운데: 시작·종료 시각, 시작·종료 알림 / 아래: 블록 삭제 (할 일은 지우지 않음)
 struct TimeBlockEditPopup: View {
     let entry: TimeBlockEntry
+    /// 일과 시간. 고른 시각을 그날 화면의 분으로 바꿀 때 쓴다 (범위가 새벽까지면 01:00 = 다음 날)
+    let dayRange: TimeBlockDayRange
     /// 메뉴 「블록 시작 알림」·「블록 종료 알림」 전체 설정. 꺼져 있으면 그 체크박스는 흐리게
     let isStartAlarmGloballyEnabled: Bool
     let isEndAlarmGloballyEnabled: Bool
@@ -19,6 +21,7 @@ struct TimeBlockEditPopup: View {
 
     init(
         entry: TimeBlockEntry,
+        dayRange: TimeBlockDayRange,
         isStartAlarmGloballyEnabled: Bool,
         isEndAlarmGloballyEnabled: Bool,
         onSave: @escaping (Date, Date, Bool, Bool) -> Void,
@@ -26,6 +29,7 @@ struct TimeBlockEditPopup: View {
         onClose: @escaping () -> Void
     ) {
         self.entry = entry
+        self.dayRange = dayRange
         self.isStartAlarmGloballyEnabled = isStartAlarmGloballyEnabled
         self.isEndAlarmGloballyEnabled = isEndAlarmGloballyEnabled
         self.onSave = onSave
@@ -37,13 +41,17 @@ struct TimeBlockEditPopup: View {
         _endAlarm = State(initialValue: entry.block.endAlarmEnabled)
     }
 
-    private var isValid: Bool { end > start }
+    private var startMinute: Int { dayRange.pageMinute(of: start) }
+    private var endMinute: Int { dayRange.pageEndMinute(of: end, start: startMinute) }
+
+    /// 날짜 부분은 무시하고 시각만 비교 (종료 01:00이 다음 날일 수 있음)
+    private var isValid: Bool { endMinute > startMinute }
     private var accent: Color { AppTheme.shared.accent }
 
     /// 처음 연 값과 달라졌는지 → 저장 ✓를 진하게
     private var hasChanges: Bool {
-        TimeBlockLayout.minute(of: start, day: entry.block.day) != entry.block.startMinute
-            || TimeBlockLayout.minute(of: end, day: entry.block.day) != entry.block.endMinute
+        startMinute != entry.block.startMinute
+            || endMinute != entry.block.endMinute
             || startAlarm != entry.block.alarmEnabled
             || endAlarm != entry.block.endAlarmEnabled
     }

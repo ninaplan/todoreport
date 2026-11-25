@@ -33,18 +33,44 @@ enum TimeBlockLayout {
         verticalPadding + CGFloat(minute) * pointsPerMinute
     }
 
+    // MARK: - 일과 시간 범위 기준 (화면 맨 위 = 범위 시작)
+
+    static func contentHeight(for range: TimeBlockDayRange) -> CGFloat {
+        CGFloat(range.durationMinutes) * pointsPerMinute + verticalPadding * 2
+    }
+
+    static func y(for minute: Int, in range: TimeBlockDayRange) -> CGFloat {
+        verticalPadding + CGFloat(minute - range.startMinute) * pointsPerMinute
+    }
+
+    static func minute(for y: CGFloat, in range: TimeBlockDayRange) -> Int {
+        range.clamp(range.startMinute + Int(((y - verticalPadding) / pointsPerMinute).rounded(.down)))
+    }
+
+    /// 그날 0시부터 지난 분. 다음 날이면 1440을 넘는다 (자르지 않음)
+    static func minutesSince(day: Date, until date: Date) -> Int {
+        Calendar.current.dateComponents([.minute], from: day, to: date).minute ?? 0
+    }
+
+    /// Date의 시각만 (0시부터 분, 0..<1440)
+    static func minuteOfDay(_ date: Date) -> Int {
+        let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
+    }
+
     static func minute(for y: CGFloat) -> Int {
         clamp(Int(((y - verticalPadding) / pointsPerMinute).rounded(.down)))
     }
 
+    /// 스냅만 한다. 범위 자르기는 부르는 쪽에서 `TimeBlockDayRange.clamp`로 (다음 날 새벽 = 1440 초과 허용)
     static func snapDown(_ minute: Int, unit: Int) -> Int {
-        guard unit > 0 else { return clamp(minute) }
-        return clamp((minute / unit) * unit)
+        guard unit > 0 else { return max(minute, 0) }
+        return max((minute / unit) * unit, 0)
     }
 
     static func snapNearest(_ minute: Int, unit: Int) -> Int {
-        guard unit > 0 else { return clamp(minute) }
-        return clamp(Int((Double(minute) / Double(unit)).rounded()) * unit)
+        guard unit > 0 else { return max(minute, 0) }
+        return max(Int((Double(minute) / Double(unit)).rounded()) * unit, 0)
     }
 
     static func clamp(_ minute: Int) -> Int {

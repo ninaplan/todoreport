@@ -538,7 +538,8 @@ struct TodoView: View {
     // MARK: - 투두 행 빌더 (공통 스와이프 액션 포함)
 
     private func resetTodoNavigationToRoot() {
-        tabCoordinator.selectedTab = .todo
+        // 탭은 시작 화면 설정을 따른다 (타임블록으로 정했으면 타임블록)
+        tabCoordinator.openLaunchTab()
         showPlannerSheet = false
         showQuickCapture = false
         showCategorySheet = false

@@ -17,6 +17,8 @@ final class TimeBlockItem {
     var alarmEnabled: Bool = true
     /// 블록 끝 시각 알림. 블록별 기본은 켜짐이지만, 메뉴의 「블록 종료 알림」(기본 꺼짐)을 켜야 실제로 울린다.
     var endAlarmEnabled: Bool = true
+    /// 이 블록만 완료 (한 할 일을 여러 블록에 넣었을 때 블록마다 체크). 그날 블록을 모두 체크하면 할 일도 완료
+    var isCompleted: Bool = false
     var createdAt: Date
 
     init(

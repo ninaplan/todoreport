@@ -23,15 +23,17 @@ final class TimeBlockService {
         let todos = await TodoService.shared.fetchTodos(for: dayStart)
         let todoById = Dictionary(todos.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         removeBlocksOfDeletedTodos(blocks.filter { todoById[$0.todoId] == nil })
+        let reconciled = clearStaleBlockCompletion(blocks, todoById: todoById)
 
         let categories = categoryInfoById()
-        return blocks.compactMap { block in
+        return reconciled.compactMap { block in
             guard let todo = todoById[block.todoId] else { return nil }
             let category = todo.categoryId.flatMap { categories[$0] }
             return TimeBlockEntry(
                 block: block,
                 title: todo.title,
-                isCompleted: todo.isCompleted,
+                // 할 일이 완료면 모든 블록 완료, 아니면 블록마다 체크한 것만
+                isCompleted: todo.isCompleted || block.isCompleted,
                 categoryColorHex: category?.colorHex,
                 categoryIcon: category?.icon
             )
@@ -103,9 +105,12 @@ final class TimeBlockService {
     }
 
     /// 메뉴 「블록 시작 알림」을 바꾼 뒤 오늘 이후 블록 알림을 다시 맞춘다 (모든 플래너).
+    /// 일과 시간이 새벽까지면 어제 블록이 아직 남았을 수 있어 어제부터 본다 (지난 알림은 예약 단계에서 걸러짐)
     func resyncUpcomingAlarms() {
-        let todayStart = Calendar.current.startOfDay(for: .now)
-        let descriptor = FetchDescriptor<TimeBlockItem>(predicate: #Predicate { $0.day >= todayStart })
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: .now)
+        let fromDay = calendar.date(byAdding: .day, value: -1, to: todayStart) ?? todayStart
+        let descriptor = FetchDescriptor<TimeBlockItem>(predicate: #Predicate { $0.day >= fromDay })
         for item in (try? context.fetch(descriptor)) ?? [] {
             syncAlarm(for: item)
         }
@@ -113,20 +118,43 @@ final class TimeBlockService {
 
     // MARK: - 할 일 (기존 TodoService 경유)
 
-    /// 투두 탭 체크와 같은 경로: 로컬 저장 → 알림 재예약 → SyncQueue(노션) → 위젯
-    func toggleCompletion(todoId: String) async throws {
-        let id = todoId
-        let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == id })
-        guard let item = try context.fetch(descriptor).first else { return }
-        var todo = item.toTodo()
-        todo.isCompleted.toggle()
-        todo.completedAt = todo.isCompleted ? .now : nil
-        todo.markLocallyModified()
-        try await TodoService.shared.updateTodo(todo)
-        await refreshWidgetIfToday(todo.date)
-        // 완료하면 그 할 일의 블록 알림은 끄고, 완료를 풀면 다시 켠다
-        let blockDescriptor = FetchDescriptor<TimeBlockItem>(predicate: #Predicate { $0.todoId == id })
-        for block in (try? context.fetch(blockDescriptor)) ?? [] {
+    /// 블록 체크 원. 그 블록만 완료/취소하고, 그날 이 할 일의 블록이 모두 완료면 할 일도 완료한다.
+    /// 할 일 완료·취소는 투두 탭 체크와 같은 경로: 로컬 저장 → 알림 재예약 → SyncQueue(노션) → 위젯
+    func toggleBlockCompletion(blockId: String) async throws {
+        guard let item = fetchItem(id: blockId) else { return }
+        let todoId = item.todoId
+        let day = item.day
+        let todoDescriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == todoId })
+        guard let todoItem = try context.fetch(todoDescriptor).first else { return }
+        var todo = todoItem.toTodo()
+
+        let siblingDescriptor = FetchDescriptor<TimeBlockItem>(
+            predicate: #Predicate { $0.todoId == todoId && $0.day == day }
+        )
+        let siblings = (try? context.fetch(siblingDescriptor)) ?? [item]
+
+        let wasDone = todo.isCompleted || item.isCompleted
+        if wasDone {
+            // 할 일 전체가 완료였다면 다른 블록은 완료로 남기고 이 블록만 푼다
+            if todo.isCompleted {
+                siblings.forEach { $0.isCompleted = true }
+            }
+            item.isCompleted = false
+        } else {
+            item.isCompleted = true
+        }
+        try saveContext()
+
+        let allDone = !siblings.isEmpty && siblings.allSatisfy(\.isCompleted)
+        if allDone != todo.isCompleted {
+            todo.isCompleted = allDone
+            todo.completedAt = allDone ? .now : nil
+            todo.markLocallyModified()
+            try await TodoService.shared.updateTodo(todo)
+            await refreshWidgetIfToday(todo.date)
+        }
+        // 완료한 블록 알림만 끄고, 같은 할 일의 남은 블록 알림은 유지
+        for block in siblings {
             TimeBlockNotificationManager.shared.sync(block: TimeBlock(item: block), todo: todo)
         }
     }
@@ -178,22 +206,39 @@ final class TimeBlockService {
         var completedByCategory: [String: Int] = [:]
         var plannedByCategory: [String: Int] = [:]
         var bucketMinutes: [[String: Int]] = Array(repeating: [:], count: ranges.count)
+        var bucketPlanned: [[String: Int]] = Array(repeating: [:], count: ranges.count)
+        var placed: [TimeBlockUsageSummary.PlacedBlock] = []
+
+        func colorHex(_ key: String) -> String {
+            categoryById[key]?.colorHex ?? TimeBlockUsageSummary.uncategorizedColorHex
+        }
 
         for block in blocks {
             guard let todo = todoById[block.todoId] else { continue }
             let minutes = max(block.endMinute - block.startMinute, 0)
             let key = todo.categoryId.flatMap { categoryById[$0] != nil ? $0 : nil } ?? TimeBlockUsageSummary.uncategorizedKey
             plannedByCategory[key, default: 0] += minutes
-            guard todo.isCompleted else { continue }
+            let bucketIndex = ranges.firstIndex(where: { $0.contains(block.day) })
+            let isDone = todo.isCompleted || block.isCompleted
+            if let bucketIndex {
+                bucketPlanned[bucketIndex][key, default: 0] += minutes
+                placed.append(.init(
+                    id: block.id,
+                    bucketIndex: bucketIndex,
+                    startMinute: block.startMinute,
+                    endMinute: block.endMinute,
+                    colorHex: colorHex(key),
+                    isCompleted: isDone
+                ))
+            }
+            // 집중 시간 = 완료한 블록 시간 (같은 할 일의 블록 중 체크한 것만)
+            guard isDone else { continue }
             completedByCategory[key, default: 0] += minutes
-            if let index = ranges.firstIndex(where: { $0.contains(block.day) }) {
-                bucketMinutes[index][key, default: 0] += minutes
+            if let bucketIndex {
+                bucketMinutes[bucketIndex][key, default: 0] += minutes
             }
         }
 
-        func colorHex(_ key: String) -> String {
-            categoryById[key]?.colorHex ?? TimeBlockUsageSummary.uncategorizedColorHex
-        }
         func name(_ key: String) -> String {
             categoryById[key]?.name ?? String(localized: "미분류")
         }
@@ -215,7 +260,8 @@ final class TimeBlockService {
                 segments: orderedKeys.compactMap { key in
                     guard let minutes = bucketMinutes[index][key], minutes > 0 else { return nil }
                     return .init(id: key, colorHex: colorHex(key), minutes: minutes)
-                }
+                },
+                plannedMinutesByCategory: bucketPlanned[index]
             )
         }
         let categories = orderedKeys.map { key in
@@ -231,7 +277,8 @@ final class TimeBlockService {
             completedMinutes: completedByCategory.values.reduce(0, +),
             plannedMinutes: plannedByCategory.values.reduce(0, +),
             buckets: buckets,
-            categories: categories
+            categories: categories,
+            blocks: placed
         )
     }
 
@@ -256,12 +303,38 @@ final class TimeBlockService {
 
     /// 겹침 금지·범위 검사
     private func validate(day dayStart: Date, startMinute: Int, endMinute: Int, excludingId: String?) throws {
-        guard startMinute >= 0, endMinute <= TimeBlockLayout.minutesPerDay, endMinute > startMinute else {
+        // 끝은 다음 날 새벽까지 허용 (일과 시간이 자정을 넘는 경우). 블록 길이는 24시간 이하
+        guard startMinute >= 0,
+              endMinute <= TimeBlockDayRange.latestEndMinute,
+              endMinute > startMinute,
+              endMinute - startMinute <= TimeBlockLayout.minutesPerDay else {
             throw TimeBlockError.invalidRange
         }
         let others = fetchBlocks(day: dayStart).filter { $0.id != excludingId }
         if others.contains(where: { $0.overlaps(start: startMinute, end: endMinute) }) {
             throw TimeBlockError.overlap
+        }
+    }
+
+    /// 투두 탭에서 할 일 완료를 풀었는데 블록 체크가 모두 남아 있으면(= 블록으로 완료했던 할 일) 블록 체크도 푼다.
+    /// 그래야 두 화면이 어긋나지 않는다. 일부만 체크된 블록은 그대로 둔다.
+    private func clearStaleBlockCompletion(_ blocks: [TimeBlock], todoById: [String: Todo]) -> [TimeBlock] {
+        let staleTodoIds = Dictionary(grouping: blocks, by: \.todoId).compactMap { todoId, group -> String? in
+            guard let todo = todoById[todoId], !todo.isCompleted,
+                  group.allSatisfy(\.isCompleted) else { return nil }
+            return todoId
+        }
+        guard !staleTodoIds.isEmpty else { return blocks }
+        let stale = Set(staleTodoIds)
+        for block in blocks where stale.contains(block.todoId) {
+            fetchItem(id: block.id)?.isCompleted = false
+        }
+        try? context.save()
+        return blocks.map { block in
+            guard stale.contains(block.todoId) else { return block }
+            var cleared = block
+            cleared.isCompleted = false
+            return cleared
         }
     }
 

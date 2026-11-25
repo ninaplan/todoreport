@@ -1,11 +1,18 @@
 import SwiftUI
 
-/// 하루 24시간 격자 + 블록 + 현재 시각(레일 위 점). 스크롤은 바깥(`TimeBlockView`)이 담당한다.
+/// 일과 시간 범위의 격자 + 블록 + 현재 시각(레일 위 점). 스크롤은 바깥(`TimeBlockView`)이 담당한다.
+/// 화면 맨 위 = 일과 시간 시작. 범위가 자정을 넘으면 자정 줄에 다음 날 날짜를 붙인다.
 struct TimeBlockTimelineView: View {
     let viewModel: TimeBlockViewModel
     let now: Date
 
     private var blockLeading: CGFloat { TimeBlockLayout.blockLeading }
+    private var range: TimeBlockDayRange { viewModel.dayRange }
+    private var rangeHeight: CGFloat { CGFloat(range.durationMinutes) * TimeBlockLayout.pointsPerMinute }
+
+    private func y(_ minute: Int) -> CGFloat {
+        TimeBlockLayout.y(for: minute, in: range)
+    }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -13,20 +20,20 @@ struct TimeBlockTimelineView: View {
             tapLayer
             rail
             blocks
-            if viewModel.isToday {
+            if viewModel.isToday, range.contains(start: nowMinute, end: nowMinute) {
                 nowIndicator
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .frame(height: TimeBlockLayout.contentHeight, alignment: .topLeading)
+        .frame(height: TimeBlockLayout.contentHeight(for: range), alignment: .topLeading)
     }
 
     // MARK: - 격자
 
     private var hourGrid: some View {
         ZStack(alignment: .topLeading) {
-            ForEach(0...24, id: \.self) { hour in
-                let y = TimeBlockLayout.y(for: hour * 60)
+            ForEach(hours, id: \.self) { hour in
+                let lineY = y(hour * 60)
                 HStack(spacing: 0) {
                     TimeBlockHourLabel(hour: hour)
                         .frame(width: TimeBlockLayout.labelColumnWidth - 8, alignment: .trailing)
@@ -36,16 +43,36 @@ struct TimeBlockTimelineView: View {
                         .frame(height: 0.5)
                 }
                 .frame(height: 20)
-                .offset(y: y - 10)
+                .offset(y: lineY - 10)
 
-                if hour < 24 {
+                if hour * 60 == TimeBlockLayout.minutesPerDay, range.spansMidnight {
+                    nextDayLabel
+                        .frame(width: TimeBlockLayout.labelColumnWidth - 8, alignment: .trailing)
+                        .offset(y: lineY + 9)
+                }
+
+                if hour < lastHour {
                     halfHourLine
                         .padding(.leading, TimeBlockLayout.labelColumnWidth)
-                        .offset(y: TimeBlockLayout.y(for: hour * 60 + 30))
+                        .offset(y: y(hour * 60 + 30))
                 }
             }
         }
         .accessibilityHidden(true)
+    }
+
+    private var firstHour: Int { range.startMinute / 60 }
+    private var lastHour: Int { range.endMinute / 60 }
+    private var hours: [Int] { Array(firstHour...lastHour) }
+
+    /// 자정 줄 아래 작은 다음 날 날짜 (예: 11/25)
+    private var nextDayLabel: some View {
+        let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: viewModel.selectedDate) ?? viewModel.selectedDate
+        return Text(nextDay.formatted(.dateTime.month(.defaultDigits).day()))
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(AppTheme.shared.accent)
+            .lineLimit(1)
+            .fixedSize()
     }
 
     private var halfHourLine: some View {
@@ -61,15 +88,29 @@ struct TimeBlockTimelineView: View {
             .contentShape(Rectangle())
             .padding(.leading, TimeBlockLayout.railX)
             .onTapGesture(coordinateSpace: .local) { location in
-                viewModel.requestSlot(atMinute: TimeBlockLayout.minute(for: location.y))
+                viewModel.requestSlot(atMinute: TimeBlockLayout.minute(for: location.y, in: range))
             }
             .accessibilityHidden(true)
     }
 
     // MARK: - 블록
 
+    /// 일과 시간에 걸친 블록은 범위 밖 부분을 잘라서 보여준다 (mask)
     private var blocks: some View {
-        ForEach(viewModel.entries) { entry in
+        ZStack(alignment: .topLeading) {
+            blockCards
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(height: TimeBlockLayout.contentHeight(for: range), alignment: .topLeading)
+        .mask(alignment: .topLeading) {
+            Rectangle()
+                .frame(height: rangeHeight)
+                .offset(y: TimeBlockLayout.verticalPadding)
+        }
+    }
+
+    private var blockCards: some View {
+        ForEach(viewModel.visibleEntries) { entry in
             TimeBlockCardView(
                 entry: entry,
                 status: entry.status(now: now),
@@ -93,7 +134,7 @@ struct TimeBlockTimelineView: View {
             )
             .padding(.leading, blockLeading)
             .padding(.trailing, TimeBlockLayout.blockTrailingPadding)
-            .offset(y: TimeBlockLayout.y(for: viewModel.displayStartMinute(for: entry)) + TimeBlockLayout.blockGap / 2)
+            .offset(y: y(viewModel.displayStartMinute(for: entry)) + TimeBlockLayout.blockGap / 2)
             .zIndex(viewModel.movingBlockId == entry.id ? 1 : 0)
         }
     }
@@ -104,13 +145,15 @@ struct TimeBlockTimelineView: View {
         ZStack(alignment: .topLeading) {
             Rectangle()
                 .fill(AppTheme.shared.accent.opacity(0.18))
-                .frame(width: 1.5, height: TimeBlockLayout.contentHeight - TimeBlockLayout.verticalPadding * 2)
+                .frame(width: 1.5, height: rangeHeight)
                 .offset(x: TimeBlockLayout.railX - 0.75, y: TimeBlockLayout.verticalPadding)
             // 진행 중 블록의 점은 시작 자리에 두지 않고, 지금 시각 점(nowIndicator)이 되어 같이 내려간다
-            ForEach(viewModel.entries.filter { $0.status(now: now) != .current }) { entry in
+            ForEach(viewModel.visibleEntries.filter {
+                $0.status(now: now) != .current && range.contains(start: viewModel.displayStartMinute(for: $0), end: viewModel.displayStartMinute(for: $0))
+            }) { entry in
                 railDot(for: entry.status(now: now))
                     // 점 가운데 = 블록 시작 시각 (왼쪽 시각 눈금과 같은 높이)
-                    .offset(y: TimeBlockLayout.y(for: viewModel.displayStartMinute(for: entry)))
+                    .offset(y: y(viewModel.displayStartMinute(for: entry)))
             }
         }
         .allowsHitTesting(false)
@@ -141,19 +184,20 @@ struct TimeBlockTimelineView: View {
 
     // MARK: - 현재 시각
 
+    /// 보고 있는 날 0시부터 지금까지 분 (새벽 꼬리면 1440 초과)
     private var nowMinute: Int {
-        TimeBlockLayout.minute(of: now, day: viewModel.selectedDate)
+        TimeBlockLayout.minutesSince(day: viewModel.selectedDate, until: now)
     }
 
     /// 가로선·시각 글씨 없이 레일 위 지금 점만.
     /// 진행 중 블록이 있으면 그 블록의 점이 지금 시각을 따라 내려온 모양: 안쪽 원은 작게, 연한 테두리는 그만큼 넓게 (전체 크기는 그대로)
     private var nowIndicator: some View {
-        let y = TimeBlockLayout.y(for: nowMinute)
-        let isInBlock = viewModel.entries.contains { $0.status(now: now) == .current }
+        let nowY = y(nowMinute)
+        let isInBlock = viewModel.visibleEntries.contains { $0.status(now: now) == .current }
         let dotSize: CGFloat = isInBlock ? 9 : 8
         let ringWidth: CGFloat = isInBlock ? 8 : 4
         return TimeBlockNowDot(dotSize: dotSize, ringWidth: ringWidth)
-            .offset(x: TimeBlockLayout.railX - dotSize / 2, y: y - dotSize / 2)
+            .offset(x: TimeBlockLayout.railX - dotSize / 2, y: nowY - dotSize / 2)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }

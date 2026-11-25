@@ -38,9 +38,17 @@ struct TimeBlockView: View {
         }
         .overlay {
             // 블록 탭 → 시간 편집 팝업, 빈 칸 탭 → 할 일 고르기 팝업 (둘 다 시트 대신)
-            if let entry = viewModel.editingEntry {
+            if viewModel.showDayRangeEditor {
+                TimeBlockDayRangePopup(
+                    range: viewModel.dayRange,
+                    onSave: { viewModel.saveDayRange($0) },
+                    onClose: { viewModel.dismissDayRangeEditor() }
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+            } else if let entry = viewModel.editingEntry {
                 TimeBlockEditPopup(
                     entry: entry,
+                    dayRange: viewModel.dayRange,
                     isStartAlarmGloballyEnabled: viewModel.isStartAlarmEnabled,
                     isEndAlarmGloballyEnabled: viewModel.isEndAlarmEnabled,
                     onSave: { viewModel.saveEdit(start: $0, end: $1, startAlarm: $2, endAlarm: $3) },
@@ -62,6 +70,7 @@ struct TimeBlockView: View {
         }
         .animation(.easeOut(duration: 0.18), value: viewModel.pickerRequest)
         .animation(.easeOut(duration: 0.18), value: viewModel.editingEntry)
+        .animation(.easeOut(duration: 0.18), value: viewModel.showDayRangeEditor)
         .onAppear {
             Task {
                 await viewModel.onAppear()
@@ -104,6 +113,7 @@ struct TimeBlockView: View {
         .safeAreaBar(edge: .top, spacing: 0) {
             TimeBlockWeekHeader(
                 selectedDate: viewModel.selectedDate,
+                today: viewModel.todayDate,
                 weekDays: viewModel.weekDays,
                 onSelect: { viewModel.selectDate($0) },
                 onShiftWeeks: { viewModel.shiftWeeks(by: $0) },
@@ -122,10 +132,32 @@ struct TimeBlockView: View {
             onPrev: { viewModel.goToPreviousDay() },
             onNext: { viewModel.goToNextDay() }
         )
+        .overlay(alignment: .bottom) { outOfRangeNotice }
         .onAppear { scrollToInitialPositionIfNeeded() }
     }
 
-    /// 처음 열 때: 오늘이면 지금 1시간 전, 아니면 오전 8시로
+    /// 일과 시간 밖으로 나간 블록이 있으면 아래에 작게 알림. 누르면 일과 시간 설정
+    @ViewBuilder
+    private var outOfRangeNotice: some View {
+        let count = viewModel.outOfRangeCount
+        if count > 0 {
+            Button {
+                viewModel.openDayRangeEditor()
+            } label: {
+                Text("범위 밖 블록 \(count)개")
+                    .font(.footnote)
+                    .foregroundStyle(Color(.secondaryLabel))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(.regularMaterial, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 12)
+            .accessibilityHint(Text("일과 시간을 바꿀 수 있습니다."))
+        }
+    }
+
+    /// 처음 열 때: 오늘이면 지금 1시간 전, 아니면 오전 8시로 (일과 시간이 더 늦게 시작하면 맨 위)
     private func scrollToInitialPositionIfNeeded() {
         guard !didInitialScroll else { return }
         didInitialScroll = true
@@ -136,14 +168,15 @@ struct TimeBlockView: View {
         }
     }
 
-    /// 지금 1시간 전이 화면 위에 오도록
+    /// 지금 1시간 전이 화면 위에 오도록 (타임블록의 오늘 기준 — 새벽이면 전날 화면의 아래쪽)
     private func scrollToNow(animated: Bool) {
-        let nowMinute = TimeBlockLayout.minute(of: .now, day: Calendar.current.startOfDay(for: .now))
-        scroll(toMinute: max(nowMinute - 60, 0), animated: animated)
+        let nowMinute = TimeBlockLayout.minutesSince(day: viewModel.todayDate, until: .now)
+        scroll(toMinute: nowMinute - 60, animated: animated)
     }
 
     private func scroll(toMinute minute: Int, animated: Bool) {
-        let targetY = max(TimeBlockLayout.y(for: minute) - 8, 0)
+        let range = viewModel.dayRange
+        let targetY = max(TimeBlockLayout.y(for: range.clamp(minute), in: range) - 8, 0)
         Task { @MainActor in
             // 첫 레이아웃이 끝난 뒤 스크롤해야 위치가 적용된다
             try? await Task.sleep(for: .milliseconds(50))
@@ -184,6 +217,18 @@ struct TimeBlockView: View {
         if isPro {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Section {
+                        Button {
+                            viewModel.openDayRangeEditor()
+                        } label: {
+                            Label {
+                                Text("일과 시간")
+                                Text(verbatim: TimeBlockDayRangePopup.summary(of: viewModel.dayRange))
+                            } icon: {
+                                Image(systemName: "sun.horizon")
+                            }
+                        }
+                    }
                     Picker("블록 단위", selection: snapBinding) {
                         ForEach(TimeBlockLayout.snapOptions, id: \.self) { minutes in
                             Text(snapLabel(minutes)).tag(minutes)

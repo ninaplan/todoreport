@@ -4,6 +4,8 @@ import SwiftUI
 /// 주간 줄은 시스템 페이지 스크롤이라 손가락을 따라 넘어가고, ‹ › 는 애니메이션으로 넘긴다. 주 시작 요일은 앱 설정을 따른다.
 struct TimeBlockWeekHeader: View {
     let selectedDate: Date
+    /// 타임블록의 오늘 (일과 시간이 새벽까지면 새벽엔 전날). 제목·「오늘」 표시 기준
+    let today: Date
     let weekDays: [Date]
     let onSelect: (Date) -> Void
     /// n주 넘기기 (+ 다음, - 이전)
@@ -18,12 +20,14 @@ struct TimeBlockWeekHeader: View {
 
     init(
         selectedDate: Date,
+        today: Date,
         weekDays: [Date],
         onSelect: @escaping (Date) -> Void,
         onShiftWeeks: @escaping (Int) -> Void,
         onToday: @escaping () -> Void
     ) {
         self.selectedDate = selectedDate
+        self.today = today
         self.weekDays = weekDays
         self.onSelect = onSelect
         self.onShiftWeeks = onShiftWeeks
@@ -35,10 +39,17 @@ struct TimeBlockWeekHeader: View {
     private var calendar: Calendar { Calendar.current }
     private var accent: Color { AppTheme.shared.accent }
 
+    private var isSelectedToday: Bool { calendar.isDate(selectedDate, inSameDayAs: today) }
+
+    private func isDay(_ day: Date, offsetFromToday offset: Int) -> Bool {
+        guard let target = calendar.date(byAdding: .day, value: offset, to: today) else { return false }
+        return calendar.isDate(day, inSameDayAs: target)
+    }
+
     private var title: String {
-        if calendar.isDateInToday(selectedDate) { return String(localized: "오늘") }
-        if calendar.isDateInYesterday(selectedDate) { return String(localized: "어제") }
-        if calendar.isDateInTomorrow(selectedDate) { return String(localized: "내일") }
+        if isSelectedToday { return String(localized: "오늘") }
+        if isDay(selectedDate, offsetFromToday: -1) { return String(localized: "어제") }
+        if isDay(selectedDate, offsetFromToday: 1) { return String(localized: "내일") }
         return selectedDate.formatted(.dateTime.weekday(.wide))
     }
 
@@ -53,7 +64,7 @@ struct TimeBlockWeekHeader: View {
                         Text(title)
                             .font(.title2.weight(.bold))
                             .foregroundStyle(Color(.label))
-                        if !calendar.isDateInToday(selectedDate) {
+                        if !isSelectedToday {
                             Button(action: onToday) {
                                 Text("오늘")
                                     .font(.caption)
@@ -161,7 +172,7 @@ struct TimeBlockWeekHeader: View {
 
     private func dayCell(_ day: Date) -> some View {
         let isSelected = calendar.isDate(day, inSameDayAs: selectedDate)
-        let isToday = calendar.isDateInToday(day)
+        let isToday = calendar.isDate(day, inSameDayAs: today)
         return Button {
             onSelect(day)
         } label: {

@@ -2622,6 +2622,66 @@
         }
       }
     },
+    "일과 시간" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day Hours"
+          }
+        }
+      }
+    },
+    "자정" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Midnight"
+          }
+        }
+      }
+    },
+    "다음 날 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next Day %@"
+          }
+        }
+      }
+    },
+    "범위 밖 블록 %lld개" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blocks Outside Hours: %lld"
+          }
+        }
+      }
+    },
+    "일과 시간을 바꿀 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change your day hours."
+          }
+        }
+      }
+    },
+    "타임블록에 보이는 시간 범위입니다. 종료를 다음 날 새벽으로 정하면 자정이 지나도 그날 화면에 이어서 보입니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The hours shown in Time Blocks. Set the end to the next morning to keep the day going past midnight."
+          }
+        }
+      }
+    },
     "블록 삭제" : {
       "localizations" : {
         "en" : {
@@ -3852,6 +3912,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choose one planner to keep.\nThe others will be deactivated and can be used again with a Pro subscription."
+          }
+        }
+      }
+    },
+    "이 기간에 기록된 블록이 없습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No blocks recorded in this period."
           }
         }
       }

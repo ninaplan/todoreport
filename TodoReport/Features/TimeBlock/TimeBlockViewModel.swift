@@ -10,6 +10,9 @@ final class TimeBlockViewModel {
     /// `entries`가 어느 날짜 것인지. 바뀌는 순간 화면이 좌우로 슬라이드된다 (새 블록이 다 불러와진 뒤라 깜박임 없음)
     private(set) var entriesDay: Date = Calendar.current.startOfDay(for: .now)
     private(set) var snapMinutes: Int
+    /// 일과 시간 (플래너별). 화면에 그릴 시간 범위이자 블록을 만들 수 있는 범위
+    private(set) var dayRange: TimeBlockDayRange
+    private(set) var showDayRangeEditor = false
     /// 메뉴 「카테고리 색상 보기」. 끄면 모든 블록이 흰 블록.
     private(set) var showsCategoryColor: Bool
     /// 메뉴 「블록 시작 알림」·「블록 종료 알림」 (전체)
@@ -46,6 +49,12 @@ final class TimeBlockViewModel {
     init() {
         let stored = UserDefaults.standard.integer(forKey: TimeBlockLayout.snapMinutesKey)
         snapMinutes = TimeBlockLayout.snapOptions.contains(stored) ? stored : TimeBlockLayout.defaultSnapMinutes
+        let range = TimeBlockDayRangeStore.load(plannerId: PlannerService.shared.selectedPlanner?.id)
+        dayRange = range
+        // 범위가 새벽까지면 새벽엔 전날 화면이 오늘
+        let today = range.logicalDay(for: .now)
+        selectedDate = today
+        entriesDay = today
         let defaults = UserDefaults.standard
         showsCategoryColor = defaults.object(forKey: TimeBlockLayout.showsCategoryColorKey) == nil
             ? true
@@ -55,7 +64,20 @@ final class TimeBlockViewModel {
     /// 길이 조절·이동 중에는 바깥 스크롤을 멈춘다
     var isDraggingBlock: Bool { resizingBlockId != nil || movingBlockId != nil }
 
-    var isToday: Bool { Calendar.current.isDateInToday(selectedDate) }
+    /// 타임블록의 오늘 (일과 시간이 새벽까지면 새벽엔 전날). 투두 탭의 오늘과는 별개
+    var todayDate: Date { dayRange.logicalDay(for: .now) }
+
+    var isToday: Bool { selectedDate == todayDate }
+
+    /// 범위와 겹치는 블록만 화면에 그린다
+    var visibleEntries: [TimeBlockEntry] {
+        entries.filter { dayRange.intersects(start: $0.block.startMinute, end: $0.block.endMinute) }
+    }
+
+    /// 일과 시간 밖으로 (일부라도) 나간 블록 수 → 「범위 밖 블록 N개」
+    var outOfRangeCount: Int {
+        entries.filter { !dayRange.contains(start: $0.block.startMinute, end: $0.block.endMinute) }.count
+    }
 
     // MARK: - 로드
 
@@ -65,6 +87,7 @@ final class TimeBlockViewModel {
     }
 
     func reload() async {
+        refreshDayRange()
         let day = selectedDate
         let loaded = await service.fetchEntries(for: day)
         // 빠르게 날짜를 넘기면 늦게 끝난 옛 날짜 결과가 덮어쓰지 않게
@@ -87,7 +110,7 @@ final class TimeBlockViewModel {
     func goToNextDay() { moveDay(by: 1) }
 
     func goToToday() {
-        selectedDate = Calendar.current.startOfDay(for: .now)
+        selectedDate = todayDate
         Task { await reload() }
     }
 
@@ -115,6 +138,30 @@ final class TimeBlockViewModel {
         guard let next = Calendar.current.date(byAdding: .day, value: value, to: selectedDate) else { return }
         selectedDate = Calendar.current.startOfDay(for: next)
         Task { await reload() }
+    }
+
+    // MARK: - 일과 시간
+
+    func openDayRangeEditor() {
+        showDayRangeEditor = true
+    }
+
+    func dismissDayRangeEditor() {
+        showDayRangeEditor = false
+    }
+
+    func saveDayRange(_ range: TimeBlockDayRange) {
+        guard range.isValid else { return }
+        TimeBlockDayRangeStore.save(range, plannerId: PlannerService.shared.selectedPlanner?.id)
+        dayRange = range
+        showDayRangeEditor = false
+    }
+
+    /// 플래너가 바뀌었을 수 있어 불러올 때마다 확인 (같으면 그대로 → 화면 다시 그리지 않음)
+    private func refreshDayRange() {
+        let range = TimeBlockDayRangeStore.load(plannerId: PlannerService.shared.selectedPlanner?.id)
+        guard range != dayRange else { return }
+        dayRange = range
     }
 
     // MARK: - 스냅 단위
@@ -195,7 +242,7 @@ final class TimeBlockViewModel {
 
     /// 누른 위치를 스냅 단위로 내림 → 앞 블록 끝·다음 블록 시작 사이로 맞춘 빈 구간
     private func freeRange(startingNear minute: Int) -> (start: Int, end: Int)? {
-        var start = TimeBlockLayout.snapDown(minute, unit: snapMinutes)
+        var start = dayRange.clamp(TimeBlockLayout.snapDown(minute, unit: snapMinutes))
         // 블록 위를 누른 경우는 블록 자체가 탭을 받으므로 여기서는 무시
         if entries.contains(where: { $0.block.startMinute <= minute && minute < $0.block.endMinute }) {
             return nil
@@ -206,9 +253,9 @@ final class TimeBlockViewModel {
         let limit = entries
             .map(\.block.startMinute)
             .filter { $0 >= start }
-            .min() ?? TimeBlockLayout.minutesPerDay
+            .min() ?? dayRange.endMinute
         let duration = max(TimeBlockLayout.defaultDurationMinutes, snapMinutes)
-        let end = min(start + duration, limit)
+        let end = min(start + duration, limit, dayRange.endMinute)
         guard end - start >= 5 else { return nil }
         return (start, end)
     }
@@ -229,7 +276,7 @@ final class TimeBlockViewModel {
         let deltaMinutes = Int((translationHeight / TimeBlockLayout.pointsPerMinute).rounded())
         let snapped = TimeBlockLayout.snapNearest(original + deltaMinutes, unit: snapMinutes)
         let minimumEnd = entry.block.startMinute + min(snapMinutes, 15)
-        let maximumEnd = nextBlockStart(after: entry) ?? TimeBlockLayout.minutesPerDay
+        let maximumEnd = min(nextBlockStart(after: entry) ?? dayRange.endMinute, dayRange.endMinute)
         resizeDraftEndMinute = min(max(snapped, minimumEnd), maximumEnd)
     }
 
@@ -281,8 +328,10 @@ final class TimeBlockViewModel {
               let entry = entries.first(where: { $0.id == id }) else { return }
         let deltaMinutes = Int((translationHeight / TimeBlockLayout.pointsPerMinute).rounded())
         let snapped = TimeBlockLayout.snapNearest(original + deltaMinutes, unit: snapMinutes)
-        let latestStart = TimeBlockLayout.minutesPerDay - entry.block.durationMinutes
-        moveDraftStartMinute = min(max(snapped, 0), latestStart)
+        // 일과 시간 안에서만 움직인다
+        let earliestStart = dayRange.startMinute
+        let latestStart = max(dayRange.endMinute - entry.block.durationMinutes, earliestStart)
+        moveDraftStartMinute = min(max(snapped, earliestStart), latestStart)
     }
 
     func endMove() {
@@ -348,12 +397,12 @@ final class TimeBlockViewModel {
         )
     }
 
-    // MARK: - 완료 (스와이프)
+    // MARK: - 완료 (블록 체크 원)
 
     func toggleCompletion(_ entry: TimeBlockEntry) {
         Task {
             do {
-                try await service.toggleCompletion(todoId: entry.block.todoId)
+                try await service.toggleBlockCompletion(blockId: entry.id)
                 await reload()
             } catch {
                 presentError(error)
@@ -373,9 +422,9 @@ final class TimeBlockViewModel {
 
     func saveEdit(start: Date, end: Date, startAlarm: Bool, endAlarm: Bool) {
         guard let entry = editingEntry else { return }
-        let day = entry.block.day
-        let startMinute = TimeBlockLayout.minute(of: start, day: day)
-        let endMinute = TimeBlockLayout.minute(of: end, day: day)
+        // 시각만 보고 일과 시간 화면의 분으로 바꾼다 (범위가 새벽까지면 01:00 = 다음 날 01:00)
+        let startMinute = dayRange.pageMinute(of: start)
+        let endMinute = dayRange.pageEndMinute(of: end, start: startMinute)
         do {
             try service.updateBlockTime(id: entry.id, startMinute: startMinute, endMinute: endMinute)
             try service.setAlarms(id: entry.id, startEnabled: startAlarm, endEnabled: endAlarm)
