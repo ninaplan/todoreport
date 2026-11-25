@@ -221,10 +221,14 @@ struct TimeUsageCard: View {
         Duration.seconds(minutes * 60).formatted(.units(allowed: [.hours, .minutes], width: .abbreviated))
     }
 
-    /// 6.8h 처럼 짧게. 언어와 무관하게 h (숫자는 지역 형식)
+    /// 11h30m 처럼 짧게 (소수 6.8h는 헷갈려서 시·분으로). 언어와 무관하게 h·m
+    /// 분이 0이면 11h, 1시간 미만이면 45m, 0이면 0h
     static func hoursText(_ minutes: Int) -> String {
-        let hours = Double(minutes) / 60
-        return hours.formatted(.number.precision(.fractionLength(0...1))) + "h"
+        let total = max(minutes, 0)
+        let hours = total / 60
+        let rest = total % 60
+        if hours == 0 { return rest == 0 ? "0h" : "\(rest)m" }
+        return rest == 0 ? "\(hours)h" : "\(hours)h\(rest)m"
     }
 }
 

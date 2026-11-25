@@ -260,28 +260,41 @@ private struct SummaryCard: View {
     let focusMinutes: Int
     let isFocusLocked: Bool
 
-    /// 6.8h 처럼 짧게 (언어와 무관하게 h)
-    private var focusText: String {
-        TimeUsageCard.hoursText(focusMinutes)
+    /// 숫자와 단위를 나눈 조각. 단위는 작게 그린다 (11h48m → [11,h][48,m])
+    private typealias ValuePart = (number: String, unit: String)
+
+    /// 집중 시간: 11h48m / 분이 0이면 11h / 1시간 미만이면 45m (`TimeUsageCard.hoursText`와 같은 규칙)
+    private var focusParts: [ValuePart] {
+        let total = max(focusMinutes, 0)
+        let hours = total / 60
+        let rest = total % 60
+        if hours == 0 { return [(number: String(rest), unit: rest == 0 ? "h" : "m")] }
+        if rest == 0 { return [(number: String(hours), unit: "h")] }
+        return [(number: String(hours), unit: "h"), (number: String(rest), unit: "m")]
+    }
+
+    private var completionParts: [ValuePart] {
+        let percent = Int((completionRate * 100).rounded())
+        return [(number: percent.formatted(), unit: "%")]
     }
 
     var body: some View {
         HStack(spacing: 0) {
             summaryItem(
-                value: completionRate.formatted(.percent.precision(.fractionLength(0))),
+                parts: completionParts,
                 label: "평균 완료율",
                 color: .primary
             )
             Divider().frame(height: 48)
             summaryItem(
-                value: String(format: "%.1f", averageRating),
+                parts: [(number: String(format: "%.1f", averageRating), unit: "")],
                 label: "별점 평균",
                 prefix: "⭐",
                 color: .primary
             )
             Divider().frame(height: 48)
             summaryItem(
-                value: isFocusLocked ? "Pro" : focusText,
+                parts: isFocusLocked ? [(number: "Pro", unit: "")] : focusParts,
                 label: "집중 시간",
                 symbolName: isFocusLocked ? "lock.fill" : nil,
                 symbolColor: .secondary,
@@ -293,7 +306,7 @@ private struct SummaryCard: View {
     }
 
     private func summaryItem(
-        value: String,
+        parts: [ValuePart],
         label: LocalizedStringKey,
         prefix: String = "",
         symbolName: String? = nil,
@@ -309,9 +322,21 @@ private struct SummaryCard: View {
                 } else if !prefix.isEmpty {
                     Text(prefix).font(.subheadline)
                 }
-                Text(value)
-                    .font(.title2.bold())
-                    .foregroundStyle(color)
+                // 숫자는 크게, 단위(%·h·m)는 작게 → 가로 폭이 줄고 숫자가 눈에 들어온다
+                HStack(alignment: .firstTextBaseline, spacing: 1) {
+                    ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
+                        Text(verbatim: part.number)
+                            .font(.title2.bold())
+                            .foregroundStyle(color)
+                        if !part.unit.isEmpty {
+                            // 단위는 작게·굵게, 색은 숫자보다 조금 연하게 (회색 secondary는 너무 연해 보임)
+                            Text(verbatim: part.unit)
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(color.opacity(0.7))
+                        }
+                    }
+                }
+                .accessibilityElement(children: .combine)
             }
             Text(label)
                 .font(.caption)
