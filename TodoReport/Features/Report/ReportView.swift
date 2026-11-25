@@ -187,13 +187,13 @@ struct ReportView: View {
             todos: report.todos,
             barRanges: weekBarRanges
         )
+        CategoryStatsCard(stats: report.categoryStats)
+        TimeUsageCard(summary: viewModel.timeUsage, layout: .weekTimetable, isLocked: !isPro)
         RatingLineChart(
             title: "별점",
             labels: report.dailyRatings.map(\.weekday),
             values: report.dailyRatings.map(\.rating)
         )
-        TimeUsageCard(summary: viewModel.timeUsage, layout: .weekTimetable, isLocked: !isPro)
-        CategoryStatsCard(stats: report.categoryStats)
         ReviewTimelineCard(entries: report.reviewTimeline)
         NotionSaveButton(
             isSavingToNotion: viewModel.isSavingToNotion,
@@ -233,13 +233,13 @@ struct ReportView: View {
             todos: report.todos,
             barRanges: monthBarRanges
         )
+        CategoryStatsCard(stats: report.categoryStats)
+        TimeUsageCard(summary: viewModel.timeUsage, layout: .bars, isLocked: !isPro, barRanges: monthBarRanges)
         RatingLineChart(
             title: "별점",
             labels: report.dailyRatings.map(\.weekday),
             values: report.dailyRatings.map(\.rating)
         )
-        TimeUsageCard(summary: viewModel.timeUsage, layout: .bars, isLocked: !isPro, barRanges: monthBarRanges)
-        CategoryStatsCard(stats: report.categoryStats)
         ReviewTimelineCard(entries: report.reviewTimeline)
         NotionSaveButton(
             isSavingToNotion: viewModel.isSavingToNotion,
@@ -573,18 +573,18 @@ private struct RatingLineChart: View {
     }
 }
 
-// MARK: - 카테고리별 달성률
+// MARK: - 카테고리별 완료율
 
 private struct CategoryStatsCard: View {
     let stats: [CategoryStat]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("카테고리별 달성률")
+            Text("카테고리별 완료율")
                 .font(.subheadline.bold())
 
             if stats.isEmpty {
-                Text("카테고리를 추가하면 달성률을 확인할 수 있습니다.")
+                Text("카테고리를 추가하면 완료율을 확인할 수 있습니다.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)

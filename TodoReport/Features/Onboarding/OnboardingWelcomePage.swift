@@ -44,7 +44,7 @@ enum OnboardingWelcomePage: Int, CaseIterable, Identifiable {
         case .todoAndDaily:
             return String(localized: "투두 작성·완료 체크부터 하루 리뷰와 별점까지 한곳에서 관리해요")
         case .reports:
-            return String(localized: "완료율 그래프, 별점 흐름, 카테고리 달성률로 패턴을 파악하고 노션에 리포트를 남겨요")
+            return String(localized: "완료율 그래프, 별점 흐름, 카테고리별 완료율로 패턴을 파악하고 노션에 리포트를 남겨요")
         case .captureAndSync:
             return String(localized: "생각날 때 바로 추가하고, 오프라인에서도 저장한 뒤 노션에 자동으로 전송돼요")
         case .getStarted:
