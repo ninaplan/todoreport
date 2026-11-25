@@ -1231,7 +1231,8 @@ private struct RecurringPreviewRow: View {
             Image(systemName: "circle.dashed")
                 .font(.title3)
                 .foregroundStyle(Color(.tertiaryLabel))
-            (Text(preview.title) + Text("\u{00A0}") + Text(Image(systemName: "arrow.triangle.2.circlepath")).font(.footnote).baselineOffset(1))
+            // `+`로 Text를 붙이는 방식은 iOS 26에서 지원 종료 예정 → 문자열 끼워 넣기로 (NBSP로 줄바꿈 방지)
+            Text("\(Text(verbatim: preview.title))\u{00A0}\(Text(Image(systemName: "arrow.triangle.2.circlepath")).font(.footnote).baselineOffset(1))")
                 .font(.body)
                 .foregroundStyle(Color(.secondaryLabel))
                 .lineLimit(2)
@@ -1418,14 +1419,15 @@ private struct TodoRow: View {
                     AppTheme.shared.accent.opacity(todo.isCompleted ? completedCheckboxOpacity : 1)
                 )
             // 일반 공백은 줄바꿈 가능 → NBSP로 마지막 글자와 핀을 한 덩어리로 유지
-            label = label + Text("\u{00A0}") + pin
+            label = Text("\(label)\u{00A0}\(pin)")
         }
         if todo.recurrenceId != nil {
             // 반복 할 일 표시 (연회색 순환 화살표, 글자 가운데에 맞추려 baselineOffset)
-            label = label + Text("\u{00A0}") + Text(Image(systemName: "arrow.triangle.2.circlepath"))
+            let repeatIcon = Text(Image(systemName: "arrow.triangle.2.circlepath"))
                 .font(.footnote)
                 .baselineOffset(1)
                 .foregroundStyle(Color(.tertiaryLabel))
+            label = Text("\(label)\u{00A0}\(repeatIcon)")
         }
         return label
     }
