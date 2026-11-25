@@ -188,25 +188,19 @@ final class TimeBlockService {
         }
     }
 
-    /// 블록 팝업에서 할 일 이름·카테고리를 고친다. 투두 탭과 같은 `TodoService.updateTodo` 경로(노션 반영).
-    /// 반복 할 일은 이 날 할 일만 바뀐다 (투두 탭 「이 항목만」과 같음)
-    func updateTodoDetails(todoId: String, title: String, categoryId: String?) async throws {
+    /// 블록 팝업에서 할 일 이름·카테고리·메모를 고친다. 투두 탭과 같은 `TodoService.updateTodo` 경로(노션 반영).
+    /// 반복 할 일은 이 날 할 일만 바뀐다 (투두 탭 「이 항목만」과 같음). 빈 메모는 메모 없음
+    func updateTodoDetails(todoId: String, title: String, categoryId: String?, memo: String) async throws {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        let trimmedMemo = memo.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newMemo: String? = trimmedMemo.isEmpty ? nil : trimmedMemo
         try await updateTodo(id: todoId) { todo in
-            guard todo.title != trimmed || todo.categoryId != categoryId else { return false }
+            guard todo.title != trimmed
+                || todo.categoryId != categoryId
+                || (todo.memo ?? "") != (newMemo ?? "") else { return false }
             todo.title = trimmed
             todo.categoryId = categoryId
-            return true
-        }
-    }
-
-    /// 블록 안에서 할 일 메모를 고친다 (투두 탭·노션과 같은 메모). 빈 글은 메모 없음
-    func updateTodoMemo(todoId: String, memo: String) async throws {
-        let trimmed = memo.trimmingCharacters(in: .whitespacesAndNewlines)
-        let newMemo: String? = trimmed.isEmpty ? nil : trimmed
-        try await updateTodo(id: todoId) { todo in
-            guard (todo.memo ?? "") != (newMemo ?? "") else { return false }
             todo.memo = newMemo
             return true
         }

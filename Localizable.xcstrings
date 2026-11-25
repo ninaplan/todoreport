@@ -4,9 +4,6 @@
     "" : {
       "shouldTranslate" : false
     },
-    " " : {
-      "shouldTranslate" : false
-    },
     "/년" : {
       "localizations" : {
         "en" : {
@@ -37,6 +34,16 @@
         }
       }
     },
+    "%@ – %@ 블록이 끝날 시간입니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your %1$@ – %2$@ block is ending."
+          }
+        }
+      }
+    },
     "%@ (%lld)" : {
       "localizations" : {
         "ko" : {
@@ -46,6 +53,9 @@
           }
         }
       }
+    },
+    "%@ %@" : {
+      "shouldTranslate" : false
     },
     "%@ 단위" : {
       "localizations" : {
@@ -220,6 +230,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld minutes before"
+          }
+        }
+      }
+    },
+    "%lld시–%lld시" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld:00–%2$lld:00"
+          }
+        }
+      }
+    },
+    "%lld시–새벽 %lld시" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld:00–%2$lld:00 (next day)"
           }
         }
       }
@@ -652,6 +682,16 @@
         }
       }
     },
+    "갈색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Brown"
+          }
+        }
+      }
+    },
     "같은 워크스페이스 멀티 플래너 연동 끊김 수정" : {
       "localizations" : {
         "en" : {
@@ -720,6 +760,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Search"
+          }
+        }
+      }
+    },
+    "검색 결과가 없습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Results"
           }
         }
       }
@@ -937,6 +987,26 @@
         }
       }
     },
+    "그대로 두기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Time"
+          }
+        }
+      }
+    },
+    "그래파이트" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Graphite"
+          }
+        }
+      }
+    },
     "금" : {
       "localizations" : {
         "en" : {
@@ -1027,6 +1097,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "기본"
+          }
+        }
+      }
+    },
+    "기본 크기로" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default Size"
+          }
+        }
+      }
+    },
+    "기타" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
+          }
+        }
+      }
+    },
+    "꺼짐" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
           }
         }
       }
@@ -1253,6 +1353,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "날짜를 탭하세요"
+          }
+        }
+      }
+    },
+    "남색" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indigo"
           }
         }
       }
@@ -1493,6 +1603,16 @@
         }
       }
     },
+    "노션 프로젝트 DB 연동" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notion Project DB Sync"
+          }
+        }
+      }
+    },
     "노션 플래너에서 원하는 달의 데이터만 다시 불러오기 가능" : {
       "localizations" : {
         "en" : {
@@ -1713,6 +1833,16 @@
         }
       }
     },
+    "노크 오렌지" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nock Orange"
+          }
+        }
+      }
+    },
     "다른 블록과 시간이 겹칩니다." : {
       "localizations" : {
         "en" : {
@@ -1749,6 +1879,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Next"
+          }
+        }
+      }
+    },
+    "다음 날 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next Day %@"
           }
         }
       }
@@ -1923,6 +2063,16 @@
         }
       }
     },
+    "돈" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Money"
+          }
+        }
+      }
+    },
     "되돌리기" : {
       "localizations" : {
         "en" : {
@@ -1949,6 +2099,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Capture ideas right away in Inbox. You can also send to-dos from the list, or move Inbox items to today."
+          }
+        }
+      }
+    },
+    "라인" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outline"
           }
         }
       }
@@ -2239,6 +2399,46 @@
         }
       }
     },
+    "메모 고치기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Note"
+          }
+        }
+      }
+    },
+    "메모 추가" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Note"
+          }
+        }
+      }
+    },
+    "메모: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Note: %@"
+          }
+        }
+      }
+    },
+    "목" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thu"
+          }
+        }
+      }
+    },
     "모든 데이터가 Notion에 업로드됐어요" : {
       "localizations" : {
         "en" : {
@@ -2259,16 +2459,6 @@
         }
       }
     },
-    "목" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Thu"
-          }
-        }
-      }
-    },
     "목록이 안 보이나요?" : {
       "localizations" : {
         "en" : {
@@ -2285,6 +2475,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Thursday"
+          }
+        }
+      }
+    },
+    "목표·시간" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goals & Time"
           }
         }
       }
@@ -2339,6 +2539,26 @@
         }
       }
     },
+    "미리 완료하거나 수정할 수 없습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can't complete or edit them in advance."
+          }
+        }
+      }
+    },
+    "미리보기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview"
+          }
+        }
+      }
+    },
     "미분류" : {
       "localizations" : {
         "en" : {
@@ -2361,6 +2581,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "미완료"
+          }
+        }
+      }
+    },
+    "민트" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mint"
+          }
+        }
+      }
+    },
+    "반려동물·자연" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pets & Nature"
           }
         }
       }
@@ -2435,6 +2675,16 @@
         }
       }
     },
+    "반복 할 일은 그날 만들어집니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repeating to-dos are created on their day."
+          }
+        }
+      }
+    },
     "반복 해제" : {
       "localizations" : {
         "en" : {
@@ -2471,6 +2721,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Version"
+          }
+        }
+      }
+    },
+    "버튼, 체크 표시, 강조 색이 선택한 색으로 바뀝니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buttons, checkmarks, and highlights use the color you choose."
+          }
+        }
+      }
+    },
+    "범위 밖 블록 %lld개" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blocks Outside Hours: %lld"
           }
         }
       }
@@ -2535,6 +2805,16 @@
         }
       }
     },
+    "보라" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purple"
+          }
+        }
+      }
+    },
     "복원 실패: %@" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2562,6 +2842,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "There's no subscription to restore."
+          }
+        }
+      }
+    },
+    "분홍" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pink"
           }
         }
       }
@@ -2622,346 +2912,6 @@
         }
       }
     },
-    "일과 시간" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Day Hours"
-          }
-        }
-      }
-    },
-    "자정을 넘기면 그날 화면 아래에 이어서 보입니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hours past midnight continue at the bottom of the same day."
-          }
-        }
-      }
-    },
-    "영어로 검색 (예: book, cat)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search in English (e.g. book, cat)"
-          }
-        }
-      }
-    },
-    "검색 결과가 없습니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Results"
-          }
-        }
-      }
-    },
-    "%lld시–%lld시" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lld:00–%2$lld:00"
-          }
-        }
-      }
-    },
-    "%lld시–새벽 %lld시" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lld:00–%2$lld:00 (next day)"
-          }
-        }
-      }
-    },
-    "일과 시간 · %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Day Hours · %@"
-          }
-        }
-      }
-    },
-    "할 일 이름" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Task Name"
-          }
-        }
-      }
-    },
-    "켜짐" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "On"
-          }
-        }
-      }
-    },
-    "꺼짐" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Off"
-          }
-        }
-      }
-    },
-    "메모 추가" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add Note"
-          }
-        }
-      }
-    },
-    "메모: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Note: %@"
-          }
-        }
-      }
-    },
-    "탭하면 메모를 고칠 수 있습니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap to edit the note."
-          }
-        }
-      }
-    },
-    "메모 고치기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Edit Note"
-          }
-        }
-      }
-    },
-    "하루 한눈에 보기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fit Day to Screen"
-          }
-        }
-      }
-    },
-    "기본 크기로" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Default Size"
-          }
-        }
-      }
-    },
-    "카테고리 아이콘 모양" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Category Icon Style"
-          }
-        }
-      }
-    },
-    "채움" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Filled"
-          }
-        }
-      }
-    },
-    "라인" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Outline"
-          }
-        }
-      }
-    },
-    "업무" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Work"
-          }
-        }
-      }
-    },
-    "운동·건강" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fitness & Health"
-          }
-        }
-      }
-    },
-    "식생활" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Food"
-          }
-        }
-      }
-    },
-    "집안일" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Home"
-          }
-        }
-      }
-    },
-    "육아·가족" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Family"
-          }
-        }
-      }
-    },
-    "돈" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Money"
-          }
-        }
-      }
-    },
-    "반려동물·자연" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pets & Nature"
-          }
-        }
-      }
-    },
-    "이동" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Travel"
-          }
-        }
-      }
-    },
-    "휴식·취미" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hobbies"
-          }
-        }
-      }
-    },
-    "목표·시간" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Goals & Time"
-          }
-        }
-      }
-    },
-    "기타" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Other"
-          }
-        }
-      }
-    },
-    "자정" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Midnight"
-          }
-        }
-      }
-    },
-    "다음 날 %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Next Day %@"
-          }
-        }
-      }
-    },
-    "범위 밖 블록 %lld개" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Blocks Outside Hours: %lld"
-          }
-        }
-      }
-    },
-    "일과 시간을 바꿀 수 있습니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change your day hours."
-          }
-        }
-      }
-    },
     "블록 삭제" : {
       "localizations" : {
         "en" : {
@@ -2972,12 +2922,52 @@
         }
       }
     },
+    "블록 시작 알림" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Block Start Alerts"
+          }
+        }
+      }
+    },
+    "블록 종료 알림" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Block End Alerts"
+          }
+        }
+      }
+    },
+    "블록이 지금까지로 줄어들고, 집중한 시간도 그만큼 계산됩니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The block will be shortened to now, and your focus time will count only up to now."
+          }
+        }
+      }
+    },
     "빠르게 기록, 자동 동기화" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Quick capture, auto sync"
+          }
+        }
+      }
+    },
+    "빨강" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Red"
           }
         }
       }
@@ -3262,6 +3252,16 @@
         }
       }
     },
+    "설정에서 앱의 포인트 컬러를 원하는 색으로 바꿀 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change the app's accent color to any color you like in Settings."
+          }
+        }
+      }
+    },
     "수" : {
       "localizations" : {
         "en" : {
@@ -3382,12 +3382,32 @@
         }
       }
     },
+    "시작 화면" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Screen"
+          }
+        }
+      }
+    },
     "시작하기" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Get Started"
+          }
+        }
+      }
+    },
+    "식생활" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Food"
           }
         }
       }
@@ -3422,6 +3442,16 @@
         }
       }
     },
+    "아주 밝은 색은 버튼 위 흰 글자가 잘 보이지 않을 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Very light colors may make white text on buttons hard to read."
+          }
+        }
+      }
+    },
     "안 함" : {
       "localizations" : {
         "en" : {
@@ -3448,6 +3478,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notification Permission Needed"
+          }
+        }
+      }
+    },
+    "알림 꺼짐" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alert Off"
           }
         }
       }
@@ -3552,6 +3592,16 @@
         }
       }
     },
+    "앱의 카테고리를 노션 프로젝트·목표 DB와 연결합니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link your categories to your Notion project/goal database."
+          }
+        }
+      }
+    },
     "어떻게 변경할까요?" : {
       "localizations" : {
         "en" : {
@@ -3644,6 +3694,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "There's no data to upload"
+          }
+        }
+      }
+    },
+    "업무" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Work"
           }
         }
       }
@@ -3748,6 +3808,16 @@
         }
       }
     },
+    "영어로 검색 (예: book, cat)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search in English (e.g. book, cat)"
+          }
+        }
+      }
+    },
     "예: 나의 투두" : {
       "localizations" : {
         "en" : {
@@ -3794,6 +3864,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "How was your day?"
+          }
+        }
+      }
+    },
+    "오늘 할 일" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's To-Do"
           }
         }
       }
@@ -4036,6 +4116,16 @@
         }
       }
     },
+    "완료한 할 일" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed To-Do"
+          }
+        }
+      }
+    },
     "외관" : {
       "localizations" : {
         "en" : {
@@ -4062,6 +4152,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Workout"
+          }
+        }
+      }
+    },
+    "운동·건강" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fitness & Health"
           }
         }
       }
@@ -4192,6 +4292,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choose one planner to keep.\nThe others will be deactivated and can be used again with a Pro subscription."
+          }
+        }
+      }
+    },
+    "육아·가족" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Family"
           }
         }
       }
@@ -4336,12 +4446,12 @@
         }
       }
     },
-    "일" : {
+    "이동" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sun"
+            "value" : "Travel"
           }
         }
       }
@@ -4536,6 +4646,46 @@
         }
       }
     },
+    "일" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sun"
+          }
+        }
+      }
+    },
+    "일과 시간" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day Hours"
+          }
+        }
+      }
+    },
+    "일과 시간 · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day Hours · %@"
+          }
+        }
+      }
+    },
+    "일과 시간을 바꿀 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change your day hours."
+          }
+        }
+      }
+    },
     "일상 기록" : {
       "localizations" : {
         "en" : {
@@ -4608,6 +4758,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "자세히"
+          }
+        }
+      }
+    },
+    "자정" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Midnight"
+          }
+        }
+      }
+    },
+    "자정을 넘기면 그날 화면 아래에 이어서 보입니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hours past midnight continue at the bottom of the same day."
           }
         }
       }
@@ -4782,6 +4952,16 @@
         }
       }
     },
+    "종료 시각을 지금(%@)으로 바꿀까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End the block now (%@)?"
+          }
+        }
+      }
+    },
     "종료일" : {
       "localizations" : {
         "en" : {
@@ -4862,6 +5042,16 @@
         }
       }
     },
+    "주황" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Orange"
+          }
+        }
+      }
+    },
     "중요 할 일 모두 완료" : {
       "localizations" : {
         "en" : {
@@ -4892,12 +5082,42 @@
         }
       }
     },
+    "지금으로 바꾸기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End Now"
+          }
+        }
+      }
+    },
     "지난 시간" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Past"
+          }
+        }
+      }
+    },
+    "지우기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear"
+          }
+        }
+      }
+    },
+    "직접 고르기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom Color"
           }
         }
       }
@@ -4942,6 +5162,16 @@
         }
       }
     },
+    "집안일" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home"
+          }
+        }
+      }
+    },
     "집중 시간" : {
       "localizations" : {
         "en" : {
@@ -4962,12 +5192,52 @@
         }
       }
     },
+    "집중 타이머" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Focus Timer"
+          }
+        }
+      }
+    },
+    "집중한 시간" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Focused Time"
+          }
+        }
+      }
+    },
+    "집중한 시간 리포트" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Focused Time Report"
+          }
+        }
+      }
+    },
     "찾는 데이터베이스가 목록에 없으면 우상단 새로고침 버튼을 눌러 다시 불러오세요." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "If you can't find the database in the list, tap the refresh button in the top right to reload."
+          }
+        }
+      }
+    },
+    "채움" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filled"
           }
         }
       }
@@ -4998,6 +5268,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Add your\nfirst todo"
+          }
+        }
+      }
+    },
+    "청록" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Teal"
+          }
+        }
+      }
+    },
+    "초록" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Green"
           }
         }
       }
@@ -5112,6 +5402,16 @@
         }
       }
     },
+    "카테고리 아이콘 모양" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category Icon Style"
+          }
+        }
+      }
+    },
     "카테고리 아이콘으로 보기" : {
       "localizations" : {
         "en" : {
@@ -5212,6 +5512,16 @@
         }
       }
     },
+    "켜짐" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On"
+          }
+        }
+      }
+    },
     "타임블록" : {
       "localizations" : {
         "en" : {
@@ -5242,6 +5552,16 @@
         }
       }
     },
+    "타임블록으로 완료한 시간이 주간·월간 리포트에 카테고리별로 쌓입니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time you complete in Time Blocks adds up by category in weekly and monthly reports."
+          }
+        }
+      }
+    },
     "타임블록은 Pro 기능입니다." : {
       "localizations" : {
         "en" : {
@@ -5268,6 +5588,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tap to expand the report"
+          }
+        }
+      }
+    },
+    "탭하면 메모를 고칠 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to edit the note."
           }
         }
       }
@@ -5482,6 +5812,16 @@
         }
       }
     },
+    "파랑" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blue"
+          }
+        }
+      }
+    },
     "페이월 미리보기" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5549,6 +5889,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Weekdays"
+          }
+        }
+      }
+    },
+    "포인트 컬러" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accent Color"
+          }
+        }
+      }
+    },
+    "포인트 컬러 설정" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accent color"
           }
         }
       }
@@ -5673,12 +6033,32 @@
         }
       }
     },
+    "하루 한눈에 보기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fit Day to Screen"
+          }
+        }
+      }
+    },
     "하루를 시간으로 계획하기" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Plan Your Day by the Hour"
+          }
+        }
+      }
+    },
+    "하루를 시간으로 계획하는 타임블록이 생겼습니다" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan your day by the hour with Time Blocks"
           }
         }
       }
@@ -5753,6 +6133,16 @@
         }
       }
     },
+    "할 일 이름" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task Name"
+          }
+        }
+      }
+    },
     "할 일 이름을 탭하면 바로 수정할 수 있어요" : {
       "localizations" : {
         "en" : {
@@ -5801,6 +6191,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Put to-dos into time blocks and see at a glance whether you stuck to the plan. Time Blocks are a Pro feature."
+          }
+        }
+      }
+    },
+    "할 일을 시간 블록에 넣어 하루를 계획하고, 시작·종료 알림을 받습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan your day by placing to-dos into time blocks, with start and end alerts."
+          }
+        }
+      }
+    },
+    "할 일을 시간 블록에 넣어 하루를 계획합니다. 블록이 시작하고 끝날 때 알림도 받을 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan your day by placing to-dos into time blocks. You can also get alerts when a block starts and ends."
+          }
+        }
+      }
+    },
+    "할 일을 하는 동안 시간을 재고 리포트에 기록합니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time your to-dos as you work and log it in your reports."
           }
         }
       }
@@ -5985,442 +6405,12 @@
         }
       }
     },
-    "포인트 컬러" : {
+    "휴식·취미" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Accent Color"
-          }
-        }
-      }
-    },
-    "노크 오렌지" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nock Orange"
-          }
-        }
-      }
-    },
-    "빨강" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Red"
-          }
-        }
-      }
-    },
-    "주황" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Orange"
-          }
-        }
-      }
-    },
-    "초록" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Green"
-          }
-        }
-      }
-    },
-    "민트" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mint"
-          }
-        }
-      }
-    },
-    "청록" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Teal"
-          }
-        }
-      }
-    },
-    "파랑" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Blue"
-          }
-        }
-      }
-    },
-    "남색" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Indigo"
-          }
-        }
-      }
-    },
-    "보라" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Purple"
-          }
-        }
-      }
-    },
-    "분홍" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pink"
-          }
-        }
-      }
-    },
-    "갈색" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Brown"
-          }
-        }
-      }
-    },
-    "그래파이트" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Graphite"
-          }
-        }
-      }
-    },
-    "버튼, 체크 표시, 강조 색이 선택한 색으로 바뀝니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buttons, checkmarks, and highlights use the color you choose."
-          }
-        }
-      }
-    },
-    "미리보기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Preview"
-          }
-        }
-      }
-    },
-    "완료한 할 일" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Completed To-Do"
-          }
-        }
-      }
-    },
-    "오늘 할 일" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Today's To-Do"
-          }
-        }
-      }
-    },
-    "집중한 시간" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Focused Time"
-          }
-        }
-      }
-    },
-    "직접 고르기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Custom Color"
-          }
-        }
-      }
-    },
-    "아주 밝은 색은 버튼 위 흰 글자가 잘 보이지 않을 수 있습니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Very light colors may make white text on buttons hard to read."
-          }
-        }
-      }
-    },
-    "%@ – %@ 블록이 끝날 시간입니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your %1$@ – %2$@ block is ending."
-          }
-        }
-      }
-    },
-    "시작 화면" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Start Screen"
-          }
-        }
-      }
-    },
-    "블록 시작 알림" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Block Start Alerts"
-          }
-        }
-      }
-    },
-    "블록 종료 알림" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Block End Alerts"
-          }
-        }
-      }
-    },
-    "흐린 알림은 타임블록 오른쪽 위 메뉴에서 켤 수 있습니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Turn on dimmed alerts from the menu at the top right of Time Blocks."
-          }
-        }
-      }
-    },
-    "알림 꺼짐" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alert Off"
-          }
-        }
-      }
-    },
-    "반복 할 일은 그날 만들어집니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Repeating to-dos are created on their day."
-          }
-        }
-      }
-    },
-    "미리 완료하거나 수정할 수 없습니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can't complete or edit them in advance."
-          }
-        }
-      }
-    },
-    "할 일을 시간 블록에 넣어 하루를 계획하고, 시작·종료 알림을 받습니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Plan your day by placing to-dos into time blocks, with start and end alerts."
-          }
-        }
-      }
-    },
-    "집중한 시간 리포트" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Focused Time Report"
-          }
-        }
-      }
-    },
-    "타임블록으로 완료한 시간이 주간·월간 리포트에 카테고리별로 쌓입니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Time you complete in Time Blocks adds up by category in weekly and monthly reports."
-          }
-        }
-      }
-    },
-    "집중 타이머" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Focus Timer"
-          }
-        }
-      }
-    },
-    "할 일을 하는 동안 시간을 재고 리포트에 기록합니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Time your to-dos as you work and log it in your reports."
-          }
-        }
-      }
-    },
-    "노션 프로젝트 DB 연동" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notion Project DB Sync"
-          }
-        }
-      }
-    },
-    "앱의 카테고리를 노션 프로젝트·목표 DB와 연결합니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Link your categories to your Notion project/goal database."
-          }
-        }
-      }
-    },
-    "포인트 컬러 설정" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Accent color"
-          }
-        }
-      }
-    },
-    "하루를 시간으로 계획하는 타임블록이 생겼습니다" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Plan your day by the hour with Time Blocks"
-          }
-        }
-      }
-    },
-    "할 일을 시간 블록에 넣어 하루를 계획합니다. 블록이 시작하고 끝날 때 알림도 받을 수 있습니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Plan your day by placing to-dos into time blocks. You can also get alerts when a block starts and ends."
-          }
-        }
-      }
-    },
-    "설정에서 앱의 포인트 컬러를 원하는 색으로 바꿀 수 있습니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change the app's accent color to any color you like in Settings."
-          }
-        }
-      }
-    },
-    "지우기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clear"
-          }
-        }
-      }
-    },
-    "종료 시각을 지금(%@)으로 바꿀까요?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "End the block now (%@)?"
-          }
-        }
-      }
-    },
-    "블록이 지금까지로 줄어들고, 집중한 시간도 그만큼 계산됩니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The block will be shortened to now, and your focus time will count only up to now."
-          }
-        }
-      }
-    },
-    "지금으로 바꾸기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "End Now"
-          }
-        }
-      }
-    },
-    "그대로 두기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keep Time"
+            "value" : "Hobbies"
           }
         }
       }

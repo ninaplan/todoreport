@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// 블록을 눌렀을 때 뜨는 간단한 팝업.
-/// 위: ✕(닫기) · 할 일 이름(바로 고치기) · ✓(저장) / 가운데: 시작·종료 시각 + 옆 종(알림), 카테고리 / 아래: 블록 삭제 (할 일은 지우지 않음)
-/// 이름·카테고리는 할 일 자체를 바꾼다 → 투두 탭·노션에도 반영
+/// 블록을 눌렀을 때 뜨는 팝업 (B안).
+/// 위: ✕ · 할 일 이름(바로 고치기) · ✓ / 시작·종료 줄: [종 | 시각] 알약, 시각을 누르면 아래에 휠
+/// / 카테고리 칩 / 메모 (여러 줄) / 블록 삭제 (할 일은 지우지 않음)
+/// 이름·카테고리·메모는 할 일 자체를 바꾼다 → 투두 탭·노션에도 반영
 struct TimeBlockEditPopup: View {
     let entry: TimeBlockEntry
     /// 일과 시간. 고른 시각을 그날 화면의 분으로 바꿀 때 쓴다 (범위가 새벽까지면 01:00 = 다음 날)
@@ -12,6 +13,8 @@ struct TimeBlockEditPopup: View {
     let isEndAlarmGloballyEnabled: Bool
     /// 고를 수 있는 카테고리 (이 플래너)
     let categories: [Category]
+    /// 블록의 메모·「+ 메모 추가」로 열었으면 메모 칸에 바로 커서
+    var focusesMemo: Bool = false
     let onSave: (TimeBlockEditResult) -> Void
     let onDelete: () -> Void
     let onClose: () -> Void
@@ -22,6 +25,15 @@ struct TimeBlockEditPopup: View {
     @State private var endAlarm: Bool
     @State private var title: String
     @State private var categoryId: String?
+    @State private var memo: String
+    /// 휠이 펼쳐진 시각 (한 번에 하나)
+    @State private var expandedTime: TimeField?
+    @FocusState private var isMemoFocused: Bool
+
+    private enum TimeField {
+        case start
+        case end
+    }
 
     init(
         entry: TimeBlockEntry,
@@ -29,6 +41,7 @@ struct TimeBlockEditPopup: View {
         isStartAlarmGloballyEnabled: Bool,
         isEndAlarmGloballyEnabled: Bool,
         categories: [Category],
+        focusesMemo: Bool = false,
         onSave: @escaping (TimeBlockEditResult) -> Void,
         onDelete: @escaping () -> Void,
         onClose: @escaping () -> Void
@@ -38,6 +51,7 @@ struct TimeBlockEditPopup: View {
         self.isStartAlarmGloballyEnabled = isStartAlarmGloballyEnabled
         self.isEndAlarmGloballyEnabled = isEndAlarmGloballyEnabled
         self.categories = categories
+        self.focusesMemo = focusesMemo
         self.onSave = onSave
         self.onDelete = onDelete
         self.onClose = onClose
@@ -47,6 +61,7 @@ struct TimeBlockEditPopup: View {
         _endAlarm = State(initialValue: entry.block.endAlarmEnabled)
         _title = State(initialValue: entry.title)
         _categoryId = State(initialValue: entry.categoryId)
+        _memo = State(initialValue: entry.memo ?? "")
     }
 
     private var startMinute: Int { dayRange.pageMinute(of: start) }
@@ -55,6 +70,7 @@ struct TimeBlockEditPopup: View {
     /// 날짜 부분은 무시하고 시각만 비교 (종료 01:00이 다음 날일 수 있음)
     private var isTimeValid: Bool { endMinute > startMinute }
     private var trimmedTitle: String { title.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var trimmedMemo: String { memo.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var isValid: Bool { isTimeValid && !trimmedTitle.isEmpty }
     private var accent: Color { AppTheme.shared.accent }
 
@@ -66,6 +82,7 @@ struct TimeBlockEditPopup: View {
             || endAlarm != entry.block.endAlarmEnabled
             || trimmedTitle != entry.title
             || categoryId != entry.categoryId
+            || trimmedMemo != (entry.memo ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var canSave: Bool { isValid && hasChanges }
@@ -81,9 +98,8 @@ struct TimeBlockEditPopup: View {
                 header
                 Divider()
                 VStack(spacing: 12) {
-                    // 시각 옆 종 = 그 시각 알림 (켜짐 bell.fill / 꺼짐 bell.slash)
-                    timeRow(title: "시작", selection: $start, alarm: $startAlarm, isAlarmAvailable: isStartAlarmGloballyEnabled)
-                    timeRow(title: "종료", selection: $end, alarm: $endAlarm, isAlarmAvailable: isEndAlarmGloballyEnabled)
+                    timeRow(title: "시작", field: .start, selection: $start, alarm: $startAlarm, isAlarmAvailable: isStartAlarmGloballyEnabled)
+                    timeRow(title: "종료", field: .end, selection: $end, alarm: $endAlarm, isAlarmAvailable: isEndAlarmGloballyEnabled)
                     if !isTimeValid {
                         Text("끝나는 시각은 시작 시각보다 늦어야 합니다.")
                             .font(.footnote)
@@ -92,14 +108,23 @@ struct TimeBlockEditPopup: View {
                     }
                     Divider()
                     categoryRow
-                    if !isStartAlarmGloballyEnabled || !isEndAlarmGloballyEnabled {
-                        Text("흐린 알림은 타임블록 오른쪽 위 메뉴에서 켤 수 있습니다.")
-                            .font(.footnote)
-                            .foregroundStyle(Color(.secondaryLabel))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                        // 휠이 열려 있을 때 카테고리 줄을 누르면 메뉴 대신 휠만 닫는다
+                        .overlay {
+                            if expandedTime != nil {
+                                Color.clear
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { expandedTime = nil }
+                            }
+                        }
+                    memoField
                 }
                 .padding(16)
+                // 휠 밖 빈 곳·글자를 누르면 휠 닫기 (휠·알약·입력칸은 자기 탭을 먼저 받는다)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if expandedTime != nil { expandedTime = nil }
+                }
+                .animation(.easeInOut(duration: 0.2), value: expandedTime)
                 Divider()
                 Button(role: .destructive, action: onDelete) {
                     Text("블록 삭제")
@@ -134,7 +159,8 @@ struct TimeBlockEditPopup: View {
                     startAlarm: startAlarm,
                     endAlarm: endAlarm,
                     title: trimmedTitle,
-                    categoryId: categoryId
+                    categoryId: categoryId,
+                    memo: trimmedMemo
                 ))
             }
             .disabled(!canSave)
@@ -162,40 +188,61 @@ struct TimeBlockEditPopup: View {
         .accessibilityLabel(Text(label))
     }
 
+    /// 시작·종료 줄: 왼쪽 이름, 오른쪽 [종 | 시각] 알약. 시각을 누르면 줄 아래에 휠
+    @ViewBuilder
     private func timeRow(
         title: LocalizedStringKey,
+        field: TimeField,
         selection: Binding<Date>,
         alarm: Binding<Bool>,
         isAlarmAvailable: Bool
     ) -> some View {
-        HStack(spacing: 8) {
-            Text(title)
-            Spacer()
-            DatePicker(title, selection: selection, displayedComponents: .hourAndMinute)
-                .labelsHidden()
-                .datePickerStyle(.compact)
-            alarmButton(isOn: alarm, isAvailable: isAlarmAvailable, timeTitle: title)
+        let isExpanded = expandedTime == field
+        VStack(spacing: 4) {
+            HStack {
+                Text(title)
+                Spacer()
+                TimeBlockTimePill(
+                    time: selection.wrappedValue,
+                    isAlarmOn: alarm,
+                    isAlarmAvailable: isAlarmAvailable,
+                    isExpanded: isExpanded,
+                    onTapTime: {
+                        isMemoFocused = false
+                        expandedTime = isExpanded ? nil : field
+                    }
+                )
+            }
+            if isExpanded {
+                // 높이를 잘라 쓰면 안 보이는 윗부분이 위 알약의 터치를 가로채 한 칸 이른 시각이 골라졌다
+                // → 휠 기본 높이 그대로 쓴다
+                DatePicker(title, selection: selection, displayedComponents: .hourAndMinute)
+                    .labelsHidden()
+                    .datePickerStyle(.wheel)
+                    .transition(.opacity)
+            }
         }
     }
 
-    /// 시각 옆 종. 탭하면 그 시각 알림 켜기/끄기. 메뉴 전체 알림이 꺼져 있으면 흐리게
-    private func alarmButton(isOn: Binding<Bool>, isAvailable: Bool, timeTitle: LocalizedStringKey) -> some View {
-        let showsOn = isOn.wrappedValue && isAvailable
-        return Button {
-            isOn.wrappedValue.toggle()
-        } label: {
-            Image(systemName: showsOn ? "bell.fill" : "bell.slash")
-                .font(.system(size: 16))
-                .foregroundStyle(showsOn ? accent : Color(.tertiaryLabel))
-                .frame(width: 36, height: 36)
-                .contentShape(Rectangle())
-                .animation(.easeOut(duration: 0.15), value: showsOn)
-        }
-        .buttonStyle(.plain)
-        .disabled(!isAvailable)
-        .opacity(isAvailable ? 1 : 0.45)
-        .accessibilityLabel(Text("알림"))
-        .accessibilityValue(showsOn ? Text("켜짐") : Text("꺼짐"))
+    // MARK: - 메모 (할 일 메모 = 투두 탭·노션과 같음)
+
+    private var memoField: some View {
+        TextField("메모 추가", text: $memo, axis: .vertical)
+            .lineLimit(2...6)
+            .font(.subheadline)
+            .focused($isMemoFocused)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .onChange(of: isMemoFocused) { _, focused in
+                if focused { expandedTime = nil }
+            }
+            .task {
+                guard focusesMemo else { return }
+                // 팝업이 뜨는 애니메이션이 끝난 뒤 포커스해야 키보드가 안정적으로 뜬다
+                try? await Task.sleep(for: .milliseconds(250))
+                isMemoFocused = true
+            }
     }
 
     // MARK: - 카테고리
@@ -218,6 +265,7 @@ struct TimeBlockEditPopup: View {
                     }
                 }
             } label: {
+                // 칩: 색 점 + 이름 (시각 알약과 같은 모양)
                 HStack(spacing: 6) {
                     if let selectedCategory {
                         Circle()
@@ -229,11 +277,11 @@ struct TimeBlockEditPopup: View {
                         Text("미분류")
                             .foregroundStyle(Color(.secondaryLabel))
                     }
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color(.tertiaryLabel))
                 }
                 .foregroundStyle(Color(.label))
+                .padding(.horizontal, 12)
+                .frame(height: 32)
+                .background(Color(.tertiarySystemFill), in: Capsule())
             }
         }
     }

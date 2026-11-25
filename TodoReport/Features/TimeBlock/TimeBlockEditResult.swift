@@ -9,4 +9,6 @@ struct TimeBlockEditResult {
     let endAlarm: Bool
     let title: String
     let categoryId: String?
+    /// 할 일 메모 (빈 글 = 메모 없음)
+    let memo: String
 }

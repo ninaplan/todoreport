@@ -102,13 +102,6 @@ struct TimeBlockTimelineView: View {
 
     // MARK: - 블록
 
-    /// 상태 변경은 ViewModel 메서드로만
-    private var memoDraftBinding: Binding<String> {
-        Binding(
-            get: { viewModel.memoDraft },
-            set: { viewModel.updateMemoDraft($0) }
-        )
-    }
 
     /// 일과 시간에 걸친 블록은 범위 밖 부분을 잘라서 보여준다 (mask)
     private var blocks: some View {
@@ -147,10 +140,7 @@ struct TimeBlockTimelineView: View {
                 onMoveChanged: { viewModel.updateMove(translationHeight: $0) },
                 onMoveEnded: { viewModel.endMove() },
                 pointsPerMinute: scale,
-                isEditingMemo: viewModel.memoEditingBlockId == entry.id,
-                memoDraft: memoDraftBinding,
-                onBeginMemoEdit: { viewModel.beginMemoEdit(entry) },
-                onCommitMemo: { viewModel.commitMemoEdit() }
+                onOpenMemo: { viewModel.openEditor(entry, focusesMemo: true) }
             )
             .padding(.leading, blockLeading)
             .padding(.trailing, TimeBlockLayout.blockTrailingPadding)

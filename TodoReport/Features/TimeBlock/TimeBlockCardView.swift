@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// 타임라인 블록 카드. 높이는 시간에 비례(기본 1시간 = 66pt, 핀치로 바뀜).
-/// - 높이가 넉넉하면 제목 아래 할 일 메모(없으면 「+ 메모」). 메모를 누르면 그 자리에서 입력
+/// - 높이가 넉넉하면 제목 아래 할 일 메모(길면 …, 없으면 「+ 메모 추가」). 누르면 팝업의 메모 칸으로 (입구만)
 /// - 평소: 흰 카드(카테고리 색상 보기 켜면 연한 카테고리 색) + 완료 체크 원 + 오른쪽 시작 시각
 /// - 진행 중: 진한 카테고리 색(없거나 색상 보기 끄면 포인트 컬러) 그라데이션 + 「진행 중 · N분 남음」
 /// - 완료 = 연한 글자 + 줄긋기, 지남·미완료 = 연한 글자
@@ -29,11 +29,8 @@ struct TimeBlockCardView: View {
     var onMoveEnded: () -> Void = {}
     /// 1분 = 몇 pt (확대·축소)
     var pointsPerMinute: CGFloat = TimeBlockLayout.pointsPerMinute
-    /// 이 블록 메모를 입력 중인지
-    var isEditingMemo: Bool = false
-    var memoDraft: Binding<String> = .constant("")
-    var onBeginMemoEdit: () -> Void = {}
-    var onCommitMemo: () -> Void = {}
+    /// 메모·「+ 메모 추가」 탭 → 팝업을 메모 칸에 커서를 둔 채로 연다
+    var onOpenMemo: () -> Void = {}
 
     @State private var completeFeedbackTrigger = 0
     @State private var moveFeedbackTrigger = 0
@@ -109,7 +106,6 @@ struct TimeBlockCardView: View {
 
     /// 좁을 때 진행 중 블록은 「N분 남음」을, 나머지는 메모를 먼저 보여준다
     private var showsMemo: Bool {
-        if isEditingMemo { return true }
         guard memoLineLimit > 0 else { return false }
         return !(isTight && isCurrent)
     }
@@ -180,14 +176,14 @@ struct TimeBlockCardView: View {
         .clipped()
         .background { cardBackground }
         .overlay(alignment: .bottomTrailing) {
-            // 메모 입력 중이거나 너무 작으면 손잡이 숨김
-            if isInteractive, !isEditingMemo, height >= 20 {
+            // 너무 작으면 손잡이 숨김
+            if isInteractive, height >= 20 {
                 resizeHandle
             }
         }
         .contentShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
         .onTapGesture {
-            guard isInteractive, !isEditingMemo else { return }
+            guard isInteractive else { return }
             onTap()
         }
         // SwiftUI DragGesture·LongPressGesture는 블록 위에서 세로 스크롤을 막는다 →
@@ -200,7 +196,7 @@ struct TimeBlockCardView: View {
             onToggleComplete()
         }
         .accessibilityAction(named: String(localized: "메모 고치기")) {
-            beginMemoEdit()
+            openMemo()
         }
     }
 
@@ -276,27 +272,17 @@ struct TimeBlockCardView: View {
 
     // MARK: - 메모
 
-    /// 메모 부분은 따로 누르는 버튼 → 블록 탭(편집 팝업)과 겹치지 않는다.
+    /// 메모 부분은 따로 누르는 버튼 → 블록 탭(빈 팝업)과 달리 팝업의 메모 칸에 커서를 둔 채로 연다.
     /// 안쪽 Button이 탭을 먼저 받고, 바깥 onTapGesture는 나머지 영역에서만 동작한다.
     @ViewBuilder
     private var memoArea: some View {
-        if isEditingMemo {
-            AutoFocusTextField(
-                text: memoDraft,
-                placeholder: String(localized: "메모"),
-                textStyle: .footnote,
-                axis: .vertical,
-                onDismiss: onCommitMemo,
-                flushDismissOnDismantle: true
-            )
-            .foregroundStyle(foreground)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } else if let memoText {
-            Button(action: beginMemoEdit) {
+        if let memoText {
+            Button(action: openMemo) {
                 Text(memoText)
                     .font(.footnote)
                     .foregroundStyle(secondaryForeground)
                     .lineLimit(memoLineLimit)
+                    .truncationMode(.tail)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
@@ -305,7 +291,7 @@ struct TimeBlockCardView: View {
             .accessibilityLabel(Text("메모: \(memoText)"))
             .accessibilityHint(Text("탭하면 메모를 고칠 수 있습니다."))
         } else if isInteractive {
-            Button(action: beginMemoEdit) {
+            Button(action: openMemo) {
                 Label("메모 추가", systemImage: "plus")
                     .labelStyle(.titleAndIcon)
                     .font(.footnote)
@@ -316,9 +302,9 @@ struct TimeBlockCardView: View {
         }
     }
 
-    private func beginMemoEdit() {
+    private func openMemo() {
         guard isInteractive else { return }
-        onBeginMemoEdit()
+        onOpenMemo()
     }
 
     /// 완료 체크 원 (투두 탭과 같은 모양)
@@ -379,7 +365,7 @@ struct TimeBlockCardView: View {
     private var moveGesture: TimeBlockLongPressDragGesture {
         TimeBlockLongPressDragGesture(
             minimumDuration: Self.moveLongPressDuration,
-            isEnabled: isInteractive && !isEditingMemo,
+            isEnabled: isInteractive,
             onBegan: {
                 isMoveGestureActive = true
                 moveFeedbackTrigger += 1

@@ -44,9 +44,8 @@ final class TimeBlockViewModel {
     /// 확인 창에 보여 줄 지금 시각 (창을 연 순간 기준)
     private(set) var finishEarlyTime: Date = .now
 
-    // 블록 안 메모 바로 입력 (할 일 메모)
-    private(set) var memoEditingBlockId: String?
-    private(set) var memoDraft = ""
+    /// 블록의 메모·「+ 메모 추가」로 팝업을 열었는지 → 메모 칸에 바로 커서
+    private(set) var editorFocusesMemo = false
 
     /// 1분 = 몇 pt (두 손가락으로 오므리거나 벌려 바꿈, 기기에 저장). 기본 1.1 = 1시간 66pt
     private(set) var pointsPerMinute: CGFloat
@@ -140,10 +139,6 @@ final class TimeBlockViewModel {
     }
 
     func reload() async {
-        // 다른 날로 넘어가기 전에 입력 중인 메모부터 저장
-        if memoEditingBlockId != nil, entriesDay != selectedDate {
-            commitMemoEdit()
-        }
         refreshDayRange()
         let day = selectedDate
         let loaded = await service.fetchEntries(for: day)
@@ -520,8 +515,8 @@ final class TimeBlockViewModel {
 
     // MARK: - 편집 시트
 
-    func openEditor(_ entry: TimeBlockEntry) {
-        commitMemoEdit()
+    func openEditor(_ entry: TimeBlockEntry, focusesMemo: Bool = false) {
+        editorFocusesMemo = focusesMemo
         editingEntry = entry
     }
 
@@ -554,59 +549,25 @@ final class TimeBlockViewModel {
             presentError(error)
             return
         }
-        let todoChanged = result.title != entry.title || result.categoryId != entry.categoryId
+        let oldMemo = (entry.memo ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let todoChanged = result.title != entry.title
+            || result.categoryId != entry.categoryId
+            || result.memo != oldMemo
         let todoId = entry.block.todoId
         Task {
             if todoChanged {
                 do {
-                    try await service.updateTodoDetails(todoId: todoId, title: result.title, categoryId: result.categoryId)
+                    try await service.updateTodoDetails(
+                        todoId: todoId,
+                        title: result.title,
+                        categoryId: result.categoryId,
+                        memo: result.memo
+                    )
                 } catch {
                     presentError(error)
                 }
             }
             await reload()
-        }
-    }
-
-    // MARK: - 블록 안 메모 (할 일 메모)
-
-    func beginMemoEdit(_ entry: TimeBlockEntry) {
-        guard !isDraggingBlock else { return }
-        if memoEditingBlockId != nil, memoEditingBlockId != entry.id {
-            commitMemoEdit()
-        }
-        memoDraft = entry.memo ?? ""
-        memoEditingBlockId = entry.id
-    }
-
-    func updateMemoDraft(_ text: String) {
-        memoDraft = text
-    }
-
-    /// 키보드가 내려가면(다른 곳 탭·완료) 저장. 노션에는 이때 한 번만 보낸다
-    func commitMemoEdit() {
-        guard let id = memoEditingBlockId else { return }
-        memoEditingBlockId = nil
-        guard let entry = entries.first(where: { $0.id == id }) else { return }
-        let draft = memoDraft
-        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed != (entry.memo ?? "") else { return }
-        let newMemo: String? = trimmed.isEmpty ? nil : trimmed
-        // 같은 할 일의 블록은 메모를 함께 보여 주므로 모두 바로 바꾼다
-        entries = entries.map { item in
-            guard item.block.todoId == entry.block.todoId else { return item }
-            var updated = item
-            updated.memo = newMemo
-            return updated
-        }
-        let todoId = entry.block.todoId
-        Task {
-            do {
-                try await service.updateTodoMemo(todoId: todoId, memo: draft)
-            } catch {
-                presentError(error)
-                await reload()
-            }
         }
     }
 

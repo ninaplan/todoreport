@@ -69,6 +69,7 @@ struct TimeBlockView: View {
                     isStartAlarmGloballyEnabled: viewModel.isStartAlarmEnabled,
                     isEndAlarmGloballyEnabled: viewModel.isEndAlarmEnabled,
                     categories: viewModel.editableCategories,
+                    focusesMemo: viewModel.editorFocusesMemo,
                     onSave: { viewModel.saveEdit($0) },
                     onDelete: { viewModel.deleteEditingBlock() },
                     onClose: { viewModel.dismissEditor() }
@@ -170,13 +171,6 @@ struct TimeBlockView: View {
             guard !pinching, pinchStart != nil else { return }
             pinchStart = nil
             viewModel.commitPointsPerMinute()
-        }
-        // 메모 입력 중 다른 곳을 누르면 키보드만 내리고 저장 (팝업은 이 아래라 영향 없음)
-        .tapToDismissKeyboard()
-        .onChange(of: viewModel.memoEditingBlockId) { _, id in
-            guard let id, let entry = viewModel.entries.first(where: { $0.id == id }) else { return }
-            // 키보드에 가리지 않게 그 블록을 화면 위쪽으로
-            scroll(toMinute: entry.block.startMinute - 30, animated: true)
         }
         .overlay(alignment: .bottom) { outOfRangeNotice }
         .onAppear { scrollToInitialPositionIfNeeded() }
