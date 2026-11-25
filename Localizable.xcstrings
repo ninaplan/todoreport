@@ -6445,6 +6445,16 @@
         }
       }
     },
+    "분야별 아이콘을 검색해서 고르고, 색 세트와 나만의 커스텀 색으로 카테고리를 꾸밀 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search icons by topic, and style categories with color sets and your own custom colors."
+          }
+        }
+      }
+    },
     "블록만 삭제" : {
       "localizations" : {
         "en" : {
@@ -6521,6 +6531,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete All Future Repeats"
+          }
+        }
+      }
+    },
+    "카테고리 꾸미기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category Styles"
           }
         }
       }

@@ -2,11 +2,12 @@ import Foundation
 
 let whatsNewReleases: [WhatsNewRelease] = [
     WhatsNewRelease(
-        id: "1.18",
+        id: "2.0.0",
         symbolName: "clock",
         items: [
             String(localized: "타임블록"),
             String(localized: "집중한 시간 리포트"),
+            String(localized: "카테고리 꾸미기"),
             String(localized: "포인트 컬러 설정")
         ],
         showsPopup: true,
@@ -24,6 +25,11 @@ let whatsNewReleases: [WhatsNewRelease] = [
                 title: String(localized: "집중한 시간 리포트"),
                 description: String(localized: "타임블록으로 완료한 시간이 주간·월간 리포트에 카테고리별로 쌓입니다."),
                 isPro: true
+            ),
+            WhatsNewRelease.PopupItem(
+                symbolName: "tag",
+                title: String(localized: "카테고리 꾸미기"),
+                description: String(localized: "분야별 아이콘을 검색해서 고르고, 색 세트와 나만의 커스텀 색으로 카테고리를 꾸밀 수 있습니다.")
             ),
             WhatsNewRelease.PopupItem(
                 symbolName: "paintpalette",

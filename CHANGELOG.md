@@ -1,14 +1,16 @@
 # Changelog
 
-## [1.18] - 2026-11-24
+## [2.0.0] - 2026-11-25
 
 ### 새 기능
 - 할 일을 시간 블록에 넣어 하루를 계획하는 「타임블록」 탭이 생겼습니다 (Pro). 블록이 시작하고 끝날 때 알림을 받을 수 있습니다
-- 주간·월간 리포트에서 타임블록으로 완료한 시간을 카테고리별로 볼 수 있습니다 (Pro)
+- 주간·월간 리포트와 하루 리포트 카드에서 타임블록으로 완료한 시간을 카테고리별로 볼 수 있습니다 (Pro)
+- 분야별 아이콘을 검색해서 고르고, 색 세트와 나만의 커스텀 색으로 카테고리를 꾸밀 수 있습니다
 - 설정에서 앱의 포인트 컬러를 원하는 색으로 바꿀 수 있습니다
 - 앱을 열 때 처음 보일 화면을 투두와 타임블록 중에서 고를 수 있습니다
 - Added Time Blocks: plan your day by placing to-dos into time blocks, with start and end alerts (Pro)
-- Weekly and monthly reports now show the time you completed in Time Blocks, by category (Pro)
+- Weekly and monthly reports and the daily report card now show the time you completed in Time Blocks, by category (Pro)
+- Customize categories with icons by topic and search, color sets, and your own custom colors
 - You can change the app's accent color in Settings
 - You can choose whether the app opens to To-Do or Time Blocks
 
