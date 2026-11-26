@@ -106,6 +106,7 @@ struct TimeBlockTimelineView: View {
     /// 일과 시간에 걸친 블록은 범위 밖 부분을 잘라서 보여준다 (mask)
     private var blocks: some View {
         ZStack(alignment: .topLeading) {
+            suggestionCards
             blockCards
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -114,6 +115,22 @@ struct TimeBlockTimelineView: View {
             Rectangle()
                 .frame(height: rangeHeight)
                 .offset(y: TimeBlockLayout.verticalPadding)
+        }
+    }
+
+    /// 흐린 제안 블록 (진짜 블록과 겹치는 건 ViewModel에서 이미 뺐다)
+    private var suggestionCards: some View {
+        ForEach(viewModel.visibleSuggestions) { suggestion in
+            TimeBlockSuggestionCardView(
+                suggestion: suggestion,
+                day: viewModel.entriesDay,
+                endMinute: viewModel.suggestionEndMinute(for: suggestion),
+                pointsPerMinute: scale,
+                onTap: { viewModel.tapSuggestion(suggestion) }
+            )
+            .padding(.leading, blockLeading)
+            .padding(.trailing, TimeBlockLayout.blockTrailingPadding)
+            .offset(y: y(suggestion.startMinute) + TimeBlockLayout.blockGap / 2)
         }
     }
 

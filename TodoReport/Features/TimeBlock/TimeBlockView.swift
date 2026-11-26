@@ -52,6 +52,12 @@ struct TimeBlockView: View {
             } message: {
                 Text("블록이 지금까지로 줄어들고, 집중한 시간도 그만큼 계산됩니다.")
             }
+            // 미래 날짜 제안 블록 탭 (투두 탭 「예정」 안내와 같은 제목)
+            .alert("반복 할 일은 그날 만들어집니다.", isPresented: suggestionPreviewInfoBinding) {
+                Button("확인", role: .cancel) { viewModel.confirmSuggestionPreviewInfo() }
+            } message: {
+                Text("그날이 되면 탭해서 블록으로 넣을 수 있습니다.")
+            }
         }
         .overlay {
             // 블록 탭 → 시간 편집 팝업, 빈 칸 탭 → 할 일 고르기 팝업 (둘 다 시트 대신)
@@ -289,14 +295,6 @@ struct TimeBlockView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Section {
-                        // iOS 메뉴는 오른쪽 보조 글자를 지원하지 않아 한 줄로 (아이콘 없음)
-                        Button {
-                            viewModel.openDayRangeEditor()
-                        } label: {
-                            Text("일과 시간 · \(TimeBlockDayRangePopup.compactSummary(of: viewModel.dayRange))")
-                        }
-                    }
-                    Section {
                         Button("하루 한눈에 보기") {
                             withAnimation(.easeInOut(duration: 0.25)) {
                                 viewModel.fitDayToHeight(viewportHeight)
@@ -312,14 +310,30 @@ struct TimeBlockView: View {
                             }
                         }
                     }
-                    Picker("블록 단위", selection: snapBinding) {
-                        ForEach(TimeBlockLayout.snapOptions, id: \.self) { minutes in
-                            Text(snapLabel(minutes)).tag(minutes)
-                        }
-                    }
-                    .pickerStyle(.inline)
                     Section {
                         Toggle("카테고리 색상 보기", isOn: categoryColorBinding)
+                        Toggle("제안 블록 보기", isOn: suggestionsBinding)
+                    }
+                    // 한 번 정하면 잘 안 바꾸는 설정. 지금 값은 제목 아래 작은 글씨 (메뉴 라벨의 둘째 Text)
+                    // Picker(.menu)는 iOS 26 메뉴 안에서 지금 값을 안 보여 줘서 Menu로 감쌌다
+                    Section {
+                        Menu {
+                            Picker("블록 단위", selection: snapBinding) {
+                                ForEach(TimeBlockLayout.snapOptions, id: \.self) { minutes in
+                                    Text(snapLabel(minutes)).tag(minutes)
+                                }
+                            }
+                            .pickerStyle(.inline)
+                        } label: {
+                            Text("블록 단위")
+                            Text(snapLabel(viewModel.snapMinutes))
+                        }
+                        Button {
+                            viewModel.openDayRangeEditor()
+                        } label: {
+                            Text("일과 시간")
+                            Text(TimeBlockDayRangePopup.compactSummary(of: viewModel.dayRange))
+                        }
                     }
                     // 새로 만드는 블록의 기본값. 이미 있는 블록은 블록 팝업의 종으로 따로 켜고 끈다
                     Section("새 블록 기본 알림") {
@@ -387,6 +401,20 @@ struct TimeBlockView: View {
         Binding(
             get: { viewModel.showsCategoryColor },
             set: { viewModel.setShowsCategoryColor($0) }
+        )
+    }
+
+    private var suggestionsBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.showsSuggestions },
+            set: { viewModel.setShowsSuggestions($0) }
+        )
+    }
+
+    private var suggestionPreviewInfoBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.showSuggestionPreviewInfo },
+            set: { if !$0 { viewModel.cancelSuggestionPreviewInfo() } }
         )
     }
 

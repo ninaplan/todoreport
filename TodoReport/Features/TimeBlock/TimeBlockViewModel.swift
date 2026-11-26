@@ -18,6 +18,12 @@ final class TimeBlockViewModel {
     /// 메뉴 「새 블록 기본 알림」 시작·종료 (새 블록 기본값. 이미 있는 블록은 건드리지 않음)
     private(set) var isStartAlarmEnabled: Bool = TimeBlockNotificationManager.shared.isGloballyEnabled
     private(set) var isEndAlarmEnabled: Bool = TimeBlockNotificationManager.shared.isEndGloballyEnabled
+    /// 메뉴 「제안 블록 보기」. 시간이 있는 반복 할 일을 흐린 블록으로 보여 준다 (기본 켜짐)
+    private(set) var showsSuggestions: Bool
+    /// 제안 블록 후보 (`entriesDay` 날짜 것). 화면에는 `visibleSuggestions`로 거른 것만
+    private(set) var suggestions: [TimeBlockSuggestion] = []
+    /// 미래 날짜 제안 블록 탭 → 「반복 할 일은 그날 만들어집니다.」
+    private(set) var showSuggestionPreviewInfo = false
 
     // 이동 (블록 길게 누른 뒤 드래그)
     private(set) var movingBlockId: String?
@@ -75,6 +81,9 @@ final class TimeBlockViewModel {
         showsCategoryColor = defaults.object(forKey: TimeBlockLayout.showsCategoryColorKey) == nil
             ? true
             : defaults.bool(forKey: TimeBlockLayout.showsCategoryColorKey)
+        showsSuggestions = defaults.object(forKey: TimeBlockLayout.showsSuggestionsKey) == nil
+            ? true
+            : defaults.bool(forKey: TimeBlockLayout.showsSuggestionsKey)
     }
 
     /// 길이 조절·이동 중에는 바깥 스크롤을 멈춘다
@@ -144,9 +153,11 @@ final class TimeBlockViewModel {
         refreshDayRange()
         let day = selectedDate
         let loaded = await service.fetchEntries(for: day)
+        let loadedSuggestions = await service.fetchSuggestions(for: day)
         // 빠르게 날짜를 넘기면 늦게 끝난 옛 날짜 결과가 덮어쓰지 않게
         guard day == selectedDate else { return }
         entries = loaded
+        suggestions = loadedSuggestions
         entriesDay = day
     }
 
@@ -245,6 +256,66 @@ final class TimeBlockViewModel {
     func setShowsCategoryColor(_ shows: Bool) {
         showsCategoryColor = shows
         UserDefaults.standard.set(shows, forKey: TimeBlockLayout.showsCategoryColorKey)
+    }
+
+    func setShowsSuggestions(_ shows: Bool) {
+        showsSuggestions = shows
+        UserDefaults.standard.set(shows, forKey: TimeBlockLayout.showsSuggestionsKey)
+    }
+
+    // MARK: - 제안 블록
+
+    /// 길이 = 블록 단위. 일과 시간 밖이거나 진짜 블록과 조금이라도 겹치면 숨긴다.
+    /// 그 할 일을 이미 블록에 넣었으면 숨긴다 (고르기 창으로 다른 시각에 넣은 경우 포함).
+    /// 제안 블록끼리 겹치면 앞의 것(시각 → 이름 순, `suggestions`가 이미 이 순서)만. 나머지는 고르기 창에서 넣는다
+    var visibleSuggestions: [TimeBlockSuggestion] {
+        guard showsSuggestions else { return [] }
+        let placedTodoIds = Set(entries.map(\.block.todoId))
+        var shown: [TimeBlockSuggestion] = []
+        for suggestion in suggestions {
+            let start = suggestion.startMinute
+            let end = suggestionEndMinute(for: suggestion)
+            guard dayRange.contains(start: start, end: end) else { continue }
+            if let todoId = suggestion.todoId, placedTodoIds.contains(todoId) { continue }
+            if entries.contains(where: { $0.block.overlaps(start: start, end: end) }) { continue }
+            let overlapsShown = shown.contains {
+                start < suggestionEndMinute(for: $0) && end > $0.startMinute
+            }
+            if overlapsShown { continue }
+            shown.append(suggestion)
+        }
+        return shown
+    }
+
+    func suggestionEndMinute(for suggestion: TimeBlockSuggestion) -> Int {
+        suggestion.startMinute + snapMinutes
+    }
+
+    /// 오늘·지난 날 → 바로 진짜 블록. 미래(예정) → 안내만 (아직 할 일이 없어 블록에 넣을 수 없음)
+    func tapSuggestion(_ suggestion: TimeBlockSuggestion) {
+        guard let todoId = suggestion.todoId else {
+            showSuggestionPreviewInfo = true
+            return
+        }
+        do {
+            try service.createBlock(
+                todoId: todoId,
+                day: entriesDay,
+                startMinute: suggestion.startMinute,
+                endMinute: suggestionEndMinute(for: suggestion)
+            )
+            Task { await reload() }
+        } catch {
+            presentError(error)
+        }
+    }
+
+    func cancelSuggestionPreviewInfo() {
+        showSuggestionPreviewInfo = false
+    }
+
+    func confirmSuggestionPreviewInfo() {
+        showSuggestionPreviewInfo = false
     }
 
     // MARK: - 빈 칸 탭 → 고르기

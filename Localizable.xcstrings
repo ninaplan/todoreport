@@ -987,6 +987,16 @@
         }
       }
     },
+    "그날이 되면 탭해서 블록으로 넣을 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On that day, tap it to add it as a block."
+          }
+        }
+      }
+    },
     "그대로 두기" : {
       "localizations" : {
         "en" : {
@@ -4641,17 +4651,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Day Hours"
-          }
-        }
-      }
-    },
-    "일과 시간 · %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Day Hours · %@"
+            "value" : "Day Span"
           }
         }
       }
@@ -4661,7 +4661,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Change your day hours."
+            "value" : "Change your day span."
           }
         }
       }
@@ -4918,6 +4918,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Search titles, notes, and daily reviews."
+          }
+        }
+      }
+    },
+    "제안 블록" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggested block"
+          }
+        }
+      }
+    },
+    "제안 블록 보기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Suggested Blocks"
           }
         }
       }

@@ -64,6 +64,41 @@ final class TimeBlockService {
         }
     }
 
+    /// 제안 블록 후보: 시간이 있는 반복 할 일 중 아직 완료 안 했고 그날 블록에 안 넣은 것.
+    /// 미래 날짜는 투두 탭과 같은 「예정」 목록(`previewOccurrences`)을 써서 두 탭이 같게 보인다.
+    /// 길이·겹침·일과 시간은 화면(ViewModel)에서 블록 단위로 정한다.
+    func fetchSuggestions(for day: Date) async -> [TimeBlockSuggestion] {
+        let dayStart = Calendar.current.startOfDay(for: day)
+        let todos = await TodoService.shared.fetchTodos(for: dayStart)
+        let placedTodoIds = Set(fetchBlocks(day: dayStart).map(\.todoId))
+
+        var result: [TimeBlockSuggestion] = todos.compactMap { todo in
+            guard todo.recurrenceId != nil, !todo.isCompleted,
+                  !placedTodoIds.contains(todo.id),
+                  let time = todo.scheduledTime else { return nil }
+            return TimeBlockSuggestion(
+                id: todo.id,
+                todoId: todo.id,
+                title: todo.title,
+                startMinute: TimeBlockLayout.minuteOfDay(time)
+            )
+        }
+        let previews = RecurringTodoManager.shared.previewOccurrences(
+            on: dayStart,
+            existingTitles: Set(todos.map(\.title))
+        )
+        result += previews.compactMap { preview in
+            guard let time = preview.scheduledTime else { return nil }
+            return TimeBlockSuggestion(
+                id: preview.id,
+                todoId: nil,
+                title: preview.title,
+                startMinute: TimeBlockLayout.minuteOfDay(time)
+            )
+        }
+        return result.sorted { ($0.startMinute, $0.title) < ($1.startMinute, $1.title) }
+    }
+
     // MARK: - 블록 쓰기
 
     func createBlock(todoId: String, day: Date, startMinute: Int, endMinute: Int) throws {

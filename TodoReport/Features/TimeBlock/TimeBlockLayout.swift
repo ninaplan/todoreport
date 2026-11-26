@@ -28,6 +28,7 @@ enum TimeBlockLayout {
     static let defaultSnapMinutes = 30
     static let snapMinutesKey = "timeBlockSnapMinutes"
     static let showsCategoryColorKey = "timeBlockShowsCategoryColor"
+    static let showsSuggestionsKey = "timeBlockShowsSuggestions"
     static let startAlarmEnabledKey = "timeBlockStartAlarmEnabled"
     static let endAlarmEnabledKey = "timeBlockEndAlarmEnabled"
     /// 화면을 처음 열 때 보여줄 시각 (오늘이 아니면 이 시각부터)
