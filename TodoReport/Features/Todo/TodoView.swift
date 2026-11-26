@@ -6,6 +6,8 @@ struct TodoView: View {
     @State private var dailyReportViewModel = DailyReportViewModel()
     @State private var newTodoTitle: String = ""
     @State private var isAddingTodo: Bool = false
+    /// ⋯ 「순서 바꾸기」 — 켜면 줄 오른쪽 손잡이로 끌어 옮긴다 (길게 눌러 끌기는 메뉴와 부딪혀 폐기)
+    @State private var isReordering = false
     @State private var showPlannerSheet: Bool = false
     @State private var showQuickCapture: Bool = false
     @State private var changingDateTodo: Todo? = nil
@@ -102,6 +104,15 @@ struct TodoView: View {
             }
             .tint(.primary)
         }
+        if isReordering {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("완료") {
+                    withAnimation { isReordering = false }
+                }
+                .fontWeight(.semibold)
+                .tint(.primary)
+            }
+        } else {
         ToolbarItem(placement: .topBarTrailing) {
             Button {
                 showInboxSheet = true
@@ -149,6 +160,11 @@ struct TodoView: View {
                 }
                 Section {
                     Button {
+                        withAnimation { isReordering = true }
+                    } label: {
+                        Label("순서 바꾸기", systemImage: "arrow.up.arrow.down")
+                    }
+                    Button {
                         showCategorySheet = true
                     } label: {
                         Label("카테고리 설정", systemImage: "tag")
@@ -159,14 +175,21 @@ struct TodoView: View {
             }
             .tint(.primary)
         }
+        }
     }
 
     private var todoRootContent: some View {
         ZStack(alignment: .top) {
             ZStack(alignment: .bottomTrailing) {
                 todoScrollList
-                FloatingCaptureButton {
-                    showQuickCapture = true
+                    // 「순서 바꾸기」 중에만 편집 모드 → 줄 오른쪽에 손잡이 (스와이프는 이 동안 꺼짐)
+                    .environment(\.editMode, .constant(isReordering ? .active : .inactive))
+                    // 「실행 취소」 배너 — 오른쪽 아래 + 버튼(48pt + 여백 20) 왼쪽에, 버튼과 세로 가운데를 맞춘다
+                    .undoBannerHost(.todo, trailingInset: 80, bottomInset: 20)
+                if !isReordering {
+                    FloatingCaptureButton {
+                        showQuickCapture = true
+                    }
                 }
             }
 
@@ -341,6 +364,7 @@ struct TodoView: View {
             .onChange(of: tabCoordinator.selectedTab) { _, tab in
                 if tab != .todo {
                     cleanupInlineAddingOnTabLeave()
+                    isReordering = false
                 } else {
                     presentTodoHintsIfNeeded()
                     consumePendingTodoNavigation(proxy: proxy)
@@ -717,6 +741,7 @@ struct TodoView: View {
                 showMemo: viewModel.showMemo,
                 showScheduledTime: viewModel.showScheduledTime,
                 isInlineEditing: inlineEditingTodoId == todo.id,
+                isReordering: isReordering,
                 onCheckboxTap: {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         viewModel.toggleTodo(todo)
@@ -728,6 +753,10 @@ struct TodoView: View {
                 onOpenDetailFromInline: { draft in openDetailFromInline(todo: todo, draft: draft) },
                 onAction: { performRowAction($0, for: todo) }
             )
+            // 순서 바꾸는 동안 체크·제목 고치기·메뉴는 막는다 (손잡이는 줄 밖이라 그대로 동작)
+            .allowsHitTesting(!isReordering)
+            // 완료한 할 일·제목 고치는 중에는 끌어 옮기지 않음
+            .moveDisabled(todo.isCompleted || inlineEditingTodoId != nil)
             // 날짜를 넘길 때 줄마다 옆에서 밀려 들어옴 (Section에 붙이면 할 일 줄까지 안 닿아서 줄에 직접)
             .daySlide(viewModel.daySlide)
             .id(todo.id)
@@ -738,6 +767,10 @@ struct TodoView: View {
                     : Color.clear
             )
         }
+        // 「순서 바꾸기」 중에만 끌어 옮기기. 평소에 켜 두면 길게 누르기 메뉴와 부딪힌다
+        .onMove(perform: isReordering ? { source, destination in
+            viewModel.moveTodos(from: source, to: destination)
+        } : nil)
         // 같은 날 추가·삭제는 기존처럼 페이드, 날짜가 바뀐 직후엔 끄고 슬라이드만 (둘이 겹치면 슬라이드가 안 보임)
         .animation(viewModel.daySlide.isRecent ? nil : .easeInOut(duration: 0.3), value: todos.map(\.id))
     }
@@ -887,10 +920,6 @@ private struct TodoViewAlertsModifier: ViewModifier {
             } message: {
                 Text("어떻게 삭제할까요?")
             }
-            .alert("이 할 일을 삭제할까요?", isPresented: $viewModel.showSingleDeleteAlert) {
-                Button("삭제", role: .destructive) { viewModel.confirmSingleDelete() }
-                Button("취소", role: .cancel) { viewModel.cancelSingleDelete() }
-            }
             .alert(viewModel.recurringEditAlertTitle, isPresented: $viewModel.showRecurringEditAlert) {
                 Button(viewModel.recurringEditSingleLabel) { viewModel.confirmRecurringEditSingle() }
                 Button(viewModel.recurringEditFutureLabel, role: .destructive) { viewModel.confirmRecurringEditFuture() }
@@ -937,6 +966,8 @@ private struct TodoInteractiveRow: View {
     let showMemo: Bool
     let showScheduledTime: Bool
     let isInlineEditing: Bool
+    /// 「순서 바꾸기」 중이면 길게 누르기 메뉴를 끈다 (메뉴와 끌기가 같이 일어남)
+    let isReordering: Bool
     let onCheckboxTap: () -> Void
     let onStartInlineEdit: () -> Void
     let onCommitInlineEdit: (String) -> Void
@@ -957,7 +988,7 @@ private struct TodoInteractiveRow: View {
         .id(todo.id)
         .contentShape(Rectangle())
         .modifier(TodoRowContextMenuModifier(
-            enabled: !isInlineEditing,
+            enabled: !isInlineEditing && !isReordering,
             todo: todo,
             onAction: onAction
         ))
@@ -1789,15 +1820,31 @@ private struct DatePickerSheet: View {
 private struct FloatingCaptureButton: View {
     let action: () -> Void
 
+    private var accent: Color { AppTheme.shared.accent }
+
     var body: some View {
         Button(action: action) {
             Image(systemName: "plus")
                 .font(.system(size: 26, weight: .bold))
+                .foregroundStyle(.white)
                 .frame(width: 48, height: 48)
+                // glassProminent가 둘레에 넣던 여백만큼 — 버튼 크기는 그대로
+                .padding(7)
+                .background {
+                    // 타임블록 진행 중 블록과 같은 그라데이션 (왼쪽 위 밝게 → 오른쪽 아래 원래 색)
+                    Circle().fill(
+                        LinearGradient(
+                            colors: [accent.mix(with: .white, by: 0.35), accent],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                }
+                .contentShape(Circle())
         }
-        .buttonStyle(.glassProminent)
-        .tint(AppTheme.shared.accent)
-        .buttonBorderShape(.circle)
+        .buttonStyle(.plain)
+        // 유리 재질의 가장자리 빛·누를 때 출렁임은 유지
+        .glassEffect(.regular.interactive(), in: .circle)
         .padding(.trailing, 20)
         .padding(.bottom, 20)
     }

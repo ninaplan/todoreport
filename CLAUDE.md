@@ -1,6 +1,6 @@
 # 투두리포트 (TodoReport) — Claude Code 컨텍스트
 
-## 현재 상황 (2026-11-25 기준)
+## 현재 상황 (2026-11-26 기준)
 
 2026-09-27 기분 기능을 bca59ff 시점으로 되돌림. 작업은 mood-wip 브랜치에 보관. 같이 사라진 작업 목록은 프로젝트 문서 mood-rollback-list.md 참고.
 
@@ -19,7 +19,36 @@
 - v1.17 제출 완료 (2026-09-27. 할 일 알림 문구·직접 입력 키패드·앱 사용 중 배너·필터 기억하기)
 - v1.18 (빌드 34) 2026-11-24 제출 후 **취소** (출시 안 됨)
 - **v2.0.0 제출 완료 (2026-11-25, 빌드 35).** 1.18 내용 + 타임블록 추가 작업(일과 시간·핀치 확대·블록 팝업 편집·일찍 끝내기·할 일까지 삭제) + 카테고리 꾸미기(아이콘 페이지·검색, 색 세트·커스텀) + 리포트 순서·「완료율」 통일. WhatsNew 2.0.0 팝업 4개(타임블록·집중한 시간·카테고리 꾸미기·포인트 컬러). 제출 문구·심사 메모: 프로젝트 문서 `claude/release-1.18-copy.md`(2.0.0 내용으로 갱신됨)
+- **v2.1.0 개발 중 (브랜치 `feature/undo`):** 실행 취소(빠른 삭제는 확인 창 없이 + 「실행 취소」 배너, 흔들어서 되돌리기) + 할 일 순서 바꾸기(⋯ 「순서 바꾸기」) + FAB 그라데이션 + 위젯 완료 원 연하게. 2026-11-26 실기기 테스트 완료. 투두 탭·수집함 스와이프 삭제 확인 창이 없어진 건 릴리스 노트에 꼭 적기
 - **버전 규칙 (2.0.0부터):** 세 자리. 버그만 고치면 2.0.1, 기능 추가면 2.1.0. WhatsNew `id`도 같은 문자열. 앱·위젯 두 타깃 마케팅 버전이 같아야 함 (2.0.0 때 위젯이 2.0.2로 잘못 들어갔던 적 있음). 마케팅 버전·빌드 번호는 Xcode에서만
+
+### 할 일 순서 바꾸기 (2.1.0 예정, 2026-11-26)
+
+백엔드 변경 없음. 로컬 전용(노션에 안 올림 — 다른 기기·재설치 후엔 만든 순서).
+
+- **조작:** ⋯ 「순서 바꾸기」 → 편집 모드(`environment(\.editMode)`) 줄 오른쪽 손잡이로 끌기 → 오른쪽 위 「완료」. 이 동안 체크·제목 고치기·길게 누르기 메뉴·스와이프·FAB 꺼짐, 다른 탭 가면 자동 종료. `onMove`는 순서 바꾸기 중에만(평소 켜 두면 길게 누르기 메뉴와 부딪힘 — A안 「길게 눌러 끌기」는 실기기에서 메뉴/끌기가 누르는 속도에 따라 갈려 폐기)
+- **저장:** `TodoItem.manualSortOrder: Double?`(새 칸). 값은 「만든 시각(기준일부터 초)」과 같은 척도 → 안 바꾼 할 일과 섞여도 맞고 백필 불필요. `Todo.listSortKey` = manualSortOrder ?? 만든 시각. 옮긴 1개만 위아래 이웃 가운데 값(끝이면 ±60) — `TodoViewModel.moveTodos`, `TodoService.setManualSortOrder`. `update(from:)`은 덮어쓰지 않음
+- **규칙:** 고정·일반 묶음 안에서만, 완료는 `moveDisabled`. 묶음 밖으로 끌면 그 묶음 맨 앞/뒤. 위젯(`WidgetStoreReader`)도 같은 키로 정렬
+- **위젯 빈 화면 사건:** 새 칸 추가 후 위젯(읽기 전용)이 앱보다 먼저 저장소를 열면 실패 → `static let container`가 실패를 기억해 계속 「첫 번째 할 일을…」·플래너 이름 없음. `cachedContainer`로 성공만 기억하게 수정. **SwiftData 모델에 칸을 추가할 때마다 주의**
+
+### FAB·위젯 (2.1.0 예정, 2026-11-26)
+
+- **FAB:** `glassProminent` 단색 → 타임블록 진행 중 블록과 같은 그라데이션(accent.mix(white 0.35) → accent, 왼쪽 위→오른쪽 아래) 원 + `.glassEffect(.regular.interactive(), in: .circle)`. 크기 같게 padding 7
+- **위젯 완료 원:** 앱과 같게 노크 오렌지 0.55 (Medium·Large)
+
+### 실행 취소 (2.1.0 예정, 2026-11-26, 브랜치 `feature/undo`, 실기기 테스트 완료)
+
+백엔드 변경 없음 (iOS만). 원칙은 아래 「알려진 패턴 / 삭제·되돌리기 원칙」.
+
+- **모듈:** `Features/Undo/` — `AppUndoCenter`(직전 작업 **1개만**, 다음 작업·플래너 전환·앱 종료 전까지 유지. 흔들기 확인 창 + 배너), `ShakeDetector`(UIWindow `motionEnded` 메서드 교환, 원래 구현 호출), `UndoRecord`, `UndoBanner`/`UndoBannerScope`(.todo/.inbox/.timeBlock), `UndoBannerView`(유리 캡슐, 4초, 아래로 쓸면 닫힘), `.undoBannerHost(scope:)`. 기능은 `register(actionName:bannerMessage:bannerScope:undo:)`만 부르고 되돌리는 방법은 자기 서비스 함수로 넘긴다
+- **입력 중 흔들기:** 시스템 「입력 실행 취소」 창이 뜨며 포커스가 빠져 쓰던 글이 자동 저장됨 — 위험하지 않아 그대로 두기로 함(니나 결정). 오프라인 삭제→되돌리기 시 노션에서 사라졌다 다시 생기는 것도 A안 정상 동작, 큐 취소 방식은 필요할 때
+- **흔들기:** 시스템 `UndoManager`는 SwiftUI에 첫 응답자가 없어 반응 안 함(실기기 확인) → `ShakeDetector`가 `.appDeviceDidShake` 알림 → `MainTabView.onReceive` → `handleShake()`가 맨 위 화면에 UIAlertController — 제목 한 줄 「'할 일 이름' 삭제를 되돌릴까요?」(이후 반복 삭제 / 블록 삭제 / 날짜를 원래대로 / 위치를 원래대로), 버튼 「취소 / 되돌리기」(`register(confirmTitle:)`). 설정 「흔들어서 실행 취소」(`UIAccessibility.isShakeToUndoEnabled`) 따름, 글자 입력 중이면 시스템 「입력 실행 취소」에 양보
+- **연결:** 탭 바꾸면 배너만 닫힘, 플래너 바꾸면 기록 비움(`clear`), 다른 플래너 기록은 실행 안 함
+- **삭제 복원 (A안):** `TodoService.restoreDeletedTodo` — 같은 id로 다시 넣고 노션 연결을 끊어 **새 페이지**로 create(날짜 없으면 createInbox). 원래 create가 큐에 남아 있으면(`hasPendingCreate`) 새로 만들지 않음(그 큐가 끝나면 페이지가 붙음). 노션 휴지통에 옛 페이지가 남는 건 의도
+- **배너 + 흔들기 (확인 없이 바로 삭제):** 투두 탭 일반 할 일 스와이프·메뉴 삭제(확인 창 `showSingleDeleteAlert` 삭제), 수집함 스와이프·메뉴 삭제(`deleteWithUndo`), 타임블록 「블록만 삭제」·「할 일까지 삭제/이 할 일만 삭제」(`restoreBlocks`, `TimeBlockService.restoreDeletedTodo` — 할 일 먼저, 블록은 같은 id·완료·알림 그대로, 겹치면 건너뜀)
+- **반복 할 일 삭제 (고르는 창 뒤, 배너 + 흔들기):** 「이 항목만」·「이후 모두」 둘 다. 이후 모두는 `RecurringTodoManager.capSnapshot`(끝 날짜·활성·지워질 할 일) → `restoreCap`, 타임블록은 그 할 일들 블록도 (`restoreSeriesDelete`)
+- **흔들기만:** 편집 화면 확인 후 삭제, 내일하기, 수집함으로 보내기(일반), 수집함 오늘하기·위로 올리기·지금 보기로
+- **되돌리지 않음:** 반복 할 일 수집함으로 보내기(반복 해제), 여러 개 선택 삭제, 완료·고정·추가
 
 ### 타임블록 (v2.0.0, 2026-11-25)
 
@@ -305,6 +334,7 @@
   - 조치: 가드 및 showDatePaywall/datePaywallMessage/dismissDatePaywall() 관련 코드 전체 제거
 
 ### 다음 할 일
+- **다다음 작업쯤: 인터랙티브 위젯** — 위젯에서 바로 완료 체크, 완료하면 사라지고 아래 줄이 올라옴(TickTick 방식), 위젯은 완료 항목 항상 숨김 추천. 노션 동기화가 관건: A. `ForegroundContinuableIntent`로 앱 쪽에서 실행(시험 필요) / B. 위젯이 완료 + SyncQueue만 남기고 앱이 열릴 때 처리. 위젯 저장소를 쓰기 가능으로 바꿔야 함 (V2-IDEAS.md)
 - **다음 세션: 노크 사이트(nock.kr) 수정** — changelog 페이지에 2.0.0 추가(초안: 프로젝트 문서 `claude/changelog-draft.md`), 개인정보처리방침·이용약관 투두x리포트 반영 여부 확인
 - **2027년 4월 전 Xcode 27(iOS 27 SDK)로 빌드** — 2.0.0 업로드 때 App Store Connect 경고. 4월부터 iOS 26 SDK 빌드는 업로드 불가
 - 「어느 세트에도 없는 예전 색」 카테고리 편집 화면 확인 (2.0.0 테스트 중 보류한 항목)
@@ -334,6 +364,7 @@
 - 노션에서 삭제한 할일 앱 반영 — 웹훅 + tombstone (V2-IDEAS.md, v1.0.7 의도된 트레이드오프)
 
 ### 최근 완료 작업
+- **실행 취소 (2026-11-26, v2.1.0 예정, `feature/undo`):** `Features/Undo/` 모듈 — 직전 1개, 배너 + 흔들기(`ShakeDetector`, 확인 창 「'이름' 삭제를 되돌릴까요?」). 삭제 복원은 같은 id로 다시 넣고 노션 새 페이지(A안). 반복 「이후 모두 삭제」도 끝 날짜·할 일·블록까지 되돌림. 흔들기 첫 구현(메서드 교환 후 Swift로 교환 메서드 호출)은 `UIWindowScene ... unrecognized selector`로 크래시 → 원래 구현을 함수 포인터로 원래 selector와 함께 호출하도록 수정. 백엔드 변경 없음
 - **v2.0.0 제출 (2026-11-25, 빌드 35):** 타임블록 추가 작업·카테고리 꾸미기·리포트 순서/완료율 통일·WhatsNew 2.0.0. 커밋 `feb7e07`~`76795d4` (feature/timeblock-day-range → main)
 - v1.18 제출 준비 (2026-11-24, 이후 제출 취소): 타임블록 탭·반복 백업/중복 정리/미래 미리보기·날짜 슬라이드·탭 다시 탭·시작 화면·포인트 컬러·페이월·WhatsNew 1.18 팝업. 커밋 `b8e3869`~`dcff78b` (feature/timeline → main)
 - 필터 기억하기 (2026-09-23): 필터 메뉴 「필터 기억하기」(기본 꺼짐, 앱 공통). 켜면 플래너별 필터를 `UserDefaults.standard`에 저장·복원 (`todoKeepCategoryFilter`, `todoCategoryFilterByPlanner`). 무료 다중 제한은 `effectiveCategoryFilter`에서만 적용하고 저장값은 비우지 않음. peek·월간 달력 필터는 저장하지 않음. 커밋 `6f7608b`. 백엔드 변경 없음
@@ -407,6 +438,12 @@
 ---
 
 ## 핵심 학습
+
+### 흔들기 감지 (2026-11-26)
+
+- SwiftUI 화면은 키보드가 없으면 첫 응답자가 없어 **시스템 흔들어 되돌리기(UndoManager 등록)가 반응하지 않는다.** SwiftData `isUndoEnabled`도 같은 이유로 기대하면 안 됨
+- 직접 감지는 `UIWindow.motionEnded` 교체(`ShakeDetector`). 교체할 때 **원래 구현을 원래 selector로** 불러야 한다. 교환한 이름으로 부르면 UIResponder 기본 구현이 그 이름을 다음 응답자(`UIWindowScene`)에 넘겨 `unrecognized selector` 크래시
+- 글자 입력 중 흔들면 시스템 「입력 실행 취소」 창이 포커스를 빼앗아, 포커스 이탈 자동 저장(v1.13)이 쓰던 글을 저장한다 (그대로 두기로 함)
 
 ### SwiftUI 애니메이션·스크롤 (2026-11-24, 타임블록 작업)
 
@@ -984,6 +1021,14 @@ guard let value = optional else { return }
 ---
 
 ## 알려진 패턴 / 주의사항
+
+**삭제·되돌리기 원칙 (2026-11-26)**
+
+- 모든 삭제에는 **확인 창 또는 「실행 취소」 중 최소 하나**가 있어야 한다
+- **빠른 삭제**(스와이프·메뉴 한 번)는 확인 창 없이 바로 지우고 「실행 취소」 배너 + 흔들기로 되돌린다
+- 「무엇을 지울지」 고르는 창(반복 할 일 범위)은 확인이 아니라 선택이라 유지한다
+- **무거운 삭제**(여러 개, 반복 이후 모두, 카테고리·플래너)와 편집 화면 안 삭제는 확인 창을 유지한다
+- 되돌리기는 직전 1개만. 되돌릴 때도 각 기능의 평소 서비스 함수를 거쳐 노션·알림·위젯이 같은 경로를 탄다
 
 **Form 한 행에 버튼이 2개 이상**
 

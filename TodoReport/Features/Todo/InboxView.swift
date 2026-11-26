@@ -57,6 +57,7 @@ struct InboxView: View {
                 }
             }
         }
+        .undoBannerHost(.inbox)
         .navigationTitle("수집함")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -661,7 +662,9 @@ struct InboxView: View {
             }
             hapticSuccessTrigger.toggle()
         case .delete:
-            viewModel.requestDelete(todo)
+            withAnimation(.easeInOut(duration: 0.3)) {
+                viewModel.deleteWithUndo(todo)
+            }
             hapticWarningTrigger.toggle()
         }
     }

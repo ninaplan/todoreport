@@ -430,6 +430,7 @@ final class InboxViewModel {
     func moveToToday(_ todo: Todo) {
         guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
         assignDate(todo, to: Calendar.current.startOfDay(for: .now))
+        registerUndoForUpdate(original: todo, confirmTitle: String(localized: "'\(todo.title)' 위치를 원래대로 되돌릴까요?"))
     }
 
     func assignDate(_ todo: Todo, to newDate: Date) {
@@ -487,14 +488,23 @@ final class InboxViewModel {
     func clearSnooze(_ todo: Todo) {
         guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
         applySnooze(todo, until: .now)
+        registerUndoForSnooze(original: todo, confirmTitle: String(localized: "'\(todo.title)' 위치를 원래대로 되돌릴까요?"))
     }
 
     /// 오래된 할일을 「최근」버킷으로. `now` 직전이면 `isSnoozeActive`에 안 걸림.
     func bumpToRecent(_ todo: Todo) {
         guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
         applySnooze(todo, until: Date.now.addingTimeInterval(-1))
+        registerUndoForSnooze(original: todo, confirmTitle: String(localized: "'\(todo.title)' 위치를 원래대로 되돌릴까요?"))
     }
 
+    /// 스와이프·길게 누른 메뉴의 삭제 — 확인 없이 바로 지우고 「실행 취소」 배너
+    func deleteWithUndo(_ todo: Todo) {
+        guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
+        deleteLocallyAndEnqueue(id: todo.id, fallback: todo, showsUndoBanner: true)
+    }
+
+    /// 편집 화면의 삭제 — 확인 창을 거친다
     func requestDelete(_ todo: Todo) {
         guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
         pendingDeleteTodo = todo
@@ -504,7 +514,7 @@ final class InboxViewModel {
     func confirmDelete() {
         guard let todo = pendingDeleteTodo else { return }
         pendingDeleteTodo = nil
-        deleteLocallyAndEnqueue(id: todo.id)
+        deleteLocallyAndEnqueue(id: todo.id, fallback: todo, showsUndoBanner: false)
     }
 
     func cancelDelete() {
@@ -621,6 +631,40 @@ final class InboxViewModel {
     private func deleteLocallyAndEnqueue(id: String) {
         allInbox.removeAll { $0.id == id }
         Task { try? await service.deleteTodo(id: id) }
+    }
+
+    /// 1개 삭제 + 되돌리기 등록 (흔들기는 항상, 배너는 확인 없이 지운 경우만)
+    private func deleteLocallyAndEnqueue(id: String, fallback: Todo, showsUndoBanner: Bool) {
+        let snapshot = service.todoSnapshot(id: id) ?? fallback
+        deleteLocallyAndEnqueue(id: id)
+        AppUndoCenter.shared.register(
+            confirmTitle: String(localized: "'\(snapshot.title)' 삭제를 되돌릴까요?"),
+            bannerMessage: showsUndoBanner ? String(localized: "할 일을 삭제했습니다.") : nil,
+            bannerScope: .inbox
+        ) { [weak self] in
+            try? await TodoService.shared.restoreDeletedTodo(snapshot)
+            await self?.refreshLocal()
+        }
+    }
+
+    // MARK: - 실행 취소
+
+    /// 날짜를 넣어 옮긴 작업 → 바꾸기 전 모습으로 (`updateTodo` 평소 경로)
+    private func registerUndoForUpdate(original: Todo, confirmTitle: String) {
+        AppUndoCenter.shared.register(confirmTitle: confirmTitle) { [weak self] in
+            var restored = original
+            restored.markLocallyModified()
+            try? await TodoService.shared.updateTodo(restored)
+            await self?.refreshLocal()
+        }
+    }
+
+    /// 「미뤄둠」 위치만 바꾼 작업 → 원래 `snoozedUntil`로
+    private func registerUndoForSnooze(original: Todo, confirmTitle: String) {
+        AppUndoCenter.shared.register(confirmTitle: confirmTitle) { [weak self] in
+            try? TodoService.shared.setInboxSnooze(id: original.id, until: original.snoozedUntil)
+            await self?.refreshLocal()
+        }
     }
 
     /// 대기 중인 스누즈 대상에 동일 날짜를 적용. 다중 선택에서 연 경우에만 편집 모드를 종료한다.

@@ -28,6 +28,8 @@ struct Todo: Identifiable, Codable {
     var localModifiedAt: Date?
     /// 인박스 「나중에 보기」. 로컬 전용 — 노션에 저장하지 않음.
     var snoozedUntil: Date?
+    /// 손으로 바꾼 순서 키 (`TodoItem.manualSortOrder`). 로컬 전용
+    var manualSortOrder: Double?
 
     init(
         id: String = UUID().uuidString,
@@ -51,7 +53,8 @@ struct Todo: Identifiable, Codable {
         recurrenceCount: Int? = nil,
         notionRelationLinked: Bool = false,
         localModifiedAt: Date? = nil,
-        snoozedUntil: Date? = nil
+        snoozedUntil: Date? = nil,
+        manualSortOrder: Double? = nil
     ) {
         self.id = id
         self.title = title
@@ -75,6 +78,12 @@ struct Todo: Identifiable, Codable {
         self.notionRelationLinked = notionRelationLinked
         self.localModifiedAt = localModifiedAt
         self.snoozedUntil = snoozedUntil
+        self.manualSortOrder = manualSortOrder
+    }
+
+    /// 목록 순서 키 — 손으로 정한 값, 없으면 만든 시각 (같은 척도)
+    var listSortKey: Double {
+        manualSortOrder ?? (notionCreatedAt ?? createdAt).timeIntervalSinceReferenceDate
     }
 
     /// 스누즈가 아직 유효하면 true (`snoozedUntil > now`).
@@ -228,6 +237,56 @@ final class TodoService {
         try context.save()
         TodoNotificationManager.shared.cancel(for: id)
         Task { @MainActor in SyncQueueManager.shared.enqueueTodoDelete(notionPageId: notionPageId, plannerId: plannerId) }
+    }
+
+    // MARK: - 순서
+
+    /// 투두 탭에서 끌어서 바꾼 순서 저장. 로컬 전용이라 노션 큐에 넣지 않는다
+    func setManualSortOrder(id: String, order: Double) throws {
+        let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == id })
+        guard let item = try context.fetch(descriptor).first else { return }
+        item.manualSortOrder = order
+        try context.save()
+    }
+
+    // MARK: - 되돌리기
+
+    /// 지우기 전 모습 (되돌리기용). 로컬에 없으면 nil
+    func todoSnapshot(id: String) -> Todo? {
+        let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == id })
+        return (try? context.fetch(descriptor).first)?.toTodo()
+    }
+
+    /// 지운 할 일 되살리기 (실행 취소).
+    /// 노션 페이지는 이미 삭제 큐에 들어갔으므로 연결을 끊고 **새 페이지로** 다시 만든다.
+    /// 단, 아직 노션에 올라가기 전(만들기 큐 대기 중)이면 그 큐가 끝날 때 이 할 일에 페이지가 연결되므로 새로 만들지 않는다.
+    func restoreDeletedTodo(_ snapshot: Todo) async throws {
+        let id = snapshot.id
+        let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == id })
+        guard (try context.fetch(descriptor)).isEmpty else { return }
+        var restored = snapshot
+        restored.notionPageId = ""
+        restored.notionRelationLinked = false
+        restored.notionLastEditedTime = nil
+        restored.markLocallyModified()
+        let item = TodoItem.from(restored)
+        item.localModifiedAt = restored.localModifiedAt
+        context.insert(item)
+        try context.save()
+        if let date = restored.date {
+            ensureDailyReport(for: date)
+        }
+        TodoNotificationManager.shared.schedule(for: restored)
+        let captured = restored
+        Task { @MainActor in
+            let queue = SyncQueueManager.shared
+            guard !queue.hasPendingCreate(for: captured.id) else { return }
+            if captured.date == nil {
+                queue.enqueueInboxTodoCreate(captured)
+            } else {
+                queue.enqueueTodoCreate(captured)
+            }
+        }
     }
 
     func deleteFutureItems(recurrenceId: String, from date: Date) async throws {

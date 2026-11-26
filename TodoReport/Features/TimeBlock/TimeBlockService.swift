@@ -141,6 +141,71 @@ final class TimeBlockService {
         TimeBlockNotificationManager.shared.cancel(blockIds: [id])
     }
 
+    // MARK: - 되돌리기
+
+    /// 지우기 전 블록 모습
+    func blockSnapshot(id: String) -> TimeBlockSnapshot? {
+        fetchItem(id: id).map(TimeBlockSnapshot.init(item:))
+    }
+
+    /// 이 할 일의 모든 날짜 블록 (할 일까지 삭제 전에 저장)
+    func blockSnapshots(ofTodo todoId: String) -> [TimeBlockSnapshot] {
+        let descriptor = FetchDescriptor<TimeBlockItem>(predicate: #Predicate { $0.todoId == todoId })
+        return ((try? context.fetch(descriptor)) ?? []).map(TimeBlockSnapshot.init(item:))
+    }
+
+    /// 지운 블록 되살리기. 그 사이 같은 자리에 다른 블록이 생겼으면 그 블록은 건너뛴다.
+    /// 하나도 못 살렸으면 `overlap`을 던진다
+    func restoreBlocks(_ snapshots: [TimeBlockSnapshot]) throws {
+        guard !snapshots.isEmpty else { return }
+        var restored: [TimeBlockItem] = []
+        for snapshot in snapshots {
+            guard fetchItem(id: snapshot.id) == nil else { continue }
+            do {
+                try validate(
+                    day: snapshot.day,
+                    startMinute: snapshot.startMinute,
+                    endMinute: snapshot.endMinute,
+                    excludingId: nil
+                )
+            } catch {
+                continue
+            }
+            let item = TimeBlockItem(
+                id: snapshot.id,
+                plannerId: snapshot.plannerId,
+                todoId: snapshot.todoId,
+                day: snapshot.day,
+                startMinute: snapshot.startMinute,
+                endMinute: snapshot.endMinute,
+                alarmEnabled: snapshot.alarmEnabled,
+                endAlarmEnabled: snapshot.endAlarmEnabled
+            )
+            item.isCompleted = snapshot.isCompleted
+            item.plannedEndMinute = snapshot.plannedEndMinute
+            item.createdAt = snapshot.createdAt
+            context.insert(item)
+            restored.append(item)
+        }
+        guard !restored.isEmpty else { throw TimeBlockError.overlap }
+        try saveContext()
+        restored.forEach { syncAlarm(for: $0) }
+    }
+
+    /// 「이후 반복 모두 삭제」 되돌리기 — 반복 끝 날짜·할 일을 먼저(`RecurringTodoManager`) 되살린 뒤 블록
+    func restoreSeriesDelete(_ snapshot: RecurringSeriesCapSnapshot, blocks: [TimeBlockSnapshot]) async {
+        await RecurringTodoManager.shared.restoreCap(snapshot)
+        try? restoreBlocks(blocks)
+        await refreshWidgetIfToday(.now)
+    }
+
+    /// 「할 일까지 삭제」 되돌리기 — 할 일을 먼저 되살린 뒤(투두 탭과 같은 `TodoService` 경로) 블록을 되살린다
+    func restoreDeletedTodo(_ todo: Todo, blocks: [TimeBlockSnapshot]) async throws {
+        try await TodoService.shared.restoreDeletedTodo(todo)
+        try? restoreBlocks(blocks)
+        await refreshWidgetIfToday(todo.date)
+    }
+
     /// 기존 블록 알림을 한 번 정리하기 전에 쓰던 규칙: 메뉴가 꺼져 있으면 블록 설정과 상관없이 안 울렸다.
     /// 규칙이 바뀌어도 울리던 것만 울리게, 처음 한 번 블록 설정을 그때 메뉴 상태에 맞춘다
     /// (예: 메뉴 종료 알림이 꺼져 있었으면 모든 블록의 종료 알림을 끔). 이후로는 블록 설정만 따른다

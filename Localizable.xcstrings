@@ -6624,6 +6624,96 @@
           }
         }
       }
+    },
+    "실행 취소" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo"
+          }
+        }
+      }
+    },
+    "할 일을 삭제했습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task deleted."
+          }
+        }
+      }
+    },
+    "블록을 삭제했습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Block deleted."
+          }
+        }
+      }
+    },
+    "'%@' 삭제를 되돌릴까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo deleting “%@”?"
+          }
+        }
+      }
+    },
+    "'%@' 이후 반복 삭제를 되돌릴까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo deleting future repeats of “%@”?"
+          }
+        }
+      }
+    },
+    "'%@' 블록 삭제를 되돌릴까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo deleting the “%@” block?"
+          }
+        }
+      }
+    },
+    "'%@' 날짜를 원래대로 되돌릴까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move “%@” back to its original date?"
+          }
+        }
+      }
+    },
+    "'%@' 위치를 원래대로 되돌릴까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move “%@” back?"
+          }
+        }
+      }
+    },
+    "순서 바꾸기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reorder"
+          }
+        }
+      }
     }
   },
   "version" : "1.2"

@@ -52,6 +52,19 @@ struct MainTabView: View {
         }
         .onAppear {
             presentSearchTabHintIfNeeded()
+            ShakeDetector.install()
+        }
+        // 흔들어서 되돌리기
+        .onReceive(NotificationCenter.default.publisher(for: .appDeviceDidShake)) { _ in
+            AppUndoCenter.shared.handleShake()
+        }
+        // 다른 탭으로 가면 배너만 닫는다 (흔들어서 되돌리기는 남김)
+        .onChange(of: tabCoordinator.selectedTab) { _, _ in
+            AppUndoCenter.shared.dismissBanner()
+        }
+        // 플래너를 바꾸면 되돌리기 기록을 비운다
+        .onChange(of: PlannerService.shared.selectedPlannerId) { _, _ in
+            AppUndoCenter.shared.clear()
         }
         .onChange(of: lastSeenWhatsNewVersion) { _, _ in
             presentSearchTabHintIfNeeded()

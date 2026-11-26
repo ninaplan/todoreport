@@ -5,18 +5,26 @@ import SwiftData
 enum WidgetStoreReader {
     private static let logger = Logger(subsystem: "kr.nock.TodoReport", category: "WidgetStoreReader")
 
-    private static let container: ModelContainer? = {
+    /// 한 번 열리면 계속 쓴다. **실패는 저장하지 않는다** — 예전엔 `static let`이라 한 번 실패하면
+    /// 위젯 프로세스가 살아 있는 동안 계속 빈 화면이었다. 앱 업데이트로 저장소 모양이 바뀌면(새 칸 추가)
+    /// 앱이 먼저 열어 고쳐 놓기 전까지 위젯(읽기 전용)은 열지 못하므로, 다음 갱신 때 다시 시도해야 한다
+    private static var cachedContainer: ModelContainer?
+
+    private static var container: ModelContainer? {
+        if let cachedContainer { return cachedContainer }
         guard let configuration = AppGroupStore.makeWidgetConfiguration(allowsSave: false) else {
             logger.error("container nil: shared store file missing")
             return nil
         }
         do {
-            return try ModelContainer(for: AppGroupStore.schema, configurations: configuration)
+            let opened = try ModelContainer(for: AppGroupStore.schema, configurations: configuration)
+            cachedContainer = opened
+            return opened
         } catch {
             logger.error("container nil: ModelContainer init failed — \(error.localizedDescription, privacy: .public)")
             return nil
         }
-    }()
+    }
 
     static func loadTodaySnapshot(for referenceDate: Date = .now) -> WidgetSnapshotData? {
         guard let container else {
@@ -106,14 +114,17 @@ enum WidgetStoreReader {
     }
 
     private static func widgetListItems(from items: [TodoItem], hideCompleted: Bool) -> [TodoItem] {
-        func sortDate(_ item: TodoItem) -> Date { item.notionCreatedAt ?? item.createdAt }
+        // 앱 투두 탭과 같은 순서 — 손으로 정한 순서 키, 없으면 만든 시각 (같은 척도)
+        func sortKey(_ item: TodoItem) -> Double {
+            item.manualSortOrder ?? (item.notionCreatedAt ?? item.createdAt).timeIntervalSinceReferenceDate
+        }
 
         let pinned = items
             .filter { $0.isPinned && !$0.isCompleted }
-            .sorted { sortDate($0) < sortDate($1) }
+            .sorted { sortKey($0) < sortKey($1) }
         let normal = items
             .filter { !$0.isPinned && !$0.isCompleted }
-            .sorted { sortDate($0) < sortDate($1) }
+            .sorted { sortKey($0) < sortKey($1) }
         let completed: [TodoItem] = hideCompleted ? [] :
             items.filter(\.isCompleted)
                 .sorted { ($0.completedAt ?? $0.createdAt) > ($1.completedAt ?? $1.createdAt) }

@@ -18,7 +18,8 @@ extension TodoItem {
             recurrenceEndDate: attached?.endDate,
             recurrenceCount: attached?.occurrenceLimit,
             notionRelationLinked: notionRelationLinked,
-            snoozedUntil: snoozedUntil
+            snoozedUntil: snoozedUntil,
+            manualSortOrder: manualSortOrder
         )
     }
 
@@ -44,10 +45,11 @@ extension TodoItem {
         // notionLastEditedTime: SyncQueueProcessor의 push 성공 시 / upsertFromNotion의 pull 시에만 세팅
         // plannerId: 생성 시 고정 — 플래너 이동 기능 구현 시 별도 메서드로 처리
         // snoozedUntil: 로컬 전용. 노션 payload에 넣지 않음
+        // manualSortOrder: 여기서 덮어쓰지 않음 — `TodoService.setManualSortOrder`만 바꾼다
     }
 
     static func from(_ todo: Todo) -> TodoItem {
-        TodoItem(
+        let item = TodoItem(
             id: todo.id, title: todo.title, memo: todo.memo,
             isCompleted: todo.isCompleted, isPinned: todo.isPinned,
             date: todo.date, completedAt: todo.completedAt,
@@ -60,5 +62,7 @@ extension TodoItem {
             notionRelationLinked: todo.notionRelationLinked,
             snoozedUntil: todo.snoozedUntil
         )
+        item.manualSortOrder = todo.manualSortOrder
+        return item
     }
 }

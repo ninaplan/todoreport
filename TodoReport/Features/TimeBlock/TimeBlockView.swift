@@ -172,6 +172,7 @@ struct TimeBlockView: View {
             viewModel.commitPointsPerMinute()
         }
         .overlay(alignment: .bottom) { outOfRangeNotice }
+        .undoBannerHost(.timeBlock)
         .onAppear { scrollToInitialPositionIfNeeded() }
     }
 
@@ -179,7 +180,8 @@ struct TimeBlockView: View {
     @ViewBuilder
     private var outOfRangeNotice: some View {
         let count = viewModel.outOfRangeCount
-        if count > 0 {
+        // 「실행 취소」 배너가 같은 자리에 뜨는 동안은 숨긴다
+        if count > 0, AppUndoCenter.shared.banner?.scope != .timeBlock {
             Button {
                 viewModel.openDayRangeEditor()
             } label: {

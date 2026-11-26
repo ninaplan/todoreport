@@ -576,10 +576,14 @@ final class TimeBlockViewModel {
 
     func deleteEditingBlock() {
         guard let entry = editingEntry else { return }
+        let snapshot = service.blockSnapshot(id: entry.id)
         do {
             try service.deleteBlock(id: entry.id)
             dismissEditor()
             entries.removeAll { $0.id == entry.id }
+            if let snapshot {
+                registerUndoForBlockDelete(snapshot, title: entry.title)
+            }
         } catch {
             presentError(error)
         }
@@ -589,6 +593,13 @@ final class TimeBlockViewModel {
     func deleteEditingTodo(_ scope: TimeBlockTodoDeleteScope) {
         guard let entry = editingEntry else { return }
         let todoId = entry.block.todoId
+        if let todo = TodoService.shared.todoSnapshot(id: todoId) {
+            if scope == .allFuture, let seriesId = todo.recurrenceId, let date = todo.date {
+                registerUndoForSeriesDelete(seriesId: seriesId, from: date, title: todo.title)
+            } else {
+                registerUndoForTodoDelete(todo, blocks: service.blockSnapshots(ofTodo: todoId))
+            }
+        }
         dismissEditor()
         entries.removeAll { $0.block.todoId == todoId }
         Task {
@@ -598,6 +609,52 @@ final class TimeBlockViewModel {
                 presentError(error)
             }
             await reload()
+        }
+    }
+
+    // MARK: - 실행 취소
+
+    private func registerUndoForBlockDelete(_ snapshot: TimeBlockSnapshot, title: String) {
+        AppUndoCenter.shared.register(
+            confirmTitle: String(localized: "'\(title)' 블록 삭제를 되돌릴까요?"),
+            bannerMessage: String(localized: "블록을 삭제했습니다."),
+            bannerScope: .timeBlock
+        ) { [weak self] in
+            do {
+                try TimeBlockService.shared.restoreBlocks([snapshot])
+            } catch {
+                self?.presentError(error)
+            }
+            await self?.reload()
+        }
+    }
+
+    /// 「이후 반복 모두 삭제」 — 반복 끝 날짜와 지워질 할 일들, 그 할 일들의 블록을 남겨 둔다
+    private func registerUndoForSeriesDelete(seriesId: String, from date: Date, title: String) {
+        guard let snapshot = RecurringTodoManager.shared.capSnapshot(seriesId: seriesId, from: date) else { return }
+        let blocks = snapshot.todos.flatMap { service.blockSnapshots(ofTodo: $0.id) }
+        AppUndoCenter.shared.register(
+            confirmTitle: String(localized: "'\(title)' 이후 반복 삭제를 되돌릴까요?"),
+            bannerMessage: String(localized: "할 일을 삭제했습니다."),
+            bannerScope: .timeBlock
+        ) { [weak self] in
+            await TimeBlockService.shared.restoreSeriesDelete(snapshot, blocks: blocks)
+            await self?.reload()
+        }
+    }
+
+    private func registerUndoForTodoDelete(_ todo: Todo, blocks: [TimeBlockSnapshot]) {
+        AppUndoCenter.shared.register(
+            confirmTitle: String(localized: "'\(todo.title)' 삭제를 되돌릴까요?"),
+            bannerMessage: String(localized: "할 일을 삭제했습니다."),
+            bannerScope: .timeBlock
+        ) { [weak self] in
+            do {
+                try await TimeBlockService.shared.restoreDeletedTodo(todo, blocks: blocks)
+            } catch {
+                self?.presentError(error)
+            }
+            await self?.reload()
         }
     }
 

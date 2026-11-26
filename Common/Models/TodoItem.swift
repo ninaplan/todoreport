@@ -28,6 +28,9 @@ final class TodoItem {
     var localModifiedAt: Date?
     /// 인박스 「나중에 보기」. 로컬 전용 — 노션 payload에 포함하지 않음.
     var snoozedUntil: Date? = nil
+    /// 투두 탭에서 손으로 바꾼 순서 키. nil이면 만든 시각 순. 로컬 전용 — 노션에 올리지 않음.
+    /// 값은 「만든 시각(기준일부터 초)」과 같은 척도라 정하지 않은 할 일과 섞여도 순서가 맞는다.
+    var manualSortOrder: Double? = nil
 
     init(
         id: String = UUID().uuidString,

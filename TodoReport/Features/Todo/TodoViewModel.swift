@@ -100,7 +100,6 @@ final class TodoViewModel {
     private(set) var lastNotionPullSucceeded: Bool?
 
     var showDeleteAlert: Bool = false
-    var showSingleDeleteAlert: Bool = false
     private(set) var pendingDeleteTodo: Todo? = nil
 
     var showRecurringEditAlert: Bool = false
@@ -155,10 +154,11 @@ final class TodoViewModel {
 
     var displayedTodos: [Todo] {
         let dated = todosForSelectedDate
+        // 고정 → 일반 → 완료. 고정·일반 안에서는 손으로 정한 순서(없으면 만든 순서)
         let pinned   = dated.filter {  $0.isPinned && !$0.isCompleted }
-                            .sorted { sortDate($0) < sortDate($1) }
+                            .sorted { $0.listSortKey < $1.listSortKey }
         let normal   = dated.filter { !$0.isPinned && !$0.isCompleted }
-                            .sorted { sortDate($0) < sortDate($1) }
+                            .sorted { $0.listSortKey < $1.listSortKey }
         let completed: [Todo]
         if hideCompleted {
             if let revealId = navigationRevealTodoId {
@@ -203,8 +203,44 @@ final class TodoViewModel {
         return id
     }
 
-    private func sortDate(_ todo: Todo) -> Date {
-        todo.notionCreatedAt ?? todo.createdAt
+    // MARK: - 순서 바꾸기
+
+    /// 목록에서 끌어 옮김 (`filteredTodos` 기준 위치). 고정·일반 묶음 안에서만 움직이고, 완료는 옮기지 않는다.
+    /// 묶음 밖으로 끌면 묶음 맨 앞/맨 뒤에 놓인다. 위아래 이웃 키의 가운데 값을 줘서 이 할 일 1개만 저장한다
+    func moveTodos(from source: IndexSet, to destination: Int) {
+        guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
+        let visible = filteredTodos
+        guard source.count == 1, let sourceIndex = source.first, visible.indices.contains(sourceIndex) else { return }
+        let moving = visible[sourceIndex]
+        guard !moving.isCompleted else { return }
+
+        var reordered = visible
+        reordered.remove(at: sourceIndex)
+        let insertIndex = min(destination > sourceIndex ? destination - 1 : destination, reordered.count)
+        reordered.insert(moving, at: insertIndex)
+
+        func isSameGroup(_ todo: Todo) -> Bool {
+            !todo.isCompleted && todo.isPinned == moving.isPinned && todo.id != moving.id
+        }
+        let previous = reordered[..<insertIndex].last(where: isSameGroup)
+        let next = reordered[(insertIndex + 1)...].first(where: isSameGroup)
+        let newOrder: Double
+        switch (previous, next) {
+        case let (prev?, nxt?): newOrder = (prev.listSortKey + nxt.listSortKey) / 2
+        case let (prev?, nil): newOrder = prev.listSortKey + 60
+        case let (nil, nxt?): newOrder = nxt.listSortKey - 60
+        case (nil, nil): return
+        }
+        guard newOrder != moving.listSortKey else { return }
+
+        guard let index = todos.firstIndex(where: { $0.id == moving.id }) else { return }
+        todos[index].manualSortOrder = newOrder
+        do {
+            try service.setManualSortOrder(id: moving.id, order: newOrder)
+        } catch {
+            AppLogger.shared.error("TodoViewModel", "순서 저장 실패 \(error.localizedDescription)")
+        }
+        updateWidget()
     }
 
     private func matchesCategoryFilter(_ todo: Todo) -> Bool {
@@ -646,26 +682,32 @@ final class TodoViewModel {
         Task { try? await service.saveInboxTodo(title: trimmed, memo: memo, categoryId: categoryId) }
     }
 
-    func deleteTodo(_ todo: Todo) {
+    /// 할 일 1개 삭제. 흔들어서 되돌리기는 항상 등록하고, 확인 없이 지운 경우만 배너도 띄운다
+    func deleteTodo(_ todo: Todo, showsUndoBanner: Bool = false) {
         guard !isCurrentPlannerReadOnly else { showReadOnlyAlert = true; return }
+        let snapshot = service.todoSnapshot(id: todo.id) ?? todo
         todos.removeAll { $0.id == todo.id }
         updateWidget()
         Task { try? await service.deleteTodo(id: todo.id) }
+        registerUndoForDelete(snapshot, showsBanner: showsUndoBanner)
     }
 
+    /// 스와이프·길게 누른 메뉴의 삭제. 일반 할 일은 확인 없이 바로 지우고 「실행 취소」 배너,
+    /// 반복 할 일은 「이 항목만 / 이후 모두」를 골라야 해서 창을 띄운다
     func requestDelete(_ todo: Todo) {
-        pendingDeleteTodo = todo
         if todo.recurrenceId != nil {
+            pendingDeleteTodo = todo
             showDeleteAlert = true
         } else {
-            showSingleDeleteAlert = true
+            deleteTodo(todo, showsUndoBanner: true)
         }
     }
 
+    /// 반복 할 일 「이 항목만 삭제」 — 고르는 창(확인 아님) 뒤라 배너도 띄운다 (「이후 모두」와 같게)
     func confirmDeleteSingle() {
         guard let todo = pendingDeleteTodo else { return }
         pendingDeleteTodo = nil
-        deleteTodo(todo)
+        deleteTodo(todo, showsUndoBanner: true)
     }
 
     func confirmDeleteFuture() {
@@ -677,22 +719,22 @@ final class TodoViewModel {
             return left >= right
         }
         guard let fromDate = todo.date else { return }
+        if let snapshot = RecurringTodoManager.shared.capSnapshot(seriesId: rid, from: fromDate) {
+            AppUndoCenter.shared.register(
+                confirmTitle: String(localized: "'\(todo.title)' 이후 반복 삭제를 되돌릴까요?"),
+                bannerMessage: String(localized: "할 일을 삭제했습니다."),
+                bannerScope: .todo
+            ) { [weak self] in
+                await RecurringTodoManager.shared.restoreCap(snapshot)
+                await self?.reloadAfterUndo()
+            }
+        }
         Task {
             await RecurringTodoManager.shared.capSeriesEndDate(seriesId: rid, beforeDate: fromDate)
         }
     }
 
     func cancelDelete() {
-        pendingDeleteTodo = nil
-    }
-
-    func confirmSingleDelete() {
-        guard let todo = pendingDeleteTodo else { return }
-        pendingDeleteTodo = nil
-        deleteTodo(todo)
-    }
-
-    func cancelSingleDelete() {
         pendingDeleteTodo = nil
     }
 
@@ -713,7 +755,12 @@ final class TodoViewModel {
     func confirmEditDelete() {
         guard let todo = pendingEditDeleteTodo else { return }
         pendingEditDeleteTodo = nil
-        requestDelete(todo)
+        // 편집 화면은 이미 확인 창을 거쳤으므로 배너 없이 지운다 (반복 할 일은 범위 고르기 창)
+        if todo.recurrenceId != nil {
+            requestDelete(todo)
+        } else {
+            deleteTodo(todo)
+        }
     }
 
     // MARK: - Recurring Edit Alert
@@ -784,6 +831,7 @@ final class TodoViewModel {
             try? await service.updateTodo(moved)
             await replaceTodosFromStore()
         }
+        registerUndoForUpdate(original: todo, confirmTitle: String(localized: "'\(todo.title)' 날짜를 원래대로 되돌릴까요?"))
     }
 
     func changeTodoDate(_ todo: Todo, to newDate: Date) {
@@ -861,6 +909,40 @@ final class TodoViewModel {
             try? await service.updateTodo(updated)
             await replaceTodosFromStore()
         }
+        // 반복에서 떼어 낸 경우는 반복 규칙까지 바뀌어서 되돌리지 않는다
+        if !detachingFromSeries {
+            registerUndoForUpdate(original: todo, confirmTitle: String(localized: "'\(todo.title)' 날짜를 원래대로 되돌릴까요?"))
+        }
+    }
+
+    // MARK: - 실행 취소
+
+    private func registerUndoForDelete(_ snapshot: Todo, showsBanner: Bool) {
+        AppUndoCenter.shared.register(
+            confirmTitle: String(localized: "'\(snapshot.title)' 삭제를 되돌릴까요?"),
+            bannerMessage: showsBanner ? String(localized: "할 일을 삭제했습니다.") : nil,
+            bannerScope: .todo
+        ) { [weak self] in
+            try? await TodoService.shared.restoreDeletedTodo(snapshot)
+            await self?.reloadAfterUndo()
+        }
+    }
+
+    /// 날짜·상태를 바꾼 작업 → 바꾸기 전 모습으로 저장 (노션·알림은 `updateTodo` 평소 경로)
+    private func registerUndoForUpdate(original: Todo, confirmTitle: String) {
+        AppUndoCenter.shared.register(confirmTitle: confirmTitle) { [weak self] in
+            var restored = original
+            restored.markLocallyModified()
+            try? await TodoService.shared.updateTodo(restored)
+            await self?.reloadAfterUndo()
+        }
+    }
+
+    @MainActor
+    private func reloadAfterUndo() async {
+        cancelInFlightFetches()
+        await replaceTodosFromStore()
+        updateWidget()
     }
 
     func saveTodoEdit(_ updated: Todo) {

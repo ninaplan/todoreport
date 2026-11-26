@@ -234,6 +234,49 @@ final class RecurringTodoManager {
         }
     }
 
+    // MARK: - 「이후 모두 삭제」 되돌리기
+
+    /// `capSeriesEndDate` 전에 불러 지금 모습을 남긴다. 지워질 할 일은 `deleteFutureTodos`와 같은 기준
+    func capSnapshot(seriesId: String, from date: Date, excludingId: String? = nil) -> RecurringSeriesCapSnapshot? {
+        guard let series = RecurringSeries.fetch(id: seriesId, in: context) else { return nil }
+        let fromDay = Calendar.current.startOfDay(for: date)
+        let items = (try? context.fetch(FetchDescriptor<TodoItem>())) ?? []
+        let todos = items
+            .filter {
+                $0.recurrenceId == seriesId &&
+                $0.id != excludingId &&
+                ($0.date.map { Calendar.current.startOfDay(for: $0) } ?? .distantPast) >= fromDay
+            }
+            .map { $0.toTodo() }
+        return RecurringSeriesCapSnapshot(
+            seriesId: seriesId,
+            endDate: series.endDate,
+            isActive: series.isActive,
+            todos: todos
+        )
+    }
+
+    /// 반복 끝 날짜·활성 상태를 되돌리고, 지운 할 일을 다시 만든다 (노션에는 새 페이지)
+    func restoreCap(_ snapshot: RecurringSeriesCapSnapshot) async {
+        if let series = RecurringSeries.fetch(id: snapshot.seriesId, in: context) {
+            series.endDate = snapshot.endDate
+            series.isActive = snapshot.isActive
+            do {
+                try context.save()
+            } catch {
+                AppLogger.shared.error("RecurringTodo", "반복 끝 날짜 되돌리기 실패 \(error.localizedDescription)")
+            }
+            RecurringSeriesBackupStore.shared.backupAll()
+        }
+        for todo in snapshot.todos {
+            do {
+                try await TodoService.shared.restoreDeletedTodo(todo)
+            } catch {
+                AppLogger.shared.error("RecurringTodo", "할 일 되돌리기 실패 id:\(todo.id) \(error.localizedDescription)")
+            }
+        }
+    }
+
     func capSeriesEndDate(seriesId: String, beforeDate: Date, excludingId: String? = nil) async {
         let cal = Calendar.current
         guard let endDay = cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: beforeDate)) else { return }

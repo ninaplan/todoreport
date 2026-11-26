@@ -96,7 +96,8 @@ struct MediumWidgetView: View {
         HStack(spacing: 8) {
             Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 16))
-                .foregroundStyle(todo.isCompleted ? nockOrange :
+                // 앱 투두 탭과 같게 — 완료 체크는 연하게 (accent 0.55)
+                .foregroundStyle(todo.isCompleted ? nockOrange.opacity(0.55) :
                     Color(uiColor: UIColor { t in
                         t.userInterfaceStyle == .dark ? .systemGray : .systemGray3
                     }))
