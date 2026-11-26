@@ -705,7 +705,7 @@ private struct ReportTodoRow: View {
         HStack(spacing: 10) {
             Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 14))
-                .foregroundStyle(todo.isCompleted ? AppTheme.shared.accent : Color(.tertiaryLabel))
+                .foregroundStyle(todo.isCompleted ? AppTheme.shared.accent.opacity(0.55) : Color(.tertiaryLabel))
             Text(todo.title)
                 .font(.subheadline)
                 .foregroundStyle(todo.isCompleted ? Color(.secondaryLabel) : .primary)

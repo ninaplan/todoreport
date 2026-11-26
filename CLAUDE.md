@@ -34,7 +34,8 @@
 ### FAB·위젯 (2.1.0 예정, 2026-11-26)
 
 - **FAB:** `glassProminent` 단색 → 타임블록 진행 중 블록과 같은 그라데이션(accent.mix(white 0.35) → accent, 왼쪽 위→오른쪽 아래) 원 + `.glassEffect(.regular.interactive(), in: .circle)`. 크기 같게 padding 7
-- **위젯 완료 원:** 앱과 같게 노크 오렌지 0.55 (Medium·Large)
+- **위젯 완료 원:** 앱과 같게 노크 오렌지 0.55 (Medium·Large). 리포트 그래프 탭 목록(`ReportTodoRow`) 완료 체크도 accent 0.55
+- **폐기:** 리포트 막대 그래프 그라데이션(시험 후 되돌림)
 
 ### 실행 취소 (2.1.0 예정, 2026-11-26, 브랜치 `feature/undo`, 실기기 테스트 완료)
 
