@@ -347,6 +347,7 @@ final class TimeBlockViewModel {
         do {
             try service.updateBlockTime(id: id, startMinute: entry.block.startMinute, endMinute: newEnd)
             applyLocalTime(id: id, start: entry.block.startMinute, end: newEnd)
+            registerUndoForTimeChange(entry)
         } catch {
             presentError(error)
         }
@@ -414,6 +415,7 @@ final class TimeBlockViewModel {
         do {
             try service.updateBlockTime(id: id, startMinute: newStart, endMinute: newEnd)
             applyLocalTime(id: id, start: newStart, end: newEnd)
+            registerUndoForTimeChange(entry)
         } catch {
             presentError(error)
         }
@@ -613,6 +615,23 @@ final class TimeBlockViewModel {
     }
 
     // MARK: - 실행 취소
+
+    /// 크기 조절·이동 → 바꾸기 전 시각으로 (흔들기만, 삭제가 아니라 배너 없음). 알림도 `updateBlockTime`이 다시 맞춘다
+    private func registerUndoForTimeChange(_ before: TimeBlockEntry) {
+        let id = before.id
+        let start = before.block.startMinute
+        let end = before.block.endMinute
+        AppUndoCenter.shared.register(
+            confirmTitle: String(localized: "'\(before.title)' 블록 시간을 원래대로 되돌릴까요?")
+        ) { [weak self] in
+            do {
+                try TimeBlockService.shared.updateBlockTime(id: id, startMinute: start, endMinute: end)
+            } catch {
+                self?.presentError(error)
+            }
+            await self?.reload()
+        }
+    }
 
     private func registerUndoForBlockDelete(_ snapshot: TimeBlockSnapshot, title: String) {
         AppUndoCenter.shared.register(

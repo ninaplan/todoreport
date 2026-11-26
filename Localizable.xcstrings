@@ -6714,6 +6714,16 @@
           }
         }
       }
+    },
+    "'%@' 블록 시간을 원래대로 되돌릴까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore the time of the “%@” block?"
+          }
+        }
+      }
     }
   },
   "version" : "1.2"

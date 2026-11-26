@@ -328,7 +328,8 @@ struct TimeBlockCardView: View {
         .contentShape(Rectangle())
         .highPriorityGesture(
             // 손잡이가 블록과 함께 움직이므로, 손잡이 기준 좌표를 쓰면 이동량이 흔들린다 → 화면 기준 좌표
-            DragGesture(minimumDistance: 4, coordinateSpace: .global)
+            // 4pt였을 때 스크롤하다 스치기만 해도 크기가 바뀌어서 10pt로 (잡는 영역 크기는 그대로)
+            DragGesture(minimumDistance: 10, coordinateSpace: .global)
                 .updating($isResizeGestureActive) { _, active, _ in active = true }
                 .onChanged { value in onResizeChanged(value.translation.height) }
                 .onEnded { _ in onResizeEnded() }
