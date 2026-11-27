@@ -19,15 +19,17 @@ struct TimeBlockView: View {
     /// (예전엔 pinchStart만 보고 스크롤을 막아, 끝 신호를 못 받으면 스크롤이 계속 멈춰 있었다)
     @GestureState private var isPinching = false
 
-    private var isPro: Bool { SubscriptionManager.shared.isPro }
-
     var body: some View {
         NavigationStack {
             Group {
-                if isPro {
+                // 구독 확인 전 깜빡임 방지: 지난번 상태로 먼저 보여 준다 (`proDisplayState`)
+                switch SubscriptionManager.shared.proDisplayState {
+                case .pro:
                     timelineContent
-                } else {
+                case .free:
                     TimeBlockLockedView(onStart: { viewModel.requestPaywall() })
+                case .checking:
+                    Color.clear
                 }
             }
             .background(Color(.systemGroupedBackground))
@@ -291,7 +293,8 @@ struct TimeBlockView: View {
             }
             .tint(.primary)
         }
-        if isPro {
+        // 본문과 같은 기준으로 ⋯ 메뉴도 보여 준다 (확인 전 메뉴가 늦게 나타나는 깜빡임 방지)
+        if SubscriptionManager.shared.proDisplayState == .pro {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Section {

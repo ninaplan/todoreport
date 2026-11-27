@@ -43,12 +43,37 @@ final class SubscriptionManager {
 
     private var updateListenerTask: Task<Void, Never>?
 
-    private init() { startTransactionListener() }
+    /// 앱을 켠 뒤 구독 기록(`Transaction.currentEntitlements`)을 한 번이라도 다 읽었는지
+    private(set) var hasCheckedEntitlements = false
+    /// 지난 실행에서 마지막으로 확인한 구독 상태 (nil = 기억 없음, 이 기능이 생긴 뒤 처음 실행)
+    private let lastKnownPro: Bool?
+    private static let lastKnownProKey = "subscriptionLastKnownPro"
+
+    private init() {
+        lastKnownPro = UserDefaults.standard.object(forKey: Self.lastKnownProKey) as? Bool
+        startTransactionListener()
+    }
 
     // MARK: - isPro
 
     var isPro: Bool {
         !purchasedProductIDs.isEmpty
+    }
+
+    /// 화면에 Pro 화면/잠금 카드 중 무엇을 보일지.
+    /// 앱 시작 직후엔 구독 기록을 읽는 동안 `isPro`가 잠깐 false라, Pro 사용자에게 잠금 카드가 깜빡였다.
+    /// 확인 전에는 지난번 상태를 보여 주고, 기억도 없으면 `.checking`(아무것도 안 그림).
+    /// 화면 표시 전용 — 기능 사용 여부 판단은 계속 `isPro`로 한다
+    enum ProDisplayState {
+        case pro
+        case free
+        case checking
+    }
+
+    var proDisplayState: ProDisplayState {
+        if hasCheckedEntitlements { return isPro ? .pro : .free }
+        guard let lastKnownPro else { return .checking }
+        return lastKnownPro ? .pro : .free
     }
 
     var activePlanDisplayName: String {
@@ -230,5 +255,7 @@ final class SubscriptionManager {
         }
         expirationDate = latestExpiration
         purchasedProductIDs = ids
+        hasCheckedEntitlements = true
+        UserDefaults.standard.set(!ids.isEmpty, forKey: Self.lastKnownProKey)
     }
 }

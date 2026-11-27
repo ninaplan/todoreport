@@ -6,6 +6,8 @@ struct ReportView: View {
     @State private var viewModel = ReportViewModel()
     @State private var daySlide = DaySlide.initial
     private var isPro: Bool { SubscriptionManager.shared.isPro }
+    /// 집중 시간 칸·카드 잠금 표시. 구독 확인 전 「Pro 🔒」 깜빡임 방지 (지난번 상태로 먼저 보여 줌)
+    private var isProContentLocked: Bool { SubscriptionManager.shared.proDisplayState == .free }
 
     var body: some View {
         @Bindable var vm = viewModel
@@ -178,7 +180,7 @@ struct ReportView: View {
             completionRate: report.completionRate,
             averageRating: report.averageRating,
             focusMinutes: viewModel.timeUsage.completedMinutes,
-            isFocusLocked: !isPro
+            isFocusLocked: isProContentLocked
         )
         ExpandableCompletionCard(
             title: "완료율",
@@ -188,7 +190,7 @@ struct ReportView: View {
             barRanges: weekBarRanges
         )
         CategoryStatsCard(stats: report.categoryStats)
-        TimeUsageCard(summary: viewModel.timeUsage, layout: .weekTimetable, isLocked: !isPro)
+        TimeUsageCard(summary: viewModel.timeUsage, layout: .weekTimetable, isLocked: isProContentLocked)
         RatingLineChart(
             ratingLabel: RatingLabel.current,
             labels: report.dailyRatings.map(\.weekday),
@@ -224,7 +226,7 @@ struct ReportView: View {
             completionRate: report.completionRate,
             averageRating: report.averageRating,
             focusMinutes: viewModel.timeUsage.completedMinutes,
-            isFocusLocked: !isPro
+            isFocusLocked: isProContentLocked
         )
         ExpandableCompletionCard(
             title: "완료율",
@@ -234,7 +236,7 @@ struct ReportView: View {
             barRanges: monthBarRanges
         )
         CategoryStatsCard(stats: report.categoryStats)
-        TimeUsageCard(summary: viewModel.timeUsage, layout: .bars, isLocked: !isPro, barRanges: monthBarRanges)
+        TimeUsageCard(summary: viewModel.timeUsage, layout: .bars, isLocked: isProContentLocked, barRanges: monthBarRanges)
         RatingLineChart(
             ratingLabel: RatingLabel.current,
             labels: report.dailyRatings.map(\.weekday),
