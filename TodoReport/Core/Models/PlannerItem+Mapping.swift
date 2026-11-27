@@ -2,7 +2,7 @@ import Foundation
 
 extension PlannerItem {
     func toPlanner() -> Planner {
-        Planner(
+        var planner = Planner(
             id: id, name: name, colorHex: colorHex,
             isNotionConnected: isNotionConnected,
             notionTodoDBId: notionTodoDBId,
@@ -19,6 +19,8 @@ extension PlannerItem {
             isReadOnly: isReadOnly,
             sortOrder: sortOrder
         )
+        planner.ratingLabel = ratingLabel
+        return planner
     }
 
     func update(from planner: Planner) {

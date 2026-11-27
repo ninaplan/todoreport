@@ -21,6 +21,8 @@ final class PlannerItem {
     var isReadOnly: Bool = false
     var sortOrder: Double = 0
     var categoryPaletteSetId: String = "basic"
+    /// 「별점」 대신 화면에 보일 이름 (nil이면 기본 「별점」). 화면 이름만 바뀌고 노션 속성명은 그대로
+    var ratingLabel: String? = nil
 
     init(
         id: String = UUID().uuidString,

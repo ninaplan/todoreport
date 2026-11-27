@@ -231,6 +231,7 @@ struct PaywallView: View {
                 FreeFeatureChip(label: "카테고리 필터", primaryText: primaryText, secondaryText: secondaryText)
                 FreeFeatureChip(label: "카테고리를 아이콘으로 보기", primaryText: primaryText, secondaryText: secondaryText)
                 FreeFeatureChip(label: "포인트 컬러 설정", primaryText: primaryText, secondaryText: secondaryText)
+                FreeFeatureChip(label: "기록 항목 이름 바꾸기", primaryText: primaryText, secondaryText: secondaryText)
             }
         }
         .padding(.top, 20)

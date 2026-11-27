@@ -300,6 +300,7 @@ final class PersistenceController {
                 sortOrder: source.sortOrder
             )
             copy.categoryPaletteSetId = source.categoryPaletteSetId
+            copy.ratingLabel = source.ratingLabel
             shared.insert(copy)
             mergedIds.append(source.id)
         }

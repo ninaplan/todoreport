@@ -26,6 +26,8 @@ struct Planner: Identifiable, Hashable, Codable {
     // Pro 해지 후 읽기 전용 전환 여부
     var isReadOnly: Bool
     var sortOrder: Double
+    /// 「별점」 대신 보일 이름 (nil = 기본). `PlannerService.setRatingLabel`로만 바꾼다 (`update(from:)`에서 덮어쓰지 않음)
+    var ratingLabel: String? = nil
 
     init(
         id: String = UUID().uuidString,
@@ -314,6 +316,18 @@ final class PlannerService {
         guard let item = try? context.fetch(descriptor).first, item.categoryPaletteSetId != setId else { return }
         item.categoryPaletteSetId = setId
         try? context.save()
+    }
+
+    // MARK: - 기록 항목 이름 (플래너별, 「별점」 대신 보일 이름)
+
+    /// 앞뒤 공백을 지우고 최대 글자 수로 자른다. 비면 nil(기본 「별점」)
+    func setRatingLabel(_ label: String?, plannerId: String) {
+        let normalized = RatingLabel.normalized(label)
+        let descriptor = FetchDescriptor<PlannerItem>(predicate: #Predicate { $0.id == plannerId })
+        guard let item = try? context.fetch(descriptor).first, item.ratingLabel != normalized else { return }
+        item.ratingLabel = normalized
+        try? context.save()
+        refreshStore()
     }
 
     func otherPlannersSharing(connectionId: String, excluding plannerId: String) -> Int {

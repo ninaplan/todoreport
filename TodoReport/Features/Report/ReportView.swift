@@ -190,7 +190,7 @@ struct ReportView: View {
         CategoryStatsCard(stats: report.categoryStats)
         TimeUsageCard(summary: viewModel.timeUsage, layout: .weekTimetable, isLocked: !isPro)
         RatingLineChart(
-            title: "별점",
+            ratingLabel: RatingLabel.current,
             labels: report.dailyRatings.map(\.weekday),
             values: report.dailyRatings.map(\.rating)
         )
@@ -236,7 +236,7 @@ struct ReportView: View {
         CategoryStatsCard(stats: report.categoryStats)
         TimeUsageCard(summary: viewModel.timeUsage, layout: .bars, isLocked: !isPro, barRanges: monthBarRanges)
         RatingLineChart(
-            title: "별점",
+            ratingLabel: RatingLabel.current,
             labels: report.dailyRatings.map(\.weekday),
             values: report.dailyRatings.map(\.rating)
         )
@@ -282,20 +282,20 @@ private struct SummaryCard: View {
         HStack(spacing: 0) {
             summaryItem(
                 parts: completionParts,
-                label: "평균 완료율",
+                label: String(localized: "평균 완료율"),
                 color: .primary
             )
             Divider().frame(height: 48)
             summaryItem(
                 parts: [(number: String(format: "%.1f", averageRating), unit: "")],
-                label: "별점 평균",
+                label: RatingLabel.averageTitle(RatingLabel.current),
                 prefix: "⭐",
                 color: .primary
             )
             Divider().frame(height: 48)
             summaryItem(
                 parts: isFocusLocked ? [(number: "Pro", unit: "")] : focusParts,
-                label: "집중 시간",
+                label: String(localized: "집중 시간"),
                 symbolName: isFocusLocked ? "lock.fill" : nil,
                 symbolColor: .secondary,
                 color: isFocusLocked ? .secondary : .primary
@@ -307,7 +307,7 @@ private struct SummaryCard: View {
 
     private func summaryItem(
         parts: [ValuePart],
-        label: LocalizedStringKey,
+        label: String,
         prefix: String = "",
         symbolName: String? = nil,
         symbolColor: Color = .primary,
@@ -487,7 +487,8 @@ private struct ExpandableCompletionCard: View {
 // MARK: - 별점 꺾은선 그래프
 
 private struct RatingLineChart: View {
-    let title: LocalizedStringKey
+    /// 사용자가 정한 이름 (nil = 기본 「별점」)
+    let ratingLabel: String?
     let labels: [String]
     let values: [Double]
 
@@ -507,11 +508,11 @@ private struct RatingLineChart: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title)
+            Text(verbatim: RatingLabel.title(ratingLabel))
                 .font(.subheadline.bold())
 
             if ratedPoints.isEmpty {
-                Text("별점 데이터가 없습니다.")
+                Text(verbatim: RatingLabel.emptyText(ratingLabel))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)

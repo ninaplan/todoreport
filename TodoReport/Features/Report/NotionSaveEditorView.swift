@@ -158,13 +158,13 @@ struct NotionSaveEditorView: View {
             HStack(spacing: 0) {
                 statItem(
                     value: completionRate.formatted(.percent.precision(.fractionLength(0))),
-                    label: "평균 완료율",
+                    label: String(localized: "평균 완료율"),
                     color: AppTheme.shared.accent
                 )
                 Divider().frame(height: 40)
                 statItem(
                     value: ratingLabel,
-                    label: "별점 평균",
+                    label: RatingLabel.averageTitle(RatingLabel.current),
                     color: .primary
                 )
             }
@@ -174,7 +174,7 @@ struct NotionSaveEditorView: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private func statItem(value: String, label: LocalizedStringKey, color: Color) -> some View {
+    private func statItem(value: String, label: String, color: Color) -> some View {
         VStack(spacing: 4) {
             Text(value)
                 .font(.title3.bold())

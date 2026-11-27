@@ -59,6 +59,7 @@ struct PlannerDetailView: View {
             profileHeaderSection
             basicSection
             categorySection
+            ratingLabelSection
             if currentPlanner.isNotionConnected {
                 notionSection
             } else {
@@ -234,6 +235,20 @@ struct PlannerDetailView: View {
     private var categorySection: some View {
         Section("카테고리") {
             NavigationLink { CategoryView(plannerId: plannerId) } label: { Text("카테고리 관리") }
+        }
+    }
+
+    // MARK: - 기록 항목 이름 (「별점」 대신 보일 이름)
+
+    private var ratingLabelSection: some View {
+        Section("리포트") {
+            NavigationLink {
+                RatingLabelEditView(plannerId: plannerId)
+            } label: {
+                LabeledContent("기록 항목 이름") {
+                    Text(verbatim: RatingLabel.title(RatingLabel.normalized(currentPlanner.ratingLabel)))
+                }
+            }
         }
     }
 

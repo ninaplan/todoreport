@@ -19,6 +19,9 @@ struct DailyReportCard: View {
     @State private var lastAppliedExpandToken = 0
     @State private var expandedContentHeight: CGFloat = 0
     @FocusState private var isReviewFocused: Bool
+    @State private var showRatingLabelEditor = false
+    @State private var showRatingLabelHint = false
+    @AppStorage("hasSeenRatingLabelHint") private var hasSeenRatingLabelHint = false
 
     var body: some View {
         // 헤더는 레이아웃상 고정. 하단만 height 0↔측정값 + clipped로 아래로 reveal.
@@ -79,6 +82,31 @@ struct DailyReportCard: View {
         .onChange(of: expandToken) { _, _ in
             applyExpandTokenIfNeeded()
         }
+        .onChange(of: isExpanded) { _, expanded in
+            guard expanded else { return }
+            presentRatingLabelHintIfNeeded()
+        }
+        .sheet(isPresented: $showRatingLabelEditor) {
+            if let plannerId = PlannerService.shared.selectedPlanner?.id {
+                NavigationStack {
+                    RatingLabelEditView(plannerId: plannerId, presentsAsSheet: true)
+                }
+                .presentationDetents([.medium])
+            }
+        }
+    }
+
+    /// 카드를 처음 펼쳤을 때 1회 「글자를 탭하면 이름을 바꿀 수 있습니다」
+    private func presentRatingLabelHintIfNeeded() {
+        guard !hasSeenRatingLabelHint else { return }
+        hasSeenRatingLabelHint = true
+        Task {
+            // 펼침 애니메이션이 끝난 뒤 띄운다
+            try? await Task.sleep(for: .milliseconds(500))
+            await MainActor.run { showRatingLabelHint = true }
+            try? await Task.sleep(for: .seconds(3))
+            await MainActor.run { showRatingLabelHint = false }
+        }
     }
 
     private func applyExpandTokenIfNeeded() {
@@ -114,7 +142,7 @@ struct DailyReportCard: View {
         VStack(alignment: .leading, spacing: 12) {
             completionRateSection
             Divider()
-            ratingRow
+            ratingRow(forMeasurement: forMeasurement)
             Divider()
             reviewRow(forMeasurement: forMeasurement)
         }
@@ -162,12 +190,9 @@ struct DailyReportCard: View {
 
     // MARK: - 별점 행
 
-    private var ratingRow: some View {
+    private func ratingRow(forMeasurement: Bool) -> some View {
         HStack(spacing: 0) {
-            Text("별점")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: 44, alignment: .leading)
+            ratingLabelButton(forMeasurement: forMeasurement)
 
             PawRatingView(
                 rating: currentRatingCount,
@@ -186,6 +211,42 @@ struct DailyReportCard: View {
             if viewModel.isSaving {
                 ProgressView()
                     .scaleEffect(0.7)
+            }
+        }
+    }
+
+    /// 「별점」(또는 사용자가 정한 이름) 글자. 탭하면 이름 바꾸기 시트
+    @ViewBuilder
+    private func ratingLabelButton(forMeasurement: Bool) -> some View {
+        let isReadOnly = PlannerService.shared.selectedPlanner?.isReadOnly ?? false
+        let button = Button {
+            showRatingLabelHint = false
+            showRatingLabelEditor = true
+        } label: {
+            Text(verbatim: RatingLabel.title(RatingLabel.current))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .fixedSize()
+                // 기본 「별점」은 예전과 같은 44pt 칸. 긴 이름일 때만 발바닥과 4pt 띄움
+                .padding(.trailing, 4)
+                .frame(minWidth: 44, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isReadOnly)
+        .accessibilityHint(Text("기록 항목 이름 바꾸기"))
+
+        // 측정용(숨긴 복사본)에는 말풍선을 붙이지 않는다 — 두 번 뜨는 것 방지
+        if forMeasurement {
+            button
+        } else {
+            button.popover(isPresented: $showRatingLabelHint, arrowEdge: .bottom) {
+                Text("글자를 탭하면 이름을 바꿀 수 있습니다")
+                    .font(.subheadline)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .presentationCompactAdaptation(.popover)
             }
         }
     }

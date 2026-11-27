@@ -4,6 +4,26 @@
     "" : {
       "shouldTranslate" : false
     },
+    "%@ 데이터가 없습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No %@ data."
+          }
+        }
+      }
+    },
+    "%@ 평균" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avg. %@"
+          }
+        }
+      }
+    },
     "/년" : {
       "localizations" : {
         "en" : {
@@ -1017,6 +1037,16 @@
         }
       }
     },
+    "글자를 탭하면 이름을 바꿀 수 있습니다" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the label to rename it"
+          }
+        }
+      }
+    },
     "금" : {
       "localizations" : {
         "en" : {
@@ -1095,6 +1125,26 @@
         }
       }
     },
+    "기록 항목 이름" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rating Label"
+          }
+        }
+      }
+    },
+    "기록 항목 이름 바꾸기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename rating label"
+          }
+        }
+      }
+    },
     "기본" : {
       "localizations" : {
         "en" : {
@@ -1117,6 +1167,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Default Size"
+          }
+        }
+      }
+    },
+    "기본으로 되돌리기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset to Default"
           }
         }
       }
@@ -3808,6 +3868,16 @@
         }
       }
     },
+    "예: 기분, 에너지, 집중력" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. Mood, Energy, Focus"
+          }
+        }
+      }
+    },
     "예: 나의 투두" : {
       "localizations" : {
         "en" : {
@@ -6019,6 +6089,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Daily Review"
+          }
+        }
+      }
+    },
+    "하루 리포트와 리포트 탭에 이 이름으로 표시됩니다. 비워 두면 「별점」으로 표시됩니다. 노션에는 그대로 「별점」 속성에 저장됩니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shown on the daily report and in the Report tab. Leave blank to show “Rating”. Notion still saves it in the “별점” property."
           }
         }
       }
