@@ -1,6 +1,6 @@
 import Foundation
 
-/// 기록 항목 이름(「별점」 대신 보일 이름) 편집. 플래너마다 따로 저장
+/// 별점 이름(「별점」 대신 보일 이름) 편집. 플래너마다 따로 저장
 @Observable
 final class RatingLabelEditViewModel {
     private let plannerId: String

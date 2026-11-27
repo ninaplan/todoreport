@@ -318,7 +318,7 @@ final class PlannerService {
         try? context.save()
     }
 
-    // MARK: - 기록 항목 이름 (플래너별, 「별점」 대신 보일 이름)
+    // MARK: - 별점 이름 (플래너별, 「별점」 대신 보일 이름)
 
     /// 앞뒤 공백을 지우고 최대 글자 수로 자른다. 비면 nil(기본 「별점」)
     func setRatingLabel(_ label: String?, plannerId: String) {

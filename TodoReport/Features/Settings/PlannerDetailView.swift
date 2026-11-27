@@ -58,8 +58,6 @@ struct PlannerDetailView: View {
             }
             profileHeaderSection
             basicSection
-            categorySection
-            ratingLabelSection
             if currentPlanner.isNotionConnected {
                 notionSection
             } else {
@@ -154,13 +152,22 @@ struct PlannerDetailView: View {
         }
     }
 
-    // MARK: - 기본
+    // MARK: - 기본 (이름·카테고리·별점을 제목 없는 한 칸으로)
 
     private var basicSection: some View {
-        Section("기본") {
+        Section {
             LabeledContent("이름") {
                 TextField("플래너 이름", text: $name)
                     .multilineTextAlignment(.trailing)
+            }
+            NavigationLink { CategoryView(plannerId: plannerId) } label: { Text("카테고리 관리") }
+            // 「별점」 대신 보일 이름. 오른쪽에 지금 이름(기본이면 「별점」)
+            NavigationLink {
+                RatingLabelEditView(plannerId: plannerId)
+            } label: {
+                LabeledContent("별점") {
+                    Text(verbatim: RatingLabel.title(RatingLabel.normalized(currentPlanner.ratingLabel)))
+                }
             }
         }
     }
@@ -228,28 +235,6 @@ struct PlannerDetailView: View {
             }
         }
         .padding(.vertical, 4)
-    }
-
-    // MARK: - 카테고리
-
-    private var categorySection: some View {
-        Section("카테고리") {
-            NavigationLink { CategoryView(plannerId: plannerId) } label: { Text("카테고리 관리") }
-        }
-    }
-
-    // MARK: - 기록 항목 이름 (「별점」 대신 보일 이름)
-
-    private var ratingLabelSection: some View {
-        Section("리포트") {
-            NavigationLink {
-                RatingLabelEditView(plannerId: plannerId)
-            } label: {
-                LabeledContent("기록 항목 이름") {
-                    Text(verbatim: RatingLabel.title(RatingLabel.normalized(currentPlanner.ratingLabel)))
-                }
-            }
-        }
     }
 
     // MARK: - 노션 설정 (연결된 플래너)

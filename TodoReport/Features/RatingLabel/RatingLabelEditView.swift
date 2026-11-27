@@ -37,7 +37,7 @@ struct RatingLabelEditView: View {
                 }
             }
         }
-        .navigationTitle("기록 항목 이름")
+        .navigationTitle("별점")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if presentsAsSheet {

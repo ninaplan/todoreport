@@ -4,22 +4,62 @@
     "" : {
       "shouldTranslate" : false
     },
-    "%@ 데이터가 없습니다." : {
+    "'%@' 날짜를 원래대로 되돌릴까요?" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No %@ data."
+            "value" : "Move “%@” back to its original date?"
           }
         }
       }
     },
-    "%@ 평균" : {
+    "'%@' 블록 삭제를 되돌릴까요?" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Avg. %@"
+            "value" : "Undo deleting the “%@” block?"
+          }
+        }
+      }
+    },
+    "'%@' 블록 시간을 원래대로 되돌릴까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore the time of the “%@” block?"
+          }
+        }
+      }
+    },
+    "'%@' 삭제를 되돌릴까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo deleting “%@”?"
+          }
+        }
+      }
+    },
+    "'%@' 위치를 원래대로 되돌릴까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move “%@” back?"
+          }
+        }
+      }
+    },
+    "'%@' 이후 반복 삭제를 되돌릴까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo deleting future repeats of “%@”?"
           }
         }
       }
@@ -87,6 +127,16 @@
         }
       }
     },
+    "%@ 데이터가 없습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No %@ data."
+          }
+        }
+      }
+    },
     "%@ 만료" : {
       "localizations" : {
         "en" : {
@@ -99,6 +149,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ 만료"
+          }
+        }
+      }
+    },
+    "%@ 평균" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avg. %@"
           }
         }
       }
@@ -351,6 +411,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "+%lld"
+          }
+        }
+      }
+    },
+    "＋를 눌러 색을 모아 두세요." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap ＋ to collect colors."
           }
         }
       }
@@ -1007,26 +1077,6 @@
         }
       }
     },
-    "그날이 되면 탭해서 블록으로 넣을 수 있습니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "On that day, tap it to add it as a block."
-          }
-        }
-      }
-    },
-    "그대로 두기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keep Time"
-          }
-        }
-      }
-    },
     "그래파이트" : {
       "localizations" : {
         "en" : {
@@ -1053,6 +1103,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fri"
+          }
+        }
+      }
+    },
+    "그날이 되면 탭해서 블록으로 넣을 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On that day, tap it to add it as a block."
+          }
+        }
+      }
+    },
+    "그대로 두기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Time"
           }
         }
       }
@@ -1125,27 +1195,8 @@
         }
       }
     },
-    "기록 항목 이름" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rating Label"
-          }
-        }
-      }
-    },
-    "기록 항목 이름 바꾸기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rename rating label"
-          }
-        }
-      }
-    },
     "기본" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2193,22 +2244,22 @@
         }
       }
     },
-    "라인" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Outline"
-          }
-        }
-      }
-    },
     "라이트 모드" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Light Mode"
+          }
+        }
+      }
+    },
+    "라인" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outline"
           }
         }
       }
@@ -2529,6 +2580,16 @@
         }
       }
     },
+    "모던" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modern"
+          }
+        }
+      }
+    },
     "모든 데이터가 Notion에 업로드됐어요" : {
       "localizations" : {
         "en" : {
@@ -2585,6 +2646,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Free"
+          }
+        }
+      }
+    },
+    "무엇을 삭제할까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What do you want to delete?"
           }
         }
       }
@@ -2681,6 +2752,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mint"
+          }
+        }
+      }
+    },
+    "바꾸기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change"
           }
         }
       }
@@ -2865,6 +2946,16 @@
         }
       }
     },
+    "별점 이름 바꾸기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename rating"
+          }
+        }
+      }
+    },
     "별점 평균" : {
       "localizations" : {
         "en" : {
@@ -2936,6 +3027,16 @@
         }
       }
     },
+    "분야별 아이콘을 검색해서 고르고, 색 세트와 나만의 커스텀 색으로 카테고리를 꾸밀 수 있습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search icons by topic, and style categories with color sets and your own custom colors."
+          }
+        }
+      }
+    },
     "분홍" : {
       "localizations" : {
         "en" : {
@@ -3002,6 +3103,26 @@
         }
       }
     },
+    "블록만 삭제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Block Only"
+          }
+        }
+      }
+    },
+    "블록을 삭제했습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Block deleted."
+          }
+        }
+      }
+    },
     "블록이 지금까지로 줄어들고, 집중한 시간도 그만큼 계산됩니다." : {
       "localizations" : {
         "en" : {
@@ -3028,6 +3149,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Red"
+          }
+        }
+      }
+    },
+    "빼려는 색을 누르세요." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap a color to remove it."
           }
         }
       }
@@ -3142,6 +3273,16 @@
         }
       }
     },
+    "새 블록 기본 알림" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Block Alerts"
+          }
+        }
+      }
+    },
     "새 투두" : {
       "localizations" : {
         "en" : {
@@ -3168,6 +3309,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "New Features"
+          }
+        }
+      }
+    },
+    "색 세트" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Color Set"
           }
         }
       }
@@ -3392,6 +3543,16 @@
         }
       }
     },
+    "순서 바꾸기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reorder"
+          }
+        }
+      }
+    },
     "숨기기" : {
       "localizations" : {
         "en" : {
@@ -3432,6 +3593,16 @@
         }
       }
     },
+    "시작 알림" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Alert"
+          }
+        }
+      }
+    },
     "시작 요일" : {
       "localizations" : {
         "en" : {
@@ -3468,6 +3639,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Food"
+          }
+        }
+      }
+    },
+    "실행 취소" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo"
           }
         }
       }
@@ -4426,12 +4607,42 @@
         }
       }
     },
+    "이 카테고리만" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only This Category"
+          }
+        }
+      }
+    },
+    "이 플래너 카테고리 색을 모두 이 세트로 바꿀까요?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change this planner's category colors to this set?"
+          }
+        }
+      }
+    },
     "이 플래너는 읽기 전용입니다. Pro 구독 시 다시 활성화됩니다." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "This planner is read-only. Subscribe to Pro to reactivate it."
+          }
+        }
+      }
+    },
+    "이 할 일만 삭제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete This To-Do Only"
           }
         }
       }
@@ -4586,6 +4797,16 @@
         }
       }
     },
+    "이전 세트 색을 쓰던 카테고리만 같은 자리 색으로 바뀌고, 직접 고른 색은 그대로입니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only categories using the previous set's colors change to the matching colors. Colors you picked yourself stay the same."
+          }
+        }
+      }
+    },
     "이전 주" : {
       "localizations" : {
         "en" : {
@@ -4612,6 +4833,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ready to get started?"
+          }
+        }
+      }
+    },
+    "이후 반복 모두 삭제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete All Future Repeats"
           }
         }
       }
@@ -5032,6 +5263,16 @@
         }
       }
     },
+    "종료 알림" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End Alert"
+          }
+        }
+      }
+    },
     "종료일" : {
       "localizations" : {
         "en" : {
@@ -5412,6 +5653,16 @@
         }
       }
     },
+    "카테고리 꾸미기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category Styles"
+          }
+        }
+      }
+    },
     "카테고리 삭제" : {
       "localizations" : {
         "en" : {
@@ -5572,12 +5823,52 @@
         }
       }
     },
+    "커스텀" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom"
+          }
+        }
+      }
+    },
+    "커스텀 색 추가" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Custom Color"
+          }
+        }
+      }
+    },
+    "커스텀에서 빼기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove from Custom"
+          }
+        }
+      }
+    },
     "켜짐" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "On"
+          }
+        }
+      }
+    },
+    "클래식" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Classic"
           }
         }
       }
@@ -5878,6 +6169,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Blue"
+          }
+        }
+      }
+    },
+    "파스텔" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pastel"
           }
         }
       }
@@ -6255,6 +6556,36 @@
         }
       }
     },
+    "할 일까지 삭제" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Block and To-Do"
+          }
+        }
+      }
+    },
+    "할 일을 삭제하면 투두 탭과 노션에서도 지워집니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleting the to-do also removes it from the To-Do tab and Notion."
+          }
+        }
+      }
+    },
+    "할 일을 삭제했습니다." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task deleted."
+          }
+        }
+      }
+    },
     "할 일을 시간 블록에 넣고, 계획대로 했는지 한눈에 확인합니다. 타임블록은 Pro 기능입니다." : {
       "localizations" : {
         "en" : {
@@ -6481,346 +6812,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hobbies"
-          }
-        }
-      }
-    },
-    "새 블록 기본 알림" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New Block Alerts"
-          }
-        }
-      }
-    },
-    "시작 알림" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Start Alert"
-          }
-        }
-      }
-    },
-    "종료 알림" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "End Alert"
-          }
-        }
-      }
-    },
-    "모던" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modern"
-          }
-        }
-      }
-    },
-    "무엇을 삭제할까요?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "What do you want to delete?"
-          }
-        }
-      }
-    },
-    "바꾸기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change"
-          }
-        }
-      }
-    },
-    "분야별 아이콘을 검색해서 고르고, 색 세트와 나만의 커스텀 색으로 카테고리를 꾸밀 수 있습니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search icons by topic, and style categories with color sets and your own custom colors."
-          }
-        }
-      }
-    },
-    "블록만 삭제" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete Block Only"
-          }
-        }
-      }
-    },
-    "빼려는 색을 누르세요." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap a color to remove it."
-          }
-        }
-      }
-    },
-    "색 세트" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Color Set"
-          }
-        }
-      }
-    },
-    "이 카테고리만" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Only This Category"
-          }
-        }
-      }
-    },
-    "이 플래너 카테고리 색을 모두 이 세트로 바꿀까요?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change this planner's category colors to this set?"
-          }
-        }
-      }
-    },
-    "이 할 일만 삭제" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete This To-Do Only"
-          }
-        }
-      }
-    },
-    "이전 세트 색을 쓰던 카테고리만 같은 자리 색으로 바뀌고, 직접 고른 색은 그대로입니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Only categories using the previous set's colors change to the matching colors. Colors you picked yourself stay the same."
-          }
-        }
-      }
-    },
-    "이후 반복 모두 삭제" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete All Future Repeats"
-          }
-        }
-      }
-    },
-    "카테고리 꾸미기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Category Styles"
-          }
-        }
-      }
-    },
-    "커스텀" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Custom"
-          }
-        }
-      }
-    },
-    "커스텀 색 추가" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add Custom Color"
-          }
-        }
-      }
-    },
-    "커스텀에서 빼기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remove from Custom"
-          }
-        }
-      }
-    },
-    "클래식" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Classic"
-          }
-        }
-      }
-    },
-    "파스텔" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pastel"
-          }
-        }
-      }
-    },
-    "할 일까지 삭제" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete Block and To-Do"
-          }
-        }
-      }
-    },
-    "할 일을 삭제하면 투두 탭과 노션에서도 지워집니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Deleting the to-do also removes it from the To-Do tab and Notion."
-          }
-        }
-      }
-    },
-    "＋를 눌러 색을 모아 두세요." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap ＋ to collect colors."
-          }
-        }
-      }
-    },
-    "실행 취소" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Undo"
-          }
-        }
-      }
-    },
-    "할 일을 삭제했습니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Task deleted."
-          }
-        }
-      }
-    },
-    "블록을 삭제했습니다." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Block deleted."
-          }
-        }
-      }
-    },
-    "'%@' 삭제를 되돌릴까요?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Undo deleting “%@”?"
-          }
-        }
-      }
-    },
-    "'%@' 이후 반복 삭제를 되돌릴까요?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Undo deleting future repeats of “%@”?"
-          }
-        }
-      }
-    },
-    "'%@' 블록 삭제를 되돌릴까요?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Undo deleting the “%@” block?"
-          }
-        }
-      }
-    },
-    "'%@' 날짜를 원래대로 되돌릴까요?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Move “%@” back to its original date?"
-          }
-        }
-      }
-    },
-    "'%@' 위치를 원래대로 되돌릴까요?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Move “%@” back?"
-          }
-        }
-      }
-    },
-    "순서 바꾸기" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reorder"
-          }
-        }
-      }
-    },
-    "'%@' 블록 시간을 원래대로 되돌릴까요?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Restore the time of the “%@” block?"
           }
         }
       }

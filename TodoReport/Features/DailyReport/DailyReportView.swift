@@ -235,7 +235,7 @@ struct DailyReportCard: View {
         }
         .buttonStyle(.plain)
         .disabled(isReadOnly)
-        .accessibilityHint(Text("기록 항목 이름 바꾸기"))
+        .accessibilityHint(Text("별점 이름 바꾸기"))
 
         // 측정용(숨긴 복사본)에는 말풍선을 붙이지 않는다 — 두 번 뜨는 것 방지
         if forMeasurement {
