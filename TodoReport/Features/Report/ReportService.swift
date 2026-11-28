@@ -74,6 +74,9 @@ struct CategoryStat: Identifiable {
     let total: Int
     let todos: [ReportTodoEntry]
     let isUncategorized: Bool
+
+    /// 이 기간에 할 일이 하나라도 있는지. 없으면 화면에서 회색 링·막대에 「–」로 보인다
+    var hasRecords: Bool { total > 0 }
 }
 
 struct PeriodReportChartData {
@@ -109,7 +112,6 @@ final class ReportService {
         let reports = fetchReports(in: start..<end, plannerId: plannerId)
         let categories = fetchCategories(plannerId: plannerId)
 
-        let weekdays = ["월", "화", "수", "목", "금", "토", "일"]
         let today = calendar.startOfDay(for: .now)
         var dailyRates: [DailyRate] = []
         var dailyRatings: [DailyRatingPoint] = []
@@ -123,11 +125,13 @@ final class ReportService {
                 return date >= dayStart && date < dayEnd
             }
             let rate = dayTodos.isEmpty ? 0 : Double(dayTodos.filter { $0.isCompleted }.count) / Double(dayTodos.count)
-            dailyRates.append(DailyRate(weekday: weekdays[i], rate: rate))
+            // 요일 이름은 실제 날짜로 (예전엔 「월~일」 고정이라 일요일 시작이면 한 칸씩 밀리고 영어에서도 한국어로 나왔음)
+            let weekdayLabel = dayStart.formatted(.dateTime.weekday(.abbreviated))
+            dailyRates.append(DailyRate(weekday: weekdayLabel, rate: rate))
 
             let report = reports.first { $0.date >= dayStart && $0.date < dayEnd }
             let ratingValue = ratingDouble(report?.dayRatingRaw)
-            dailyRatings.append(DailyRatingPoint(weekday: weekdays[i], rating: ratingValue))
+            dailyRatings.append(DailyRatingPoint(weekday: weekdayLabel, rating: ratingValue))
 
             if dayStart <= today { elapsedCount += 1 }
         }
@@ -693,16 +697,16 @@ final class ReportService {
 
     private func buildCategoryStats(todos: [TodoItem], categories: [CategoryItem]) -> [CategoryStat] {
         let activeCategoryIds = Set(categories.map(\.id))
-        var stats: [CategoryStat] = categories.compactMap { category in
+        // 설정 순서(sortOrder) 그대로. 할 일이 없는 카테고리도 넣는다 (화면에서 회색 「기록 없음」)
+        var stats: [CategoryStat] = categories.map { category in
             let catTodos = todos.filter { $0.categoryId == category.id }
-            guard !catTodos.isEmpty else { return nil }
             let completed = catTodos.filter { $0.isCompleted }.count
             let total = catTodos.count
             return CategoryStat(
                 name: category.name,
                 colorHex: category.colorHex,
                 icon: category.icon,
-                rate: Double(completed) / Double(total),
+                rate: total > 0 ? Double(completed) / Double(total) : 0,
                 completed: completed,
                 total: total,
                 todos: reportTodoEntries(from: catTodos),
@@ -720,7 +724,7 @@ final class ReportService {
             let total = uncategorizedTodos.count
             stats.append(CategoryStat(
                 name: String(localized: "미분류"),
-                colorHex: "#8E8E93",
+                colorHex: "#AEAEB2",
                 icon: "tag.slash",
                 rate: Double(completed) / Double(total),
                 completed: completed,
@@ -730,7 +734,7 @@ final class ReportService {
             ))
         }
 
-        stats.sort { $0.rate > $1.rate }
+        // 미분류는 맨 뒤 (위에서 append). 완료율 순 정렬은 하지 않는다
         return stats
     }
 

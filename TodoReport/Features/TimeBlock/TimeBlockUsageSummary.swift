@@ -40,7 +40,7 @@ struct TimeBlockUsageSummary: Equatable {
     }
 
     static let uncategorizedKey = "__uncategorized__"
-    static let uncategorizedColorHex = "#8E8E93"
+    static let uncategorizedColorHex = "#AEAEB2"
 
     /// 집중 시간 (완료한 블록 시간 합)
     let completedMinutes: Int

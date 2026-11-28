@@ -415,6 +415,26 @@
         }
       }
     },
+    "막대로 보기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show as Bars"
+          }
+        }
+      }
+    },
+    "원형으로 보기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show as Rings"
+          }
+        }
+      }
+    },
     "＋를 눌러 색을 모아 두세요." : {
       "localizations" : {
         "en" : {
@@ -905,7 +925,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Planned %@"
+            "value" : "Plan %@"
           }
         }
       }

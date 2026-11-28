@@ -590,10 +590,28 @@ private struct RatingLineChart: View {
 private struct CategoryStatsCard: View {
     let stats: [CategoryStat]
 
+    /// 막대 / 원형 보기. 앱 전체에 하나로 기억 (기본 막대 — 기존 화면 유지)
+    private enum DisplayStyle: String {
+        case bar
+        case ring
+    }
+
+    @AppStorage("reportCategoryStatsStyle") private var styleRaw: String = DisplayStyle.bar.rawValue
+
+    private var style: DisplayStyle {
+        DisplayStyle(rawValue: styleRaw) ?? .bar
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("카테고리별 완료율")
-                .font(.subheadline.bold())
+            HStack {
+                Text("카테고리별 완료율")
+                    .font(.subheadline.bold())
+                Spacer()
+                if !stats.isEmpty {
+                    styleToggle
+                }
+            }
 
             if stats.isEmpty {
                 Text("카테고리를 추가하면 완료율을 확인할 수 있습니다.")
@@ -601,6 +619,8 @@ private struct CategoryStatsCard: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 8)
+            } else if style == .ring {
+                CategoryRingGrid(stats: stats)
             } else {
                 VStack(spacing: 12) {
                     ForEach(stats) { stat in
@@ -611,6 +631,33 @@ private struct CategoryStatsCard: View {
         }
         .padding(16)
         .reportCard()
+    }
+
+    /// 노션 보기 전환처럼 작은 아이콘 두 개
+    private var styleToggle: some View {
+        HStack(spacing: 2) {
+            styleButton(.bar, systemImage: "list.bullet", label: String(localized: "막대로 보기"))
+            styleButton(.ring, systemImage: "circle.grid.3x3", label: String(localized: "원형으로 보기"))
+        }
+        .padding(2)
+        .background(Color(.tertiarySystemFill), in: Capsule())
+    }
+
+    private func styleButton(_ target: DisplayStyle, systemImage: String, label: String) -> some View {
+        let isSelected = style == target
+        return Button {
+            withAnimation(.easeInOut(duration: 0.2)) { styleRaw = target.rawValue }
+        } label: {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(isSelected ? Color.primary : Color(.tertiaryLabel))
+                .frame(width: 30, height: 24)
+                .background(isSelected ? Color(.secondarySystemGroupedBackground) : Color.clear, in: Capsule())
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(verbatim: label))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -642,13 +689,21 @@ private struct CategoryStatRow: View {
                     Text(stat.name)
                         .font(.subheadline)
                     Spacer()
-                    Text("\(stat.completed)/\(stat.total)개")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(stat.rate.formatted(.percent.precision(.fractionLength(0))))
-                        .font(.caption.bold())
-                        .foregroundStyle(Color.primary.opacity(0.62))
-                        .frame(width: 36, alignment: .trailing)
+                    if stat.hasRecords {
+                        Text("\(stat.completed)/\(stat.total)개")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(stat.rate.formatted(.percent.precision(.fractionLength(0))))
+                            .font(.caption.bold())
+                            .foregroundStyle(Color.primary.opacity(0.62))
+                            .frame(width: 36, alignment: .trailing)
+                    } else {
+                        // 이 기간에 할 일이 없는 카테고리 (0%와 구분)
+                        Text(verbatim: "–")
+                            .font(.caption.bold())
+                            .foregroundStyle(.tertiary)
+                            .frame(width: 36, alignment: .trailing)
+                    }
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(Color(.tertiaryLabel))
@@ -657,7 +712,7 @@ private struct CategoryStatRow: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 3)
-                            .fill(Color(hex: stat.colorHex).opacity(0.12))
+                            .fill(stat.hasRecords ? Color(hex: stat.colorHex).opacity(0.12) : Color(.systemGray5))
                             .frame(height: 6)
                         RoundedRectangle(cornerRadius: 3)
                             .fill(Color(hex: stat.colorHex))
@@ -694,11 +749,13 @@ private struct CategoryStatRow: View {
     }
 }
 
-private func openTodoFromRow(_ entry: ReportTodoEntry) {
+/// 리포트 목록 줄 탭 → 투두 탭 그 날짜로 (원형 보기 `CategoryRingGrid`에서도 사용)
+func openTodoFromRow(_ entry: ReportTodoEntry) {
     MainTabCoordinator.shared.openTodo(on: entry.date, highlightTodoId: entry.id)
 }
 
-private struct ReportTodoRow: View {
+/// 리포트 펼친 목록 한 줄 (원형 보기 `CategoryRingGrid`에서도 사용)
+struct ReportTodoRow: View {
     let todo: ReportTodoEntry
     /// 줄 끝에 날짜 표시 (여러 날이 섞인 목록에서 같은 이름의 반복 할 일 구분)
     var showsDate: Bool = false

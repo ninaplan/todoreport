@@ -180,7 +180,7 @@ final class ReportViewModel {
             chartData = PeriodReportChartData(
                 rates: report.dailyCompletionRates.map { .init(label: $0.weekday, rate: $0.rate) },
                 ratings: report.dailyRatings.map { .init(label: $0.weekday, rating: $0.rating) },
-                categories: report.categoryStats.map { .init(name: $0.name, rate: $0.rate, completed: $0.completed, total: $0.total) },
+                categories: notionCategoryStats(report.categoryStats),
                 reviews: reviewEntries(from: report.reviewTimeline)
             )
         case .monthly:
@@ -193,7 +193,7 @@ final class ReportViewModel {
             chartData = PeriodReportChartData(
                 rates: report.weeklyCompletionRates.map { .init(label: $0.label, rate: $0.rate) },
                 ratings: report.weeklyRatings.map { .init(label: $0.label, rating: $0.rating) },
-                categories: report.categoryStats.map { .init(name: $0.name, rate: $0.rate, completed: $0.completed, total: $0.total) },
+                categories: notionCategoryStats(report.categoryStats),
                 reviews: reviewEntries(from: report.reviewTimeline)
             )
         }
@@ -493,5 +493,14 @@ final class ReportViewModel {
             let comps = calendar.dateComponents([.year, .month], from: period.start)
             return "월간 리포트 (\(comps.year ?? 2026)년 \(comps.month ?? 1)월)"
         }
+    }
+
+    /// 노션 저장용 카테고리 통계는 예전 그대로: 기록 있는 카테고리만, 완료율 높은 순
+    /// (화면은 설정 순서 + 기록 없음 회색까지 보이지만, 노션 본문은 바꾸지 않는다)
+    private func notionCategoryStats(_ stats: [CategoryStat]) -> [PeriodReportChartData.CategoryEntry] {
+        stats
+            .filter(\.hasRecords)
+            .sorted { $0.rate > $1.rate }
+            .map { .init(name: $0.name, rate: $0.rate, completed: $0.completed, total: $0.total) }
     }
 }

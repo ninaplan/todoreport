@@ -160,13 +160,15 @@ struct TimeUsageCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(rows) { category in
-                    categoryRow(
-                        name: category.name,
-                        colorHex: category.colorHex,
-                        completedMinutes: completedById[category.id] ?? 0,
-                        plannedMinutes: bucket.plannedMinutesByCategory[category.id] ?? 0
-                    )
+                Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 10) {
+                    ForEach(rows) { category in
+                        categoryRow(
+                            name: category.name,
+                            colorHex: category.colorHex,
+                            completedMinutes: completedById[category.id] ?? 0,
+                            plannedMinutes: bucket.plannedMinutesByCategory[category.id] ?? 0
+                        )
+                    }
                 }
             }
         }
@@ -186,7 +188,7 @@ struct TimeUsageCard: View {
     // MARK: - 카테고리별 시간
 
     private var categoryList: some View {
-        VStack(spacing: 10) {
+        Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 10) {
             ForEach(summary.categories) { category in
                 categoryRow(
                     name: category.name,
@@ -198,27 +200,39 @@ struct TimeUsageCard: View {
         }
     }
 
+    /// Grid 한 줄: [점·이름] [집중 시간] [계획]. 시간 두 칸은 각각 오른쪽 끝을 맞춰 줄끼리 정렬된다
     private func categoryRow(name: String, colorHex: String, completedMinutes: Int, plannedMinutes: Int) -> some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(Color(hex: colorHex))
-                .frame(width: 8, height: 8)
-            Text(name)
-                .font(.subheadline)
-                .lineLimit(1)
-            Spacer(minLength: 8)
+        GridRow {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(Color(hex: colorHex))
+                    .frame(width: 8, height: 8)
+                Text(name)
+                    .font(.subheadline)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             Text(Self.durationText(completedMinutes))
-                .font(.subheadline.weight(.semibold))
+                .font(.subheadline)
+                .foregroundStyle(.primary)
                 .monospacedDigit()
+                .lineLimit(1)
+                .gridColumnAlignment(.trailing)
             Text(String(localized: "계획 \(Self.durationText(plannedMinutes))"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
+                .lineLimit(1)
+                .gridColumnAlignment(.trailing)
         }
     }
 
+    /// 한국어는 「12시간 9분」 그대로, 그 외 언어는 짧게 「12h 9m」 (영어 「12 hr, 9 min」이 길어 잘렸음)
     static func durationText(_ minutes: Int) -> String {
-        Duration.seconds(minutes * 60).formatted(.units(allowed: [.hours, .minutes], width: .abbreviated))
+        let isKorean = Locale.autoupdatingCurrent.language.languageCode?.identifier == "ko"
+        return Duration.seconds(minutes * 60).formatted(
+            .units(allowed: [.hours, .minutes], width: isKorean ? .abbreviated : .narrow)
+        )
     }
 
     /// 11h30m 처럼 짧게 (소수 6.8h는 헷갈려서 시·분으로). 언어와 무관하게 h·m
@@ -351,6 +365,10 @@ private struct WeekTimetable: View {
         }
     }
 
+    /// 요일 아래 집중 시간 글자 기울기·칸 높이 (기울이면 높이가 늘어 겹치지 않게 칸을 키움)
+    private static let footerLabelAngle: Double = -35
+    private static let footerLabelHeight: CGFloat = 24
+
     /// 요일 + 그날 합계
     private var footer: some View {
         HStack(alignment: .top, spacing: 6) {
@@ -361,10 +379,14 @@ private struct WeekTimetable: View {
                         Text(bucket.label)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+                        // 글자끼리 붙어 보여서 사선으로 기울이고 한 단계 연하게 (「–」는 그대로)
                         Text(verbatim: bucket.totalMinutes > 0 ? TimeUsageCard.hoursText(bucket.totalMinutes) : "–")
                             .font(.caption2.weight(.semibold))
                             .monospacedDigit()
-                            .foregroundStyle(bucket.totalMinutes > 0 ? Color(.label) : Color(.tertiaryLabel))
+                            .foregroundStyle(bucket.totalMinutes > 0 ? Color(.secondaryLabel) : Color(.tertiaryLabel))
+                            .fixedSize()
+                            .rotationEffect(.degrees(bucket.totalMinutes > 0 ? Self.footerLabelAngle : 0))
+                            .frame(height: Self.footerLabelHeight)
                     }
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
