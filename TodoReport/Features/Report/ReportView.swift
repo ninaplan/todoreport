@@ -291,7 +291,7 @@ private struct SummaryCard: View {
             summaryItem(
                 parts: [(number: String(format: "%.1f", averageRating), unit: "")],
                 label: RatingLabel.averageTitle(RatingLabel.current),
-                prefix: "⭐",
+                ratingStyle: RatingStyle.current,
                 color: .primary
             )
             Divider().frame(height: 48)
@@ -313,11 +313,15 @@ private struct SummaryCard: View {
         prefix: String = "",
         symbolName: String? = nil,
         symbolColor: Color = .primary,
+        ratingStyle: RatingStyle? = nil,
         color: Color
     ) -> some View {
         VStack(spacing: 4) {
             HStack(spacing: 4) {
-                if let symbolName {
+                if let ratingStyle {
+                    // 별점 평균 앞 아이콘 (기본 ⭐, 고른 아이콘이면 그라데이션)
+                    RatingSymbol(style: ratingStyle, filled: true, size: 15)
+                } else if let symbolName {
                     Image(systemName: symbolName)
                         .font(.subheadline)
                         .foregroundStyle(symbolColor)

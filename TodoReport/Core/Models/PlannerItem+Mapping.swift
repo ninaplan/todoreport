@@ -20,6 +20,8 @@ extension PlannerItem {
             sortOrder: sortOrder
         )
         planner.ratingLabel = ratingLabel
+        planner.ratingIcon = ratingIcon
+        planner.ratingColorHex = ratingColorHex
         return planner
     }
 

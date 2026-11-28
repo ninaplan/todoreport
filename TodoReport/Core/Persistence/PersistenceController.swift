@@ -301,6 +301,8 @@ final class PersistenceController {
             )
             copy.categoryPaletteSetId = source.categoryPaletteSetId
             copy.ratingLabel = source.ratingLabel
+            copy.ratingIcon = source.ratingIcon
+            copy.ratingColorHex = source.ratingColorHex
             shared.insert(copy)
             mergedIds.append(source.id)
         }

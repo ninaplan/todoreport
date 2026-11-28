@@ -28,6 +28,9 @@ struct Planner: Identifiable, Hashable, Codable {
     var sortOrder: Double
     /// 「별점」 대신 보일 이름 (nil = 기본). `PlannerService.setRatingLabel`로만 바꾼다 (`update(from:)`에서 덮어쓰지 않음)
     var ratingLabel: String? = nil
+    /// 별점 아이콘·색 (nil = 기본). `PlannerService.setRatingStyle`로만 바꾼다 (`update(from:)`에서 덮어쓰지 않음)
+    var ratingIcon: String? = nil
+    var ratingColorHex: String? = nil
 
     init(
         id: String = UUID().uuidString,
@@ -326,6 +329,20 @@ final class PlannerService {
         let descriptor = FetchDescriptor<PlannerItem>(predicate: #Predicate { $0.id == plannerId })
         guard let item = try? context.fetch(descriptor).first, item.ratingLabel != normalized else { return }
         item.ratingLabel = normalized
+        try? context.save()
+        refreshStore()
+    }
+
+    // MARK: - 별점 아이콘·색 (플래너별)
+
+    /// 아이콘이 nil(기본 ⭐)이면 색도 지운다
+    func setRatingStyle(icon: String?, colorHex: String?, plannerId: String) {
+        let newColor = icon == nil ? nil : colorHex
+        let descriptor = FetchDescriptor<PlannerItem>(predicate: #Predicate { $0.id == plannerId })
+        guard let item = try? context.fetch(descriptor).first,
+              item.ratingIcon != icon || item.ratingColorHex != newColor else { return }
+        item.ratingIcon = icon
+        item.ratingColorHex = newColor
         try? context.save()
         refreshStore()
     }

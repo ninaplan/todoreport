@@ -91,7 +91,8 @@ struct DailyReportCard: View {
                 NavigationStack {
                     RatingLabelEditView(plannerId: plannerId, presentsAsSheet: true)
                 }
-                .presentationDetents([.medium])
+                // 아이콘·색 고르기까지 들어가 처음부터 크게
+                .presentationDetents([.large])
             }
         }
     }
@@ -197,8 +198,8 @@ struct DailyReportCard: View {
             PawRatingView(
                 rating: currentRatingCount,
                 interactive: true,
-                size: 24,
-                spacing: 8,
+                size: 20,
+                spacing: 10,
                 onTap: { count in
                     let tapped = DayRating.allCases[count - 1]
                     let newRating: DayRating? = (viewModel.selectedRating == tapped) ? nil : tapped
@@ -228,8 +229,9 @@ struct DailyReportCard: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .fixedSize()
-                // 기본 「별점」은 예전과 같은 44pt 칸. 긴 이름일 때만 발바닥과 4pt 띄움
-                .padding(.trailing, 4)
+                // 기본 「별점」은 예전과 같은 44pt 칸. 긴 이름이어도 아이콘과 최소 10pt
+                // (SF 아이콘은 칸을 꽉 채워 ⭐ 이모지보다 붙어 보임)
+                .padding(.trailing, 10)
                 .frame(minWidth: 44, alignment: .leading)
                 .contentShape(Rectangle())
         }

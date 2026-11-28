@@ -156,7 +156,7 @@ struct PlannerDetailView: View {
 
     private var basicSection: some View {
         Section {
-            LabeledContent("이름") {
+            LabeledContent("플래너 이름") {
                 TextField("플래너 이름", text: $name)
                     .multilineTextAlignment(.trailing)
             }
@@ -165,7 +165,7 @@ struct PlannerDetailView: View {
             NavigationLink {
                 RatingLabelEditView(plannerId: plannerId)
             } label: {
-                LabeledContent("별점") {
+                LabeledContent("별점 이름") {
                     Text(verbatim: RatingLabel.title(RatingLabel.normalized(currentPlanner.ratingLabel)))
                 }
             }

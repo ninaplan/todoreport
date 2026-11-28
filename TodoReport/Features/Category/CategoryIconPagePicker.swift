@@ -21,7 +21,13 @@ struct CategoryIconPagePicker: View {
     /// 분야 이름 줄 (글자 + 간격)
     private static let titleHeight: CGFloat = 26
 
-    init(selectedIcon: String, colorHex: String, onSelect: @escaping (String) -> Void) {
+    /// `initiallyFilled`: 고른 아이콘이 없을 때(별점 기본 ⭐) 처음 보여 줄 모양. nil이면 지금 아이콘 이름으로 판단
+    init(
+        selectedIcon: String,
+        colorHex: String,
+        initiallyFilled: Bool? = nil,
+        onSelect: @escaping (String) -> Void
+    ) {
         self.selectedIcon = selectedIcon
         self.colorHex = colorHex
         self.onSelect = onSelect
@@ -31,7 +37,7 @@ struct CategoryIconPagePicker: View {
             ?? Category.iconGroups.first?.id
             ?? ""
         _page = State(initialValue: initial)
-        _showsFilled = State(initialValue: CategoryIconName.isFilled(selectedIcon))
+        _showsFilled = State(initialValue: initiallyFilled ?? CategoryIconName.isFilled(selectedIcon))
     }
 
     private var color: Color { Color(hex: colorHex) }

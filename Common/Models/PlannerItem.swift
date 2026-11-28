@@ -23,6 +23,10 @@ final class PlannerItem {
     var categoryPaletteSetId: String = "basic"
     /// 「별점」 대신 화면에 보일 이름 (nil이면 기본 「별점」). 화면 이름만 바뀌고 노션 속성명은 그대로
     var ratingLabel: String? = nil
+    /// 별점 아이콘 SF Symbol 이름 (nil이면 기본 ⭐ 이모지). 화면 전용, 노션에는 안 올라감
+    var ratingIcon: String? = nil
+    /// 별점 아이콘 색 (nil이면 아이콘별 기본색, `RatingStyle.defaultColorHex`)
+    var ratingColorHex: String? = nil
 
     init(
         id: String = UUID().uuidString,

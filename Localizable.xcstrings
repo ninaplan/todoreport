@@ -1242,7 +1242,7 @@
         }
       }
     },
-    "기본으로 되돌리기" : {
+    "원래대로 되돌리기" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2942,6 +2942,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rating"
+          }
+        }
+      }
+    },
+    "별점 이름" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rating Label"
           }
         }
       }
@@ -4743,16 +4753,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Travel"
-          }
-        }
-      }
-    },
-    "이름" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Name"
           }
         }
       }
@@ -6832,6 +6832,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hobbies"
+          }
+        }
+      }
+    },
+    "색 고르기" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Color"
           }
         }
       }

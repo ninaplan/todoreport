@@ -8,6 +8,8 @@ struct CategoryColorPickerSheet: UIViewControllerRepresentable {
     /// 고르는 중인 색 (hex). 닫힐 때 부르는 쪽이 이 값을 커스텀에 넣는다
     let onPick: (String) -> Void
     let onFinish: () -> Void
+    /// 처음 보여 줄 색 (nil이면 iOS 기본)
+    var initialHex: String? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onPick: onPick, onFinish: onFinish)
@@ -16,6 +18,9 @@ struct CategoryColorPickerSheet: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIColorPickerViewController {
         let picker = UIColorPickerViewController()
         picker.supportsAlpha = false
+        if let initialHex {
+            picker.selectedColor = UIColor(Color(hex: initialHex))
+        }
         picker.delegate = context.coordinator
         return picker
     }
