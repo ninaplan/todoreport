@@ -164,9 +164,12 @@ final class CategoryService {
 
     // MARK: - Fetch
 
+    /// 선택된 플래너의 활성 카테고리 (할 일 추가·수집함 등). 다른 플래너 카테고리가 섞이지 않게 거른다
     func fetchCategories() async -> [Category] {
         await refreshStore()
-        return store.filter { $0.status == .active }
+        let active = store.filter { $0.status == .active }
+        guard let pid = PlannerService.shared.selectedPlanner?.id else { return active }
+        return active.filter { $0.plannerId == pid }
     }
 
     func fetchArchivedCategories() async -> [Category] {
