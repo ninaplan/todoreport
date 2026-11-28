@@ -217,6 +217,8 @@ api/
 - **날짜 이동** — 모든 날짜 자유 이동 가능 (무료)
 - **투두 메모** — 투두별 상세 내용 추가 (Notion 페이지 텍스트 블록으로 저장)
 - **할일 보관** — ✅ **인박스 길 A** (2026-09-11). 날짜 제거(편집)→노션 date 비움, `+`에서 날짜 없이 저장→인박스 생성, 목록 UI(날짜 버킷 4단계·미뤄둠·스와이프). 검색에서 인박스 항목 탭 → 시트 오픈·스크롤·하이라이트. 카테고리 숨김과는 별개
+- **별점 이름 바꾸기** — ✅ (2026-11-27, 2.1.0 예정). 플래너별 `PlannerItem.ratingLabel`, 최대 5글자, 화면 이름만(노션 속성 「별점」 그대로). 설정 → 플래너 → 「별점」 / 하루 리포트 카드 글자 탭
+- **리포트 카테고리별 완료율 보기** — ✅ (2026-11-28, 2.1.0 예정). 막대/원형 전환(기본 막대), 설정 순서, 기록 없는 카테고리 회색 「–」, 펼친 목록에 날짜
 - **할일 검색** — ✅ (2026-09-12, 하루 리뷰 2026-09-18 `a2d0e92`). iOS 26 `Tab(role: .search)`. 로컬 SwiftData 할일 `title`/`memo` + 하루 리뷰 `DailyReportItem.review` (`endDate == nil`만, 주간/월간 저장 기록 제외). `SearchResultItem` (`.todo` / `.review`). 전 플래너·완료 포함. Notion API 없음(기기에 동기화된 기간만). 결과 탭: 필요 시 `PlannerService.selectPlanner` 후 날짜면 `openTodo(on:highlightTodoId:)`, 인박스(`date == nil`)면 `openInbox(highlightTodoId:)`, 리뷰면 `openTodo(on:expandDailyReport: true)` → 해당 날짜 + `DailyReportCard` 자동 펼침
 
 **Notion 동기화 (투두):**

@@ -1,6 +1,9 @@
 # V2 아이디어 & 백로그
 
 ## 굵직한 업데이트
+- **월간 리포트 개편 (2026-11-28 기획)** — 프로젝트 문서 `claude/monthly-report-plan.md`. **연간(달끼리 비교) 보기**는 상단 탭이 3개가 되는 게 싫어 일단 제외, 차차 방법 찾아 추가
+- **리포트 내보내기 PDF·이미지 (Pro)** — 프로젝트 문서 `claude/report-export-plan.md`. 노션 페이지에 이미지 첨부(Notion File Upload API, 백엔드)는 후속
+- **별점 아이콘·색 고르기 / 플래너별 포인트 컬러 (보류)** — 정한 내용은 `claude/report-export-plan.md`
 - 할일 보관 기능 — 인박스(수집함)와 함께 구현. 카테고리 보관과 별개
 - 인박스/수집함 — 날짜 선택이 선택사항인 투두 (**길 A 목록 UI 완료**, 2026-09-11)
   - **완료:** `TodoItem.date`/`Todo.date` 옵셔널화, 위젯 Predicate, 백엔드 `GET/POST /api/notion/todo/inbox` 배포
