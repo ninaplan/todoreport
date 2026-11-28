@@ -365,6 +365,26 @@ private struct WeekTimetable: View {
         }
     }
 
+    /// 「8h1m」을 숫자는 또렷하게, 단위는 작고 가늘게 (규칙은 `TimeUsageCard.hoursText`와 같음)
+    private static func footerDurationText(_ minutes: Int) -> Text {
+        let total = max(minutes, 0)
+        let hours = total / 60
+        let rest = total % 60
+        func number(_ value: Int) -> Text {
+            Text(verbatim: "\(value)")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Color(.secondaryLabel))
+        }
+        func unit(_ symbol: String) -> Text {
+            Text(verbatim: symbol)
+                .font(.system(size: 9, weight: .regular))
+                .foregroundStyle(Color(.secondaryLabel))  // 숫자와 같은 색, 크기·굵기로만 구분
+        }
+        if hours == 0 { return number(rest) + unit("m") }
+        if rest == 0 { return number(hours) + unit("h") }
+        return number(hours) + unit("h") + number(rest) + unit("m")
+    }
+
     /// 요일 아래 집중 시간 글자 기울기·칸 높이 (기울이면 높이가 늘어 겹치지 않게 칸을 키움)
     private static let footerLabelAngle: Double = -35
     private static let footerLabelHeight: CGFloat = 24
@@ -379,11 +399,16 @@ private struct WeekTimetable: View {
                         Text(bucket.label)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                        // 글자끼리 붙어 보여서 사선으로 기울이고 한 단계 연하게 (「–」는 그대로)
-                        Text(verbatim: bucket.totalMinutes > 0 ? TimeUsageCard.hoursText(bucket.totalMinutes) : "–")
-                            .font(.caption2.weight(.semibold))
-                            .monospacedDigit()
-                            .foregroundStyle(bucket.totalMinutes > 0 ? Color(.secondaryLabel) : Color(.tertiaryLabel))
+                        // 글자끼리 붙어 보여서 사선으로 기울이고 한 단계 연하게, 단위(h·m)는 작고 가늘게 (「–」는 그대로)
+                        Group {
+                            if bucket.totalMinutes > 0 {
+                                Self.footerDurationText(bucket.totalMinutes)
+                            } else {
+                                Text(verbatim: "–")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(Color(.tertiaryLabel))
+                            }
+                        }
                             .fixedSize()
                             .rotationEffect(.degrees(bucket.totalMinutes > 0 ? Self.footerLabelAngle : 0))
                             .frame(height: Self.footerLabelHeight)
