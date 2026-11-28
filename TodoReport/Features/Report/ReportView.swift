@@ -382,6 +382,13 @@ private struct ExpandableCompletionCard: View {
         }
     }
 
+    private func barSpansMultipleDays(_ barIndex: Int) -> Bool {
+        guard barIndex < barRanges.count else { return false }
+        let range = barRanges[barIndex]
+        let days = Calendar.current.dateComponents([.day], from: range.lowerBound, to: range.upperBound).day ?? 1
+        return days > 1
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
@@ -470,11 +477,13 @@ private struct ExpandableCompletionCard: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
+                        // 월간 막대(7일)는 날짜가 섞이니 날짜 표시, 주간 막대(하루)는 생략
+                        let showsDate = barSpansMultipleDays(idx)
                         ForEach(incompleteTodos) { todo in
-                            ReportTodoRow(todo: todo) { openTodoFromRow(todo) }
+                            ReportTodoRow(todo: todo, showsDate: showsDate) { openTodoFromRow(todo) }
                         }
                         ForEach(completedTodos) { todo in
-                            ReportTodoRow(todo: todo) { openTodoFromRow(todo) }
+                            ReportTodoRow(todo: todo, showsDate: showsDate) { openTodoFromRow(todo) }
                         }
                     }
                 }
@@ -669,11 +678,12 @@ private struct CategoryStatRow: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
+                        // 반복 할 일은 이름이 같아서 날짜로 구분
                         ForEach(incompleteTodos) { todo in
-                            ReportTodoRow(todo: todo) { openTodoFromRow(todo) }
+                            ReportTodoRow(todo: todo, showsDate: true) { openTodoFromRow(todo) }
                         }
                         ForEach(completedTodos) { todo in
-                            ReportTodoRow(todo: todo) { openTodoFromRow(todo) }
+                            ReportTodoRow(todo: todo, showsDate: true) { openTodoFromRow(todo) }
                         }
                     }
                 }
@@ -690,6 +700,8 @@ private func openTodoFromRow(_ entry: ReportTodoEntry) {
 
 private struct ReportTodoRow: View {
     let todo: ReportTodoEntry
+    /// 줄 끝에 날짜 표시 (여러 날이 섞인 목록에서 같은 이름의 반복 할 일 구분)
+    var showsDate: Bool = false
     var onOpenTodo: (() -> Void)? = nil
 
     var body: some View {
@@ -714,6 +726,13 @@ private struct ReportTodoRow: View {
                 .foregroundStyle(todo.isCompleted ? Color(.secondaryLabel) : .primary)
                 .strikethrough(todo.isCompleted, color: Color(.secondaryLabel))
             Spacer()
+            if showsDate {
+                Text(verbatim: AppDateFormat.reportTodoRow(todo.date))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
         }
     }
 }

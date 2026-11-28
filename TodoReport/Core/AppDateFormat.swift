@@ -99,6 +99,11 @@ enum AppDateFormat {
         return nonKoReviewTimeline.string(from: date)
     }
 
+    /// 리포트 펼친 할 일 목록 줄 끝 날짜 (반복 할 일 구분용). ko: `11월 24일 (월)`. 그 외: `MMMdE` (`Mon, Nov 24`).
+    static func reportTodoRow(_ date: Date) -> String {
+        reviewTimeline(date)
+    }
+
     /// Pro 만료일. ko: `2026년 7월 30일`. 그 외: 기존 `yMMMd`.
     static func expirationDate(_ date: Date) -> String {
         if isKorean {
